@@ -4,6 +4,12 @@ This is an execution/evidence record. [PLAY-PARITY.md](PLAY-PARITY.md) and
 [play-functional-parity.json](play-functional-parity.json) remain the preservation authority.
 Overall functional parity is not established.
 
+Current methodology: LexRunner orchestration, implementation fanout and autonomous
+task decomposition are paused at Guff's request. Continue directly in this checkout
+from the complete pinned PLAY source; adapt necessary integration boundaries rather
+than reconstructing behavior from this inventory. Earlier Runner receipts remain
+historical evidence only. No additional infrastructure is needed for this change.
+
 ## Inputs and isolation
 
 - PLAY behavior oracle: `cad98ef7990dd66167eb64ea5dda525c1fe2c296`.
@@ -105,3 +111,39 @@ mismatch across the current Settings adapters. Native layout and interactions st
 require qualification. Unfinished next slices remain in scoped stash
 `0fa6d6edd6f359187ac6957b705034e4a108a19a`; unrelated development-install work was
 excluded. Restore with `apply`, retain the stash, after the current menu trial.
+
+The `11dcf83e` DLL passed its Windows build/PE checks and booted with 67/67 groups.
+Direct opening of native Settings then exposed a distinct construction refusal at
+Travel's `community_mod.ui.auto_confirm_instant_warp` choice. The game was left
+running; this is not a successful Mod Settings trial. Computer Use was stopped on
+physical Escape, with no further UI input in that trial.
+
+## Source-preserving Settings correction
+
+The complete pinned PLAY `native/value_widgets.cc` and its metadata/lifetime headers,
+`native/interop.h/.cc`, relevant page-bind call sites and existing models were read
+directly. The five files `choice_setting.h`, `slider_setting.h`, `native_view_state.h`,
+`value_settings.h` and `value_view.h` are unchanged from PLAY (line-ending normalized).
+The port's missed operations are at the native integration boundary, not in those models.
+
+| PLAY operation | Adaptation / remaining qualification |
+| --- | --- |
+| AddChoiceRows checks native Index, then rewrites existing LabelContext.Identifier to item_id | Restored in concrete ConfigureIdentity, after exact callback custody; checked readback preserves valid Index zero and unavailable observations. Retained273 AddSelection formats supplied value strings, so the input is not already the final identifier. |
+| Track detaches an owned multi-select from its native exclusive ToggleGroup | Restored with the existing weak view ownership and checked native setters. |
+| Clear restores the native group and interactability before pooling | Restored only for the same owned component; a replacement owner's state is left alone, and failed observations retain cleanup responsibility. |
+| ChangeValue rejects multi-select writes during native panel refresh | Restored before the settings mutation path. The existing outer OnDidBindContext render also synchronizes the toggle after native binding. |
+| Slider uses concrete LabelType | Corrected in 11dcf83e; retained in this candidate. |
+
+Windows `mods test-mod test-il2cpp test-sync test-settings-models` passed **239/239**
+build/run steps, with ReleaseFast product code and Debug/assertion-enabled fixtures:
+`settings-source-preservation-build2.log`. Earlier fixture failures are preserved;
+the controlled LocaleTextContext lacked PropertyInfo entries used by HasLabel, and
+was corrected without weakening production checks. The fixture main now reports
+failed requirements instead of terminating without a useful diagnostic.
+
+These checks do not prove native group restoration, rendered control appearance,
+search, modal editing or persistence. The next trial must open the actual menu,
+visit a choice/slider page, verify independent selections, leave/re-enter it, use
+search and cancel an exact numeric edit. PLAY's inline Edit presentation, choice
+styling, custom text/media controls and the remaining catalog workflows are still
+part of reconciliation, not silently counted as equivalent.

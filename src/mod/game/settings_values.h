@@ -80,9 +80,60 @@ inline Il2CppObject* DelegateFor(il2cpp::Method method, int argument, SettingsSe
 struct SettingsValueSlider : unity::Behaviour {
   using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "Slider">;
 };
+struct SettingsValueControl : unity::Behaviour {
+  using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "Selectable">;
+};
+struct SettingsToggleGroup : unity::Behaviour {
+  using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "ToggleGroup">;
+};
 
 struct SettingsSelectionContext : SettingsOptionContext {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "SelectionItemOptionContext">;
+  bool ConfigureIdentity(int32_t index, std::string_view id, Il2CppObject* getter, Il2CppObject* setter)
+  {
+    // Retained273 AddSelection (0x102C550) formats the label using each lowercased value. PLAY's AddChoiceRows
+    // rewrites that generated LocaleTextContext.Identifier; the supplied value string is not the resulting ID.
+    if (klass != Class::Raw() || index < 0 || id.empty())
+      return false;
+    auto       row          = il2cpp::GcHandle::Strong(this);
+    const auto native_index = Class::Method<int32_t()>("get_Index");
+    const auto native_label = Class::Method<LocaleTextContext*()>("get_LabelContext");
+    const auto native_get   = LocaleTextContext::Class::Method<Il2CppString*()>("get_Identifier");
+    const auto native_set   = LocaleTextContext::Class::Method<void(Il2CppString*)>("set_Identifier");
+    if (!row || !native_index || native_index.Info()->klass != Class::Raw()
+        || native_index.Info()->return_type->type != IL2CPP_TYPE_I4 || !native_label
+        || il2cpp_class_from_type(native_label.Info()->return_type) != LocaleTextContext::Class::Raw() || !native_get
+        || native_get.Info()->klass != LocaleTextContext::Class::Raw()
+        || native_get.Info()->return_type->type != IL2CPP_TYPE_STRING || !native_set
+        || native_set.Info()->klass != LocaleTextContext::Class::Raw() || !native_set.Info()->parameters
+        || native_set.Info()->parameters[0]->byref || native_set.Info()->parameters[0]->type != IL2CPP_TYPE_STRING)
+      return false;
+    const auto observed_index = TryCall<"get_Index", int32_t>();
+    const auto callbacks      = settings_values_binding::Callbacks(this, getter, setter);
+    if (!observed_index || observed_index.value != index || !callbacks || !*callbacks)
+      return false;
+    const auto observed_label = TryCall<"get_LabelContext", LocaleTextContext*>();
+    auto       label          = il2cpp::GcHandle::Strong(observed_label ? observed_label.value : nullptr);
+    auto*      text           = label.Get<LocaleTextContext>();
+    if (!text || text->klass != LocaleTextContext::Class::Raw())
+      return false;
+    // Keep the existing mutable localization context. A replacement/foreign row is never permission to edit it.
+    const auto current = [&] {
+      const auto actual_index = TryCall<"get_Index", int32_t>();
+      const auto actual_label = TryCall<"get_LabelContext", LocaleTextContext*>();
+      const auto owned        = settings_values_binding::Callbacks(this, getter, setter);
+      return actual_index && actual_index.value == index && actual_label && actual_label.value == text && owned
+             && *owned;
+    };
+    const auto before    = text->TryCall<"get_Identifier", Il2CppString*>();
+    auto       canonical = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(il2cpp::NewString(id)));
+    if (!before || !canonical || !current())
+      return false;
+    const auto changed =
+        text->TryCall<"set_Identifier", void(Il2CppString*)>(reinterpret_cast<Il2CppString*>(canonical.Get()));
+    const auto observed = text->TryCall<"get_Identifier", Il2CppString*>();
+    return changed && observed && il2cpp::ToUtf8(observed.value) == id && current();
+  }
 };
 struct SettingsSliderContext : SettingsOptionContext {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "SliderOptionContext">;

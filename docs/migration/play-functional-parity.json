@@ -1910,7 +1910,7 @@
     {
       "id": "SET-NAV",
       "name": "Mod pages and native back/navigation",
-      "classification": "Implemented, unverified",
+      "classification": "Partial",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/native/page_navigation.cc",
@@ -1918,10 +1918,10 @@
       },
       "migration": {
         "path": "src/mod/features/settings_pages.cc",
-        "symbolOrWorkflow": "Model only"
+        "symbolOrWorkflow": "Staged native menu, native category navigation and pooled row ownership"
       },
       "expectedBehavior": "Mod pages and native back/navigation",
-      "verificationProcedure": "Open normally/Shift-S, categories, Back, page teardown, session replacement; actual production adapter absent.",
+      "verificationProcedure": "Open normally/Shift-S, categories, Back, page teardown and session replacement. Confirm actual published menu; successful hook installation alone is insufficient.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
@@ -1930,7 +1930,7 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Complete off-screen tree publication, native navigation, same-tree search return and pooled ownership; native game rendering/Back trial pending.",
+      "dependenciesAndLimitations": "Native implementation exists but live 0291d40f/11dcf83e menu trials failed during control staging. Slider concrete-type and PLAY choice-identifier omissions corrected in source; a successful published-menu/navigation trial remains required.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -1945,7 +1945,7 @@
       },
       "migration": {
         "path": "src/mod/features/settings_values.cc",
-        "symbolOrWorkflow": "Models only"
+        "symbolOrWorkflow": "Native Boolean/choice/slider controls with retained PLAY models and exact editors"
       },
       "expectedBehavior": "Boolean, exact numeric, choices and slider controls",
       "verificationProcedure": "Readiness/disabled backends, exact custom values, verify/save/refresh, pooled release and stale modal commits.",
@@ -1957,7 +1957,7 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Native Boolean/choice/slider/command adapters and exact numeric editors implemented; full string/list controls and media workflows remain open. Native visual trial pending.",
+      "dependenciesAndLimitations": "Choice canonical naming/Index, multi-select group detach/restore, pooled interactability restoration and bind-time write suppression restored from PLAY. Windows regression passed; actual control/lifecycle qualification remains open. Inline Edit presentation, choice styling and full string/list/media workflows are not counted equivalent.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },

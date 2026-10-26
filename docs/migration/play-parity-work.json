@@ -8,7 +8,7 @@
     "uiOrder": "feature owners before Settings UI",
     "cycles": "authorized unless explicit user hold",
     "stores": "preserve existing formats, account/profile identity, unknown values and source ownership",
-    "runner": "LexRunner 2.5.0 local plan and durable candidate-bound gates; direct implementation/collaboration. Current Attempt preflight windows_native_boundary_unavailable/broker_required; no bypass.",
+    "runner": "Paused by user request: no LexRunner orchestration, fanout or autonomous implementation decomposition. Continue direct source-preserving porting from pinned PLAY. Earlier 2.5.0 plan/gate receipts are historical; no governed Attempt or bypass.",
     "outOfScope": [
       "later play-dev expansion",
       "AAI",

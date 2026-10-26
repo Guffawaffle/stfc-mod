@@ -28,6 +28,9 @@ struct SettingsValueRow {
 };
 struct SettingsValueView {
   il2cpp::GcHandle               widget, context, label, value_label;
+  il2cpp::GcHandle               control, selection_group;
+  std::optional<bool>            interactable_before;
+  bool                           group_detached = false, interactable_applied = false, last_interactable = false;
   std::optional<NativeViewState> state;
   ChoiceSetting*                 choice = nullptr;
   SliderSetting*                 slider = nullptr;
@@ -128,6 +131,15 @@ TextLocalizer* CurrentValueLabel(il2cpp::Object* widget, bool slider, bool numbe
   auto* typed = widget->As<SettingsSelectionWidget>();
   return typed && !number ? typed->Label() : nullptr;
 }
+SettingsValueControl* CurrentValueControl(il2cpp::Object* widget, bool slider)
+{
+  if (slider) {
+    auto* typed = widget->As<SettingsSliderWidget>();
+    return typed ? reinterpret_cast<SettingsValueControl*>(typed->Slider()) : nullptr;
+  }
+  auto* typed = widget->As<SettingsSelectionWidget>();
+  return typed ? reinterpret_cast<SettingsValueControl*>(typed->Toggle()) : nullptr;
+}
 bool ReleaseValue(il2cpp::Object* widget)
 {
   const auto view = ValueView(widget);
@@ -154,6 +166,45 @@ bool ReleaseValue(il2cpp::Object* widget)
   bool complete = true;
   // Clear only our own override on the same live component. A pooled replacement's text is not ours to restore.
   if (same && ownership.value_or(false)) {
+    // PLAY restores the detached ToggleGroup and the original interactability
+    // before native pooling. Restore only the same component and our overrides.
+    auto  control_root = il2cpp::GcHandle::Strong(view->control.Get());
+    auto* control      = control_root.Get<SettingsValueControl>();
+    if (control && CurrentValueControl(widget, view->slider != nullptr) == control) {
+      if (view->group_detached) {
+        auto*      toggle        = reinterpret_cast<unity::Toggle*>(control);
+        const auto current_group = toggle->TryCall<"get_group", SettingsToggleGroup*>();
+        if (!current_group) {
+          complete = false;
+        } else if (current_group.value) {
+          view->group_detached = false; // A later owner has supplied a group.
+        } else {
+          auto       group = il2cpp::GcHandle::Strong(view->selection_group.Get());
+          const auto restored =
+              toggle->TryCall<"set_group", void(SettingsToggleGroup*)>(group.Get<SettingsToggleGroup>());
+          const auto observed = toggle->TryCall<"get_group", SettingsToggleGroup*>();
+          if (restored && observed && observed.value == group.Get())
+            view->group_detached = false;
+          else
+            complete = false;
+        }
+      }
+      if (view->interactable_applied) {
+        const auto observed = control->TryCall<"get_interactable", bool>();
+        if (!observed) {
+          complete = false;
+        } else if (observed.value != view->last_interactable) {
+          view->interactable_applied = false;
+        } else {
+          const auto restored = control->TryCall<"set_interactable", void(bool)>(*view->interactable_before);
+          const auto checked  = control->TryCall<"get_interactable", bool>();
+          if (restored && checked && checked.value == *view->interactable_before)
+            view->interactable_applied = false;
+          else
+            complete = false;
+        }
+      }
+    }
     for (bool number : {false, true}) {
       auto& applied = number ? view->value_applied : view->label_applied;
       if (!applied)
@@ -214,10 +265,17 @@ template <class Widget> std::shared_ptr<SettingsValueView> BindValue(Widget* wid
     return {};
   if (widget->Context() != context)
     return {};
-  view          = std::make_shared<SettingsValueView>();
-  view->widget  = il2cpp::GcHandle::Weak(widget);
-  view->context = il2cpp::GcHandle::Weak(context);
-  view->label   = il2cpp::GcHandle::Weak(widget->Label());
+  view                          = std::make_shared<SettingsValueView>();
+  view->widget                  = il2cpp::GcHandle::Weak(widget);
+  view->context                 = il2cpp::GcHandle::Weak(context);
+  view->label                   = il2cpp::GcHandle::Weak(widget->Label());
+  il2cpp::GcHandle control_root = il2cpp::GcHandle::Strong(CurrentValueControl(widget, row->slider != nullptr));
+  const auto interactable = control_root ? control_root.Get<SettingsValueControl>()->TryCall<"get_interactable", bool>()
+                                         : il2cpp::CallResult<bool>{};
+  if (!interactable)
+    return {};
+  view->control             = il2cpp::GcHandle::Weak(control_root.Get());
+  view->interactable_before = interactable.value;
   if constexpr (std::is_same_v<Widget, SettingsSliderWidget>)
     view->value_label = il2cpp::GcHandle::Weak(widget->ValueLabel());
   view->choice = row->choice;
@@ -227,7 +285,7 @@ template <class Widget> std::shared_ptr<SettingsValueView> BindValue(Widget* wid
     view->state.emplace(*row->choice, row->index);
   else
     view->state.emplace(*row->slider);
-  if (!view->widget || !view->context || !view->label || (view->slider && !view->value_label)
+  if (!view->widget || !view->context || !view->label || !view->control || (view->slider && !view->value_label)
       || !IsPageVisitCurrent(view->visit) || widget->Context() != context)
     return {};
   ValuesState().views.insert_or_assign(widget, view);
@@ -291,6 +349,31 @@ template <class Widget, class Original> void RenderValue(Widget* widget, Origina
   }
   if (!SameValue(widget, view))
     settings_value_rendering = nullptr; // A rebound row must not read the previous source's snapshot.
+  if constexpr (std::is_same_v<Widget, SettingsSelectionWidget>) {
+    if (SameValue(widget, view) && view->choice->multiple() && !view->group_detached) {
+      il2cpp::GcHandle toggle = il2cpp::GcHandle::Strong(widget->Toggle());
+      const auto       group  = toggle ? toggle.Get<unity::Toggle>()->TryCall<"get_group", SettingsToggleGroup*>()
+                                       : il2cpp::CallResult<SettingsToggleGroup*>{};
+      if (!group) {
+        original(widget);
+        return;
+      }
+      if (group.value) {
+        view->selection_group = il2cpp::GcHandle::Weak(group.value);
+        if (!view->selection_group) {
+          original(widget);
+          return;
+        }
+        view->group_detached = true; // A managed setter may mutate before an exception.
+        const auto detached  = toggle.Get<unity::Toggle>()->TryCall<"set_group", void(SettingsToggleGroup*)>(nullptr);
+        const auto observed  = toggle.Get<unity::Toggle>()->TryCall<"get_group", SettingsToggleGroup*>();
+        if (!detached || !observed || observed.value || !SameValue(widget, view)) {
+          original(widget);
+          return;
+        }
+      }
+    }
+  }
   original(widget);
   if (!SameValue(widget, view))
     return;
@@ -308,6 +391,8 @@ template <class Widget, class Original> void RenderValue(Widget* widget, Origina
   if constexpr (std::is_same_v<Widget, SettingsSelectionWidget>) {
     auto toggle_root = il2cpp::GcHandle::Strong(widget->Toggle());
     if (auto* toggle = toggle_root.template Get<unity::Toggle>()) {
+      view->last_interactable    = view->state->enabled();
+      view->interactable_applied = true;
       (void)toggle->template TryCall<"set_interactable", void(bool)>(view->state->enabled());
       if (SameValue(widget, view) && widget->Toggle() == toggle)
         (void)toggle->template TryCall<"SetIsOnWithoutNotify", void(bool)>(view->state->value().value_or(false));
@@ -315,6 +400,8 @@ template <class Widget, class Original> void RenderValue(Widget* widget, Origina
   } else {
     auto slider_root = il2cpp::GcHandle::Strong(widget->Slider());
     if (auto* slider = slider_root.template Get<SettingsValueSlider>()) {
+      view->last_interactable    = view->state->enabled();
+      view->interactable_applied = true;
       (void)slider->template TryCall<"set_interactable", void(bool)>(view->state->enabled());
       if (SameValue(widget, view) && widget->Slider() == slider)
         (void)slider->template TryCall<"SetValueWithoutNotify", void(float)>(view->state->number());
@@ -351,6 +438,8 @@ void SelectionValueChanged(auto original, SettingsSelectionWidget* widget, bool 
   }
   if (view->rendering || view->requesting || view->clearing)
     return;
+  if (view->choice && view->choice->multiple() && PageRefreshInProgress())
+    return; // PLAY: a native panel bind cannot authorize a checkbox edit.
   const auto current = widget->TryCall<"get_Context", SettingsOptionContext*>();
   const auto owned   = current ? ValueOwnership(current.value) : std::nullopt;
   if (owned && !*owned) {
@@ -485,6 +574,10 @@ bool AppendValue(SettingsSectionDirector* director, SettingsContext* context, Se
       return false;
     const auto callbacks = settings_values_binding::Callbacks(row, getter.Get(), setter.Get());
     const auto id        = choice ? choice->item_id(static_cast<int>(index)) : slider->state().id();
+    if (choice
+        && !reinterpret_cast<SettingsSelectionContext*>(row)->ConfigureIdentity(static_cast<int32_t>(index), id,
+                                                                                getter.Get(), setter.Get()))
+      return false;
     if (!callbacks || !*callbacks || !row->HasLabel(id)
         || !row->TryCall<"set_QueryOptionState", void(settings_binding::ReferenceDelegate*)>(
             query.Get<settings_binding::ReferenceDelegate>()))

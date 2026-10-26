@@ -729,6 +729,8 @@ void AppendSettingsPagesImpl(SettingsSectionDirector* director, SettingsContext*
   }
   SettingsCategoryHost host;
   tree->publication.Retry(host);
+  if (tree->publication.state() == CategoryPublicationState::Published)
+    spdlog::info("[NativeSettingsPages] Published Mod Settings ({} pages)", NativePages().pages.size());
   NativePages().refresh = true;
 }
 void AppendSettingsPages(SettingsSectionDirector* director, SettingsContext* context)

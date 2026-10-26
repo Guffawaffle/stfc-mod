@@ -7,6 +7,27 @@
 
 namespace
 {
+std::deque<std::unique_ptr<char[]>> settings_values_strings;
+Il2CppString*                       ValuesString(const char* text, uint32_t length)
+{
+  auto& bytes = settings_values_strings.emplace_back(
+      std::make_unique<char[]>(sizeof(Il2CppString) + sizeof(Il2CppChar) * length));
+  auto* value         = reinterpret_cast<Il2CppString*>(bytes.get());
+  value->object.klass = &string_class.klass;
+  value->length       = static_cast<int32_t>(length);
+  for (uint32_t index = 0; index < length; ++index) {
+    Require(static_cast<unsigned char>(text[index]) < 0x80, "fixture setting identifiers are ASCII");
+    value->chars[index] = static_cast<Il2CppChar>(text[index]);
+  }
+  return value;
+}
+} // namespace
+API(Il2CppString*, il2cpp_string_new_len, (const char* text, uint32_t length))
+{ return ValuesString(text, length); }
+END_API
+
+namespace
+{
 struct SettingsValuesGeneric {
   std::array<const Il2CppType*, 1> arguments{};
   Il2CppGenericInst                inst{};
@@ -45,7 +66,31 @@ struct ValuesRefObject {
 struct ValuesContextObject {
   Il2CppObject  header;
   Il2CppObject *get = nullptr, *set = nullptr;
+  Il2CppObject* label = nullptr;
+  int32_t       index = 0;
 };
+struct ValuesLocaleObject {
+  Il2CppObject  header;
+  Il2CppString* identifier = nullptr;
+};
+int     settings_values_identifier_sets = 0;
+bool    settings_values_index_throws = false, settings_values_identifier_ignored = false;
+int32_t ValuesChoiceIndex(Il2CppObject* object, const MethodInfo*)
+{
+  if (settings_values_index_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return reinterpret_cast<ValuesContextObject*>(object)->index;
+}
+LocaleTextContext* ValuesChoiceLabel(Il2CppObject* object, const MethodInfo*)
+{ return reinterpret_cast<LocaleTextContext*>(reinterpret_cast<ValuesContextObject*>(object)->label); }
+Il2CppString* ValuesIdentifierGet(Il2CppObject* object, const MethodInfo*)
+{ return reinterpret_cast<ValuesLocaleObject*>(object)->identifier; }
+void ValuesIdentifierSet(Il2CppObject* object, Il2CppString* value, const MethodInfo*)
+{
+  ++settings_values_identifier_sets;
+  if (!settings_values_identifier_ignored)
+    reinterpret_cast<ValuesLocaleObject*>(object)->identifier = value;
+}
 struct ValuesListObject {
   Il2CppObject                 header;
   int32_t                      count = 1;
@@ -174,6 +219,69 @@ void SettingsValuesCallbackObservations()
   owns                   = settings_values_binding::Callbacks(row, &getter, &setter);
   Require(owns && *owns && settings_values_trigger_calls == 0 && warp_roots.size() == roots_before,
           "refused observations leave the original qualified choice usable without invoking source delegates");
+
+  auto& locale = ValuesClass("Digit.Client.UI", "LocaleTextContext");
+  AddMethod(selection, "get_Index", reinterpret_cast<void*>(&ValuesChoiceIndex), T(int_class), {});
+  auto& label_get = AddMethod(option, "get_LabelContext", reinterpret_cast<void*>(&ValuesChoiceLabel), T(locale), {});
+  auto& identifier_get =
+      AddMethod(locale, "get_Identifier", reinterpret_cast<void*>(&ValuesIdentifierGet), T(string_class), {});
+  auto& identifier_set = AddMethod(locale, "set_Identifier", reinterpret_cast<void*>(&ValuesIdentifierSet),
+                                   T(void_class), {T(string_class)});
+  AddProperty(option, "LabelContext", &label_get);
+  AddProperty(locale, "Identifier", &identifier_get, &identifier_set);
+  constexpr std::string_view native_id    = "community_mod.ui.auto_confirm_instant_warp";
+  constexpr std::string_view canonical_id = "community_mod.ui.auto_confirm_instant_warp.0";
+  ValuesLocaleObject         label;
+  label.header.klass = &locale.klass;
+  label.identifier   = ValuesString(native_id.data(), static_cast<uint32_t>(native_id.size()));
+  context.label      = &label.header;
+  auto* concrete     = reinterpret_cast<SettingsSelectionContext*>(&context);
+  Require(
+      !row->HasLabel(canonical_id) && concrete->ConfigureIdentity(0, canonical_id, &getter, &setter)
+          && row->HasLabel(canonical_id) && context.label == &label.header && settings_values_identifier_sets == 1,
+      "production choice helper rewrites a native-formatted label at Index zero while retaining its LocaleTextContext");
+  const auto sets      = settings_values_identifier_sets;
+  label.identifier     = ValuesString(native_id.data(), static_cast<uint32_t>(native_id.size()));
+  callbacks.entries[0] = &foreign;
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter) && settings_values_identifier_sets == sets
+              && row->HasLabel(native_id),
+          "foreign callback identity refuses a canonical rewrite without changing native text");
+  callbacks.entries[0] = &setter;
+  context.index        = 1;
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter) && settings_values_identifier_sets == sets,
+          "native choice Index must match the expected row before rewriting");
+  context.index                = 0;
+  settings_values_index_throws = true;
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter) && settings_values_identifier_sets == sets,
+          "unavailable native Index cannot masquerade as the first choice");
+  settings_values_index_throws = false;
+  identifier_set.name          = "UnavailableIdentifierSetter";
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter) && settings_values_identifier_sets == sets,
+          "missing Identifier setter metadata refuses before native mutation");
+  identifier_set.name                                          = "set_Identifier";
+  const auto* identifier_parameter                             = identifier_set.parameters[0];
+  const_cast<const Il2CppType**>(identifier_set.parameters)[0] = T(object_class);
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter) && settings_values_identifier_sets == sets,
+          "a related Object parameter cannot replace the exact Identifier String setter contract");
+  const_cast<const Il2CppType**>(identifier_set.parameters)[0] = identifier_parameter;
+  settings_values_identifier_ignored                           = true;
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter) && row->HasLabel(native_id),
+          "a successful but ignored Identifier setter does not authorize publication");
+  settings_values_identifier_ignored = false;
+  context.label                      = nullptr;
+  const auto refused_sets            = settings_values_identifier_sets;
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter)
+              && settings_values_identifier_sets == refused_sets,
+          "missing existing LocaleTextContext is not replaced");
+  context.label        = &label.header;
+  context.header.klass = &option.klass;
+  Require(!concrete->ConfigureIdentity(0, canonical_id, &getter, &setter)
+              && settings_values_identifier_sets == refused_sets,
+          "base OptionContext cannot be rewritten as a choice");
+  context.header.klass = &selection.klass;
+  Require(concrete->ConfigureIdentity(0, canonical_id, &getter, &setter) && row->HasLabel(canonical_id)
+              && settings_values_trigger_calls == 0 && warp_roots.size() == roots_before,
+          "qualified canonical rewrite remains usable and releases custody without invoking source delegates");
 }
 
 int   settings_values_choice_calls = 0, settings_values_slider_calls = 0, settings_values_interactable_calls = 0;

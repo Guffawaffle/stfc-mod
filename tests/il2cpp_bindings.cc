@@ -1733,7 +1733,7 @@ void PlannedWarpBindingObservations()
 #include "settings_values_bindings_cases.h"
 
 int main(int argc, char** argv)
-{
+try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
   if (argc == 2 && std::string_view(argv[1]).starts_with("chat-avatar-method-")) {
@@ -2249,4 +2249,7 @@ int main(int argc, char** argv)
   SettingsPageBindingObservations();
   SettingsValuesBindingObservations();
   std::cout << "IL2CPP binding tests passed\n";
+} catch (const std::exception& error) {
+  std::cerr << "IL2CPP binding fixture failed: " << error.what() << '\n';
+  return 1;
 }
