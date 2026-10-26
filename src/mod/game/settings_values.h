@@ -86,6 +86,16 @@ struct SettingsSelectionContext : SettingsOptionContext {
 };
 struct SettingsSliderContext : SettingsOptionContext {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "SliderOptionContext">;
+  bool ConfigureLabel(int32_t label_type)
+  {
+    // LabelType belongs to this sealed class, not the OptionContext facade used
+    // while enumerating its parent's children. Qualify the receiver before use.
+    if (klass != Class::Raw() || (label_type != 0 && label_type != 1))
+      return false;
+    const auto changed  = TryCall<"set_LabelType", void(int32_t)>(label_type);
+    const auto observed = TryCall<"get_LabelType", int32_t>();
+    return changed && observed && observed.value == label_type;
+  }
 };
 struct SettingsSelectionWidget : Widget<SettingsSelectionContext> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "SelectionItemOptionWidget">;

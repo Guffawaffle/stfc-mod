@@ -596,12 +596,28 @@ bool PopulateSettingsPage(const std::shared_ptr<SettingsPageTree>& tree, Setting
                           const PageCatalog::Page& page)
 {
   for (const auto& item : page.items) {
+    const auto failed = [&]() {
+      const auto id = std::visit(
+          [](const auto& value) -> std::string {
+            using T = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, PageCatalog::Heading>)
+              return value.id;
+            else if constexpr (requires { value->state(); })
+              return value->state().id();
+            else
+              return value->id();
+          },
+          item);
+      spdlog::error("[NativeSettingsPages] Could not construct page '{}' control '{}'; staged menu not published",
+                    page.id, id);
+      return false;
+    };
     if (const auto* heading = std::get_if<PageCatalog::Heading>(&item)) {
       if (heading->collapsible) {
         if (!AddPageCategory(tree, director, settings, category, page, heading))
-          return false;
+          return failed();
       } else if (!AddPageText(tree, director, settings, category, page, heading->id, heading->label, heading)) {
-        return false;
+        return failed();
       }
     } else if (auto* const* boolean = std::get_if<BooleanSetting*>(&item)) {
       if ((*boolean)->Observe().state.availability == Availability::Unsupported)
@@ -611,15 +627,15 @@ bool PopulateSettingsPage(const std::shared_ptr<SettingsPageTree>& tree, Setting
       if (!rows || !std::ranges::any_of(*rows, [&](const auto& row) {
             return row.Get() && OwnedBooleanSetting(row.Get<SettingsOptionContext>()) == *boolean;
           }))
-        return false;
+        return failed();
     } else {
       if (auto* const* choice = std::get_if<ChoiceSetting*>(&item))
         if (!AddPageText(tree, director, settings, category, page, (*choice)->title_id(), (*choice)->state().label(),
                          nullptr, (*choice)->state().id()))
-          return false;
+          return failed();
       const auto kind = PageItemFamily(item);
       if (!kind || !NativePages().adapters[static_cast<std::size_t>(*kind)].append(director, settings, category, item))
-        return false;
+        return failed();
     }
   }
   return true;

@@ -79,3 +79,29 @@ are separate claims. New Settings source is not complete Settings parity merely 
 its model fixture passes. Search, editors, custom media, native lifecycle and platform
 coverage remain separately tracked. Exact final source, gate receipts, installed bytes
 and any trial results must be added after they actually exist.
+
+## Native Settings trial corrections
+
+The first packaged candidate, `7a16ca0f`, booted but Actions/Pages/Search declined
+because GenericButtonWidget exposes `get_Interactable`, not Unity's lower-case
+`get_interactable`. Correction `0291d40f` installed all 67 feature groups. The
+player then confirmed that Mod Settings still did not appear. Opening the native
+Settings screen exposed the next construction failure: SliderOptionContext's
+LabelType accessors were invoked through an OptionContext facade. The off-screen
+transaction correctly refused to publish the incomplete menu.
+
+The slider adapter now invokes a concrete, receiver-checked ConfigureLabel binding
+and verifies the setter with a successful matching readback. Controlled-runtime
+tests exercise both label values (including valid zero), mismatched/failed readback,
+an incorrect receiver and an unsupported label kind. Page construction failures
+also identify the page and control without publishing a partial tree.
+
+The correction passed Windows `mods test-il2cpp` (84/84 build/run steps), with
+Debug fixture assertions; see `slider-label-correction-build.log` in the sprint
+evidence directory. This is not yet a player-verified menu. Neither cycle changed
+the primary TOML (SHA256 `78c248ce73fad72394405765db17fb95b5ee454c8be51fc8eddcf482b7f4f6f1`).
+An independent read-only audit found no further confirmed base-facade/native-member
+mismatch across the current Settings adapters. Native layout and interactions still
+require qualification. Unfinished next slices remain in scoped stash
+`0fa6d6edd6f359187ac6957b705034e4a108a19a`; unrelated development-install work was
+excluded. Restore with `apply`, retain the stash, after the current menu trial.

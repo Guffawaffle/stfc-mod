@@ -282,11 +282,54 @@ void SettingsActionButtonObservations()
   Require(observed && !observed.value && settings_action_custom_reads == 1 && settings_action_unity_reads == 0,
           "the game's custom button uses Interactable rather than Unity Selectable's differently cased property");
 }
+int32_t settings_slider_label        = 1;
+int     settings_slider_label_sets   = 0;
+bool    settings_slider_label_ignore = false, settings_slider_label_throw = false;
+void    ValuesLabelTypeSet(Il2CppObject*, int32_t value, const MethodInfo*)
+{
+  ++settings_slider_label_sets;
+  if (!settings_slider_label_ignore)
+    settings_slider_label = value;
+}
+int32_t ValuesLabelTypeGet(Il2CppObject*, const MethodInfo*)
+{
+  if (settings_slider_label_throw)
+    throw Il2CppExceptionWrapper(&thrown);
+  return settings_slider_label;
+}
+void SettingsSliderLabelObservations()
+{
+  auto& option = ValuesClass("Digit.Prime.GameSettings", "OptionContext");
+  auto& slider = ValuesClass("Digit.Prime.GameSettings", "SliderOptionContext", &option);
+  AddMethod(slider, "set_LabelType", reinterpret_cast<void*>(&ValuesLabelTypeSet), T(void_class), {T(int_class)});
+  AddMethod(slider, "get_LabelType", reinterpret_cast<void*>(&ValuesLabelTypeGet), T(int_class), {});
+  Il2CppObject object{};
+  object.klass  = &slider.klass;
+  auto* context = reinterpret_cast<SettingsSliderContext*>(&object);
+  Require(context->ConfigureLabel(0) && settings_slider_label == 0 && settings_slider_label_sets == 1,
+          "the production slider-label helper uses the concrete class; Value zero is a successful observation");
+  Require(context->ConfigureLabel(1) && settings_slider_label == 1 && settings_slider_label_sets == 2,
+          "Percentage configures and reads back the concrete slider property");
+  settings_slider_label_ignore = true;
+  Require(!context->ConfigureLabel(0), "a successful setter with mismatched readback declines publication");
+  settings_slider_label_ignore = false;
+  settings_slider_label_throw  = true;
+  Require(!context->ConfigureLabel(0), "an unavailable label readback cannot masquerade as observed Value zero");
+  settings_slider_label_throw = false;
+  const auto sets             = settings_slider_label_sets;
+  object.klass                = &option.klass;
+  Require(!context->ConfigureLabel(0) && settings_slider_label_sets == sets,
+          "a base OptionContext is refused without invoking the slider setter");
+  object.klass = &slider.klass;
+  Require(!context->ConfigureLabel(2) && settings_slider_label_sets == sets,
+          "unrecognized label kinds are refused without a native mutation");
+}
 void SettingsValuesBindingObservations()
 {
   SettingsValuesCallbackObservations();
   SettingsValuesMethodObservations();
   SettingsActionButtonObservations();
+  SettingsSliderLabelObservations();
   std::cout << "IL2CPP native settings values: exact callbacks, array signatures and Slider source passed\n";
 }
 } // namespace

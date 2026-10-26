@@ -490,10 +490,7 @@ bool AppendValue(SettingsSectionDirector* director, SettingsContext* context, Se
             query.Get<settings_binding::ReferenceDelegate>()))
       return false;
     if (slider) {
-      const auto label_type    = static_cast<int32_t>(slider->label());
-      const auto changed       = row->TryCall<"set_LabelType", void(int32_t)>(label_type);
-      const auto observed_type = row->TryCall<"get_LabelType", int32_t>();
-      if (!changed || !observed_type || observed_type.value != label_type)
+      if (!reinterpret_cast<SettingsSliderContext*>(row)->ConfigureLabel(static_cast<int32_t>(slider->label())))
         return false;
     }
     const auto observed = settings_pages_binding::Query(row);
