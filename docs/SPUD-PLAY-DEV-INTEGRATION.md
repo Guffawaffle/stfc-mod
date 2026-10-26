@@ -32,3 +32,10 @@ Validation receipts and current source/binary identities are recorded locally in
 `D:/dev/stfc-workspace/.ax/play-spud-review-20261026`.
 Windows compile/startup, player AAI/Kit interaction and macOS qualification are
 separate claims. A successful merge is not runtime qualification.
+
+The first integration candidate `17230487` compiled but its absolute per-file
+configuration key did not match Xmake's project-relative source key. Review and
+actual compiler output exposed the missing forced include. That candidate was
+not deployed. The corrected key must be qualified by both the emitted native
+compiler flag and recorded `spud_install.h` dependency, not Lua configuration
+presence alone.

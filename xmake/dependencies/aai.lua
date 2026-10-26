@@ -32,7 +32,8 @@ if get_config("stfc_aai") then
             -- AAI's two native hook sites use the host's installation policy.
             -- Preinclude only that consumer TU: keep the private pin, generic
             -- analytics and standalone replay source entirely unchanged.
-            target:fileconfig_add(path.join(source, "src/battle_log_analysis.cc"), {
+            -- Xmake looks up file overrides by its project-relative source key.
+            target:fileconfig_add(path.relative(path.join(source, "src/battle_log_analysis.cc"), os.projectdir()), {
                 forceincludes = {path.join(os.projectdir(), "mods/src/patches/spud_install.h")}
             })
         end)
