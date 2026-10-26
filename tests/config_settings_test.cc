@@ -1,0 +1,483 @@
+// Production catalog/models with synthetic feature readiness, registered-key saves and filesystem paths.
+#include "config.h"
+#include "config_save_fixture.h"
+#include "features/features.h"
+#include "file.h"
+#include "runtime_config.h"
+#include "settings/config_settings.h"
+#include "settings/confirmation_settings.h"
+#include "settings/mod_pages.h"
+#include "settings/native_controls.h"
+#include "settings/shortcut_capture.h"
+#include "settings/shortcut_catalog.h"
+#include "settings/shortcut_settings.h"
+#include "settings/text_entry.h"
+
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <set>
+#include <spdlog/spdlog.h>
+
+namespace
+{
+const ConfigSaveFixtureDirectory              directory;
+const std::string                             config_name = "settings.toml", vars_name = "runtime.vars";
+size_t                                        path_reads = 0, ship_rescales = 0, queue_resets = 0;
+size_t                                        fleet_label_refreshes = 0;
+std::vector<FeatureInstallation>              features;
+std::set<std::string>                         registered;
+std::map<std::string, config_edit::Value>     saved;
+bool                                          conflict = false;
+std::optional<mod_settings::TextEntryRequest> editor;
+mod_settings::native::PageVisitToken          visit = 1;
+mod_settings::ShortcutCapture::Keys           raw_held{}, raw_down{};
+size_t                                        raw_queries = 0;
+
+void Check(bool value, const char* message)
+{
+  if (!value) {
+    std::cerr << "FAIL: " << message << '\n';
+    std::exit(1);
+  }
+}
+void Enable(const char* name)
+{ features.push_back({name, InstallState::kInstalled, true, true}); }
+
+template <class T> T* Find(const mod_settings::PageCatalog& catalog, std::string_view key)
+{
+  for (const auto& page : catalog.RegisteredPages())
+    for (const auto& item : page.items)
+      if (const auto* value = std::get_if<T*>(&item)) {
+        const auto& metadata = [&]() -> const auto& {
+          if constexpr (std::is_same_v<T, mod_settings::BooleanSetting>)
+            return (*value)->metadata();
+          else
+            return (*value)->state().metadata();
+        }();
+        if (metadata.TomlKey() == key)
+          return *value;
+      }
+  return nullptr;
+}
+template <class T> mod_settings::ValueSetting<T>* Number(std::string_view key)
+{
+  for (const auto& entry : mod_settings::ConfigNumberControls())
+    if (auto* value = std::get_if<mod_settings::ValueSetting<T>*>(&entry.value);
+        value && (*value)->metadata().TomlKey() == key)
+      return *value;
+  return nullptr;
+}
+mod_settings::ActionSetting* Exact(std::string_view key)
+{
+  for (const auto& page : mod_settings::BuildModPages().RegisteredPages())
+    for (const auto& item : page.items)
+      if (auto* action = std::get_if<mod_settings::ActionSetting*>(&item);
+          action && (*action)->metadata && (*action)->metadata->TomlKey() == key)
+        return *action;
+  return nullptr;
+}
+mod_settings::ActionSetting& ShortcutRow(Action action, std::string_view suffix)
+{
+  const auto* setting = mod_settings::ShortcutEditorSetting(action);
+  Check(setting != nullptr, "registered shortcut has an editor model");
+  const auto id = setting->id() + "." + std::string(suffix);
+  for (const auto& page : mod_settings::BuildModPages().RegisteredPages())
+    for (auto* row : page.Controls<mod_settings::ActionSetting>())
+      if (row->id() == id)
+        return *row;
+  Check(false, "registered shortcut has its concrete command row");
+  std::abort();
+}
+} // namespace
+
+namespace File
+{
+const std::string& Config()
+{ return config_name; }
+const std::string& DefaultConfig()
+{ return config_name; }
+const std::string& Vars()
+{ return vars_name; }
+std::filesystem::path Path(std::string_view name, bool)
+{
+  ++path_reads;
+  return directory.Root() / name;
+}
+void MigrateLegacyFiles() {}
+} // namespace File
+namespace unity::Key
+{
+bool Pressed(KeyCode key)
+{
+  ++raw_queries;
+  return raw_held[static_cast<int>(key)];
+}
+bool Down(KeyCode key)
+{
+  ++raw_queries;
+  return raw_down[static_cast<int>(key)];
+}
+bool IsModified()
+{ return false; }
+} // namespace unity::Key
+std::span<const FeatureInstallation> FeatureInstallations()
+{ return features; }
+bool IncomingPlayerAttackAvailable()
+{ return false; }
+void ResetQueueRecoveryTracking()
+{ ++queue_resets; }
+void RefreshFleetLabelControls()
+{ ++fleet_label_refreshes; }
+bool SetUiShipScale(float value)
+{
+  ++ship_rescales;
+  Config::Get().graphics.ui_scale_ship = value;
+  return true;
+}
+namespace galaxy_controls
+{
+bool LabelsAvailable()
+{ return false; }
+bool SelectionAvailable()
+{ return false; }
+bool HousingAvailable()
+{ return false; }
+void Refresh() {}
+void SetOverlay(int32_t, bool) {}
+} // namespace galaxy_controls
+namespace mission_hud
+{
+bool Available() noexcept
+{ return false; }
+bool CanChange() noexcept
+{ return false; }
+void Refresh() noexcept {}
+} // namespace mission_hud
+namespace runtime_config
+{
+void           Configure(const toml::table&) {}
+ReloadSnapshot CaptureReload()
+{ return {}; }
+bool RegisterSetting(const char* section, const char* key) noexcept
+{
+  registered.insert(std::string(section) + "." + key);
+  return true;
+}
+void SaveSetting(const char* section, const char* key, config_edit::Value value, std::chrono::milliseconds) noexcept
+{ saved.insert_or_assign(std::string(section) + "." + key, std::move(value)); }
+mod_settings::SaveStatus GetSaveStatus(const char*, const char*, const config_edit::Value&) noexcept
+{ return {conflict ? mod_settings::SaveState::Conflict : mod_settings::SaveState::Saved}; }
+bool HasSaveFailures() noexcept
+{ return conflict; }
+} // namespace runtime_config
+namespace mod_settings
+{
+#if defined(STFC_SETTINGS_TEXT_ENTRY_FIXTURE) || (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+bool OpenTextEntry(TextEntryRequest request)
+{
+  editor = std::move(request);
+  return true;
+}
+void CloseTextEntry()
+{
+  auto closing = std::move(editor);
+  editor.reset();
+  if (closing && closing->cancel)
+    closing->cancel();
+}
+bool TextEntryActive()
+{ return editor.has_value(); }
+#endif
+// The native confirmation backend is independently qualified; this fixture never asks it to access the game.
+BooleanSetting& ForbiddenTechConfirmationSetting()
+{
+  static BooleanSetting setting(
+      {"community_mod.ft_confirmation",
+       "Confirm Forbidden Tech upgrades",
+       [] { return ReadResult{}; },
+       [](bool, uint64_t) { return ApplyResult::Rejected; },
+       {"ui", "auto_confirm_ft_upgrade", "Ask before upgrading Forbidden Tech.", "", ApplyTiming::Live},
+       true});
+  return setting;
+}
+} // namespace mod_settings
+namespace mod_settings::native
+{
+PageVisitToken CurrentPageVisit()
+{ return visit; }
+bool IsPageVisitCurrent(PageVisitToken expected)
+{ return expected != 0 && expected == visit; }
+void RequestPageRefresh() {}
+bool SettingsSearchAvailable()
+{ return false; }
+bool FocusSettingsSearch()
+{ return false; }
+bool QueueSettingsPage(std::string_view, std::string_view, bool)
+{ return false; }
+} // namespace mod_settings::native
+
+int main()
+{
+  using namespace mod_settings;
+  spdlog::set_level(spdlog::level::off);
+  {
+    std::ofstream settings(directory.Root() / config_name);
+    settings << "# SYNTHETIC catalog fixture\n[graphics]\nui_scale = 3.25\n"
+                "[audio]\nalert_victory = 'missing-custom.wav'\n";
+  }
+  auto& catalog = BuildModPages();
+  Check(&BuildModPages() == &catalog && path_reads == 0 && saved.empty(),
+        "catalog registration is stable and never loads, mutates or saves live configuration");
+  Check(registered.contains("control.hotkeys_extended") && registered.contains("audio.alert_fleet_miner_opc")
+            && registered.contains("graphics.galaxy_label_minor_threshold"),
+        "original control keys register with the existing writer");
+  auto* cargo = Find<BooleanSetting>(catalog, "ui.show_player_cargo");
+  Check(cargo && !cargo->Observe().state.known() && path_reads == 0,
+        "unavailable owners stay unavailable without initializing Config");
+  Enable("Hotkeys");
+  Enable("UiScale");
+  Enable("Zoom");
+  Enable("Toasts");
+  Enable("DailyClaimFilter");
+  Enable("FleetLabels");
+  auto before = cargo->Observe();
+  Check(before.state.value == true, "live boolean reads active Config");
+  Check(cargo->SetFromUser(false, before).outcome == Outcome::AppliedVerified && !Config::Get().ui.show_player_cargo
+            && std::get<bool>(saved.at("ui.show_player_cargo")) == false,
+        "verified live writes use the actual nested field and registered-key serializer");
+  conflict = true;
+  Check(cargo->status_text().find("file changed externally") != std::string::npos,
+        "writer conflicts remain visible through the model");
+  conflict = false;
+
+  auto* extended = Find<BooleanSetting>(catalog, "control.hotkeys_extended");
+  Check(extended && extended->SetFromUser(false, extended->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().control.hotkeys_extended && extended->restart_pending(),
+        "restart intent saves the requested value without changing the active field");
+  auto* preset = Find<BooleanSetting>(catalog, "ui.allow_officer_preset_reordering");
+  Check(preset && !preset->Observe().state.known(), "unqualified officer preset native owner stays disabled");
+  Check(!Find<BooleanSetting>(catalog, "graphics.borderless_fullscreen"), "dormant borderless behavior is not revived");
+
+  for (const bool player : {true, false}) {
+    auto* detail = Find<ChoiceSetting>(catalog, player ? "graphics.zoom_label_player_detail"
+                                                      : "graphics.zoom_label_non_player_detail");
+    auto* threshold = Number<float>(player ? "graphics.zoom_label_player_threshold"
+                                           : "graphics.zoom_label_non_player_threshold");
+    Check(detail && threshold, "both fleet-label profiles have their production controls");
+    const auto refreshes = fleet_label_refreshes;
+    Check(detail->state().SetFromUser(int(FleetLabelDetail::kExpanded), detail->state().Observe()).outcome
+                  == Outcome::AppliedVerified
+              && fleet_label_refreshes == refreshes + 1,
+          "changing fleet-label detail requests its installed gameplay owner refresh");
+    Check(detail->state().SetFromUser(int(FleetLabelDetail::kExpanded), detail->state().Observe()).outcome
+                  == Outcome::Unchanged
+              && fleet_label_refreshes == refreshes + 1,
+          "an unchanged fleet-label preference does not enqueue more owner work");
+    Check(detail->state().SetFromUser(int(FleetLabelDetail::kNative), detail->state().Observe()).outcome
+                  == Outcome::AppliedVerified
+              && fleet_label_refreshes == refreshes + 2,
+          "returning the final fleet-label override to Native still requests restoration");
+    Check(threshold->SetFromUser(.75f, threshold->Observe()).outcome == Outcome::AppliedVerified
+              && fleet_label_refreshes == refreshes + 3,
+          "exact threshold writes share the gameplay refresh path");
+    Check(threshold->SetFromUser(std::numeric_limits<float>::quiet_NaN(), threshold->Observe()).outcome
+                  == Outcome::Rejected
+              && fleet_label_refreshes == refreshes + 3,
+          "rejected threshold writes never request native refresh work");
+  }
+
+  auto* canonical = Number<float>("graphics.ui_scale");
+  auto* slider    = Find<SliderSetting>(catalog, "graphics.ui_scale");
+  Check(canonical && slider && canonical->Observe().state.value == 3.25f
+            && slider->state().Observe().state.reason == UnavailableReason::OutsideRange,
+        "full-range canonical values survive convenience slider limits");
+  Check(canonical->SetFromUser(1.175f, canonical->Observe()).outcome == Outcome::AppliedVerified
+            && std::get<double>(saved.at("graphics.ui_scale")) == double(1.175f),
+        "numeric writes retain exact float values rather than display rounding");
+  auto* ship = Number<float>("graphics.ui_scale_ship");
+  Check(ship && ship->SetFromUser(1.5f, ship->Observe()).outcome == Outcome::AppliedVerified && ship_rescales == 1,
+        "ship scale calls its loaded-model owner");
+  auto* backdrop = Number<float>("graphics.fr_scale");
+  Check(backdrop
+            && backdrop->SetFromUser(std::numeric_limits<float>::quiet_NaN(), backdrop->Observe()).outcome
+                   == Outcome::Rejected
+            && backdrop->SetFromUser(0, backdrop->Observe()).outcome == Outcome::Rejected,
+        "restart numeric requests validate finite values and the canonical allowed range");
+  auto* interval = Number<int>("control.select_timer");
+  Check(interval && !Find<SliderSetting>(catalog, "control.select_timer")
+            && interval->SetFromUser(321, interval->Observe()).outcome == Outcome::AppliedVerified
+            && std::get<int64_t>(saved.at("control.select_timer")) == 321,
+        "integer exact-entry models retain integer saves without inventing sliders");
+#if defined(STFC_SETTINGS_TEXT_ENTRY_FIXTURE) || (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+  auto* exact = Exact("control.select_timer");
+  Check(exact && exact->Read(0).actionable(), "canonical integer has a real Edit command");
+  exact->invoke(0);
+  Check(editor && editor->value == "321" && !editor->validate("12.5").empty() && !editor->validate("2147483648").empty()
+            && editor->validate(" 1000 ").empty(),
+        "integer editing validates whole tokens, overflow and allowed range without mutation");
+  Check(Config::Get().control.select_timer == 321 && editor->commit("1000")
+            && Config::Get().control.select_timer == 1000,
+        "accepted integer edit mutates and persists its canonical model");
+  exact->invoke(0);
+  Config::Get().control.select_timer = 1001;
+  Check(!editor->commit("2000") && Config::Get().control.select_timer == 1001,
+        "stale exact editor cannot replace changed live settings");
+  exact->invoke(0);
+  ++visit;
+  Check(!editor->commit("2000"), "page departure revokes deferred numeric commits");
+  auto* float_editor = Exact("graphics.ui_scale");
+  float_editor->invoke(0);
+  Check(editor && !editor->validate("nan").empty() && !editor->validate("inf").empty()
+            && !editor->validate("1e-1000").empty() && editor->validate("3.25").empty(),
+        "float exact editing rejects nonfinite/underflow values while accepting values beyond slider range");
+  const auto exact_before = Config::Get().graphics.ui_scale;
+  Check(editor->commit(editor->value) && Config::Get().graphics.ui_scale == exact_before,
+        "accepting unchanged initial text preserves the exact float");
+  editor.reset();
+#endif
+
+  auto* factions = Find<ChoiceSetting>(catalog, "ui.daily_bulk_claim_factions");
+  Check(factions && factions->multiple()
+            && factions->state().SetFromUser(0, factions->state().Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().ui.daily_bulk_claim_factions == std::vector<std::string>{"none"}
+            && std::get<std::string>(saved.at("ui.daily_bulk_claim_factions")) == "none",
+        "empty faction selection preserves explicit none semantics");
+  auto* sound = Find<ChoiceSetting>(catalog, "audio.alert_victory");
+  Check(sound && sound->state().Observe().state.value == int(NotificationSound::kCount),
+        "custom audio remains represented");
+  Check(sound->state().SetFromUser(int(NotificationSound::kInfo), sound->state().Observe()).outcome
+                == Outcome::AppliedVerified
+            && sound->state().SetFromUser(int(NotificationSound::kCount), sound->state().Observe()).outcome
+                   == Outcome::AppliedVerified
+            && Config::Get().audio.alert_victory.source == "missing-custom.wav",
+        "choosing a builtin does not discard the retained custom source");
+  Check(registered.contains("shortcuts.move_left") && registered.contains("shortcuts.show_lookup") && raw_queries == 0,
+        "all shortcut keys register without sampling input or initializing recording");
+  constexpr auto action    = Action::kMoveLeft;
+  auto*          shortcuts = ShortcutEditorSetting(action);
+  const auto     replace   = [](Action selected, ShortcutList list) {
+    return Shortcut::Replace(selected, list, Shortcut::Read(selected).generation);
+  };
+  Check(shortcuts && replace(action, {"LCTRL-G", "F8"}), "shortcut model shares the live dispatcher's binding owner");
+  auto first = shortcuts->Observe();
+  Check(first.state.value == ShortcutList{"LCTRL-G", "F8"},
+        "shortcut observation preserves alternative order and sides");
+  const auto save_key = std::string("shortcuts.move_left");
+#if defined(STFC_SETTINGS_TEXT_ENTRY_FIXTURE) || (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+  ShortcutRow(action, "type").invoke(0);
+  Check(editor && !editor->read_only && !editor->validate("F8 | F9").empty() && editor->validate("SHIFT-F14").empty(),
+        "exact shortcut entry uses the strict dispatch parser");
+  Check(editor->commit("SHIFT-F14") && !saved.contains(save_key)
+            && Shortcut::Read(action).alternatives == ShortcutList{"LCTRL-G", "F8"},
+        "staging a shortcut proposal never mutates bindings or saves");
+  editor.reset();
+  ShortcutRow(action, "confirm").invoke(0);
+  Check(Shortcut::Read(action).alternatives == ShortcutList{"LCTRL-G", "F8", "SHIFT-F14"}
+            && std::get<std::string>(saved.at(save_key)) == "LCTRL-G | F8 | SHIFT-F14",
+        "explicit confirmation verifies the live replacement before registering the canonical save");
+
+  ShortcutRow(action, "type").invoke(0);
+  Check(editor && editor->commit("F15"), "a second proposal stages");
+  editor.reset();
+  const auto accepted = Shortcut::Read(action).alternatives;
+  Check(replace(Action::kMoveRight, {"F12"}), "unrelated action advances the global replacement generation");
+  ShortcutRow(action, "confirm").invoke(0);
+  Check(Shortcut::Read(action).alternatives == accepted,
+        "global generation changes invalidate a pending shortcut proposal");
+
+  ShortcutRow(action, "binding").invoke(0);
+  Check(editor && editor->read_only && editor->record_frame && editor->record_again,
+        "Change opens the actual native recording request with an explicit reset");
+  raw_held[static_cast<int>(unity::KeyCode::Mouse0)] = raw_down[static_cast<int>(unity::KeyCode::Mouse0)] = true;
+  Check(!editor->record_frame(), "the opening click cannot become a recorded shortcut");
+  raw_held = raw_down = {};
+  Check(!editor->record_frame(), "recording waits for the opening input release");
+  raw_held[static_cast<int>(unity::KeyCode::Return)] = raw_down[static_cast<int>(unity::KeyCode::Return)] = true;
+  const auto recorded = editor->record_frame();
+  Check(recorded == "RETURN" && editor->validate(*recorded).empty(),
+        "Return records as a chord rather than applying itself");
+  raw_held = raw_down                                = {};
+  raw_held[static_cast<int>(unity::KeyCode::Mouse0)] = raw_down[static_cast<int>(unity::KeyCode::Mouse0)] = true;
+  Check(!editor->record_frame(), "a recorded candidate is latched before the confirmation click");
+  editor->record_again();
+  Check(!editor->record_frame(), "Record again drains its own opening click");
+  raw_held = raw_down = {};
+  editor->record_frame();
+  raw_held[static_cast<int>(unity::KeyCode::LeftControl)] = true;
+  raw_held[static_cast<int>(unity::KeyCode::LeftShift)]   = true;
+  raw_held[static_cast<int>(unity::KeyCode::I)] = raw_down[static_cast<int>(unity::KeyCode::I)] = true;
+  const auto modified = editor->record_frame();
+  Check(modified == "CTRL-SHIFT-I" && Shortcut::Read(action).alternatives == accepted,
+        "raw recording uses canonical generic modifiers and still stages without mutation");
+  auto        delayed = editor->commit;
+  const auto* page    = &*std::ranges::find(catalog.RegisteredPages(), shortcuts->id(), &PageCatalog::Page::id);
+  page->leave();
+  Check(!editor && !delayed(*modified) && Shortcut::Read(action).alternatives == accepted,
+        "page departure cancels recording and revokes its delayed commit");
+  raw_held = raw_down = {};
+#endif
+  Check(replace(action, {"F8", "F9"}), "prepare removal fixture");
+  ShortcutRow(action, "remove").invoke(0);
+  Check(Shortcut::Read(action).alternatives == ShortcutList{"F9"} && ShortcutRow(action, "status").Read(0).actionable(),
+        "per-binding removal applies immediately and offers Undo");
+  ShortcutRow(action, "status").invoke(0);
+  Check(Shortcut::Read(action).alternatives == ShortcutList{"F8", "F9"}, "Undo restores the exact observed list");
+  ShortcutRow(action, "unbind").invoke(0);
+  Check(Shortcut::Read(action).alternatives.empty() && std::get<std::string>(saved.at(save_key)) == "NONE",
+        "unbinding the final alternative persists explicit NONE");
+  ShortcutRow(action, "status").invoke(0);
+  ShortcutRow(action, "default").invoke(0);
+  Check(Shortcut::Read(action).alternatives == *shortcuts->default_value(),
+        "Restore default uses the registered action default");
+  ShortcutRow(action, "status").invoke(0);
+  Check(Shortcut::Read(action).alternatives == ShortcutList{"F8", "F9"}, "default restoration has exact Undo");
+  ShortcutRow(action, "remove").invoke(0);
+  Check(replace(Action::kMoveRight, {"F11"}), "prepare unrelated edit during Undo");
+  ShortcutRow(action, "status").invoke(0);
+  Check(Shortcut::Read(action).alternatives == ShortcutList{"F9"},
+        "Undo cannot overwrite an unrelated newer global replacement");
+  {
+    toml::table configured{{"shortcuts", toml::table{{"move_left", "LCTRL-G | F8 | LCTRL-G"}}}}, parsed;
+    Shortcut::Set(Shortcut::Parse(configured, parsed, true, true));
+    ShortcutRow(action, "remove").invoke(1);
+    Check(Shortcut::Read(action).alternatives == ShortcutList{"LCTRL-G", "LCTRL-G"},
+          "deletion retains an exact ordered subset including existing TOML duplicates");
+    ShortcutRow(action, "status").invoke(0);
+    Check(Shortcut::Read(action).alternatives == ShortcutList{"LCTRL-G", "F8", "LCTRL-G"},
+          "Undo preserves existing duplicate alternatives and their original order");
+    std::string oversized = "F8";
+    for (size_t count = 1; count < ShortcutBindingDisplayLimit + 2; ++count)
+      oversized += " | F8";
+    configured = toml::table{{"shortcuts", toml::table{{"move_left", oversized}}}};
+    parsed     = {};
+    Shortcut::Set(Shortcut::Parse(configured, parsed, true, true));
+    Check(ShortcutRow(action, "binding").Count() == ShortcutBindingDisplayLimit,
+          "oversized source lists retain their live values while presenting a bounded prefix");
+    ShortcutRow(action, "remove").invoke(0);
+    Check(Shortcut::Read(action).alternatives.size() == ShortcutBindingDisplayLimit + 1,
+          "oversized observed duplicate lists allow deletion");
+    ShortcutRow(action, "status").invoke(0);
+    Check(Shortcut::Read(action).alternatives.size() == ShortcutBindingDisplayLimit + 2,
+          "exact removal Undo may recover the original oversized list without granting ordinary growth");
+  }
+  Config::Get().control.hotkeys_extended = false;
+  Check(!ShortcutEditorSetting(Action::kShowAlliance)->Observe().state.known(),
+        "extended action availability follows the active tier");
+  Config::Get().control.hotkeys_extended = true;
+  Check(!ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
+        "parked system orbit remains unavailable");
+  Config::Get().control.use_scopely_hotkeys = true;
+  Check(!shortcuts->Observe().state.known(), "native shortcut mode disables mod shortcut editing");
+  Config::Get().control.use_scopely_hotkeys = false;
+  for (const auto& page : catalog.Build()) {
+    size_t rows = page.ControlRows();
+    for (auto* action : page.Controls<ActionSetting>())
+      rows += action->Count() ? action->Count() - 1 : 0;
+    Check(rows <= PageCatalog::NativeChildLimit,
+          "catalog pages including repeated shortcut actions fit the native child budget");
+  }
+  std::cout << "Production configuration catalog ownership, range, restart and persistence checks passed\n";
+}

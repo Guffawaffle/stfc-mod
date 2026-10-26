@@ -11,6 +11,7 @@
 #include "installation.h"
 #include "profile_launch.h"
 #include "runtime_config.h"
+#include "shortcuts.h"
 #include "version.h"
 
 #include "game/ui.h"
@@ -20,6 +21,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
+#include <unity/application.h>
 #include <unity/input.h>
 
 #include <array>
@@ -219,6 +221,11 @@ constexpr const Feature* kFeatures[] = {
     &kOfficerSort,
     // settings.cc
     &kNativeSettings,
+    &kNativeSettingsValues,
+    &kNativeSettingsActions,
+    &kNativeSettingsTextEntry,
+    &kNativeSettingsPages,
+    &kNativeSettingsSearch,
     // shop.cc
     &kGiftsAutoOpen,
     &kShopLimits,
@@ -339,6 +346,17 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
   } scope{dispatching};
   dispatching = true;
   RunGuarded("Input", unity::Key::Poll);
+  RunGuarded("ShortcutCapture", [] {
+    // An inactive editor adds no engine queries. Held modifiers and popup keys must drain before gameplay resumes.
+    if (!Shortcut::CaptureBlocksShortcuts())
+      return;
+    static int32_t capture_frame = -1;
+    const auto     frame         = unity::Time::frameCount();
+    if (frame < 0 || frame == capture_frame)
+      return; // Repeated native updates in one input frame cannot advance the release boundary twice.
+    capture_frame = frame;
+    Shortcut::UpdateCapture(unity::Application::isFocused(), unity::Input::anyKey());
+  });
   RunGuarded("Settings", Config::ReloadIfChanged);
   FrameServices().Dispatch();
   bool handled = false;

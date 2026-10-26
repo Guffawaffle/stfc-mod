@@ -8,7 +8,7 @@
     "uiOrder": "feature owners before Settings UI",
     "cycles": "authorized unless explicit user hold",
     "stores": "preserve existing formats, account/profile identity, unknown values and source ownership",
-    "runner": "dependency ordering and durable gates; no governed Attempt claimed under path_roots_overlap",
+    "runner": "LexRunner 2.5.0 local plan and durable candidate-bound gates; direct implementation/collaboration. Current Attempt preflight windows_native_boundary_unavailable/broker_required; no bypass.",
     "outOfScope": [
       "later play-dev expansion",
       "AAI",
@@ -113,7 +113,7 @@
       ],
       "status": "user-confirmed",
       "steps": [
-        "Restore V/MOUSE2 node\u2192occupant\u2192cargo\u2192node cycle.",
+        "Restore V/MOUSE2 node→occupant→cargo→node cycle.",
         "Preserve own-miner exclusion, cargo-first preferences, context ownership and5s timeout.",
         "Route ActionView before generic cargo toggle; preserve primary Mine action."
       ],
@@ -243,7 +243,7 @@
       "deps": [
         "P01"
       ],
-      "status": "queued",
+      "status": "native-contract-blocked-inactive-handoff-fixture-qualified",
       "steps": [
         "Reuse existing pure order policy and state owner; SlotId0 valid, fixed empties preserved.",
         "Restore Shift-up/Ctrl-or-Command-down rename gestures and immediate session order.",
@@ -258,7 +258,7 @@
       "deps": [
         "P18"
       ],
-      "status": "queued",
+      "status": "source-restored-local-fixtures-qualified-real-events-pending",
       "steps": [
         "Restore play notification_emit capabilities on the existing toast/desktop foundation.",
         "Restore incoming-player-attack validation, focused/background policy and repeat suppression.",
@@ -274,7 +274,7 @@
         "P16",
         "P18"
       ],
-      "status": "queued",
+      "status": "source-restored-local-fixtures-qualified-real-events-pending",
       "steps": [
         "Restore system/destination arrival, mining start, depletion, dock, repair and OPC event routes.",
         "Preserve startup arming, owned-fleet/session identity, transition dedupe and thresholds.",
@@ -350,7 +350,7 @@
       "deps": [
         "P07"
       ],
-      "status": "queued",
+      "status": "native-editor-source-and-local-fixtures-qualified-game-trial-pending",
       "steps": [
         "Adapt existing play capture/draft/replace/remove/overlap/undo/default contracts to current shortcut owner.",
         "Reuse current parser/dispatcher; no parallel binding engine.",
@@ -373,7 +373,7 @@
         "P22",
         "P28"
       ],
-      "status": "queued",
+      "status": "native-adapters-source-and-local-fixtures-qualified-game-trial-pending",
       "steps": [
         "Reuse preserved model/callback code and actual game category/toggle/selection/slider/text/action assets.",
         "Adapt closed instance-delegate construction, virtual BindDataContext, roots and pooled-row ownership.",
@@ -392,7 +392,7 @@
         "P15",
         "P18"
       ],
-      "status": "queued",
+      "status": "partial-catalog-tools-qualified-text-and-media-workflows-open",
       "steps": [
         "Connect all original play pages/controls with actual feature owners and preserving registered-key writer.",
         "Restore search, conditional sections, exact numeric/text entry, defaults/help/retry and timing/status.",
@@ -453,7 +453,7 @@
       "deps": [
         "P07"
       ],
-      "status": "queued",
+      "status": "native-coroutine-source-and-local-fixtures-qualified-game-trial-pending",
       "steps": [
         "Restore the Shift+ship-number Discovery tow action present in pinned play.",
         "Use current fleet/deployment/coroutine bindings with truthful readiness, fleet identity and rejected-path handling.",

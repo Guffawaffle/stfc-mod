@@ -2,6 +2,7 @@
 #include "config.h"
 #include "config_save_fixture.h"
 #include "file.h"
+#include "keyboard_layout_test_host.h"
 #include "runtime_config_no_host.h"
 
 #include <spdlog/spdlog.h>
@@ -28,6 +29,7 @@ bool                             fail_vars                 = false;
 bool                             check_capture_before_read = false;
 std::size_t                      expected_capture_count    = 0;
 bool                             clear_snapshot_at_read    = false;
+std::size_t                      vars_path_attempts        = 0;
 
 void Check(bool ok, const char* message)
 {
@@ -63,8 +65,11 @@ std::filesystem::path Path(std::string_view name, bool)
       clear_snapshot_at_read = false;
     }
   }
-  if (fail_vars && name == vars_name)
-    throw std::runtime_error("runtime vars directory is unavailable");
+  if (name == vars_name) {
+    ++vars_path_attempts;
+    if (fail_vars)
+      throw std::runtime_error("runtime vars directory is unavailable");
+  }
   return directory / name;
 }
 void MigrateLegacyFiles() {}
@@ -111,10 +116,14 @@ int StartupPrimaryCase(bool malformed)
       const auto generated = toml::parse(actual);
       Check(generated["sync"]["resolver_cache_ttl"].value<int>() == 300,
             "missing-primary creation did not produce the expected valid defaults");
+      Check(!generated.contains("keyboard_mapping"), "generated primary must not contain runtime keyboard diagnostics");
     }
     const auto vars = toml::parse_file((directory / vars_name).string());
     Check(vars["sync"]["resolver_cache_ttl"].value<int>() == 300,
           "startup runtime vars did not contain the active defaults");
+    Check(vars["keyboard_mapping"]["status"].value<std::string>() == "physical"
+              && vars["keyboard_mapping"]["generation"].value<std::string>() == "0",
+          "startup runtime vars did not include initial physical keyboard diagnostics");
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';
     result = 1;
@@ -164,9 +173,16 @@ int main(int argc, char** argv)
     Check(!Config::Get().patches.uiscalehooks && Shortcut::Describe(Action::kQuit) == "F1", "startup activation");
     fail_vars = false;
     Check(read_primary() == primary_before, "startup rewrote existing primary settings, unknown keys or comments");
-    if (fail_startup_output)
+    if (fail_startup_output) {
       Check(!std::filesystem::exists(directory / vars_name),
             "startup output failure unexpectedly created a runtime-vars file");
+      Config::ReloadIfChanged();
+      const auto retried = toml::parse_file((directory / vars_name).string());
+      Check(retried["sync"]["resolver_cache_ttl"].value<int>() == 123
+                && retried["keyboard_mapping"]["status"].value<std::string>() == "physical",
+            "startup vars failure must retry from the activated settings");
+      Check(read_primary() == primary_before, "runtime vars retry rewrote the primary settings");
+    }
     auto                              first   = Config::Sync::Get();
     std::weak_ptr<const Config::Sync> retired = first;
     std::latch                        captured(1);
@@ -253,6 +269,81 @@ int main(int argc, char** argv)
               && Shortcut::Describe(Action::kQuit) == "F3",
           "an incompatible section must reject the reload without overwriting or dropping protection");
     runtime_config_fixture::Reset();
+
+    if (!fail_startup_output) {
+      Write("# SYNTHETIC accepted keyboard settings\n[control]\nkeyboard_layout_mode = 'layout'\n"
+            "[graphics]\nui_scale = 1.25\n[shortcuts]\nquit = 'F5'\n[sync]\nresolver_cache_ttl = 456\n");
+      const auto keyboard_primary = read_primary();
+      Check(Config::Reload(), "keyboard configuration must activate");
+      auto vars = toml::parse_file((directory / vars_name).string());
+      Check(vars["keyboard_mapping"]["status"].value<std::string>() == "pending",
+            "accepted layout mode must publish pending diagnostics before a native query");
+      const auto  before_parse        = keyboard_layout::ReadDiagnostics();
+      const auto  writes_before_parse = vars_path_attempts;
+      toml::table unaccepted_effective;
+      const auto  unaccepted =
+          Config::Parse(toml::parse("[control]\nkeyboard_layout_mode = 'physical'"), unaccepted_effective, false);
+      Check(unaccepted->control.keyboard_layout_mode == "physical"
+                && keyboard_layout::ReadDiagnostics().generation == before_parse.generation
+                && vars_path_attempts == writes_before_parse && !unaccepted_effective.contains("keyboard_mapping"),
+            "parsing a candidate must not change keyboard state or write diagnostic output");
+
+      const auto tick = [] {
+        // Exercise the production settings cadence without adding a second clock or vars owner.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+        Config::ReloadIfChanged();
+      };
+      keyboard_layout::fixture::PublishDiagnostics("US", "resolved", "layout_lookup");
+      const auto writes_before_read = vars_path_attempts;
+      (void)keyboard_layout::ReadDiagnostics();
+      (void)keyboard_layout::DescribeChord(unity::KeyCode::A);
+      Check(vars_path_attempts == writes_before_read, "input and diagnostic queries must not perform file I/O");
+      tick();
+      vars                           = toml::parse_file((directory / vars_name).string());
+      const auto american_generation = vars["keyboard_mapping"]["generation"].value<std::string>();
+      Check(vars["keyboard_mapping"]["layout"].value<std::string>() == "US"
+                && vars["keyboard_mapping"]["status"].value<std::string>() == "resolved"
+                && vars["keyboard_mapping"]["reason"].value<std::string>() == "layout_lookup",
+            "the settings check must publish the completed native observation");
+      const auto writes_while_quiet = vars_path_attempts;
+      tick();
+      Check(vars_path_attempts == writes_while_quiet, "unchanged generations must not rewrite runtime vars");
+
+      keyboard_layout::fixture::PublishDiagnostics("German", "resolved", "layout_lookup");
+      fail_vars = true;
+      tick();
+      fail_vars = false;
+      vars      = toml::parse_file((directory / vars_name).string());
+      Check(vars["keyboard_mapping"]["layout"].value<std::string>() == "US"
+                && vars["keyboard_mapping"]["generation"].value<std::string>() == american_generation,
+            "failed diagnostic output must preserve the last complete vars document");
+      tick();
+      vars = toml::parse_file((directory / vars_name).string());
+      Check(vars["keyboard_mapping"]["layout"].value<std::string>() == "German"
+                && std::stoull(vars["keyboard_mapping"]["generation"].value_or(std::string{}))
+                       > std::stoull(american_generation.value_or(std::string{})),
+            "failed writes must not acknowledge a resolved to resolved layout change");
+      Check(vars["graphics"]["ui_scale"].value<double>() == 1.25
+                && vars["sync"]["resolver_cache_ttl"].value<int>() == 456
+                && vars["patches"]["uiscalehooks"].value<bool>() == false && read_primary() == keyboard_primary,
+            "diagnostic refresh must preserve accepted effective settings and all primary bytes");
+
+      Write("# SYNTHETIC rejected candidate\n[control]\nkeyboard_layout_mode = 'physical'\n"
+            "[graphics]\nui_scale = 4.5\n[sync]\nresolver_cache_ttl = 999\n");
+      const auto rejected_primary = read_primary();
+      fail_vars                   = true;
+      Check(!Config::Reload(), "failed vars output must still reject a configuration reload");
+      fail_vars = false;
+      keyboard_layout::fixture::PublishDiagnostics("French", "partial", "unresolved_keys_disabled");
+      tick();
+      vars = toml::parse_file((directory / vars_name).string());
+      Check(vars["keyboard_mapping"]["layout"].value<std::string>() == "French"
+                && vars["keyboard_mapping"]["status"].value<std::string>() == "partial"
+                && vars["graphics"]["ui_scale"].value<double>() == 1.25
+                && vars["sync"]["resolver_cache_ttl"].value<int>() == 456
+                && Config::Get().control.keyboard_layout_mode == "layout" && read_primary() == rejected_primary,
+            "diagnostic refresh must use accepted settings after a rejected reload without editing the primary");
+    }
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';
     result = 1;

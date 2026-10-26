@@ -15,3 +15,5 @@ struct IncomingPlayerAttack {
   std::string attacker, event_id;
 };
 std::optional<IncomingPlayerAttack> ReadIncomingPlayerAttack(Toast* toast);
+// Binding readiness only; no payload read, account preference access or notification delivery.
+bool IncomingPlayerAttackAvailable();

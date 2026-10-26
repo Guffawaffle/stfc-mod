@@ -36,7 +36,7 @@
     {
       "id": "PLAY-FLEET-TOW",
       "name": "Discovery shift-ship towing",
-      "classification": "Missing",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/hotkeys.cc",
@@ -54,11 +54,13 @@
       "verificationProcedure": "Current-client seven-argument PlanCourse, native coroutine scheduling and completion ownership must be established. Do not drain MoveNext in a busy loop.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Current-client seven-argument PlanCourse, native coroutine scheduling and completion ownership must be established. Do not drain MoveNext in a busy loop. Retained273 native TowActivationClicked builds real callbacks and schedules through Hub.Coroutine/ICoroutine.StartCoroutine; it requires bound target/selected tow fleet/native ability, cost and semaphore state. Public FleetsManager.Tow is only an iterator factory. No arbitrary safe Shift+ship entry qualified yet.",
+      "dependenciesAndLimitations": "Native scheduled Shift+configured-ship towing; seven-argument PlanCourse, immutable destination, real callbacks, fresh-course checks. Windows source/fixture qualification only; actual tow trial pending.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -389,7 +391,7 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Modifier move, quiet/fixed empty rows, large SlotId, nested save during old/new projection adoption, disable/release, restart. Parked draft is unsafe and inactive.",
+      "dependenciesAndLimitations": "Inactive officer_preset_handoff experiment passes 201 deterministic checks, including transition saves. Native canonical reference writes, renderer readiness/repair and exact-client activation remain unqualified. Product is still Missing; the experiment does not restore it.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -718,7 +720,7 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "All profiles/kinds, live threshold and native restoration; release/rebind from native LOD callbacks; exact-generation custody.",
+      "dependenciesAndLimitations": "Live Settings writes queue owner refresh; current-camera profile comparisons catch TOML reloads. Qualified Native profiles reset targets before/after original with weak-owner generations. Actual live switch/Native restoration trial pending.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
@@ -1908,50 +1910,54 @@
     {
       "id": "SET-NAV",
       "name": "Mod pages and native back/navigation",
-      "classification": "Missing",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/native/page_navigation.cc",
         "symbolOrWorkflow": "InstallPages"
       },
       "migration": {
-        "path": "src/mod/settings/page_catalog.h",
+        "path": "src/mod/features/settings_pages.cc",
         "symbolOrWorkflow": "Model only"
       },
       "expectedBehavior": "Mod pages and native back/navigation",
       "verificationProcedure": "Open normally/Shift-S, categories, Back, page teardown, session replacement; actual production adapter absent.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Open normally/Shift-S, categories, Back, page teardown, session replacement; actual production adapter absent.",
+      "dependenciesAndLimitations": "Complete off-screen tree publication, native navigation, same-tree search return and pooled ownership; native game rendering/Back trial pending.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
     {
       "id": "SET-VALUES",
       "name": "Boolean, exact numeric, choices and slider controls",
-      "classification": "Missing",
+      "classification": "Partial",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/native/value_widgets.cc",
         "symbolOrWorkflow": "InstallCoreValueWidgets"
       },
       "migration": {
-        "path": "src/mod/settings/value_settings.h",
+        "path": "src/mod/features/settings_values.cc",
         "symbolOrWorkflow": "Models only"
       },
       "expectedBehavior": "Boolean, exact numeric, choices and slider controls",
       "verificationProcedure": "Readiness/disabled backends, exact custom values, verify/save/refresh, pooled release and stale modal commits.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Readiness/disabled backends, exact custom values, verify/save/refresh, pooled release and stale modal commits.",
+      "dependenciesAndLimitations": "Native Boolean/choice/slider/command adapters and exact numeric editors implemented; full string/list controls and media workflows remain open. Native visual trial pending.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -1988,75 +1994,81 @@
     {
       "id": "SET-SEARCH",
       "name": "Settings search with contextual return",
-      "classification": "Missing",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/native/settings_search.cc",
         "symbolOrWorkflow": "Search"
       },
       "migration": {
-        "path": "src/mod/settings/settings_search.h",
+        "path": "src/mod/features/settings_search.cc",
         "symbolOrWorkflow": "Model only"
       },
       "expectedBehavior": "Settings search with contextual return",
       "verificationProcedure": "Labels/TOML/shortcuts, hidden conditional results, Back-to-search, typing and held-key release ownership.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Labels/TOML/shortcuts, hidden conditional results, Back-to-search, typing and held-key release ownership.",
+      "dependenciesAndLimitations": "Inline native search, metadata results, deferred same-tree navigation, section reveal and row focus implemented; actual native trial pending.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
     {
       "id": "SET-RESET-SAVE",
       "name": "Defaults, reset, conflicts and retry UI",
-      "classification": "Missing",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/maintenance.h",
         "symbolOrWorkflow": "Maintenance"
       },
       "migration": {
-        "path": "src/mod/settings/maintenance.h",
+        "path": "src/mod/settings/maintenance_pages.cc",
         "symbolOrWorkflow": "No native consumer"
       },
       "expectedBehavior": "Defaults, reset, conflicts and retry UI",
       "verificationProcedure": "Confirm page/individual reset, external-file conflict, retry, failed-save notice and refresh observer.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Confirm page/individual reset, external-file conflict, retry, failed-save notice and refresh observer.",
+      "dependenciesAndLimitations": "Canonical reset/help/retry/save-notice actions restored; preserving writer and stale model/page checks retained. Actual failure/retry UI trial pending.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
     {
       "id": "SET-SHORTCUT-EDITOR",
       "name": "Interactive binding capture, conflict, undo/defaults",
-      "classification": "Missing",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/shortcut_settings.cc",
         "symbolOrWorkflow": "Shortcut"
       },
       "migration": {
-        "path": "src/mod/shortcuts.cc",
+        "path": "src/mod/settings/shortcut_settings.cc",
         "symbolOrWorkflow": "Parser/dispatch only"
       },
       "expectedBehavior": "Interactive binding capture, conflict, undo/defaults",
       "verificationProcedure": "Add/change/remove/unbind, capture/confirm/cancel, conflict, undo, restore, focus loss and held-key release.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Add/change/remove/unbind, capture/confirm/cancel, conflict, undo, restore, focus loss and held-key release.",
+      "dependenciesAndLimitations": "Uses existing parser/dispatcher and exact generation guards; recording, alternatives, remove/default/undo, overlaps and release/cancel implemented. Recording stages then confirms on the page; native trial pending.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -2472,25 +2484,27 @@
     {
       "id": "DIAG-KEYBOARD-VARS",
       "name": "Layout diagnostics in runtime vars",
-      "classification": "Partial",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/keyboard_layout.cc",
         "symbolOrWorkflow": "WriteDiagnostics"
       },
       "migration": {
-        "path": "src/mod/keyboard_layout.cc",
+        "path": "src/mod/config.cc",
         "symbolOrWorkflow": "Publish logs only"
       },
       "expectedBehavior": "Layout diagnostics in runtime vars",
       "verificationProcedure": "Startup and layout/status/reason/generation changes must reach vars without overwriting accepted effective configuration.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Startup and layout/status/reason/generation changes must reach vars without overwriting accepted effective configuration.",
+      "dependenciesAndLimitations": "Accepted runtime-vars owner publishes layout/status/reason and exact string generation; no primary TOML mutation or I/O from parsing/key queries. Failed writes retry. Live layout-change trial pending.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },

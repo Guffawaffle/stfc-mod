@@ -1,5 +1,8 @@
 #pragma once
-#include "game/navigation.h"
+#include <cstdint>
+struct NavigationZoom;
+struct NavigationLOD;
+enum class ZoomLevels : int32_t;
 namespace galaxy_controls
 {
 bool       LabelsAvailable();

@@ -1,8 +1,10 @@
-// The selected fleet and the target viewers in space: selecting ships with the number keys, engaging, scanning,
+// The selected fleet and the target viewers in space: selecting ships with the number keys, Discovery towing
+// with Shift+ship, engaging, scanning,
 // mining, queueing, warping, recalling and repairing from the keyboard, dismissing viewers with Escape, opening a
 // target's cargo when it is scanned, the action queue switch, and re-enabling ability buttons whose cooldown ended.
 
 #include "config.h"
+#include "discovery_tow_policy.h"
 #include "features/base_card.h"
 #include "features/features.h"
 #include "features/mining_preview.h"
@@ -26,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <span>
@@ -221,6 +224,293 @@ planned_system_warp::Vec3 WarpPosition(unity::Vector3 position)
 { return {position.x, position.y, position.z}; }
 std::uintptr_t WarpIdentity(const il2cpp::GcHandle& root)
 { return reinterpret_cast<std::uintptr_t>(root.Get()); }
+
+// --- Discovery towing ---
+
+namespace tow_native = discovery_tow_binding;
+using TowClock       = std::chrono::steady_clock;
+struct DiscoveryTowRun {
+  discovery_tow::Request request;
+  il2cpp::GcHandle       owner, selected, discovery, destination, baseline, iterator, coroutine, callbacks;
+  TowClock::time_point   next_poll{};
+  bool                   starting = true;
+};
+struct DiscoveryTowState {
+  std::uint64_t                    generation = 0;
+  std::shared_ptr<DiscoveryTowRun> run;
+  bool                             updating = false;
+};
+DiscoveryTowState& DiscoveryTowing()
+{
+  // Pending roots are released by the game-thread cancel/finish path, never by
+  // a static destructor calling IL2CPP after runtime shutdown.
+  static auto* state = new DiscoveryTowState;
+  return *state;
+}
+std::int64_t TowMilliseconds()
+{ return std::chrono::duration_cast<std::chrono::milliseconds>(TowClock::now().time_since_epoch()).count(); }
+bool TowInputMode()
+{
+  const auto& config = Config::Get();
+  return config.control.hotkeys_enabled && !config.control.use_scopely_hotkeys && !Shortcut::CaptureBlocksShortcuts();
+}
+bool TowOwnerAlive(DeploymentManager* owner)
+{
+  if (!owner || !owner->Is<unity::UnityObject>())
+    return false;
+  const auto alive = unity::TryAlive(owner);
+  return alive && alive.value;
+}
+bool TowCurrent(const std::shared_ptr<DiscoveryTowRun>& run)
+{ return run && DiscoveryTowing().run == run && DiscoveryTowing().generation == run->request.generation; }
+void StopDiscoveryTow(const std::shared_ptr<DiscoveryTowRun>& run)
+{
+  if (run && TowOwnerAlive(run->owner.Get<DeploymentManager>())) {
+    // The iterator overload also retires a StartCoroutine that changed native
+    // state and then failed without returning a Coroutine handle.
+    if (!tow_native::Stop(run->owner.Get<DeploymentManager>(), run->iterator.Get<tow_native::Routine>(),
+                          run->coroutine.Get<tow_native::Coroutine>()))
+      spdlog::warn("[Hotkeys] Discovery course stop unconfirmed; tow submission retired");
+  }
+}
+void CancelDiscoveryTow()
+{
+  auto& state = DiscoveryTowing();
+  ++state.generation;
+  auto old = std::exchange(state.run, {}); // StopCoroutine may reenter; it never owns the replacement request.
+  StopDiscoveryTow(old);
+}
+struct DiscoveryTowObservation {
+  discovery_tow::Evidence evidence;
+  il2cpp::GcHandle        course;
+};
+DiscoveryTowObservation ObserveDiscoveryTow(const std::shared_ptr<DiscoveryTowRun>& run)
+{
+  DiscoveryTowObservation result;
+  auto&                   e = result.evidence;
+  e.generation              = DiscoveryTowing().generation;
+  e.now_ms                  = TowMilliseconds();
+  e.input_mode              = TowInputMode();
+  auto* owner               = run->owner.Get<DeploymentManager>();
+  e.owner_alive             = TowOwnerAlive(owner);
+  auto current_owner =
+      WarpRoot(planned_warp_binding::StaticReference<"get_Instance", DeploymentManager, DeploymentManager>());
+  auto fleets   = WarpRoot(planned_warp_binding::StaticReference<"get_Instance", FleetsManager, FleetsManager>());
+  auto sections = WarpRoot(
+      planned_warp_binding::StaticReference<"get_Instance", NavigationSectionManager, NavigationSectionManager>());
+  if (!current_owner || !fleets || !sections)
+    return result;
+  e.owner            = WarpIdentity(current_owner);
+  const auto section = sections.Get<NavigationSectionManager>()->TryCall<"get_CurrentSection", SectionID>();
+  if (section)
+    e.section = std::to_underlying(section.value);
+  auto selected  = WarpRoot(fleets.Get<FleetsManager>()->TryCall<"GetFleetPlayerData", FleetPlayerData*(int32_t)>(
+      run->request.selected_index));
+  auto discovery = WarpRoot(fleets.Get<FleetsManager>()->TryCall<"GetFleetPlayerData", FleetPlayerData*(int32_t)>(
+      run->request.discovery_index));
+  if (!selected || !discovery || current_owner.Get() != run->owner.Get())
+    return result;
+  e.selected_object  = WarpIdentity(selected);
+  e.discovery_object = WarpIdentity(discovery);
+  e.selected         = WarpObservation(selected.Get<FleetPlayerData>()->TryId());
+  e.discovery        = WarpObservation(discovery.Get<FleetPlayerData>()->TryId());
+  auto address       = WarpRoot(discovery.Get<FleetPlayerData>()->TryAddress());
+  if (address)
+    e.destination_matches = WarpObservation(
+        run->destination.Get<NodeAddress>()->TryCall<"Equals", bool(NodeAddress*)>(address.Get<NodeAddress>()));
+  e.can_tow      = WarpObservation(owner->TryCall<"CanTow", bool(FleetPlayerData*)>(discovery.Get<FleetPlayerData>()));
+  e.can_be_towed = WarpObservation(owner->TryCall<"CanBeTowed", bool(FleetPlayerData*, FleetPlayerData*)>(
+      selected.Get<FleetPlayerData>(), discovery.Get<FleetPlayerData>()));
+  const auto state = tow_native::State(run->iterator.Get<tow_native::Routine>());
+  e.iterator_state = WarpObservation(state);
+  if (!state || state.value != -1)
+    return result;
+  const auto course = owner->TryPlannedCourse(run->request.selected);
+  if (!course)
+    return result;
+  if (!course.value) {
+    e.course = 0; // Successful null is distinct from unavailable observation.
+    return result;
+  }
+  result.course = WarpRoot(course);
+  if (!result.course)
+    return result;
+  e.course            = WarpIdentity(result.course);
+  e.course_fleet      = WarpObservation(result.course.Get<CourseData>()->TryFleetId());
+  e.course_in_use     = WarpObservation(result.course.Get<CourseData>()->TryInUse());
+  auto path           = WarpRoot(result.course.Get<CourseData>()->TryPath());
+  auto target         = WarpRoot(result.course.Get<CourseData>()->TryTarget());
+  auto target_address = target ? WarpRoot(target.Get<CourseNode>()->TryAddress()) : il2cpp::GcHandle{};
+  if (path)
+    e.course_valid = WarpObservation(path.Get<PathFinderResultData>()->TryCall<"get_Valid", bool>());
+  if (target_address)
+    e.course_destination_matches = WarpObservation(
+        run->destination.Get<NodeAddress>()->TryCall<"Equals", bool(NodeAddress*)>(target_address.Get<NodeAddress>()));
+  e.generation = DiscoveryTowing().generation; // Every managed call above can reenter cancellation.
+  return result;
+}
+void DiscoveryTowFrame()
+{
+  auto&      state = DiscoveryTowing();
+  const auto run   = state.run;
+  if (!run || state.updating)
+    return;
+  if (!TowInputMode()) {
+    CancelDiscoveryTow();
+    return;
+  }
+  if (TowMilliseconds() >= run->request.deadline_ms) {
+    CancelDiscoveryTow();
+    return;
+  }
+  if (run->starting || TowClock::now() < run->next_poll)
+    return;
+  state.updating = true;
+  struct Updating {
+    bool& active;
+    ~Updating()
+    { active = false; }
+  } updating{state.updating};
+  run->next_poll      = TowClock::now() + std::chrono::milliseconds(50);
+  const auto observed = ObserveDiscoveryTow(run);
+  if (!TowCurrent(run))
+    return;
+  const auto decision = discovery_tow::Evaluate(run->request, observed.evidence);
+  if (decision == discovery_tow::Decision::Wait)
+    return;
+  if (decision == discovery_tow::Decision::Cancel) {
+    CancelDiscoveryTow();
+    return;
+  }
+  // Retire BEFORE StopCoroutine or submitting: both can reenter. A replacement
+  // request wins, and this exact operation can submit at most once.
+  state.run.reset();
+  const auto ticket = ++state.generation;
+  StopDiscoveryTow(run);
+  if (state.generation != ticket || state.run)
+    return;
+  auto completed       = run->request;
+  completed.generation = ticket;
+  const auto current   = ObserveDiscoveryTow(run);
+  if (state.generation != ticket || state.run || !TowInputMode() || !TowOwnerAlive(run->owner.Get<DeploymentManager>())
+      || current.course.Get() != observed.course.Get()
+      || discovery_tow::Evaluate(completed, current.evidence) != discovery_tow::Decision::Submit)
+    return;
+  const auto submitted = tow_native::Submit(run->owner.Get<DeploymentManager>(), completed.selected,
+                                            completed.discovery, run->callbacks.Get<tow_native::Reference>());
+  spdlog::info("[Hotkeys] Discovery tow for fleet {}: {}", completed.selected,
+               submitted ? "request submitted" : "request unavailable");
+}
+bool BeginDiscoveryTow(FleetBarViewController* bar, int32_t index)
+{
+  auto&      state  = DiscoveryTowing();
+  const auto ticket = ++state.generation;
+  auto       old    = std::exchange(state.run, {});
+  StopDiscoveryTow(old);
+  if (state.generation != ticket || !TowInputMode() || !tow_native::Native().ready)
+    return false;
+  auto owner  = WarpRoot(planned_warp_binding::StaticReference<"get_Instance", DeploymentManager, DeploymentManager>());
+  auto fleets = WarpRoot(planned_warp_binding::StaticReference<"get_Instance", FleetsManager, FleetsManager>());
+  auto sections = WarpRoot(
+      planned_warp_binding::StaticReference<"get_Instance", NavigationSectionManager, NavigationSectionManager>());
+  auto context = WarpRoot(bar->TryCall<"get_CanvasContext", FleetBarContext*>());
+  if (!owner || !fleets || !sections || !context || !TowOwnerAlive(owner.Get<DeploymentManager>()))
+    return false;
+  auto selected =
+      WarpRoot(fleets.Get<FleetsManager>()->TryCall<"GetFleetPlayerData", FleetPlayerData*(int32_t)>(index));
+  auto data = WarpRoot(context.Get<FleetBarContext>()->TryCall<"get_FleetData", il2cpp::ArrayObject*>());
+  if (!selected || !data)
+    return false;
+  const auto array = il2cpp::TryReferenceArray<FleetPlayerData*>(data.Get());
+  if (!array || !array.value)
+    return false;
+  il2cpp::GcHandle discovery;
+  int32_t          discovery_slot = -1;
+  for (auto* candidate : il2cpp::Items(array.value)) {
+    auto root = WarpRoot(candidate);
+    if (!candidate)
+      continue;
+    if (!root)
+      return false;
+    const auto hull = planned_warp_binding::Scalar<"get_HullId", int64_t>(root.Get<FleetPlayerData>());
+    const auto slot = planned_warp_binding::Scalar<"get_Index", int32_t>(root.Get<FleetPlayerData>());
+    if (!hull || !slot)
+      return false;
+    if (hull.value == 1307832955 && slot.value >= 0 && (discovery_slot < 0 || slot.value < discovery_slot)) {
+      discovery      = std::move(root);
+      discovery_slot = slot.value;
+    }
+  }
+  if (!discovery)
+    return false;
+  const auto selected_id     = selected.Get<FleetPlayerData>()->TryId();
+  const auto discovery_id    = discovery.Get<FleetPlayerData>()->TryId();
+  const auto discovery_index = planned_warp_binding::Scalar<"get_Index", int32_t>(discovery.Get<FleetPlayerData>());
+  const auto section         = sections.Get<NavigationSectionManager>()->TryCall<"get_CurrentSection", SectionID>();
+  auto       address         = WarpRoot(discovery.Get<FleetPlayerData>()->TryAddress());
+  auto       destination =
+      address ? WarpRoot(address.Get<NodeAddress>()->TryCall<"Clone", NodeAddress*>()) : il2cpp::GcHandle{};
+  if (!selected_id || !discovery_id || !discovery_index || !section || !destination || selected_id.value <= 0
+      || discovery_id.value <= 0 || selected_id.value == discovery_id.value || discovery_index.value != discovery_slot
+      || discovery_index.value == index)
+    return false;
+  const auto can_tow =
+      owner.Get<DeploymentManager>()->TryCall<"CanTow", bool(FleetPlayerData*)>(discovery.Get<FleetPlayerData>());
+  const auto can_be_towed =
+      owner.Get<DeploymentManager>()->TryCall<"CanBeTowed", bool(FleetPlayerData*, FleetPlayerData*)>(
+          selected.Get<FleetPlayerData>(), discovery.Get<FleetPlayerData>());
+  if (!can_tow || !can_tow.value || !can_be_towed || !can_be_towed.value)
+    return false;
+  auto run            = std::make_shared<DiscoveryTowRun>();
+  run->callbacks      = tow_native::Callbacks(); // Construct/read back real delegates before native work starts.
+  const auto baseline = owner.Get<DeploymentManager>()->TryPlannedCourse(selected_id.value);
+  if (!run->callbacks || !baseline)
+    return false;
+  run->baseline = WarpRoot(baseline);
+  if (baseline.value && !run->baseline)
+    return false;
+  run->owner       = std::move(owner);
+  run->selected    = std::move(selected);
+  run->discovery   = std::move(discovery);
+  run->destination = std::move(destination);
+  run->request     = {.generation       = ticket,
+                      .selected         = selected_id.value,
+                      .discovery        = discovery_id.value,
+                      .selected_index   = index,
+                      .discovery_index  = discovery_index.value,
+                      .section          = std::to_underlying(section.value),
+                      .owner            = WarpIdentity(run->owner),
+                      .selected_object  = WarpIdentity(run->selected),
+                      .discovery_object = WarpIdentity(run->discovery),
+                      .baseline         = WarpIdentity(run->baseline),
+                      .deadline_ms      = TowMilliseconds() + 30'000};
+  if (state.generation != ticket)
+    return false;
+  state.run     = run;
+  run->iterator = WarpRoot(tow_native::Plan(run->owner.Get<DeploymentManager>(), run->selected.Get<FleetPlayerData>(),
+                                            run->destination.Get<NodeAddress>()));
+  if (!TowCurrent(run))
+    return false;
+  if (!run->iterator
+      || !tow_native::FreshIterator(run->iterator.Get<tow_native::Routine>(), run->selected.Get<FleetPlayerData>(),
+                                    run->destination.Get<NodeAddress>())) {
+    CancelDiscoveryTow();
+    return false;
+  }
+  const auto started = tow_native::Start(run->owner.Get<DeploymentManager>(), run->iterator.Get<tow_native::Routine>());
+  run->coroutine     = WarpRoot(started);
+  if (!TowCurrent(run)) {
+    StopDiscoveryTow(run);
+    return false;
+  }
+  if (!started || !run->coroutine) {
+    CancelDiscoveryTow();
+    return false;
+  }
+  run->starting = false;
+  return true;
+}
+
 planned_system_warp::Visibility WarpViewerVisibility(StarNodeObjectViewerWidget* node)
 {
   auto source = WarpRoot(node);
@@ -586,6 +876,7 @@ bool ActionQueueManager_IsQueueUnlocked_Hook(auto original, ActionQueueManager* 
 // usable. Four checks a second are plenty for a button.
 void AbilityButtonsFrame()
 {
+  DiscoveryTowFrame(); // Runs in every input mode so disable/capture can retire pending native work.
   static Throttle throttle(std::chrono::milliseconds(250));
   if (!throttle.Due())
     return;
@@ -624,6 +915,8 @@ bool TargetViewerShown()
 
 bool SelectShipShortcuts()
 {
+  if (unity::Key::IsInputFocused())
+    return false;
   using Clock = std::chrono::steady_clock;
   // The number keys select a ship in the fleet bar; pressing the same one again within select_timer flies the
   // camera to it. With disable_preview_locate, the second press only selects while a target card is open.
@@ -632,16 +925,24 @@ bool SelectShipShortcuts()
   static auto          last_press = Clock::now();
   static int32_t       last_index = -1;
 
-  const auto ship = std::ranges::find_if(kShips, [](Action action) { return Shortcut::IsDown(action); });
-  // TODO(tashcan): Shift+ship used to request a tow by the Discovery. Its bindings had drifted, so it never ran on
-  // recent clients, and it was disabled until someone verifies it in game. Shift+ship does nothing meanwhile.
-  if (ship == kShips.end() || unity::Key::IsInputFocused())
+  const bool tow  = unity::Key::Pressed(unity::KeyCode::LeftShift) || unity::Key::Pressed(unity::KeyCode::RightShift);
+  const auto ship = std::ranges::find_if(
+      kShips, [tow](Action action) { return tow ? Shortcut::IsDownWithShift(action) : Shortcut::IsDown(action); });
+  if (ship == kShips.end())
     return false;
   const auto index = static_cast<int32_t>(ship - kShips.begin());
 
   auto* fleet_bar = unity::Newest<FleetBarViewController>();
-  if (!fleet_bar)
+  if (!fleet_bar) {
+    CancelDiscoveryTow();
     return false;
+  }
+
+  if (tow) {
+    (void)BeginDiscoveryTow(fleet_bar, index);
+    return true; // Shift+ship is the tow request, including an unavailable native contract.
+  }
+  CancelDiscoveryTow(); // Ordinary ship selection must not leave a previous tow pending.
 
   const auto now        = Clock::now();
   const bool can_locate = !Config::Get().ui.disable_preview_locate || !TargetViewerShown();

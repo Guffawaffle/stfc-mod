@@ -12,8 +12,11 @@
 #include <il2cpp/hook.h>
 #include <spdlog/spdlog.h>
 
+#include <array>
+#include <cmath>
 #include <optional>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace
@@ -26,6 +29,10 @@ public:
   // Set once every hook is in: an untracked OnDisable would leave a freed widget in the map.
   void MarkInstalled()
   { installed_ = true; }
+
+  // Settings writers do no managed work. The next live system camera update owns the refresh.
+  void Refresh()
+  { refresh_pending_ = true; }
 
   uint64_t Revision(NavigationLOD* lod) const
   {
@@ -40,10 +47,10 @@ public:
            || config.graphics.zoom_label_non_player.detail != FleetLabelDetail::kNative;
   }
 
-  // The level `lod` should show instead of `native`, or nothing when its fleet is not tracked or labels are native.
+  // The level `lod` should show, including Native restoration, or nothing without a qualified tracked fleet.
   std::optional<ZoomLevels> LevelFor(NavigationLOD* lod, ZoomLevels native) const
   {
-    const auto* profile = Enabled() ? Profile(lod) : nullptr;
+    const auto profile = Profile(lod);
     if (!profile)
       return std::nullopt;
     // Expanded keeps Near where the game would show it, and lifts everything else to Middle.
@@ -90,16 +97,20 @@ public:
     const auto found = widgets_.find(lod);
     if (found == widgets_.end() || found->second.widget.Get() != widget)
       return;
-    auto widget_root = il2cpp::GcHandle::Strong(widget);
-    auto lod_root    = il2cpp::GcHandle::Strong(lod);
+    auto       widget_root     = il2cpp::GcHandle::Strong(widget);
+    auto       lod_root        = il2cpp::GcHandle::Strong(lod);
+    const auto camera_revision = camera_revision_;
+    const auto level           = camera_.zoom_level;
+    const bool zoom_known      = camera_.zoom_known;
     widgets_.erase(found);
     // Give a reused widget back to the game at the game's own level.
-    if (widget->Context() && camera_.zoom_known && Enabled()) {
-      lod->SetTargetLevel(camera_.zoom_level);
-      lod->UpdateLOD(camera_.zoom_level);
+    if (widget_root && lod_root && unity::Alive(widget) && unity::Alive(lod) && widget->Context()
+        && widget->lod() == lod && !widgets_.contains(lod) && zoom_known && camera_revision_ == camera_revision) {
+      lod->SetTargetLevel(level);
+      lod->UpdateLOD(level);
       // UpdateLOD can bind a replacement owner; do not overwrite its bookkeeping.
-      if (!widgets_.contains(lod))
-        lod->SetTargetLevel(camera_.zoom_level);
+      if (unity::Alive(lod) && !widgets_.contains(lod) && camera_revision_ == camera_revision)
+        lod->SetTargetLevel(level);
     }
   }
 
@@ -110,8 +121,10 @@ public:
       return;
     if (depth == NodeDepth::SolarSystem)
       Follow(zoom);
-    else if (camera_.zoom == zoom)
+    else if (camera_.zoom == zoom) {
       camera_ = {};
+      ++camera_revision_;
+    }
   }
 
   // After the camera's own update: picks up the zoom level and re-applies labels when they change.
@@ -119,15 +132,33 @@ public:
   {
     if (!installed_ || zoom->depth() != NodeDepth::SolarSystem)
       return;
+    if (refreshing_) {
+      // An unchanged nested update needs no second batch. A different camera retires the current one.
+      if (camera_.zoom != zoom) {
+        Follow(zoom);
+        refresh_pending_ = true;
+      }
+      return;
+    }
     Follow(zoom);
+    // Copy profiles, including values changed by a TOML reload. No Config reference survives native callbacks.
+    const auto profiles  = CurrentProfiles();
+    const bool changed   = !profiles_known_ || !SameProfiles(profiles_, profiles);
+    const bool refresh   = std::exchange(refresh_pending_, false) || changed;
+    profiles_            = profiles;
+    profiles_known_      = true;
     const bool was_known = camera_.zoom_known;
     camera_.zoom_level   = zoom->zoomLevel();
     camera_.zoom_known   = true;
+    if (refresh)
+      camera_.threshold_known = false;
     if (UsesThreshold()) {
       camera_.normalized_zoom = zoom->NormalizedZoom();
       UpdateThreshold();
-    } else if (!was_known) {
-      ApplyAll();
+    } else {
+      camera_.threshold_known = false;
+      if (!was_known || refresh)
+        ApplyAll();
     }
   }
 
@@ -137,37 +168,49 @@ private:
     uint64_t         generation{};
   };
 
-  const FleetLabelProfile* Profile(NavigationLOD* lod) const
+  std::optional<FleetLabelProfile> Profile(NavigationLOD* lod) const
   {
     const auto it = widgets_.find(lod);
-    if (it == widgets_.end())
-      return nullptr;
+    if (it == widgets_.end() || it->second.lod.Get() != lod)
+      return std::nullopt;
     const auto generation  = it->second.generation;
     auto       widget_root = il2cpp::GcHandle::Strong(it->second.widget.Get());
     auto*      widget      = widget_root.Get<NavigationFleetWidget>();
-    if (!widget || !unity::Alive(widget))
-      return nullptr;
+    if (!widget || !unity::Alive(widget) || widget->lod() != lod)
+      return std::nullopt;
     auto       fleet_root = il2cpp::GcHandle::Strong(widget->Context());
     auto*      fleet      = fleet_root.Get<FleetDeployedData>();
     const auto current    = widgets_.find(lod);
     if (current == widgets_.end() || current->second.generation != generation)
-      return nullptr;
+      return std::nullopt;
     if (!fleet)
-      return nullptr;
+      return std::nullopt;
     const auto kind = fleet->TryCall<"get_FleetType", DeployedFleetType>();
     if (!kind || Revision(lod) != generation)
-      return nullptr;
+      return std::nullopt;
     const auto& config = Config::Get();
-    return kind.value == DeployedFleetType::Player ? &config.graphics.zoom_label_player
-                                                   : &config.graphics.zoom_label_non_player;
+    return kind.value == DeployedFleetType::Player ? config.graphics.zoom_label_player
+                                                   : config.graphics.zoom_label_non_player;
   }
 
-  static bool UsesThreshold()
+  using Profiles = std::array<FleetLabelProfile, 2>;
+  static Profiles CurrentProfiles()
   {
-    const auto& config = Config::Get();
-    return config.graphics.zoom_label_player.detail == FleetLabelDetail::kThreshold
-           || config.graphics.zoom_label_non_player.detail == FleetLabelDetail::kThreshold;
+    const auto& graphics = Config::Get().graphics;
+    return {graphics.zoom_label_player, graphics.zoom_label_non_player};
   }
+  static bool SameProfiles(const Profiles& left, const Profiles& right)
+  {
+    for (size_t i = 0; i < left.size(); ++i)
+      if (left[i].detail != right[i].detail
+          || !(left[i].zoom_threshold == right[i].zoom_threshold
+               || (std::isnan(left[i].zoom_threshold) && std::isnan(right[i].zoom_threshold))))
+        return false;
+    return true;
+  }
+
+  bool UsesThreshold() const
+  { return profiles_[0].detail == FleetLabelDetail::kThreshold || profiles_[1].detail == FleetLabelDetail::kThreshold; }
 
   // Labels expand when zoomed in at least as far as the threshold. 0 never expands, 1 always does.
   bool ExpandedAt(float threshold) const
@@ -175,21 +218,38 @@ private:
 
   void Follow(NavigationZoom* zoom)
   {
-    if (camera_.zoom != zoom)
+    if (camera_.zoom != zoom) {
       camera_ = {.zoom = zoom};
+      ++camera_revision_;
+    }
   }
 
   // UpdateLOD goes through the hook, which picks each label's level.
   void ApplyAll()
   {
-    if (!Enabled())
+    if (refreshing_) {
+      refresh_pending_ = true;
       return;
+    }
+    refreshing_ = true;
+    struct Done {
+      bool& flag;
+      ~Done()
+      { flag = false; }
+    } done{refreshing_};
+    const auto camera_revision = camera_revision_;
+    const auto level           = camera_.zoom_level;
     // Native updates can release/rebind any widget, invalidating map iterators and old receiver identities.
     std::vector<std::pair<NavigationLOD*, uint64_t>> pending;
     pending.reserve(widgets_.size());
     for (const auto& [key, binding] : widgets_)
       pending.emplace_back(key, binding.generation);
     for (const auto& [key, generation] : pending) {
+      // A nested camera transition or preference edit retires this batch. Reapply from the next live update.
+      if (camera_revision_ != camera_revision || refresh_pending_ || !SameProfiles(profiles_, CurrentProfiles())) {
+        refresh_pending_ = true;
+        return;
+      }
       auto found = widgets_.find(key);
       if (found == widgets_.end() || found->second.generation != generation)
         continue;
@@ -203,20 +263,21 @@ private:
       }
       auto* context = widget->Context();
       found         = widgets_.find(key);
-      if (context && found != widgets_.end() && found->second.generation == generation)
-        lod->UpdateLOD(camera_.zoom_level);
+      if (context && widget->lod() == lod && found != widgets_.end() && found->second.generation == generation
+          && camera_revision_ == camera_revision)
+        lod->UpdateLOD(level);
     }
   }
 
   // Re-applies labels only when a threshold profile crosses its threshold, not on every zoom step.
   void UpdateThreshold()
   {
-    const auto& graphics = Config::Get().graphics;
-    const auto  expanded = [this](const FleetLabelProfile& profile) {
+    const auto profiles = profiles_;
+    const auto expanded = [this](const FleetLabelProfile& profile) {
       return profile.detail == FleetLabelDetail::kThreshold && ExpandedAt(profile.zoom_threshold);
     };
-    const bool player     = expanded(graphics.zoom_label_player);
-    const bool non_player = expanded(graphics.zoom_label_non_player);
+    const bool player     = expanded(profiles[0]);
+    const bool non_player = expanded(profiles[1]);
     if (camera_.threshold_known && player == camera_.player_expanded && non_player == camera_.non_player_expanded)
       return;
     camera_.threshold_known     = true;
@@ -238,8 +299,10 @@ private:
     bool non_player_expanded = false;
   };
 
-  bool                                        installed_ = false;
-  uint64_t                                    generation_{};
+  bool                                        installed_       = false;
+  bool                                        refresh_pending_ = false, refreshing_ = false, profiles_known_ = false;
+  uint64_t                                    generation_{}, camera_revision_{};
+  Profiles                                    profiles_{};
   std::unordered_map<NavigationLOD*, Binding> widgets_;
   Camera                                      camera_;
 };
@@ -258,10 +321,14 @@ void NavigationLOD_UpdateLOD_Hook(auto original, NavigationLOD* _this, ZoomLevel
       _this->SetTargetLevel(galaxy);
     return original(_this, galaxy);
   }
-  // The target level is set on both sides of the update so the game's own bookkeeping agrees with ours.
+  auto owner = il2cpp::GcHandle::Strong(_this);
+  if (!owner || fleet_labels.Revision(_this) != revision)
+    return original(_this, level);
+  // Qualified tracked fleet rows include Native profiles. Reset their target on both sides too, so a previous
+  // forced detail cannot survive the last override being disabled. Foreign POI LODs retain the path above.
   _this->SetTargetLevel(*effective);
   original(_this, *effective);
-  if (revision && fleet_labels.Revision(_this) == revision)
+  if (revision && unity::Alive(_this) && fleet_labels.Revision(_this) == revision)
     _this->SetTargetLevel(*effective);
 }
 
@@ -341,5 +408,8 @@ void FleetLabelsFollowDepth(NavigationZoom* zoom, NodeDepth depth)
 
 void FleetLabelsAfterZoom(NavigationZoom* zoom)
 { fleet_labels.OnZoomed(zoom); }
+
+void RefreshFleetLabelControls()
+{ fleet_labels.Refresh(); }
 
 const Feature kFleetLabels{"FleetLabels", &Config::Patches::zoomhooks, InstallFleetLabels};

@@ -135,4 +135,15 @@ void AdjustUiShipScale(bool up)
   RescaleLoadedShips(change.previous, change.value);
 }
 
+bool SetUiShipScale(float value)
+{
+  auto& current = Config::Get().graphics.ui_scale_ship;
+  if (!std::isfinite(value) || value <= 0.0f || !std::isfinite(current) || current <= 0.0f)
+    return false;
+  const auto previous = current;
+  current             = value;
+  RescaleLoadedShips(previous, value);
+  return true;
+}
+
 const Feature kUiScale{"UiScale", &Config::Patches::uiscalehooks, InstallUiScale};

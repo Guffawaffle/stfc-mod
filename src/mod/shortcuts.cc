@@ -3,6 +3,7 @@
 
 #include "shortcuts.h"
 #include "keyboard_layout.h"
+#include "settings/shortcut_capture_guard.h"
 
 #include "text.h"
 
@@ -167,7 +168,9 @@ std::string DescribeChords(const std::vector<KeyChord>& chords)
 // --- Matching ---
 
 // The live bindings, replaced whole by Set. Game thread only, like the input they are matched against.
-Shortcut::Bindings bindings;
+Shortcut::Bindings                 bindings;
+mod_settings::ShortcutCaptureGuard capture_guard;
+uint64_t                           binding_generation = 0;
 
 const std::vector<KeyChord>& ChordsOf(Action action)
 { return bindings[std::to_underlying(action)]; }
@@ -188,7 +191,7 @@ bool ModifiersHeld(const KeyChord& chord)
       chord.modifiers, [](const auto* modifier) { return std::ranges::any_of(modifier->keys, unity::Key::Pressed); });
 }
 
-template <bool (*KeyState)(unity::KeyCode)> bool Matches(Action action)
+template <bool (*KeyState)(unity::KeyCode), bool ExtraShift = false> bool Matches(Action action)
 {
   for (const auto& chord : ChordsOf(action)) {
     const auto resolved = keyboard_layout::ResolveChord(chord.key);
@@ -199,7 +202,7 @@ template <bool (*KeyState)(unity::KeyCode)> bool Matches(Action action)
       continue;
     if (chord.modifiers.empty()) {
       bool modified = unity::Key::IsModified();
-      if (resolved.shift) {
+      if (resolved.shift || ExtraShift) {
         // Inferred Shift types the configured character; other modifiers still
         // prevent a bare action from stealing a Ctrl/Alt/Command shortcut.
         constexpr auto other_modifiers =
@@ -216,7 +219,8 @@ template <bool (*KeyState)(unity::KeyCode)> bool Matches(Action action)
     }
     const bool movement = action == Action::kMoveLeft || action == Action::kMoveRight || action == Action::kMoveUp
                           || action == Action::kMoveDown;
-    if ((!chord.modifiers.empty() || resolved.shift) && !movement && !std::ranges::contains(used_keys, resolved.key))
+    if ((!chord.modifiers.empty() || resolved.shift || ExtraShift) && !movement
+        && !std::ranges::contains(used_keys, resolved.key))
       used_keys.push_back(resolved.key);
     return true;
   }
@@ -327,6 +331,19 @@ KeyChord KeyChord::Parse(std::string_view text)
   return chord;
 }
 
+std::optional<KeyChord> KeyChord::ParseExact(std::string_view text)
+{
+  const auto normalized = AsciiStrToUpper(StripAsciiWhitespace(text));
+  auto       chord      = Parse(normalized);
+  if (chord.key == unity::KeyCode::None || chord.Text() != normalized)
+    return {};
+  for (size_t index = 0; index < chord.modifiers.size(); ++index)
+    if (std::find(chord.modifiers.begin(), chord.modifiers.begin() + index, chord.modifiers[index])
+        != chord.modifiers.begin() + index)
+      return {};
+  return chord;
+}
+
 std::string KeyChord::Text() const
 {
   std::string text;
@@ -352,6 +369,101 @@ std::string KeyChord::Hint() const
 
 namespace Shortcut
 {
+std::span<const ActionInfo> Catalog() noexcept
+{
+  static constexpr auto catalog = [] {
+    std::array<ActionInfo, std::size(kSettings)> result{};
+    for (size_t index = 0; index < result.size(); ++index) {
+      const auto& source = kSettings[index];
+      result[index]      = {source.action, source.key, source.fallback, source.tier != Tier::kAlways,
+                            source.tier == Tier::kExperimental};
+    }
+    return result;
+  }();
+  return catalog;
+}
+
+std::string KeyToken(unity::KeyCode key)
+{
+  using unity::KeyCode;
+  if (key >= KeyCode::A && key <= KeyCode::Z)
+    return std::string(1, static_cast<char>('A' + std::to_underlying(key) - std::to_underlying(KeyCode::A)));
+  if (key >= KeyCode::Alpha0 && key <= KeyCode::Alpha9)
+    return std::string(1, static_cast<char>('0' + std::to_underlying(key) - std::to_underlying(KeyCode::Alpha0)));
+  if (key >= KeyCode::F1 && key <= KeyCode::F15)
+    return "F" + std::to_string(1 + std::to_underlying(key) - std::to_underlying(KeyCode::F1));
+  if (key >= KeyCode::Keypad0 && key <= KeyCode::Keypad9)
+    return "KEY" + std::to_string(std::to_underlying(key) - std::to_underlying(KeyCode::Keypad0));
+  const auto found = std::ranges::find(kKeys, key, &KeyName::key);
+  return found == std::end(kKeys) ? std::string{} : std::string(found->name);
+}
+
+BindingSnapshot Read(Action action)
+{
+  if (std::to_underlying(action) >= bindings.size())
+    return {};
+  BindingSnapshot result{{}, binding_generation};
+  result.alternatives.reserve(ChordsOf(action).size());
+  for (const auto& chord : ChordsOf(action))
+    result.alternatives.push_back(chord.Text());
+  return result;
+}
+
+static bool ReplaceAlternatives(Action action, std::span<const std::string> alternatives, uint64_t expected_generation,
+                                bool preserve_duplicates)
+{
+  if (std::to_underlying(action) >= bindings.size() || expected_generation == 0
+      || expected_generation != binding_generation)
+    return false;
+  std::vector<KeyChord> parsed;
+  parsed.reserve(alternatives.size());
+  for (const auto& text : alternatives) {
+    auto chord = KeyChord::ParseExact(text);
+    if (!chord || (!preserve_duplicates && std::ranges::any_of(parsed, [&](const auto& previous) {
+          return previous.Text() == chord->Text();
+        })))
+      return false;
+    parsed.push_back(std::move(*chord));
+  }
+  // Validation is complete before any live state or input ownership is changed.
+  auto next                        = bindings;
+  next[std::to_underlying(action)] = std::move(parsed);
+  Set(std::move(next));
+  return true;
+}
+
+bool Replace(Action action, std::span<const std::string> alternatives, uint64_t expected_generation)
+{ return ReplaceAlternatives(action, alternatives, expected_generation, false); }
+
+bool Restore(Action action, const BindingSnapshot& previous, uint64_t expected_generation)
+{ return previous.generation != 0 && ReplaceAlternatives(action, previous.alternatives, expected_generation, true); }
+
+std::optional<bool> MayOverlap(const KeyChord& first, const KeyChord& second)
+{
+  if (first.key == unity::KeyCode::None || second.key == unity::KeyCode::None)
+    return false;
+  const auto a = keyboard_layout::DescribeChord(first.key);
+  const auto b = keyboard_layout::DescribeChord(second.key);
+  if (a.key == unity::KeyCode::None || b.key == unity::KeyCode::None)
+    return {};
+  if (a.key != b.key)
+    return false;
+  // Modified chords accept additional modifiers. A bare chord admits none, except the Shift needed to type
+  // its printable character. This is the same restriction used by Matches, without polling/claiming keys.
+  const auto admits = [](const KeyChord& bare, bool inferred_shift, const KeyChord& other, bool other_shift) {
+    if (!bare.modifiers.empty())
+      return true;
+    if (!inferred_shift)
+      return other.modifiers.empty() && !other_shift;
+    return std::ranges::all_of(other.modifiers, [](const auto* modifier) {
+      return std::ranges::any_of(modifier->keys, [](auto key) {
+        return key == unity::KeyCode::LeftShift || key == unity::KeyCode::RightShift;
+      });
+    });
+  };
+  return admits(first, a.shift, second, b.shift) && admits(second, b.shift, first, a.shift);
+}
+
 Bindings Parse(const toml::table& config, toml::table& parsed, bool extended, bool experimental)
 {
   Bindings    result;
@@ -373,14 +485,34 @@ Bindings Parse(const toml::table& config, toml::table& parsed, bool extended, bo
 void Set(Bindings next) noexcept
 {
   bindings = std::move(next);
+  if (++binding_generation == 0)
+    ++binding_generation;
   used_keys.clear();
   for (const auto& chords : bindings)
     for (const auto& chord : chords)
       keyboard_layout::RegisterShortcut(chord.key);
 }
 
+CaptureToken ClaimCapture() noexcept
+{ return capture_guard.Claim(); }
+
+bool CaptureOwnedBy(CaptureToken token) noexcept
+{ return capture_guard.Owns(token); }
+
+bool CaptureReady(CaptureToken token) noexcept
+{ return capture_guard.Ready(token); }
+
+bool ReleaseCapture(CaptureToken token) noexcept
+{ return capture_guard.Release(token); }
+
+bool CaptureBlocksShortcuts() noexcept
+{ return capture_guard.BlocksShortcuts(); }
+
+void UpdateCapture(bool focused, bool held) noexcept
+{ capture_guard.BeforeDispatch(focused, held); }
+
 bool Owns(unity::KeyCode key)
-{ return IsUsed(key); }
+{ return capture_guard.BlocksShortcuts() ? unity::Key::Pressed(key) : IsUsed(key); }
 
 bool HasBinding(Action action)
 {
@@ -388,10 +520,17 @@ bool HasBinding(Action action)
 }
 
 bool IsPressed(Action action)
-{ return Matches<unity::Key::Pressed>(action); }
+{ return !capture_guard.BlocksShortcuts() && Matches<unity::Key::Pressed>(action); }
 
 bool IsDown(Action action)
-{ return Matches<unity::Key::Down>(action); }
+{ return !capture_guard.BlocksShortcuts() && Matches<unity::Key::Down>(action); }
+
+bool IsDownWithShift(Action action)
+{
+  return !capture_guard.BlocksShortcuts()
+         && (unity::Key::Pressed(unity::KeyCode::LeftShift) || unity::Key::Pressed(unity::KeyCode::RightShift))
+         && Matches<unity::Key::Down, true>(action);
+}
 
 std::string Describe(Action action)
 { return DescribeChords(ChordsOf(action)); }

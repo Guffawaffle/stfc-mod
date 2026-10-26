@@ -296,6 +296,9 @@ bool FocusSearchBox()
 }
 } // namespace
 
+void CancelAwaitedButton()
+{ pending_button.reset(); }
+
 bool PressAwaitedButton()
 {
   const auto& control = Config::Get().control;

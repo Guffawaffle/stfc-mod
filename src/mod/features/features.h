@@ -153,6 +153,8 @@ extern const Feature kShipShortcutBadges;
 // game's own update.
 void FleetLabelsFollowDepth(NavigationZoom* zoom, NodeDepth depth);
 void FleetLabelsAfterZoom(NavigationZoom* zoom);
+// Queue label reapplication for the next live system camera update.
+void RefreshFleetLabelControls();
 
 // opc_indicators.cc
 extern const Feature kOpcIndicators;
@@ -216,10 +218,17 @@ extern const Feature kOfficerSort;
 
 // settings.cc: native FC/FT confirmation core; full Mod Settings pages are restored separately.
 extern const Feature kNativeSettings;
+extern const Feature kNativeSettingsValues;
+extern const Feature kNativeSettingsActions;
+extern const Feature kNativeSettingsTextEntry;
+extern const Feature kNativeSettingsPages;
+extern const Feature kNativeSettingsSearch;
 
 // screens.cc: shortcut helpers only, so no descriptor.
 // Presses a button a screen shortcut opened a screen for, once the screen is up. True when one was pressed.
 bool PressAwaitedButton();
+// Input capture retires deferred screen requests without pressing a native button.
+void CancelAwaitedButton();
 // The shortcuts that open, step through, or search game screens. True when the key must not reach the game.
 bool ScreenShortcuts();
 
@@ -245,6 +254,8 @@ extern const Feature kUiScale;
 void AdjustUiScale(bool up);
 void AdjustUiShipScale(bool up);
 void AdjustUiViewerScale(bool up);
+// Exact Settings edits use the same loaded-model refresh as the ship-scale shortcut. Persistence remains with caller.
+bool SetUiShipScale(float value);
 
 // window.cc. Resizing and the cursor are Windows only.
 #if _WIN32

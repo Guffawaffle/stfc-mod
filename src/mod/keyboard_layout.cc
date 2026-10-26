@@ -16,17 +16,16 @@ namespace
   RefreshState                     refresh;
   BindingState                     bindings;
   std::array<bool, LayoutKeyCount> requested{}, required_shift{};
-  std::string                      layout_name, status = "physical", reason = "configured_physical";
-  unsigned                         generation = 0;
+  std::string                      layout_name;
+  DiagnosticState                  diagnostics;
 
-  void Publish(std::string next, std::string why)
+  void Publish(std::string_view next, std::string_view why)
   {
-    if (status == next && reason == why)
+    if (!diagnostics.Publish(layout_name, next, why))
       return;
-    status = std::move(next);
-    reason = std::move(why);
-    spdlog::info("[KeyboardLayout] status={} layout='{}' generation={} reason={}", status, layout_name, ++generation,
-                 reason);
+    const auto& snapshot = diagnostics.Snapshot();
+    spdlog::info("[KeyboardLayout] status={} layout='{}' generation={} reason={}", snapshot.status, snapshot.layout,
+                 snapshot.generation, snapshot.reason);
   }
   void Unavailable(const char* why)
   {
@@ -97,6 +96,7 @@ void Configure(std::string_view mode)
   enabled = next;
   bindings.Clear();
   required_shift = {};
+  layout_name.clear();
   refresh.Invalidate();
   if (!enabled)
     Publish("physical", "configured_physical");
@@ -112,6 +112,10 @@ void RegisterShortcut(KeyCode key) noexcept
     refresh.Invalidate();
   }
 }
+DiagnosticSnapshot ReadDiagnostics()
+{ return diagnostics.Snapshot(); }
+bool DiagnosticsChanged(uint64_t accepted_generation) noexcept
+{ return diagnostics.ChangedSince(accepted_generation); }
 ResolvedChord ResolveChord(KeyCode configured)
 {
   if (!enabled || !IsLayoutKey(configured))

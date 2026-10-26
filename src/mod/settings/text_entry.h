@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -15,6 +16,9 @@ struct TextEntryRequest {
   std::function<void()>                        cancel;
   bool                                         read_only   = false;
   std::string                                  apply_label = "Apply";
+  // A read-only recording popup samples raw input; Return is a candidate, never implicit Apply.
+  std::function<std::optional<std::string>()> record_frame;
+  std::function<void()>                       record_again;
 };
 #if defined(STFC_SETTINGS_TEXT_ENTRY_FIXTURE) || (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 bool OpenTextEntry(TextEntryRequest request);

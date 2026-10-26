@@ -450,6 +450,10 @@ void ReadSyncTargets(Reader& reader, std::map<std::string, SyncTargetConfig>& sy
 // --- Files and activation ---
 
 std::unique_ptr<Config> current_config;
+// The vars document follows accepted settings, never a rejected parse or the primary editor's write queue.
+std::optional<toml::table> accepted_effective;
+std::optional<uint64_t>    saved_keyboard_generation;
+bool                       reported_keyboard_save_failure = false;
 // Detached sync workers can still read during static teardown, so the publication slot lives until process exit.
 auto& sync_config = *new std::shared_ptr<const Config::Sync>{std::make_shared<const Config::Sync>()};
 
@@ -526,6 +530,58 @@ bool Save(const toml::table& table, const std::string& name, bool warning_header
   return false;
 }
 
+bool SaveRuntimeVars(const toml::table& effective, bool startup)
+{
+  try {
+    const auto diagnostics = keyboard_layout::ReadDiagnostics();
+    auto       vars        = effective;
+    vars.insert_or_assign("keyboard_mapping", toml::table{{"layout", diagnostics.layout},
+                                                          {"status", diagnostics.status},
+                                                          {"reason", diagnostics.reason},
+                                                          {"generation", std::to_string(diagnostics.generation)}});
+    if (!Save(vars, File::Vars(), true, startup))
+      return false;
+    saved_keyboard_generation      = diagnostics.generation;
+    reported_keyboard_save_failure = false;
+    return true;
+  } catch (const std::exception& error) {
+    if (!startup)
+      throw;
+    ReportStartupSaveFailure(File::Vars(), error.what());
+  } catch (...) {
+    if (!startup)
+      throw;
+    ReportStartupSaveFailure(File::Vars(), "unknown diagnostics preparation failure");
+  }
+  return false;
+}
+
+void ReportKeyboardSaveFailure(std::string_view error) noexcept
+{
+  if (std::exchange(reported_keyboard_save_failure, true))
+    return;
+  try {
+    spdlog::warn("could not update keyboard diagnostics in {}: {}; the accepted settings remain active; will retry",
+                 File::Vars(), error);
+  } catch (...) {
+  }
+}
+
+// Native input only publishes scalar diagnostics. The existing once-per-second settings check owns their I/O.
+void RefreshKeyboardDiagnostics() noexcept
+{
+  if (!accepted_effective
+      || (saved_keyboard_generation && !keyboard_layout::DiagnosticsChanged(*saved_keyboard_generation)))
+    return;
+  try {
+    SaveRuntimeVars(*accepted_effective, false);
+  } catch (const std::exception& error) {
+    ReportKeyboardSaveFailure(error.what());
+  } catch (...) {
+    ReportKeyboardSaveFailure("unknown output failure");
+  }
+}
+
 // Writes `effective` as the runtime vars file. At startup it also becomes the
 // settings file when there is none, so a new user starts from a complete list
 // of settings.
@@ -547,7 +603,7 @@ bool SaveEffective(const toml::table& effective, bool startup)
     }
   }
   spdlog::info("writing the settings in effect to {}", File::Vars());
-  Save(effective, File::Vars(), true, startup);
+  SaveRuntimeVars(effective, startup);
   return created_primary;
 }
 } // namespace
@@ -594,6 +650,8 @@ Config& Config::Get()
     // only a successfully created complete primary supplies effective defaults.
     runtime_config::Configure(file ? *file : created ? effective : toml::table{});
     Activate(std::move(config));
+    accepted_effective = std::move(effective);
+    RefreshKeyboardDiagnostics();
   }
   return *current_config;
 }
@@ -625,6 +683,8 @@ bool Config::Reload()
     return false;
   }
   Activate(std::move(next));
+  accepted_effective = std::move(effective);
+  RefreshKeyboardDiagnostics();
   return true;
 }
 
@@ -640,6 +700,7 @@ void Config::ReloadIfChanged()
   if (now < next_check)
     return;
   next_check = now + std::chrono::seconds(1);
+  RefreshKeyboardDiagnostics();
 
   std::error_code error;
   const auto      time = std::filesystem::last_write_time(File::Path(File::Config()), error);

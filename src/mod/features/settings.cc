@@ -43,7 +43,9 @@ struct NativeSettingsState {
   NativeCallback<bool>                                                get;
   NativeCallback<void, bool>                                          set;
   NativeCallback<int>                                                 query;
-  mod_settings::native::PageAppender                                  append = nullptr;
+  mod_settings::native::PageAppender                                  append     = nullptr;
+  mod_settings::native::BooleanResolver                               resolve    = nullptr;
+  mod_settings::native::PageInvalidator                               invalidate = nullptr;
   std::thread::id                                                     thread;
   bool                                                                active = false;
 };
@@ -139,6 +141,8 @@ BooleanSetting* BooleanFor(SettingsOptionContext* context)
   for (auto* setting : {&FleetCommanderConfirmationSetting(), &ForbiddenTechConfirmationSetting()})
     if (context->HasLabel(setting->id()))
       return setting;
+  if (SettingsState().resolve)
+    return SettingsState().resolve(context);
   return nullptr;
 }
 bool OwnsBoolean(ToggleOptionContext* context)
@@ -588,6 +592,8 @@ void SettingsSectionDirector_AddGeneralSettings_Hook(auto original, SettingsSect
 void PrefsBoundary(auto original, PersistentPrefsManager* prefs)
 {
   if (SettingsThread()) {
+    if (SettingsState().invalidate)
+      SettingsState().invalidate();
     InvalidateConfirmationSettings();
     std::vector<ToggleOptionWidget*> keys;
     for (const auto& [widget, view] : SettingsState().views)
@@ -692,6 +698,47 @@ bool mod_settings::native::RegisterPageAppender(PageAppender appender)
     return false;
   SettingsState().append = appender;
   return true;
+}
+bool mod_settings::native::RegisterBooleanResolver(BooleanResolver resolver)
+{
+  if (!resolver || SettingsState().resolve)
+    return false;
+  SettingsState().resolve = resolver;
+  return true;
+}
+mod_settings::BooleanSetting* mod_settings::native::OwnedBooleanSetting(SettingsOptionContext* context)
+{
+  auto* toggle = context ? context->As<ToggleOptionContext>() : nullptr;
+  return toggle && OwnsBoolean(toggle) ? BooleanFor(context) : nullptr;
+}
+bool mod_settings::native::RegisterPageInvalidator(PageInvalidator invalidator)
+{
+  if (!invalidator || SettingsState().invalidate)
+    return false;
+  SettingsState().invalidate = invalidator;
+  return true;
+}
+bool mod_settings::native::AppendBooleanRow(SettingsSectionDirector* director, SettingsContext* context,
+                                            SettingsContainerContext* parent, BooleanSetting& setting)
+{
+  if (!SettingsThread() || !director || !context || !parent)
+    return false;
+  if (setting.Observe().state.availability == Availability::Unsupported)
+    return true;
+  AddConfirmationRow(director, context, parent, setting);
+  if (SettingsState().insertions.Pending(parent))
+    return false;
+  SettingsRowCleanup cleanup;
+  auto               children = cleanup.Children(parent);
+  if (!children)
+    return false;
+  size_t owned = 0;
+  for (const auto& child : *children) {
+    auto* row = child.Get<SettingsOptionContext>();
+    if (row && OwnedBooleanSetting(row) == &setting)
+      ++owned;
+  }
+  return owned == 1;
 }
 const Feature kNativeSettings{"NativeSettings", &Config::Patches::nativesettingshooks, InstallNativeSettings,
                               NativeSettingsFrame};

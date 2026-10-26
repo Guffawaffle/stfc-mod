@@ -1,5 +1,20 @@
 # Downstream play preservation target
 
+## Current alignment sprint checkpoint
+
+The [remaining alignment sprint](ALIGNMENT-SPRINT-20261025.md) restores native
+Settings page/control adapters, exact numeric editing, shortcut recording and
+undo, contextual search/default tools, runtime keyboard diagnostics and scheduled
+Discovery towing. The frozen Windows native source and targeted fixtures pass
+239/239 build/run steps. This is local qualification, not player-verified parity.
+The machine-readable inventory now distinguishes these implementations from the
+still-missing native preset integration and debug surfaces. String/list editors,
+custom media workflows and macOS/native interaction qualification remain open.
+
+Earlier source/build descriptions below are historical checkpoints. In particular,
+the two-row Settings-only description and older queued notification statuses no
+longer describe the current source. No release promotion or full-parity claim follows.
+
 ## Active functional reconciliation — 2026-10-25
 
 `play` at `cad98ef7990dd66167eb64ea5dda525c1fe2c296` remains the behavioral
@@ -345,7 +360,7 @@ step is a dependency-aware full-play implementation sequence, with Settings and
 chat visible regressions prioritized by the coordinator and later extras kept
 separate.
 
-## Native Settings hook evidence � retained Windows client273
+## Native Settings hook evidence — retained Windows client273
 
 The `.pdata` extents below come from the exact retained GameAssembly named above.
 They establish substantive Windows entries, not installed-client runtime behavior

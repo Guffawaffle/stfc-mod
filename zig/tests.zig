@@ -41,7 +41,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     const test_launcher = b.step("test-launcher", "Run launcher delta and archive tests (Linux/macOS targets)");
     const test_spud = b.step("test-spud", "Run the x64 trampoline relocation test (native x86_64 targets only)");
     const flags = ctx.cxxFlags("c++23", &.{});
-    const mod_flags = ctx.cxxFlags("c++23", &.{"-Wno-deprecated-literal-operator"});
+    const mod_flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-Wno-invalid-offsetof", "-Wno-deprecated-declarations" });
 
     {
         const module = ctx.createModule(true);
@@ -79,6 +79,13 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         addFixture(ctx, build_tests, test_mod, "notification-audio-files-tests", module);
     }
 
+    inline for (.{ "keyboard_layout_diagnostics", "officer_preset_handoff", "discovery_tow_policy", "native_text_entry" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        addFixture(ctx, build_tests, test_mod, b.fmt("{s}-tests", .{fixture}), module);
+    }
+
     inline for (.{ "keyboard_layout", "keyboard_chord" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -100,6 +107,14 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         });
         addFixture(ctx, build_tests, test_mod, "keyboard-shortcut-tests", module);
     }
+    {
+        const module = settingsModule(ctx, libs);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/shortcut_capture_guard_test.cc", "tests/keyboard_layout_no_host.cc", "src/mod/shortcuts.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        addFixture(ctx, build_tests, test_mod, "shortcut-capture-guard-tests", module);
+    }
 
     {
         const module = ctx.createModule(true);
@@ -110,13 +125,18 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         test_mod.dependOn(&b.addRunArtifact(exe).step);
     }
 
-    inline for (.{ "boolean_settings", "choice_setting", "slider_setting", "settings_maintenance", "settings_search", "settings_metadata", "page_catalog", "native_boolean_callback", "settings_row_quarantine", "settings_row_insertion" }) |fixture| {
+    inline for (.{ "boolean_settings", "choice_setting", "slider_setting", "settings_maintenance", "settings_search", "settings_metadata", "page_catalog", "native_boolean_callback", "settings_row_quarantine", "settings_row_insertion", "settings_page_publication", "shortcut_editor" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
         module.addIncludePath(b.path("third_party/libil2cpp"));
         if (comptime std.mem.eql(u8, fixture, "settings_maintenance"))
             module.addCMacro("STFC_SETTINGS_TEXT_ENTRY_FIXTURE", "1");
-        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        if (comptime std.mem.eql(u8, fixture, "shortcut_editor")) {
+            module.addIncludePath(b.path("src/libs/unity/include"));
+            libs.il2cpp.includeInto(module);
+            libs.toml.includeInto(module);
+        }
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = if (comptime std.mem.eql(u8, fixture, "shortcut_editor")) ctx.cxxFlags("c++23", &.{ "-Wno-invalid-offsetof", "-UNDEBUG" }) else ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
         const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         const run = b.addRunArtifact(exe);
@@ -512,7 +532,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
                 "tests/runtime_config_no_host.cc",
                 "tests/keyboard_layout_no_host.cc",
             },
-            .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-UNDEBUG" }),
+            .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-Wno-invalid-offsetof", "-Wno-deprecated-declarations", "-UNDEBUG" }),
         });
         if (ctx.isWindows()) inline for (.{ "winmm", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
         if (ctx.isMacos()) {
@@ -532,6 +552,51 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             test_mod.dependOn(&primary.step);
             test_config_save.dependOn(&primary.step);
         }
+    }
+
+    {
+        const module = settingsModule(ctx, libs);
+        module.addCSourceFiles(.{
+            .files = &.{
+                "tests/config_settings_test.cc",
+                "src/mod/settings/config_settings.cc",
+                "src/mod/settings/mod_pages.cc",
+                "src/mod/settings/shortcut_settings.cc",
+                "src/mod/settings/maintenance_pages.cc",
+                "src/mod/shortcuts.cc",
+                "src/mod/config.cc",
+                "src/mod/config_save.cc",
+                "tests/keyboard_layout_no_host.cc",
+                "src/mod/features/notification_audio.cc",
+                "src/mod/features/notification_audio_files.cc",
+                "src/mod/notification_audio_windows.cc",
+            },
+            .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-Wno-invalid-offsetof", "-Wno-deprecated-declarations", "-UNDEBUG" }),
+        });
+        if (ctx.isWindows()) inline for (.{ "winmm", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
+        if (ctx.isMacos()) {
+            module.addCSourceFile(.{ .file = b.path("src/mod/features/notification_audio_mac.mm"), .flags = flags });
+            module.linkFramework("Cocoa", .{});
+        }
+        const exe = ctx.executable("config-settings-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_mod.dependOn(&run.step);
+        test_settings_models.dependOn(&run.step);
+    }
+
+    {
+        const module = settingsModule(ctx, libs);
+        module.addCMacro("STFC_SETTINGS_TEXT_ENTRY_FIXTURE", "1");
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/maintenance_pages_test.cc", "src/mod/settings/maintenance_pages.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        const exe = ctx.executable("maintenance-pages-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_mod.dependOn(&run.step);
+        test_settings_models.dependOn(&run.step);
     }
 
     const test_sync_input = b.step("test-sync-input", "Run pure reservation queue and processor-health fixtures");

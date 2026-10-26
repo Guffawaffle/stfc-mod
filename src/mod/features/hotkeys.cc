@@ -146,6 +146,11 @@ bool InstallHotkeys()
 
 bool HandleShortcuts()
 {
+  // Capture also owns mode toggles, awaited buttons, ship selection and Escape. Let native UI keep its Update.
+  if (Shortcut::CaptureBlocksShortcuts()) {
+    CancelAwaitedButton();
+    return false;
+  }
   if (!hotkeys_installed)
     return false;
   auto& config = Config::Get();

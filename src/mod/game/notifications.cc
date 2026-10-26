@@ -95,6 +95,9 @@ std::string String(Il2CppObject* object, FieldInfo* field)
 }
 } // namespace incoming_attack_binding
 
+bool IncomingPlayerAttackAvailable()
+{ return incoming_attack_binding::NativeApi().Valid(); }
+
 std::optional<IncomingPlayerAttack> ReadIncomingPlayerAttack(Toast* toast)
 {
   using namespace incoming_attack_binding;

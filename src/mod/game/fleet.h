@@ -497,6 +497,193 @@ struct DeploymentManager : MonoSingleton<DeploymentManager> {
   }
 };
 
+// Discovery's Shift+ship course is scheduled by Unity. These exact client273
+// contracts decline on drift; no native iterator body is advanced by the mod.
+namespace discovery_tow_binding
+{
+struct Routine : il2cpp::Object {
+  using Class = il2cpp::Class<"mscorlib", "System.Collections", "IEnumerator">;
+};
+struct Coroutine : il2cpp::Object {
+  using Class = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Coroutine">;
+};
+struct Mono : il2cpp::Object {
+  using Class = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "MonoBehaviour">;
+};
+struct Starbase : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "StarbaseData">;
+};
+struct AllianceStarbase : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "AllianceStarbaseData">;
+};
+struct Outpost : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "Outpost">;
+};
+struct Error : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Engine.Utilities.Runtime", "Digit.Networking.Core", "GSError">;
+};
+struct ErrorDelegate : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Engine.Utilities.Runtime", "Digit.Networking.Core", "OnError">;
+};
+struct RetryDelegate : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Engine.Utilities.Runtime", "Digit.Networking.Core", "OnRetry">;
+};
+struct Reference : il2cpp::Object {
+  struct Class {
+    static Il2CppClass* Raw()
+    { return il2cpp::ObjectClass(); }
+  };
+};
+struct RecallCallbacks : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager/<>c">;
+};
+struct PlanIterator : Routine {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services",
+                              "DeploymentService/<PlanCourse>d__136">;
+};
+
+inline bool ClosedInt32(const Il2CppType* type, Il2CppClass* definition)
+{
+  const auto* generic =
+      type && !type->byref && type->type == IL2CPP_TYPE_GENERICINST ? type->data.generic_class : nullptr;
+  const auto* args = generic ? generic->context.class_inst : nullptr;
+  return generic && generic->type && definition && il2cpp_class_from_type(generic->type) == definition && args
+         && args->type_argc == 1 && args->type_argv
+         && il2cpp::detail::ExactScalarMatches(args->type_argv[0], IL2CPP_TYPE_I4)
+         && il2cpp_class_from_type(args->type_argv[0]) == il2cpp::PrimitiveClass<int32_t>();
+}
+struct Api {
+  il2cpp::Method    plan, start, stop, stop_iterator, tow, success, error;
+  const MethodInfo* constructor = nullptr;
+  Il2CppClass*      callbacks   = nullptr;
+  FieldInfo *       state = nullptr, *fleet = nullptr, *destination = nullptr;
+  bool              ready = false;
+};
+inline const Api& Native()
+{
+  static const Api api = [] {
+    Api result;
+    result.plan =
+        DeploymentManager::Class::Method<Routine*(FleetPlayerData*, NodeAddress*, unity::Vector3, FleetDeployedData*,
+                                                  Starbase*, AllianceStarbase*, Outpost*)>("PlanCourse");
+    result.start         = Mono::Class::Method<Coroutine*(Routine*)>("StartCoroutine");
+    result.stop          = Mono::Class::Method<void(Coroutine*)>("StopCoroutine");
+    result.stop_iterator = Mono::Class::Method<void(Routine*)>("StopCoroutine");
+    result.tow           = DeploymentManager::Class::Method<void(int64_t, int64_t, Reference*)>("SetTowRequest");
+    result.success       = RecallCallbacks::Class::Method<void(int32_t)>("<OnShipRecallAction>b__91_0");
+    result.error         = RecallCallbacks::Class::Method<void(Error*)>("<OnShipRecallAction>b__91_1");
+    result.state         = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "<>1__state",
+                                                        il2cpp::detail::SlotOf<int32_t>(), false);
+    result.fleet         = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "fleet",
+                                                        il2cpp::detail::SlotOf<FleetPlayerData*>(), false);
+    result.destination   = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "targetAddress",
+                                                        il2cpp::detail::SlotOf<NodeAddress*>(), false);
+    using Definition = il2cpp::Class<"Digit.Engine.Utilities.Runtime", "Digit.Networking.Core", "CallbackContainer`1">;
+    using Success    = il2cpp::Class<"Digit.Engine.Utilities.Runtime", "Digit.Networking.Core", "OnSuccess`1">;
+    const auto* tow  = result.tow.Info();
+    if (tow && il2cpp::detail::ExactScalarMatches(tow->parameters[0], IL2CPP_TYPE_I8)
+        && il2cpp::detail::ExactScalarMatches(tow->parameters[1], IL2CPP_TYPE_I8)
+        && ClosedInt32(tow->parameters[2], Definition::Raw())) {
+      result.callbacks = il2cpp_class_from_type(tow->parameters[2]);
+      result.constructor =
+          il2cpp::detail::MethodCall<void(Reference*, ErrorDelegate*, int32_t, RetryDelegate*)>::Resolve(
+              result.callbacks, ".ctor", false);
+    }
+    const auto* ctor = result.constructor;
+    result.ready = result.plan && result.start && result.stop && result.stop_iterator && result.tow && result.success
+                   && result.error && result.state && result.fleet && result.destination
+                   && il2cpp::detail::ExactScalarMatches(result.state->type, IL2CPP_TYPE_I4) && ctor
+                   && il2cpp::detail::ValueClassMatches(result.plan.Info()->parameters[2], unity::Vector3Class(),
+                                                        sizeof(unity::Vector3))
+                   && ClosedInt32(ctor->parameters[0], Success::Raw())
+                   && il2cpp::detail::ResolveField(RecallCallbacks::Class::Raw(), "<>9",
+                                                   il2cpp::detail::SlotOf<RecallCallbacks*>(), true)
+                   && NodeAddress::Class::Method<NodeAddress*()>("Clone")
+                   && NodeAddress::Class::Method<bool(NodeAddress*)>("Equals")
+                   && PathFinderResultData::Class::Method<bool()>("get_Valid")
+                   && DeploymentManager::Class::Method<bool(FleetPlayerData*)>("CanTow")
+                   && DeploymentManager::Class::Method<bool(FleetPlayerData*, FleetPlayerData*)>("CanBeTowed");
+    return result;
+  }();
+  return api;
+}
+inline il2cpp::CallResult<Routine*> Plan(DeploymentManager* owner, FleetPlayerData* selected, NodeAddress* destination)
+{
+  return Native().ready && owner && selected && destination
+             ? il2cpp::detail::TryInvoke<Routine*>(
+                   Native().plan.Info(), owner, selected, destination, unity::Vector3{},
+                   static_cast<FleetDeployedData*>(nullptr), static_cast<Starbase*>(nullptr),
+                   static_cast<AllianceStarbase*>(nullptr), static_cast<Outpost*>(nullptr))
+             : il2cpp::CallResult<Routine*>{};
+}
+inline il2cpp::CallResult<int32_t> State(Routine* iterator)
+{
+  return Native().ready && iterator && iterator->Is<PlanIterator>()
+             ? il2cpp::CallResult<int32_t>{true, il2cpp::detail::ReadField<int32_t>(Native().state, iterator)}
+             : il2cpp::CallResult<int32_t>{};
+}
+inline bool FreshIterator(Routine* iterator, FleetPlayerData* fleet, NodeAddress* destination)
+{
+  const auto state = State(iterator);
+  return state && state.value == 0 && il2cpp::detail::ReadField<FleetPlayerData*>(Native().fleet, iterator) == fleet
+         && il2cpp::detail::ReadField<NodeAddress*>(Native().destination, iterator) == destination;
+}
+inline il2cpp::CallResult<Coroutine*> Start(DeploymentManager* owner, Routine* iterator)
+{
+  return Native().ready && owner && owner->Is<Mono>() && iterator
+             ? il2cpp::detail::TryInvoke<Coroutine*>(Native().start.Info(), owner, iterator)
+             : il2cpp::CallResult<Coroutine*>{};
+}
+inline bool Stop(DeploymentManager* owner, Routine* iterator, Coroutine* coroutine)
+{
+  if (!Native().ready || !owner || !owner->Is<Mono>())
+    return false;
+  if (coroutine)
+    return il2cpp::detail::TryInvoke<void>(Native().stop.Info(), owner, coroutine).succeeded;
+  else if (iterator)
+    return il2cpp::detail::TryInvoke<void>(Native().stop_iterator.Info(), owner, iterator).succeeded;
+  return true;
+}
+inline il2cpp::GcHandle Callbacks()
+{
+  const auto& api = Native();
+  if (!api.ready)
+    return {};
+  auto owner = il2cpp::GcHandle::Strong(RecallCallbacks::Class::Field<"<>9", RecallCallbacks*>());
+  if (!owner || !owner.Get<il2cpp::Object>()->Is<RecallCallbacks>())
+    return {};
+  // These are the game's actual native recall no-op handlers (both ret in the
+  // retained273 body), bound to its real managed singleton. No self-pointers,
+  // fake delegate fields, metadata mutation or managed-reference shim.
+  auto success = il2cpp::GcHandle::Strong(il2cpp::NewClosedDelegate(
+      il2cpp_class_from_type(api.constructor->parameters[0]), owner.Get<RecallCallbacks>(), api.success));
+  auto error   = il2cpp::GcHandle::Strong(il2cpp::NewClosedDelegate(
+      il2cpp_class_from_type(api.constructor->parameters[1]), owner.Get<RecallCallbacks>(), api.error));
+  if (!success || !error)
+    return {};
+  auto value = il2cpp::GcHandle::Strong(il2cpp_object_new(api.callbacks));
+  if (!value)
+    return {};
+  if (!il2cpp::detail::TryInvoke<void>(api.constructor, value.Get(), success.Get<Reference>(),
+                                       error.Get<ErrorDelegate>(), int32_t{2}, static_cast<RetryDelegate*>(nullptr)))
+    return {};
+  const auto observed_success = value.Get<il2cpp::Object>()->TryCall<"get_OnSuccess", Reference*>();
+  const auto observed_error   = value.Get<il2cpp::Object>()->TryCall<"get_OnError", ErrorDelegate*>();
+  return observed_success && observed_error && observed_success.value == success.Get()
+                 && observed_error.value == error.Get()
+             ? std::move(value)
+             : il2cpp::GcHandle{};
+}
+inline il2cpp::CallResult<void> Submit(DeploymentManager* owner, int64_t selected, int64_t discovery,
+                                       Reference* callbacks)
+{
+  return Native().ready && owner && selected > 0 && discovery > 0 && selected != discovery && callbacks
+                 && callbacks->klass == Native().callbacks
+             ? il2cpp::detail::TryInvoke<void>(Native().tow.Info(), owner, selected, discovery, callbacks)
+             : il2cpp::CallResult<void>{};
+}
+} // namespace discovery_tow_binding
+
 struct FleetMeshSelector : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "FleetMeshSelector">;
 

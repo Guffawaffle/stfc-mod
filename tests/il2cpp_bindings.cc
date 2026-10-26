@@ -957,7 +957,7 @@ API(const MethodInfo*, il2cpp_object_get_virtual_method, (Il2CppObject * object,
 {
   for (auto* klass = object->klass; klass; klass = klass->parent)
     for (const auto* candidate : std::span(klass->methods, klass->method_count))
-      if (std::string_view(candidate->name) == method->name)
+      if (std::string_view(candidate->name) == method->name && candidate->slot == method->slot)
         return candidate;
   return nullptr;
 }
@@ -1729,6 +1729,9 @@ void PlannedWarpBindingObservations()
 }
 } // namespace
 
+#include "settings_pages_bindings_cases.h"
+#include "settings_values_bindings_cases.h"
+
 int main(int argc, char** argv)
 {
   BuildRuntime();
@@ -2243,5 +2246,7 @@ int main(int argc, char** argv)
 
   KeyboardSnapshot();
   InputFocus();
+  SettingsPageBindingObservations();
+  SettingsValuesBindingObservations();
   std::cout << "IL2CPP binding tests passed\n";
 }
