@@ -1,6 +1,6 @@
 #include "loading_screen_common.h"
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace ls = ls_common;
 

@@ -5,7 +5,7 @@
 #include <il2cpp/method_contract.h>
 #include <il2cpp/runtime.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace
 {

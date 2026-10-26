@@ -33,8 +33,10 @@ if is_arch("x64", "x86_64") then
     target("spud-relocation-tests")
         set_kind("binary")
         set_default(false)
-        add_files("tests/spud_relocation.cc")
-        add_packages("spud")
+        add_files("tests/spud_relocation.cc", "mods/src/patches/spud_install.cc")
+        add_includedirs("mods/src")
+        add_packages("spud", "spdlog")
+        set_exceptions("cxx")
 end
 
 target("il2cpp-checked-tests")

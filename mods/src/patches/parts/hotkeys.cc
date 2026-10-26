@@ -8,7 +8,7 @@
 #include "settings/warp_mode.h"
 #include "settings/upstream_settings.h"
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 #include <il2cpp/method_contract.h>
 
 // Object Viewers

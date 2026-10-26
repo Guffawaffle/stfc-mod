@@ -1,6 +1,7 @@
 #include "native_hook_extent.h"
 
 #if __APPLE__
+#include "patches/spud_install.h"
 #include <algorithm>
 #include <cstring>
 #include <dlfcn.h>
@@ -8,7 +9,6 @@
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
 
 namespace
 {
@@ -91,7 +91,16 @@ bool native_hooks::MacHookFits(const void* method, std::size_t minimum_extent)
 {
 #if __APPLE__
   const auto extent = FunctionExtent(method);
-  const bool fits   = extent >= std::max(minimum_extent, std::size_t{32}) && spud::has_detour_prologue(method, extent);
+  // Keep PLAY's independent extent floor and require both possible landings
+  // inside that exact function. A short-landing plan alone is insufficient.
+  const auto plan = extent >= std::max(minimum_extent, std::size_t{32})
+                        ? spud::inspect_detour(method, spud::Arch::kHost, extent)
+                        : spud::detour_plan{};
+  const bool fits = plan.ok() && plan.resolved_target == reinterpret_cast<uintptr_t>(method)
+                    && plan.required_patch_bytes >= plan.jump_size && plan.required_patch_bytes <= extent
+                    && (plan.hooked
+                        || (plan.far_jump_size > 0 && plan.far_required_patch_bytes >= plan.far_jump_size
+                            && plan.far_required_patch_bytes <= extent));
   spdlog::info("[MacHookExtent] entry={} bytes={} accepted={}", method, extent, fits);
   return fits;
 #else

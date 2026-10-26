@@ -6,7 +6,7 @@
 
 #include <il2cpp/il2cpp-functions.h>
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -279,6 +279,7 @@ __int64 il2cpp_init_hook(auto original, const char* domain_name)
   InstallGameErrorProbe();
 #endif
 
+  native_hooks::ReportSpudSummary();
   spdlog::info("");
 
 #if VERSION_PATCH
@@ -324,9 +325,11 @@ void ApplyPatches()
 #endif
       printf("Got il2cpp_init %p\n", n);
 
-      SPUD_STATIC_DETOUR(n, il2cpp_init_hook);
+      if (!SPUD_STATIC_DETOUR(n, il2cpp_init_hook)) {
+        std::fprintf(stderr, "Community Mod bootstrap was not installed; native startup continues without mod hooks.\n");
+      }
     } catch (...) {
-      // Failed to Apply at least some patches
+      spdlog::error("Community Mod bootstrap threw before installation completed");
     }
   }
 }

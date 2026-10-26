@@ -5,7 +5,7 @@
 #include "errormsg.h"
 #include "file.h"
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include "prime/AspectRatioConstraintHandler.h"
 #include "prime/IList.h"

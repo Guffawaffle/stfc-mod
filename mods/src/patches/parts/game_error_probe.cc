@@ -9,7 +9,7 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <il2cpp-tabledefs.h>
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <nlohmann/json.hpp>
 #include <spdlog/sinks/rotating_file_sink.h>

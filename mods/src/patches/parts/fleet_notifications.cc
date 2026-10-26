@@ -15,7 +15,7 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/FleetsManager.h>
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <array>
 #include <chrono>

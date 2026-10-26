@@ -9,7 +9,7 @@
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <algorithm>
 #include <array>

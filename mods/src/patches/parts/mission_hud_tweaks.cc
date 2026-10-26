@@ -6,7 +6,7 @@
 #include <il2cpp/method_contract.h>
 
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <array>
 #include <cstddef>
