@@ -32,7 +32,7 @@ struct SettingsActionButton : il2cpp::Object {
   il2cpp::CallResult<unity::GameObject*> TryObject()
   { return TryCall<"get_gameObject", unity::GameObject*>(); }
   il2cpp::CallResult<bool> TryInteractable()
-  { return TryCall<"get_interactable", bool>(); }
+  { return TryCall<"get_Interactable", bool>(); }
   il2cpp::CallResult<void> TryOverride(bool value)
   { return TryCall<"OverrideInteractable", void(bool)>(value); }
   il2cpp::CallResult<void> TryClear()
@@ -58,7 +58,7 @@ struct SettingsActionWidget : Widget<SettingsActionContext> {
            && il2cpp::detail::ResolveMethod(button, "OverrideInteractable", il2cpp::detail::SignatureOf<void, bool>(),
                                             false)
            && il2cpp::detail::ResolveMethod(button, "ClearInteractable", il2cpp::detail::SignatureOf<void>(), false)
-           && il2cpp::detail::ResolveMethod(button, "get_interactable", il2cpp::detail::SignatureOf<bool>(), false)
+           && il2cpp::detail::ResolveMethod(button, "get_Interactable", il2cpp::detail::SignatureOf<bool>(), false)
            && il2cpp::detail::ResolveMethod(button, "get_gameObject", il2cpp::detail::SignatureOf<unity::GameObject*>(),
                                             false);
   }

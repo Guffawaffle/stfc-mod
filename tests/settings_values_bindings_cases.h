@@ -2,6 +2,7 @@
 
 // Included after il2cpp_bindings.cc's controlled runtime. Calls the production
 // binding; native choice/slider bodies are never used as discovery probes.
+#include "game/settings_actions.h"
 #include "game/settings_values.h"
 
 namespace
@@ -259,10 +260,33 @@ void SettingsValuesMethodObservations()
   Require(!bound_slider->TryCall<"MissingValueGetter", float>(),
           "a missing float observation stays unavailable rather than observed zero");
 }
+int  settings_action_custom_reads = 0, settings_action_unity_reads = 0;
+bool ValuesCustomInteractable(Il2CppObject*, const MethodInfo*)
+{
+  ++settings_action_custom_reads;
+  return false;
+}
+bool ValuesUnityInteractable(Il2CppObject*, const MethodInfo*)
+{
+  ++settings_action_unity_reads;
+  return true;
+}
+void SettingsActionButtonObservations()
+{
+  auto& button = ValuesClass("Digit.Client.UI", "GenericButtonWidget");
+  AddMethod(button, "get_Interactable", reinterpret_cast<void*>(&ValuesCustomInteractable), T(bool_class), {});
+  AddMethod(button, "get_interactable", reinterpret_cast<void*>(&ValuesUnityInteractable), T(bool_class), {});
+  Il2CppObject object{};
+  object.klass        = &button.klass;
+  const auto observed = reinterpret_cast<SettingsActionButton*>(&object)->TryInteractable();
+  Require(observed && !observed.value && settings_action_custom_reads == 1 && settings_action_unity_reads == 0,
+          "the game's custom button uses Interactable rather than Unity Selectable's differently cased property");
+}
 void SettingsValuesBindingObservations()
 {
   SettingsValuesCallbackObservations();
   SettingsValuesMethodObservations();
+  SettingsActionButtonObservations();
   std::cout << "IL2CPP native settings values: exact callbacks, array signatures and Slider source passed\n";
 }
 } // namespace
