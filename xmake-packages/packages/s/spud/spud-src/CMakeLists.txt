@@ -5,7 +5,10 @@ include(GNUInstallDirs)
 # Downstream-owned packaging for the unmodified snapshot; see SOURCE.md.
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+# Honor the owning Xmake target's CRT choice, including MT debug builds.
+if(NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+endif()
 option(SPUD_DETOUR_TRACING "Enable SPUD tracing ABI" OFF)
 option(SPUD_NO_LTO "Disable link-time optimization" ON)
 option(SPUD_BUILD_TESTS "Build vendor tests (not included in snapshot)" OFF)

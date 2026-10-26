@@ -58,6 +58,26 @@ The earlier migration checkpoint and its implementation stash remain untouched.
 
 ## Runtime qualification and boundaries
 
+First native Windows trial ran source `1defe4b29680b5e6f5341ddc77665dd7e3da7d51`
+on client 273, ordinary installation, PID 21708. DLL SHA-256:
+`c36c201fcb38076c662fc9d98057629168c12783d1f131c0ff348e772bd80cb6`.
+It booted, recorded 191 installed permanent hooks and zero refusals, registered
+the original Settings adapter with 177 pages, and remained responsive. The
+TOML hash before deployment, after launch and after startup was unchanged:
+`78c248ce73fad72394405765db17fb95b5ee454c8be51fc8eddcf482b7f4f6f1`.
+Receipts: `candidate.json`, `deploy.json`, `cycle.json`, `first-runtime.log` in
+the local recovery directory below. No configuration changes were made.
+
+The logged installation phase took about 23.6 seconds (23:58:44.527 to
+23:59:08.150). This is startup installation cost, not sustained UI/frame cost.
+No controlled old-SPUD timing comparison or per-operation attribution was run.
+Successful installation does not establish each player workflow's equivalence;
+Settings, Galaxy, chat, travel and presets still need player qualification.
+
+The later CMake CRT-selection correction honors Xmake's supplied runtime for
+debug configurations too. The release trial already used MultiThreaded; this
+does not retrospectively qualify a debug or macOS build.
+
 Offline passes do not prove acceptance of exact-client targets or player workflows.
 First trial should check boot and all logged installation refusals, then original
 Mod Settings navigation/search/chord editing/header and selected styling, Galaxy
