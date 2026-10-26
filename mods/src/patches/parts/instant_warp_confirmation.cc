@@ -11,7 +11,7 @@
 #include <prime/CoursePromptPopupWidget.h>
 #include <prime/FleetsManager.h>
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <spdlog/spdlog.h>
 

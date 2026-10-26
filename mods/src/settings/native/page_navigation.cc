@@ -13,7 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 #include <tuple>
 
 namespace mod_settings::native

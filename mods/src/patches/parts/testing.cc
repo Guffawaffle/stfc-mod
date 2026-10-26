@@ -22,7 +22,7 @@
 #include <prime/UIBehaviour.h>
 
 #include <il2cpp/il2cpp_helper.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 #include <spud/signature.h>
 
 class AppConfig

@@ -28,7 +28,7 @@
 #include <EASTL/unordered_set.h>
 #include <EASTL/vector.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 #include <spud/signature.h>
 
 #include <mutex>
@@ -270,6 +270,6 @@ void InstallObjectTrackers()
     return;
   }
 
-  const auto GC_register_finalizer_inner_match = GC_register_finalizer_inner_matches.get(0);
+  const auto GC_register_finalizer_inner_match = GC_register_finalizer_inner_matches[0];
   GC_register_finalizer_inner = (decltype(GC_register_finalizer_inner))GC_register_finalizer_inner_match.address();
 }

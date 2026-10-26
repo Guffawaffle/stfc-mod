@@ -5,7 +5,7 @@
 #include <il2cpp/il2cpp_helper.h>
 #include <prime/Toast.h>
 
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace { bool s_toast_audio_available = false; }
 bool ToastAudioAvailable() { return s_toast_audio_available; }

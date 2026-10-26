@@ -7,7 +7,7 @@
 #include "settings/shortcut_settings.h"
 #include <deque>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace mod_settings::native
 {

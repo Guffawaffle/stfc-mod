@@ -7,7 +7,7 @@
 #include <il2cpp/method_contract.h>
 #include <il2cpp/runtime.h>
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 // Galaxy label composition and zoom profiles. Native layout and visibility
 // bindings are validated before installation.

@@ -14,7 +14,7 @@
 #include <optional>
 
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace
 {

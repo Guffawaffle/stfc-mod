@@ -16,7 +16,7 @@
 #include <prime/RealtimeDataPayload.h>
 #include <prime/ServiceResponse.h>
 #include <prime/UserProfileManager.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <spdlog/spdlog.h>
 #if !__cpp_lib_format

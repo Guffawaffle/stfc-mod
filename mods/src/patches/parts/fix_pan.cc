@@ -13,7 +13,7 @@
 #include <patches/mapkey.h>
 
 #include <cmath>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 namespace
 {

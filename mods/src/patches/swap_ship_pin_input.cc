@@ -14,7 +14,7 @@
 #include <il2cpp-tabledefs.h>
 
 #include <spdlog/spdlog.h>
-#include <spud/detour.h>
+#include "patches/spud_install.h"
 
 #include <algorithm>
 #include <chrono>
