@@ -75,6 +75,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"thinqueueprotectionhooks", &Config::Patches::thinqueueprotectionhooks},
     {"toastbannerhooks", &Config::Patches::toastbannerhooks},
     {"fleetnotificationhooks", &Config::Patches::fleetnotificationhooks},
+    {"nativesettingshooks", &Config::Patches::nativesettingshooks},
     {"transitionscreenhooks", &Config::Patches::transitionscreenhooks},
     {"uiscalehooks", &Config::Patches::uiscalehooks},
     {"zoomhooks", &Config::Patches::zoomhooks},

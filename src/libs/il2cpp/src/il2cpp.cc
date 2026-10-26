@@ -625,4 +625,67 @@ Il2CppObject* NewDelegate(Il2CppClass* delegate_class, Method target, Il2CppMeth
     reinterpret_cast<Il2CppDelegate*>(delegate)->method_ptr = native;
   return delegate;
 }
+
+Il2CppObject* NewClosedDelegate(Il2CppClass* delegate_class, Object* receiver, Method target)
+{
+  const auto* info = target.Info();
+  if (!delegate_class || !receiver || !info || !info->klass || IsStatic(info) || !Callable(info) || info->is_inflated
+      || info->has_full_generic_sharing_signature || !info->methodPointer || !info->invoker_method
+      || (info->parameters_count && !info->parameters)
+      || (info->flags & (METHOD_ATTRIBUTE_VIRTUAL | METHOD_ATTRIBUTE_ABSTRACT))
+      || il2cpp_class_is_valuetype(info->klass) || !il2cpp_class_is_assignable_from(info->klass, receiver->klass))
+    return nullptr;
+  bool is_delegate = false;
+  for (auto* parent = delegate_class; parent; parent = il2cpp_class_get_parent(parent))
+    if (ClassName(parent) == "System.Delegate") {
+      is_delegate = true;
+      break;
+    }
+  if (!is_delegate)
+    return nullptr;
+  // Exact signatures are sufficient for our retained donor callbacks. Do not guess variance, boxing, open
+  // receivers or value-type receiver ABIs merely because two values have the same storage size.
+  const auto same_type = [](const Il2CppType* a, const Il2CppType* b) {
+    if (!a || !b || a->type != b->type || a->byref != b->byref)
+      return false;
+    auto* klass = il2cpp_class_from_type(a);
+    return klass && klass == il2cpp_class_from_type(b);
+  };
+  const auto* invoke = FirstMethod(delegate_class, "Invoke", [&](const MethodInfo* method) {
+    return !IsStatic(method) && (!method->parameters_count || method->parameters)
+           && method->parameters_count == info->parameters_count && same_type(method->return_type, info->return_type)
+           && std::ranges::equal(Parameters(method), Parameters(info), same_type);
+  });
+  const auto* ctor   = FirstMethod(delegate_class, ".ctor", [](const MethodInfo* method) {
+    return !IsStatic(method) && method->parameters_count == 2 && method->parameters
+           && method->parameters[0]->type == IL2CPP_TYPE_OBJECT && !method->parameters[0]->byref
+           && method->parameters[1]->type == IL2CPP_TYPE_I && !method->parameters[1]->byref && method->invoker_method;
+  });
+  if (!invoke || !ctor)
+    return nullptr;
+  auto owner = GcHandle::Strong(receiver);
+  if (!owner)
+    return nullptr;
+  auto result = GcHandle::Strong(il2cpp_object_new(delegate_class));
+  if (!result)
+    return nullptr;
+  void* args[] = {owner.Get(), &info};
+  try {
+    ctor->invoker_method(ctor->methodPointer, ctor, result.Get(), args, nullptr);
+  } catch (const Il2CppExceptionWrapper& error) {
+    detail::ReportException(ctor, error.ex);
+    return nullptr;
+  } catch (...) {
+    detail::ReportException(ctor, nullptr);
+    return nullptr;
+  }
+  auto* delegate = reinterpret_cast<Il2CppDelegate*>(result.Get());
+  if (delegate->target != owner.Get() || delegate->invoke_impl_this != owner.Get() || delegate->method != info)
+    return nullptr;
+  // These are unmanaged execution pointers. The closed receiver is already retained by the constructor's
+  // managed target field. Replace both execution routes, as well as the retained MethodInfo's invoker.
+  delegate->method_ptr  = info->methodPointer;
+  delegate->invoke_impl = info->methodPointer;
+  return result.Get();
+}
 } // namespace il2cpp

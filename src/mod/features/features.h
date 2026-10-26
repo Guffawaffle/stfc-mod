@@ -210,6 +210,9 @@ void Refresh() noexcept;
 // officers.cc
 extern const Feature kOfficerSort;
 
+// settings.cc: native FC/FT confirmation core; full Mod Settings pages are restored separately.
+extern const Feature kNativeSettings;
+
 // screens.cc: shortcut helpers only, so no descriptor.
 // Presses a button a screen shortcut opened a screen for, once the screen is up. True when one was pressed.
 bool PressAwaitedButton();

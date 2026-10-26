@@ -40,7 +40,11 @@
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/hotkeys.cc",
-        "symbolOrWorkflow": "SelectShip"
+        "symbolOrWorkflow": "SelectShip",
+        "additionalEvidence": [
+          "retained273 dump SHA3c019dd684ee5e1062e758831c00be719fb53c94b4859c95ba2cc46189dc8621",
+          "retained273 GameAssembly SHA a9ab2edbc143cfba3aff35665e129006f73853070dbff206884fda04a235ab94; TowActivationClicked RVA0x5de0b0; scheduling0x5de59b-0x5de5b3"
+        ]
       },
       "migration": {
         "path": "src/mod/features/fleet_actions.cc",
@@ -54,7 +58,7 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Current-client seven-argument PlanCourse, native coroutine scheduling and completion ownership must be established. Do not drain MoveNext in a busy loop.",
+      "dependenciesAndLimitations": "Current-client seven-argument PlanCourse, native coroutine scheduling and completion ownership must be established. Do not drain MoveNext in a busy loop. Retained273 native TowActivationClicked builds real callbacks and schedules through Hub.Coroutine/ICoroutine.StartCoroutine; it requires bound target/selected tow fleet/native ability, cost and semaphore state. Public FleetsManager.Tow is only an iterator factory. No arbitrary safe Shift+ship entry qualified yet.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -1492,7 +1496,7 @@
     },
     {
       "id": "PLAY-WINDOW",
-      "name": "Windows free resize and borderless F11",
+      "name": "Windows free resizing",
       "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
@@ -1503,8 +1507,8 @@
         "path": "src/mod/features/window.cc",
         "symbolOrWorkflow": "Window"
       },
-      "expectedBehavior": "Windows free resize and borderless F11",
-      "verificationProcedure": "Resize, F11 enter/exit, previous placement/styles, text focus, multiple windows and cursor clipping.",
+      "expectedBehavior": "Enabled free_resize forwards resize messages; ordinary/profile title behavior is separate. PLAY F11 wrapper is dormant because its installation hook is not installed.",
+      "verificationProcedure": "Resize/maximize, enabled/disabled, Unicode window procedure, existing window and multiple clients. F11 restoration is not required baseline functionality.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [],
@@ -1893,25 +1897,30 @@
     {
       "id": "SET-FC-CONFIRM",
       "name": "Restore FC confirmation after do-not-show",
-      "classification": "Missing",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/fc_confirmation_reset.cc",
         "symbolOrWorkflow": "HideFleetCommander"
       },
       "migration": {
-        "path": "src/mod/features/confirmations.cc",
-        "symbolOrWorkflow": "No FC preference adapter"
+        "path": "src/mod/features/settings.cc",
+        "symbolOrWorkflow": "Registered native FC/FT boolean adapter + confirmation_settings.cc"
       },
       "expectedBehavior": "Restore FC confirmation after do-not-show",
       "verificationProcedure": "Observe existing cloud prefs without constructing singleton; toggle via native manager; invalidate old generations before session changes.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "settings-core-build-7.log: mods test-mod test-il2cpp, 193/193 steps",
+          "tests/il2cpp_bindings.cc: closed receiver ABI routes and noninitializing singleton reads",
+          "tests/settings_row_insertion_test.cc and settings_row_quarantine_test.cc: actual recovery policies, not native widget binding",
+          "settings-core-registered-build.log: Profiles-enabled Windows DLL + test-mod/test-il2cpp, 205/205 steps; PE verifier: 18 exports/static CRT/Profiles host/provenance marker"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Observe existing cloud prefs without constructing singleton; toggle via native manager; invalidate old generations before session changes.",
+      "dependenciesAndLimitations": "Checked closed delegates, source-linked native context ownership, noninitializing prefs observation, pending insertion recovery and view restoration implemented. Adapter is now registered in candidate; no native row/runtime claim. Full page navigation remains separate.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -2118,25 +2127,30 @@
     {
       "id": "STATE-QUIT",
       "name": "Pending state writer on normal quit",
-      "classification": "Unresolved",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/mod_state.cc",
         "symbolOrWorkflow": "TryUpdate"
       },
       "migration": {
-        "path": "src/mod/mod_state.cc",
-        "symbolOrWorkflow": "StateWriter"
+        "path": "src/mod/runtime_config.cc",
+        "symbolOrWorkflow": "WantsQuit/Update + mod_state::{BeginQuitDrain,QuitDrained,ResumeAfterQuitVeto}"
       },
       "expectedBehavior": "Pending state writer on normal quit",
       "verificationProcedure": "Normal quit currently drains TOML only; pending pin changes apply only after Saved. Define/test pending request drain without claiming acknowledged state lost.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "tests/runtime_config_test.cc: idle TOML + pending state + resumed native veto",
+          "tests/mod_state_writer_test.cc: paused commit, debounce bypass, admission rejection, failure settlement and resume",
+          "settings-state-build-2.log: mods test-mod test-il2cpp, 193/193 steps (before later Settings recovery/entry-check delta)",
+          "settings-core-registered-build.log: final registered-core candidate, 205/205 steps"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Normal quit currently drains TOML only; pending pin changes apply only after Saved. Define/test pending request drain without claiming acknowledged state lost.",
+      "dependenciesAndLimitations": "Existing sole RuntimeConfig quit owner drains admitted state edits without main-thread file I/O or joins; state admission resumes with TOML after a native veto. Failed receipts remain Failed. Requires installed RuntimeConfig quit delivery; disabled/missing delivery and actual native shutdown remain unqualified. Forced termination is not normal quit.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -2418,6 +2432,144 @@
       "dependenciesAndLimitations": "Startup and layout/status/reason/generation changes must reach vars without overwriting accepted effective configuration.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+    },
+    {
+      "id": "PLAY-UI-SCALE",
+      "name": "Interface scale and DPI",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/ui_scale.cc"
+      },
+      "migration": {
+        "path": "src/mod/features/ui_scale.cc"
+      },
+      "expectedBehavior": "Zero preserves native; render factor ui_scale*DPI clamped0.1-5, shortcut changes0.1-2. Test zero, limits, resize/monitor changes and persistence.",
+      "activationAndDependencies": "Zero preserves native; render factor ui_scale*DPI clamped0.1-5, shortcut changes0.1-2. Test zero, limits, resize/monitor changes and persistence.",
+      "verificationProcedure": "Zero preserves native; render factor ui_scale*DPI clamped0.1-5, shortcut changes0.1-2. Test zero, limits, resize/monitor changes and persistence.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Zero preserves native; render factor ui_scale*DPI clamped0.1-5, shortcut changes0.1-2. Test zero, limits, resize/monitor changes and persistence.",
+      "restorationCommits": []
+    },
+    {
+      "id": "PLAY-VIEWER-SCALE",
+      "name": "Object-viewer scale",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/ui_scale.cc"
+      },
+      "migration": {
+        "path": "src/mod/features/ui_scale.cc"
+      },
+      "expectedBehavior": "Only ObjectViewerTemplate_Canvas; zero native; quarter-step shortcut; reused/hidden viewers and unrelated canvases.",
+      "activationAndDependencies": "Only ObjectViewerTemplate_Canvas; zero native; quarter-step shortcut; reused/hidden viewers and unrelated canvases.",
+      "verificationProcedure": "Only ObjectViewerTemplate_Canvas; zero native; quarter-step shortcut; reused/hidden viewers and unrelated canvases.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Only ObjectViewerTemplate_Canvas; zero native; quarter-step shortcut; reused/hidden viewers and unrelated canvases.",
+      "restorationCommits": []
+    },
+    {
+      "id": "PLAY-SHIP-MODEL-SCALE",
+      "name": "Existing and newly loaded ship scale",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/ui_scale.cc"
+      },
+      "migration": {
+        "path": "src/mod/features/ui_scale.cc"
+      },
+      "expectedBehavior": "New asset native scale multiplied; existing models rescaled by new/old ratio. Test mixed old/new models, failures, nonpositive setting and repeated adjustments.",
+      "activationAndDependencies": "New asset native scale multiplied; existing models rescaled by new/old ratio. Test mixed old/new models, failures, nonpositive setting and repeated adjustments.",
+      "verificationProcedure": "New asset native scale multiplied; existing models rescaled by new/old ratio. Test mixed old/new models, failures, nonpositive setting and repeated adjustments.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "New asset native scale multiplied; existing models rescaled by new/old ratio. Test mixed old/new models, failures, nonpositive setting and repeated adjustments.",
+      "restorationCommits": []
+    },
+    {
+      "id": "PLAY-ARTIFACT-EXCHANGE-ALL",
+      "name": "Hide only artifact bulk conversion",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/artifact_exchange.cc"
+      },
+      "migration": {
+        "path": "src/mod/features/shop.cc"
+      },
+      "expectedBehavior": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
+      "activationAndDependencies": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
+      "verificationProcedure": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
+      "restorationCommits": []
+    },
+    {
+      "id": "PLAY-OUT-OF-DOCK-POWER",
+      "name": "Exclude station-only power buffs",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/buff_fixes.cc"
+      },
+      "migration": {
+        "path": "src/mod/features/buffs.cc"
+      },
+      "expectedBehavior": "Reject CondSelfAtStation, delegate other conditions. PLAY installation is startup-only; migration checks current option live. Test dock/deployed, other args and reload; retain explicit live-toggle difference.",
+      "activationAndDependencies": "Reject CondSelfAtStation, delegate other conditions. PLAY installation is startup-only; migration checks current option live. Test dock/deployed, other args and reload; retain explicit live-toggle difference.",
+      "verificationProcedure": "Reject CondSelfAtStation, delegate other conditions. PLAY installation is startup-only; migration checks current option live. Test dock/deployed, other args and reload; retain explicit live-toggle difference.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Reject CondSelfAtStation, delegate other conditions. PLAY installation is startup-only; migration checks current option live. Test dock/deployed, other args and reload; retain explicit live-toggle difference.",
+      "restorationCommits": []
+    },
+    {
+      "id": "PLAY-WINDOW-PROFILE-TITLE",
+      "name": "Custom/profile window title",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/free_resize.cc"
+      },
+      "migration": {
+        "path": "src/mod/features/window.cc"
+      },
+      "expectedBehavior": "Ordinary title unchanged; legacy -ccm prefixes stem, immutable profile uses admitted ID. Test delayed window, Unicode/spaces and multiple clients. Presentation is not account identity.",
+      "activationAndDependencies": "Ordinary title unchanged; legacy -ccm prefixes stem, immutable profile uses admitted ID. Test delayed window, Unicode/spaces and multiple clients. Presentation is not account identity.",
+      "verificationProcedure": "Ordinary title unchanged; legacy -ccm prefixes stem, immutable profile uses admitted ID. Test delayed window, Unicode/spaces and multiple clients. Presentation is not account identity.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Ordinary title unchanged; legacy -ccm prefixes stem, immutable profile uses admitted ID. Test delayed window, Unicode/spaces and multiple clients. Presentation is not account identity.",
+      "restorationCommits": []
     }
   ],
   "sourceCoverage": {
@@ -2600,5 +2752,19 @@
       "mods/src/titlemac.mm",
       "mods/src/toml_editor.cc"
     ]
-  }
+  },
+  "dormantDeclarationsNotToRevive": [
+    {
+      "name": "adjust_scale_res",
+      "evidence": "PLAY declaration/read only, no parser/writer; static Config zero-initialization leaves false. Active scale formula matches migration."
+    },
+    {
+      "name": "F11 borderless and 1024 fallback",
+      "evidence": "PLAY required SetWindowLong hook never installed. Migration frame activation is now withheld; legacy implementation remains for a separate authorized feature."
+    },
+    {
+      "name": "GameObject duplicate SetActive and AddActionToQueue trace",
+      "evidence": "PLAY installation blocks commented out; not required active functionality."
+    }
+  ]
 }

@@ -130,6 +130,57 @@ int main()
   Check(intent.Observe(writer.Status(Group::ShipPins)) == decltype(intent)::Completion::Failed);
   intent.Take(); // Native applied remains {1,2} on failure.
   Check(applied.ids == std::vector<int64_t>({1, 2}));
+  // Quit bypasses long debounce, closes admission before checking pending work and never waits for the commit.
+  // Resume after a native veto permits later edits; failed writes still settle without becoming Saved.
+  {
+    std::mutex              quit_mutex;
+    std::condition_variable quit_wake;
+    bool                    entered = false, let_finish = false;
+    StateWriter             quit_writer(
+        [&](const StateEdit&) {
+          std::unique_lock lock(quit_mutex);
+          entered = true;
+          quit_wake.notify_all();
+          quit_wake.wait(lock, [&] { return let_finish; });
+          return false;
+        },
+        30s);
+    struct Release {
+      std::mutex&              mutex;
+      std::condition_variable& wake;
+      bool&                    flag;
+      ~Release()
+      {
+        {
+          std::lock_guard lock(mutex);
+          flag = true;
+        }
+        wake.notify_all();
+      }
+    } release_on_failure{quit_mutex, quit_wake, let_finish};
+    const auto revision = quit_writer.Submit({Group::OfficerOrder, {3, 2, 1}, {}});
+    Check(revision && !quit_writer.Drained());
+    quit_writer.BeginDrain();
+    Check(!quit_writer.Submit({Group::ShipPins, {2}, {}}));
+    {
+      std::unique_lock lock(quit_mutex);
+      Check(quit_wake.wait_for(lock, 3s, [&] { return entered; }));
+    }
+    Check(!quit_writer.Drained()); // BeginDrain returned while native commit is deterministically paused.
+    {
+      std::lock_guard lock(quit_mutex);
+      let_finish = true;
+    }
+    quit_wake.notify_all();
+    const auto drain_deadline = std::chrono::steady_clock::now() + 3s;
+    while (!quit_writer.Drained() && std::chrono::steady_clock::now() < drain_deadline)
+      std::this_thread::yield();
+    Check(quit_writer.Drained() && quit_writer.Status(Group::OfficerOrder).revision == revision
+          && quit_writer.Status(Group::OfficerOrder).outcome == SaveOutcome::Failed);
+    quit_writer.Resume();
+    Check(quit_writer.Submit({Group::ShipPins, {2}, {}}));
+    quit_writer.BeginDrain();
+  }
   std::cout << "State writer: bounded active/latest pending, group ordering, exact durable receipts, composition and "
-               "failure passed\n";
+               "failure, normal quit drain and veto resumption passed\n";
 }

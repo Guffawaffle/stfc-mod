@@ -1,4 +1,14 @@
 #pragma once
+namespace mod_state
+{
+inline bool draining = false, settled = true;
+inline void BeginQuitDrain()
+{ draining = true; }
+inline bool QuitDrained()
+{ return settled; }
+inline void ResumeAfterQuitVeto()
+{ draining = false; }
+} // namespace mod_state
 #include "runtime_reload.h"
 #include "toml_editor.h"
 #if _WIN32

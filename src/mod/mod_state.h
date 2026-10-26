@@ -22,6 +22,10 @@ bool TryUpdate(const std::function<void(nlohmann::json&)>& update);
 // Call during feature startup. Resolves the scoped path before UI actions and
 // retains one process-lifetime worker; never joins at DLL teardown.
 bool PrepareAsync();
+// Shared normal-quit owner invokes these; no second Unity quit detour and no main-thread file I/O/join.
+void BeginQuitDrain();
+bool QuitDrained();
+void ResumeAfterQuitVeto();
 // Admission is NOT durable success. Receipts name the latest desired value for
 // one fixed group; callers must check Status before claiming it was saved.
 uint64_t   QueueOfficerOrder(const std::vector<int64_t>& order);

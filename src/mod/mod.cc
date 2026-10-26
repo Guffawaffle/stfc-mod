@@ -214,6 +214,8 @@ constexpr const Feature* kFeatures[] = {
     &kDailyClaimFilter,
     // officers.cc
     &kOfficerSort,
+    // settings.cc
+    &kNativeSettings,
     // shop.cc
     &kGiftsAutoOpen,
     &kShopLimits,

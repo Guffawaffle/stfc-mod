@@ -59,7 +59,7 @@ public:
     if (!charge || group >= pending_.size())
       return 0;
     std::lock_guard lock(mutex_);
-    if (stopping_)
+    if (stopping_ || draining_)
       return 0;
     const auto replaced = pending_[group] ? pending_[group]->charge : 0;
     if (retained_bytes_ - replaced > MaximumRetainedBytes - charge)
@@ -81,6 +81,30 @@ public:
   {
     std::lock_guard lock(mutex_);
     return retained_bytes_;
+  }
+  // Normal quit closes admission and bypasses debounce, but never joins/waits on the Unity thread.
+  // Failed commits keep Failed receipts; drained means settled, not necessarily successfully saved.
+  void BeginDrain()
+  {
+    {
+      std::lock_guard lock(mutex_);
+      draining_ = true;
+      for (auto& work : pending_)
+        if (work)
+          work->ready = Clock::now();
+    }
+    wake_.notify_one();
+  }
+  bool Drained()
+  {
+    std::lock_guard lock(mutex_);
+    return retained_bytes_ == 0;
+  }
+  void Resume()
+  {
+    std::lock_guard lock(mutex_);
+    if (!stopping_)
+      draining_ = false;
   }
   static constexpr size_t MaximumEntries       = 4096;
   static constexpr size_t MaximumEditBytes     = 1024 * 1024;
@@ -172,6 +196,7 @@ private:
   uint64_t                                                           revision_       = 0;
   size_t                                                             retained_bytes_ = 0;
   bool                                                               stopping_       = false;
+  bool                                                               draining_       = false;
   std::thread                                                        worker_;
 };
 } // namespace mod_state

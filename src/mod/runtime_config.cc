@@ -5,6 +5,7 @@
 #else
 #include "config.h"
 #include "file.h"
+#include "mod_state.h"
 #include "runtime_config.h"
 #include "runtime_config_writer.h"
 #include "settings/basic_gameplay_settings.h"
@@ -113,11 +114,12 @@ bool WantsQuit(auto original)
   if (this_vote == vote)
     resume = allows;
   if (allows) {
+    mod_state::BeginQuitDrain();
     writer->Stop(false);
     // Close admission before checking: Submit shares lifecycle, so no later
     // request can race an idle exit. An already-deferred quit still observes
     // native thread exit through Update before resuming.
-    if (!draining && !writer->HasWork() && resume) {
+    if (!draining && !writer->HasWork() && mod_state::QuitDrained() && resume) {
       stopped = true;
       resume  = false;
       return true;
@@ -148,11 +150,12 @@ void Update()
   bool quit = false;
   {
     std::lock_guard lock(lifecycle);
-    if (!draining || stopped || !writer || !writer->PollStopped())
+    if (!draining || stopped || !writer || !writer->PollStopped() || !mod_state::QuitDrained())
       return;
     quit   = resume;
     resume = false; // Consume before Unity callbacks; never retry a genuine veto.
     if (!quit) {
+      mod_state::ResumeAfterQuitVeto();
       draining = false;
       stopped  = false;
       if (!writer->Resume()) {

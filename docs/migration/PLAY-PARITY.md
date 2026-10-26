@@ -35,8 +35,59 @@ The subsequent Profiles-enabled Windows DLL and assertion-enabled fixtures passe
 `9c3b9c81ebc3eadcdf8cd86fde9fdce48fbaa74fdd937cdad6eb3e1d0238c687`.
 `restoration-local-receipt.json` records the source-file hashes and exact artifact.
 The machine-readable [workflow inventory](play-functional-parity.json) is the
-current reconciliation ledger; its 95 entries remain an in-progress inventory,
+current reconciliation ledger; its 101 entries remain an in-progress inventory,
 not an assertion of comprehensive discovery or runtime equivalence.
+
+Native Settings core restoration now lives in `features/settings.cc` with domain
+bindings in `game/settings.h`. The FC/FT core is **now registered in the candidate feature
+table**, guarded by the preserved default-on `nativesettingshooks` key. It has
+not been deployed or validated in-game. Checked closed delegates validate the exact managed signature,
+receiver and both native execution slots; controlled-runtime tests exercise void,
+Boolean and enum callbacks. FC preference reads observe existing initialized
+singletons and never create account storage merely to render. FT uses the shared
+registered-key preserving writer and save-status model.
+
+Native insertion recovery begins before AddToggle: append-then-throw and unknown
+count/item/ownership scans retain weak operation custody. Only exact supplied
+getter/setter identities authorize cleanup; successful removal calls alone never
+prove absence. Provisional rows are recognized by their owned getter before
+query installation and remain hidden/uneditable. Hidden and identity-lost views
+schedule rebinding, including restoration-triggered context replacement. Native
+entry staging now uses CheckedEntry (including macOS fit protection).
+
+`settings-core-build-7.log` passed Windows `mods test-mod test-il2cpp` with
+193/193 build/run steps. Row insertion/quarantine tests exercise the production
+recovery policies; they do **not** exercise actual game widget rendering. The final registered-core Profiles-enabled Windows DLL and tests passed
+`settings-core-registered-build.log` (205/205 steps), including the subsequent
+recovery and checked-entry corrections. Full page
+navigation/search, exact editing, shortcut capture and media pickers remain
+missing. Two confirmation rows do not constitute full Mod Settings.
+
+Normal state-file shutdown now participates in RuntimeConfig's existing sole
+quit owner. It closes state admission, skips debounce and waits through frame
+polling for active/pending edits to settle, with no main-thread join or file I/O.
+A resumed native veto restores both writers together. Failed commits stay failed;
+settlement is not success. Disabled/missing RuntimeConfig delivery remains an
+explicit qualification gap; forced termination has no normal-drain guarantee.
+Worker and actual quit-adapter fixtures passed at `settings-state-build-2.log`
+(193/193 steps), and the final registered-core candidate passed 205/205 steps.
+The native shutdown interaction still needs an exact-artifact in-game trial.
+
+Retained client273 inspection binds the Settings work to dump SHA-256
+`3c019dd684ee5e1062e758831c00be719fb53c94b4859c95ba2cc46189dc8621`
+and GameAssembly SHA-256
+`a9ab2edbc143cfba3aff35665e129006f73853070dbff206884fda04a235ab94`.
+`ContainerOptionContext`, not `OptionContext`, owns the read-only Children facade.
+Native AddToggle stores supplied delegates in SafeFunc/SafeAction wrappers, then
+AddChild appends before calling the child's virtual parent setter. Insertion may
+therefore mutate before reporting failure. Cleanup must prove the exact getter
+and setter identities, not infer ownership from a child index or matching title.
+
+An apparent extra resolution-scaling gap was rejected: `adjust_scale_res` has no
+active PLAY parser/writer and stays false in its zero-initialized Config. F11
+borderless activation likewise depends on a PLAY hook that is never installed.
+The migration's added frame activation is withheld; the implementation is kept
+for separately authorized work. Neither dormant branch is required active parity.
 
 CI, PR conflicts and integration infrastructure are deliberately parked. No
 workflow changes, merging or rebasing are part of this phase. PR #374 is only a
@@ -51,7 +102,7 @@ promotion before this functional work is complete.
 - Fleet alerts require startup/re-enable seeding, journey/OPC continuity and
   independent polling/depletion availability. Incoming dedup suppresses side
   effects, never the native banner's independent visibility decision.
-- Native Settings requires full navigation, exact editing, reset/save recovery,
+- Native Settings still requires full navigation, exact editing, reset/save recovery,
   shortcut capture/undo, media pickers and preference invalidation, not a starter
   page. FC confirmation reads must not construct an account singleton to render.
 - Preset save must always use canonical source indices, including repaint,
@@ -293,3 +344,31 @@ No new test/build/runtime qualification is claimed by this inventory. Its next
 step is a dependency-aware full-play implementation sequence, with Settings and
 chat visible regressions prioritized by the coordinator and later extras kept
 separate.
+
+## Native Settings hook evidence — retained Windows client273
+
+The `.pdata` extents below come from the exact retained GameAssembly named above.
+They establish substantive Windows entries, not installed-client runtime behavior
+or macOS qualification. All seven now stage through the checked-entry adapter.
+
+| Native entry | RVA | Unwind extent (bytes) |
+| --- | --- | ---: |
+| SettingsSectionDirector.AddGeneralSettings | `0x1019CB0` | 1533 |
+| ToggleOptionWidget.SetWidgetData | `0x1035050` | 623 |
+| ToggleOptionWidget.OnAboutToReleaseContext | `0x10352C0` | 267 |
+| ToggleOptionWidget.OnToggleValueChanged | `0x1035450` | 474 |
+| PersistentPrefsManager.RegisterEvents | `0xD64440` | 300 |
+| PersistentPrefsManager.GameSessionStartedEventHandler | `0xD658C0` | 156 |
+| PersistentPrefsManager.LoadPersistentPrefsFromCloud | `0xD65B90` | 367 |
+
+### Next native confirmation qualification
+
+Use the final exact artifact, not a prior startup smoke: open native Settings,
+find the confirmation category, verify FC/FT labels and current values, change
+and read back each intentionally, close/reopen, and verify FT TOML save status.
+Repeat after pooled row reuse and preference/cloud replacement. Unknown account
+storage must not appear OFF; provisional/unsupported rows must not accept edits.
+Exercise same-value refresh, config reload, rapid close/reopen and disabled
+ForbiddenTechConfirm independently. Observe normal quit with a pending state save,
+then a genuine native veto, and confirm subsequent saving works. No such runtime
+trial, macOS build or macOS native behavior is claimed by the local checks above.

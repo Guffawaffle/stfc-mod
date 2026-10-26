@@ -110,7 +110,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         test_mod.dependOn(&b.addRunArtifact(exe).step);
     }
 
-    inline for (.{ "boolean_settings", "choice_setting", "slider_setting", "settings_maintenance", "settings_search", "settings_metadata", "page_catalog", "native_boolean_callback" }) |fixture| {
+    inline for (.{ "boolean_settings", "choice_setting", "slider_setting", "settings_maintenance", "settings_search", "settings_metadata", "page_catalog", "native_boolean_callback", "settings_row_quarantine", "settings_row_insertion" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
         module.addIncludePath(b.path("third_party/libil2cpp"));

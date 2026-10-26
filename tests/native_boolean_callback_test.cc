@@ -38,8 +38,26 @@ int main()
   assert(get.Initialize(&schema, Getter));
   assert(!get.Initialize(&schema, Getter));
   assert(schema.methodPointer == reinterpret_cast<Il2CppMethodPointer>(Donor));
-  auto* owned  = get.method();
-  auto  direct = reinterpret_cast<decltype(&Getter)>(owned->methodPointer);
+  auto*          owned = get.method();
+  Il2CppObject   receiver{};
+  Il2CppDelegate provisional{};
+  provisional.target           = &receiver;
+  provisional.invoke_impl_this = &receiver;
+  provisional.method           = owned;
+  provisional.method_ptr       = owned->methodPointer;
+  provisional.invoke_impl      = owned->methodPointer;
+  // The unconfigured native row can be recognized by its getter before query installation. Neither donor
+  // metadata nor another delegate with only a matching code address grants ownership/admission.
+  assert(get.Owns(&provisional));
+  provisional.method = &schema;
+  assert(!get.Owns(&provisional));
+  provisional.method           = owned;
+  provisional.invoke_impl_this = nullptr;
+  assert(!get.Owns(&provisional));
+  provisional.invoke_impl_this = &receiver;
+  provisional.invoke_impl      = schema.methodPointer;
+  assert(!get.Owns(&provisional));
+  auto direct = reinterpret_cast<decltype(&Getter)>(owned->methodPointer);
   assert(direct(nullptr, owned));
   auto virt = reinterpret_cast<decltype(&Getter)>(owned->virtualMethodPointer);
   assert(virt(nullptr, owned));

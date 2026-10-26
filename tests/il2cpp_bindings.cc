@@ -7,6 +7,8 @@
 #include "game/chat.h"
 #include "game/fleet.h"
 #include "game/navigation.h"
+#include "game/settings.h"
+#include "settings/native_boolean_callback.h"
 #include <il2cpp/hook.h>
 #include <unity/input.h>
 #include <unity/ui.h>
@@ -163,33 +165,35 @@ struct Vec3 {
 };
 
 // Runtime classes.
-FakeClass& void_class                  = Define("System", "Void", IL2CPP_TYPE_VOID);
-FakeClass& object_class                = Define("System", "Object", IL2CPP_TYPE_OBJECT);
-FakeClass& int_class                   = Define("System", "Int32", IL2CPP_TYPE_I4, nullptr, 4);
-FakeClass& unsigned_int_class          = Define("System", "UInt32", IL2CPP_TYPE_U4, nullptr, 4);
-FakeClass& unsigned_long_class         = Define("System", "UInt64", IL2CPP_TYPE_U8, nullptr, 8);
-FakeClass& bool_class                  = Define("System", "Boolean", IL2CPP_TYPE_BOOLEAN, nullptr, 1);
-FakeClass& float_class                 = Define("System", "Single", IL2CPP_TYPE_R4, nullptr, 4);
-FakeClass& string_class                = Define("System", "String", IL2CPP_TYPE_STRING, &object_class);
-FakeClass& type_class                  = Define("System", "Type", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& array_class                 = Define("System", "Array", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& object_array_class          = Define("System", "Object[]", IL2CPP_TYPE_SZARRAY, &array_class);
-FakeClass& string_array_class          = Define("System", "String[]", IL2CPP_TYPE_SZARRAY, &array_class);
-FakeClass& vec3_class                  = Define("UnityEngine", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
-FakeClass& state_class                 = Define("Game", "State", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
-FakeClass& base_class                  = Define("Game", "Base", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& derived_class               = Define("Game", "Derived", IL2CPP_TYPE_CLASS, &base_class);
-FakeClass& other_class                 = Define("Game", "Other", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& outer_class                 = Define("Game", "Outer", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& inner_class                 = Define("", "Inner", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& list_a_class                = Define("Game", "ListA", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& list_b_class                = Define("Game", "ListB", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& delegate_base               = Define("System", "Delegate", IL2CPP_TYPE_CLASS, &object_class);
-FakeClass& action_class                = Define("System", "Action", IL2CPP_TYPE_CLASS, &delegate_base);
-FakeClass& intptr_class                = Define("System", "IntPtr", IL2CPP_TYPE_I, nullptr, sizeof(void*));
-FakeClass& uintptr_class               = Define("System", "UIntPtr", IL2CPP_TYPE_U, nullptr, sizeof(void*));
-FakeClass& pointer_class               = Define("Game", "UnmanagedPointer", IL2CPP_TYPE_PTR);
-FakeClass& nullable_definition         = Define("System", "Nullable`1", IL2CPP_TYPE_VALUETYPE, nullptr, 16);
+FakeClass& void_class               = Define("System", "Void", IL2CPP_TYPE_VOID);
+FakeClass& object_class             = Define("System", "Object", IL2CPP_TYPE_OBJECT);
+FakeClass& int_class                = Define("System", "Int32", IL2CPP_TYPE_I4, nullptr, 4);
+FakeClass& unsigned_int_class       = Define("System", "UInt32", IL2CPP_TYPE_U4, nullptr, 4);
+FakeClass& unsigned_long_class      = Define("System", "UInt64", IL2CPP_TYPE_U8, nullptr, 8);
+FakeClass& bool_class               = Define("System", "Boolean", IL2CPP_TYPE_BOOLEAN, nullptr, 1);
+FakeClass& float_class              = Define("System", "Single", IL2CPP_TYPE_R4, nullptr, 4);
+FakeClass& string_class             = Define("System", "String", IL2CPP_TYPE_STRING, &object_class);
+FakeClass& type_class               = Define("System", "Type", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& array_class              = Define("System", "Array", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& object_array_class       = Define("System", "Object[]", IL2CPP_TYPE_SZARRAY, &array_class);
+FakeClass& string_array_class       = Define("System", "String[]", IL2CPP_TYPE_SZARRAY, &array_class);
+FakeClass& vec3_class               = Define("UnityEngine", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
+FakeClass& state_class              = Define("Game", "State", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+FakeClass& base_class               = Define("Game", "Base", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& derived_class            = Define("Game", "Derived", IL2CPP_TYPE_CLASS, &base_class);
+FakeClass& other_class              = Define("Game", "Other", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& outer_class              = Define("Game", "Outer", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& inner_class              = Define("", "Inner", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& list_a_class             = Define("Game", "ListA", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& list_b_class             = Define("Game", "ListB", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& delegate_base            = Define("System", "Delegate", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& action_class             = Define("System", "Action", IL2CPP_TYPE_CLASS, &delegate_base);
+FakeClass& settings_singleton_base  = Define("Game", "MonoSingleton`1", IL2CPP_TYPE_CLASS, &object_class);
+FakeClass& settings_singleton_class = Define("Game", "SettingsSingleton", IL2CPP_TYPE_CLASS, &settings_singleton_base);
+FakeClass& intptr_class             = Define("System", "IntPtr", IL2CPP_TYPE_I, nullptr, sizeof(void*));
+FakeClass& uintptr_class            = Define("System", "UIntPtr", IL2CPP_TYPE_U, nullptr, sizeof(void*));
+FakeClass& pointer_class            = Define("Game", "UnmanagedPointer", IL2CPP_TYPE_PTR);
+FakeClass& nullable_definition      = Define("System", "Nullable`1", IL2CPP_TYPE_VALUETYPE, nullptr, 16);
 FakeClass& foreign_nullable_definition = Define("System", "Nullable`1", IL2CPP_TYPE_VALUETYPE, nullptr, 16);
 FakeClass& nullable_vector_class       = Define("System", "Nullable`1", IL2CPP_TYPE_GENERICINST, nullptr, 16);
 FakeClass& foreign_vector_class        = Define("Other", "Vector3", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(Vec3));
@@ -384,6 +388,8 @@ Il2CppObject  string_object{}, type_object{};
 Il2CppString* VisualName(Il2CppObject*, const MethodInfo*)
 { return reinterpret_cast<Il2CppString*>(&string_object); }
 Il2CppDelegate delegate_object{};
+bool           settings_singleton_initialized = false;
+Il2CppObject*  settings_singleton_instance    = nullptr;
 
 // Generated code stand-ins. Each records what the binding passed.
 const Il2CppObject* seen_self   = nullptr;
@@ -513,15 +519,46 @@ void Base_ExplodeVoid(Il2CppObject*, const MethodInfo*)
 void Never(Il2CppObject*, const MethodInfo*)
 { throw std::runtime_error("shared generic method was called natively"); }
 
-const MethodInfo* delegate_target = nullptr;
+const MethodInfo* delegate_target      = nullptr;
+bool              delegate_ctor_throws = false;
 void              DelegateInvoker(Il2CppMethodPointer, const MethodInfo*, void* self, void** args, void*)
 {
+  if (delegate_ctor_throws)
+    throw Il2CppExceptionWrapper(&thrown);
   // Delegate(object target, IntPtr method): the second argument points at the MethodInfo address.
-  auto* delegate   = static_cast<Il2CppDelegate*>(self);
-  delegate_target  = *static_cast<const MethodInfo**>(args[1]);
-  delegate->method = delegate_target;
+  auto* delegate             = static_cast<Il2CppDelegate*>(self);
+  delegate_target            = *static_cast<const MethodInfo**>(args[1]);
+  delegate->method           = delegate_target;
+  delegate->target           = static_cast<Il2CppObject*>(args[0]);
+  delegate->invoke_impl_this = delegate->target;
 }
-void NativeTarget() {}
+void     NativeTarget() {}
+unsigned closed_delegate_calls = 0;
+unsigned closed_bool_get_calls = 0, closed_bool_set_calls = 0, closed_query_calls = 0;
+bool     ClosedBoolGetter(Il2CppObject* self, const MethodInfo*)
+{
+  Require(self == &base_object.header, "closed bool getter receiver");
+  ++closed_bool_get_calls;
+  return true;
+}
+void ClosedBoolSetter(Il2CppObject* self, bool value, const MethodInfo*)
+{
+  Require(self == &base_object.header && value, "closed bool setter receiver and value");
+  ++closed_bool_set_calls;
+}
+int ClosedQuery(Il2CppObject* self, const MethodInfo*)
+{
+  Require(self == &base_object.header, "closed enum query receiver");
+  ++closed_query_calls;
+  return 2;
+}
+void ClosedTarget(Il2CppObject* self, const MethodInfo*)
+{
+  Require(self == &base_object.header, "closed callback retains its entered receiver");
+  ++closed_delegate_calls;
+}
+void ClosedInvoker(Il2CppMethodPointer pointer, const MethodInfo* method, void* self, void**, void*)
+{ reinterpret_cast<void (*)(Il2CppObject*, const MethodInfo*)>(pointer)(static_cast<Il2CppObject*>(self), method); }
 void WarpInvokerSentinel(Il2CppMethodPointer, const MethodInfo*, void*, void**, void*)
 { Require(false, "the fake runtime must own invocation instead of calling a metadata sentinel directly"); }
 
@@ -687,6 +724,8 @@ void BuildRuntime()
   AddField(base_class, "_count", int_class, offsetof(TestObject, count));
   AddField(base_class, "_target", base_class, offsetof(TestObject, target));
   AddField(base_class, "s_flag", int_class, 0, true);
+  AddField(settings_singleton_base, "s_initialized", bool_class, 0, true);
+  AddField(settings_singleton_base, "s_instance", settings_singleton_class, 0, true);
 
   AddMethod(list_a_class, "get_Count", reinterpret_cast<void*>(&ListA_get_Count), T(int_class), {});
   AddMethod(list_a_class, "get_Item", reinterpret_cast<void*>(&List_get_Item), T(object_class), {T(int_class)});
@@ -699,6 +738,7 @@ void BuildRuntime()
 
   auto& ctor          = AddMethod(action_class, ".ctor", nullptr, T(void_class), {T(object_class), T(intptr_class)});
   ctor.invoker_method = &DelegateInvoker;
+  AddMethod(action_class, "Invoke", reinterpret_cast<void*>(&Never), T(void_class), {});
   AddMethod(base_class, "OnEvent", reinterpret_cast<void*>(&NativeTarget), T(void_class), {},
             METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
 
@@ -1009,8 +1049,15 @@ END_API
 API(Il2CppClass*, il2cpp_object_get_class, (Il2CppObject * object))
 { return object ? object->klass : nullptr; }
 END_API
-API(void, il2cpp_field_static_get_value, (FieldInfo*, void* value))
-{ std::memcpy(value, &static_flag, sizeof(static_flag)); }
+API(void, il2cpp_field_static_get_value, (FieldInfo * field, void* value))
+{
+  if (std::string_view(field->name) == "s_initialized")
+    std::memcpy(value, &settings_singleton_initialized, sizeof(settings_singleton_initialized));
+  else if (std::string_view(field->name) == "s_instance")
+    std::memcpy(value, &settings_singleton_instance, sizeof(settings_singleton_instance));
+  else
+    std::memcpy(value, &static_flag, sizeof(static_flag));
+}
 END_API
 API(void, il2cpp_field_static_set_value, (FieldInfo*, void* value))
 { std::memcpy(&static_flag, value, sizeof(static_flag)); }
@@ -1018,6 +1065,12 @@ END_API
 
 namespace
 {
+struct ExistingSettingsSingleton : il2cpp::Object {
+  struct Class {
+    static Il2CppClass* Raw()
+    { return &settings_singleton_class.klass; }
+  };
+};
 struct Base : il2cpp::Object {
   using Class = il2cpp::Class<"Game", "Game", "Base">;
 
@@ -1845,6 +1898,126 @@ int main(int argc, char** argv)
   Require(delegate && delegate_target == target.Info()
               && delegate->method_ptr == reinterpret_cast<Il2CppMethodPointer>(&NativeTarget),
           "static delegate");
+
+  MethodInfo closed_schema           = *Base::Class::Method("ExplodeVoid").Info();
+  closed_schema.methodPointer        = reinterpret_cast<Il2CppMethodPointer>(&ClosedTarget);
+  closed_schema.virtualMethodPointer = closed_schema.methodPointer;
+  closed_schema.invoker_method       = &ClosedInvoker;
+  auto* closed                       = reinterpret_cast<Il2CppDelegate*>(
+      il2cpp::NewClosedDelegate(&action_class.klass, base, il2cpp::Method(&closed_schema)));
+  Require(closed && closed->target == &base_object.header && closed->method == &closed_schema,
+          "closed instance delegate preserves receiver and owned callback metadata");
+  closed_schema.invoker_method(closed_schema.methodPointer, &closed_schema, closed->target, nullptr, nullptr);
+  il2cpp::InvokeBound(closed);
+  Require(closed->method_ptr == closed_schema.methodPointer && closed->invoke_impl == closed_schema.methodPointer
+              && closed->invoke_impl_this == closed->target,
+          "closed delegate establishes both native dispatch pointers and the exact closed receiver");
+  reinterpret_cast<void (*)(Il2CppObject*, const MethodInfo*)>(closed->invoke_impl)(closed->invoke_impl_this,
+                                                                                    closed->method);
+  Require(closed_delegate_calls == 3,
+          "reflection, bound method and generated closed delegate paths each invoke exactly once");
+  Require(
+      !il2cpp::NewClosedDelegate(&action_class.klass, nullptr, il2cpp::Method(&closed_schema))
+          && !il2cpp::NewClosedDelegate(&action_class.klass, base, target)
+          && !il2cpp::NewClosedDelegate(&action_class.klass, base, Base::Class::Method("Explode"))
+          && !il2cpp::NewClosedDelegate(&action_class.klass, base, Base::Class::Method("Describe"))
+          && !il2cpp::NewClosedDelegate(&other_class.klass, base, il2cpp::Method(&closed_schema)),
+      "closed delegates reject null receivers, static targets, signature mismatch, virtual targets and nondelegates");
+  auto wrong_schema  = closed_schema;
+  wrong_schema.klass = &other_class.klass;
+  Require(!il2cpp::NewClosedDelegate(&action_class.klass, base, il2cpp::Method(&wrong_schema)),
+          "closed delegates reject unrelated receiver types");
+  warp_root_failure = true;
+  Require(!il2cpp::NewClosedDelegate(&action_class.klass, base, il2cpp::Method(&closed_schema)),
+          "closed delegate declines when receiver custody cannot be established");
+  warp_root_failure                    = false;
+  const auto roots_before_ctor_failure = warp_roots.size();
+  delegate_ctor_throws                 = true;
+  Require(!il2cpp::NewClosedDelegate(&action_class.klass, base, il2cpp::Method(&closed_schema)),
+          "closed delegate construction contains a managed constructor exception");
+  delegate_ctor_throws = false;
+  Require(warp_roots.size() == roots_before_ctor_failure, "failed delegate construction releases temporary custody");
+
+  // Drive the same owned schemas used by Settings through the SDK's CLOSED delegate execution slots.
+  // Direct MethodInfo invocation and InvokeBound alone would miss an uninitialized invoke_impl/receiver.
+  auto* action_invoke = const_cast<MethodInfo*>(il2cpp::Class<"mscorlib", "System", "Action">::Method("Invoke").Info());
+  const auto original_invoke = *action_invoke;
+  auto       bool_schema     = closed_schema;
+  bool_schema.return_type    = T(bool_class);
+  action_invoke->return_type = bool_schema.return_type;
+  mod_settings::NativeCallback<bool> bool_get;
+  Require(bool_get.Initialize(&bool_schema, ClosedBoolGetter), "owned bool getter donor");
+  auto* get_delegate = reinterpret_cast<Il2CppDelegate*>(
+      il2cpp::NewClosedDelegate(&action_class.klass, base, il2cpp::Method(bool_get.method())));
+  Require(get_delegate
+              && reinterpret_cast<bool (*)(Il2CppObject*, const MethodInfo*)>(get_delegate->invoke_impl)(
+                  get_delegate->invoke_impl_this, get_delegate->method)
+              && closed_bool_get_calls == 1,
+          "native closed bool getter dispatches once");
+  bool reflected_get = false;
+  bool_get.method()->invoker_method(bool_get.method()->methodPointer, bool_get.method(), base, nullptr, &reflected_get);
+  Require(reflected_get && closed_bool_get_calls == 2, "bool getter reflection path remains independent");
+
+  const Il2CppType* bool_parameters[]{T(bool_class)};
+  auto              setter_schema = closed_schema;
+  setter_schema.parameters        = bool_parameters;
+  setter_schema.parameters_count  = 1;
+  *action_invoke                  = original_invoke;
+
+  const auto static_initializations = initialized.size();
+  settings_singleton_initialized    = false;
+  auto existing_settings            = settings_binding::ExistingSingleton<ExistingSettingsSingleton>();
+  Require(existing_settings && !existing_settings.value && initialized.size() == static_initializations,
+          "uninitialized Settings singleton remains absent without initializing static storage");
+  Il2CppObject existing_settings_object{};
+  existing_settings_object.klass = &settings_singleton_class.klass;
+  settings_singleton_initialized = true;
+  settings_singleton_instance    = &existing_settings_object;
+  existing_settings              = settings_binding::ExistingSingleton<ExistingSettingsSingleton>();
+  Require(existing_settings
+              && existing_settings.value == reinterpret_cast<ExistingSettingsSingleton*>(&existing_settings_object)
+              && initialized.size() == static_initializations,
+          "existing Settings singleton is observed without its constructor or Instance getter");
+  settings_singleton_instance = &other_object.header;
+  Require(!settings_binding::ExistingSingleton<ExistingSettingsSingleton>(),
+          "unrelated Settings singleton receiver is rejected");
+  settings_singleton_instance = nullptr;
+  existing_settings           = settings_binding::ExistingSingleton<ExistingSettingsSingleton>();
+  Require(existing_settings && !existing_settings.value, "initialized-but-absent storage remains unavailable");
+  action_invoke->parameters       = bool_parameters;
+  action_invoke->parameters_count = 1;
+  mod_settings::NativeCallback<void, bool> bool_set;
+  Require(bool_set.Initialize(&setter_schema, ClosedBoolSetter), "owned bool setter donor");
+  auto* set_delegate = reinterpret_cast<Il2CppDelegate*>(
+      il2cpp::NewClosedDelegate(&action_class.klass, base, il2cpp::Method(bool_set.method())));
+  Require(set_delegate, "native closed bool setter constructed");
+  reinterpret_cast<void (*)(Il2CppObject*, bool, const MethodInfo*)>(set_delegate->invoke_impl)(
+      set_delegate->invoke_impl_this, true, set_delegate->method);
+  Require(closed_bool_set_calls == 1, "native closed bool setter dispatches once");
+  bool  reflected_argument = true;
+  void* reflected_args[]{&reflected_argument};
+  bool_set.method()->invoker_method(bool_set.method()->methodPointer, bool_set.method(), base, reflected_args, nullptr);
+  Require(closed_bool_set_calls == 2, "bool setter reflection path remains independent");
+
+  auto query_schema          = closed_schema;
+  query_schema.return_type   = T(state_class);
+  *action_invoke             = original_invoke;
+  action_invoke->return_type = query_schema.return_type;
+  mod_settings::NativeCallback<int> query_callback;
+  Require(query_callback.Initialize(&query_schema, ClosedQuery), "owned enum query donor");
+  auto* query_delegate = reinterpret_cast<Il2CppDelegate*>(
+      il2cpp::NewClosedDelegate(&action_class.klass, base, il2cpp::Method(query_callback.method())));
+  Require(query_delegate
+              && reinterpret_cast<int (*)(Il2CppObject*, const MethodInfo*)>(query_delegate->invoke_impl)(
+                     query_delegate->invoke_impl_this, query_delegate->method)
+                     == 2
+              && closed_query_calls == 1,
+          "native closed enum query dispatches once");
+  int reflected_query = 0;
+  query_callback.method()->invoker_method(query_callback.method()->methodPointer, query_callback.method(), base,
+                                          nullptr, &reflected_query);
+  Require(reflected_query == 2 && closed_query_calls == 2, "enum query reflection path remains independent");
+  *action_invoke = original_invoke;
 
   // Hook lookups by count and by parameter type names.
   Require(Base::Class::Method("Select", {"System.Boolean"}).Pointer() == reinterpret_cast<void*>(&Base_Select_Bool),

@@ -170,6 +170,7 @@ public:
     bool thinqueueprotectionhooks   = true;
     bool toastbannerhooks           = true;
     bool fleetnotificationhooks     = true;
+    bool nativesettingshooks        = true;
     bool transitionscreenhooks      = true;
     bool uiscalehooks               = true;
     bool zoomhooks                  = true;
@@ -214,7 +215,7 @@ public:
     // How much of the pan speed is kept each frame after a drag or key is released.
     float system_pan_momentum_falloff = 0.8f;
     bool  disable_target_camera_lock  = false;
-    // Unmodified F11 switches between ordinary and borderless fullscreen on Windows.
+    // Retained compatibility key; PLAY never activates its F11 hook. Do not revive it during migration.
     bool borderless_fullscreen = true;
     // TODO(tashcan): read but nothing applies it.
     float transition_time        = 0.01f;

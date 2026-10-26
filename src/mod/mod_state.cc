@@ -265,6 +265,22 @@ bool TryUpdate(const std::function<void(nlohmann::json&)>& update)
 
 static std::atomic<StateWriter*> async_writer{nullptr};
 
+void BeginQuitDrain()
+{
+  if (auto* writer = async_writer.load(std::memory_order_acquire))
+    writer->BeginDrain();
+}
+bool QuitDrained()
+{
+  auto* writer = async_writer.load(std::memory_order_acquire);
+  return !writer || writer->Drained();
+}
+void ResumeAfterQuitVeto()
+{
+  if (auto* writer = async_writer.load(std::memory_order_acquire))
+    writer->Resume();
+}
+
 bool PrepareAsync()
 {
   static std::mutex prepare_mutex;

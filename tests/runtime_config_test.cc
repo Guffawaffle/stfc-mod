@@ -30,10 +30,25 @@ void                             Reset()
   vote                        = 0;
   resumes                     = 0;
   request_quit                = [](int) { ++resumes; };
+  mod_state::draining         = false;
+  mod_state::settled          = true;
 }
 } // namespace
 int main(int argc, char** argv)
 {
+  Reset();
+  // Idle TOML does not permit exit while an admitted state edit is still executing.
+  mod_state::settled = false;
+  assert(!WantsQuit([] { return true; }) && mod_state::draining);
+  fixture.finished = true;
+  Update();
+  assert(resumes == 0);
+  mod_state::settled = true;
+  Update();
+  assert(resumes == 1);
+  assert(!WantsQuit([] { return false; }) && mod_state::draining);
+  Update();
+  assert(!draining && !stopped && !mod_state::draining);
   Reset();
 #if _WIN32
   if (argc == 2) {

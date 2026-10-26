@@ -299,6 +299,7 @@ zoom = 5000.0
 
 [patches]
 fleetnotificationhooks = true
+nativesettingshooks = true
 
 # Subgroup: Leave Well Alone
 # --------------------------

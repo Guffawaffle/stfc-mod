@@ -779,6 +779,9 @@ template <typename T> T At(List<T>* list, std::integral auto index)
 // Build a delegate of `delegate_class` bound to a static method. With `native`, invocations jump to
 // that C++ function instead of the method's generated code; it must match the method's native ABI.
 Il2CppObject* NewDelegate(Il2CppClass* delegate_class, Method target, Il2CppMethodPointer native = nullptr);
+// A closed, nonvirtual instance callback. Validates receiver assignability and the delegate's exact Invoke
+// signature before construction. Retained native MethodInfo copies must outlive every resulting delegate.
+Il2CppObject* NewClosedDelegate(Il2CppClass* delegate_class, Object* receiver, Method target);
 
 // Runs the method a delegate is bound to on its target directly, skipping the delegate's invoke stub. Single-cast
 // delegates only: it ignores invocation lists and native redirects, and calls the bound method without virtual

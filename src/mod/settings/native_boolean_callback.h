@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <il2cpp-class-internals.h>
+#include <il2cpp-object-internals.h>
 #include <il2cpp-tabledefs.h>
 #include <type_traits>
 #include <utility>
@@ -63,6 +64,13 @@ public:
   }
   const MethodInfo* method() const
   { return initialized_ ? &method_ : nullptr; }
+  bool Owns(const Il2CppDelegate* callback) const
+  {
+    const auto* info = method();
+    return callback && info && callback->target && callback->method == info
+           && callback->method_ptr == info->methodPointer && callback->invoke_impl == info->methodPointer
+           && callback->invoke_impl_this == callback->target;
+  }
 
 private:
   template <std::size_t... I>

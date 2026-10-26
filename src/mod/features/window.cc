@@ -75,7 +75,7 @@ bool RestoreBorderlessWindow()
   return style && extended && placed && framed;
 }
 
-void BorderlessWindowFrame()
+[[maybe_unused]] void BorderlessWindowFrame()
 {
   if (!Config::Get().graphics.borderless_fullscreen) {
     RestoreBorderlessWindow();
@@ -221,7 +221,9 @@ float WindowDpiScale(bool refresh)
   return scale;
 }
 
-const Feature kFreeResize{"FreeResize", &Config::Patches::freeresizehooks, InstallFreeResize, BorderlessWindowFrame};
+// PLAY contains an F11 wrapper, but never installs the SetWindowLong hook that would connect it. Do not revive
+// that dormant experiment as a parity requirement. Keep its implementation for a separately authorized feature.
+const Feature kFreeResize{"FreeResize", &Config::Patches::freeresizehooks, InstallFreeResize};
 // TODO: allow_cursor is not a test patch; it sits in testpatches only because it always has.
 const Feature kCursor{"Cursor", &Config::Patches::testpatches, InstallCursor};
 #else
