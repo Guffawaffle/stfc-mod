@@ -200,7 +200,7 @@ struct NavigationCamera : unity::Behaviour {
   { return Get<"SceneCamera", unity::Camera*>(); }
 };
 struct Tap : il2cpp::Object {
-  using Class = il2cpp::Class<"Assembly-CSharp", "", "TKTapRecognizer">;
+  using Class = il2cpp::Class<"TouchKit", "", "TKTapRecognizer">;
 };
 // Retained client 273 catalog, including entries not used by this feature.
 enum class Interactable : int32_t {

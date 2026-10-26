@@ -778,17 +778,19 @@ void BuildRuntime()
 API(Il2CppDomain*, il2cpp_domain_get, ())
 { return reinterpret_cast<Il2CppDomain*>(1); }
 END_API
-API(const Il2CppAssembly*, il2cpp_domain_assembly_open, (Il2CppDomain*, const char*))
-{ return reinterpret_cast<Il2CppAssembly*>(1); }
+API(const Il2CppAssembly*, il2cpp_domain_assembly_open, (Il2CppDomain*, const char* name))
+{ return reinterpret_cast<Il2CppAssembly*>(std::string_view(name) == "TouchKit" ? 2 : 1); }
 END_API
-API(const Il2CppImage*, il2cpp_assembly_get_image, (const Il2CppAssembly*))
-{ return reinterpret_cast<Il2CppImage*>(1); }
+API(const Il2CppImage*, il2cpp_assembly_get_image, (const Il2CppAssembly* assembly))
+{ return reinterpret_cast<const Il2CppImage*>(assembly); }
 END_API
 API(const Il2CppImage*, il2cpp_get_corlib, ())
 { return reinterpret_cast<Il2CppImage*>(1); }
 END_API
-API(Il2CppClass*, il2cpp_class_from_name, (const Il2CppImage*, const char* namespaze, const char* name))
+API(Il2CppClass*, il2cpp_class_from_name, (const Il2CppImage* image, const char* namespaze, const char* name))
 {
+  if (std::string_view(name) == "TKTapRecognizer" && image != reinterpret_cast<const Il2CppImage*>(2))
+    return nullptr;
   if (array_class_missing && std::string_view(namespaze) == "System" && std::string_view(name) == "Array")
     return nullptr;
   if (string_class_missing && std::string_view(namespaze) == "System" && std::string_view(name) == "String")
@@ -1337,6 +1339,10 @@ Il2CppObject* GalaxyDictionaryItem(Il2CppObject* object, int32_t key, const Meth
 
 void GalaxyObservations()
 {
+  auto& tap_class = Define("", "TKTapRecognizer", IL2CPP_TYPE_CLASS, &object_class);
+  Require(!il2cpp_class_from_name(reinterpret_cast<const Il2CppImage*>(1), "", "TKTapRecognizer")
+              && galaxy_binding::Tap::Class::Raw() == &tap_class.klass,
+          "Galaxy tap binding resolves TouchKit rather than accepting any same-named class across assemblies");
   auto& galaxy_class = Define("Digit.PrimeServer.Models", "OptimisedGalaxy", IL2CPP_TYPE_CLASS, &object_class);
   auto& node_class =
       Define("Digit.PrimeServer.Models", "GalaxyNode", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(galaxy_binding::Node));
