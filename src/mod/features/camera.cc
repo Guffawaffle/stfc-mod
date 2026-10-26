@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/galaxy.h"
 #include "features/haven_orbit.h"
 #include "features/navigation_orbit.h"
 #include "runtime_config.h"
@@ -32,6 +33,7 @@
 namespace
 {
 // --- Zoom ---
+bool camera_zoom_installed = false;
 
 // Entering a system jumps to default_system_zoom on the next camera update.
 bool zoom_to_default = false;
@@ -234,6 +236,13 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
 {
   unity::Key::Poll();
   FleetLabelsFollowDepth(_this, _this->depth());
+  if (!camera_zoom_installed) {
+    NativeZoomUpdateScope native_update(_this);
+    original(_this);
+    FleetLabelsAfterZoom(_this);
+    galaxy_controls::AfterZoom(_this);
+    return;
+  }
   KeepZoomRange(_this);
 
   // The jump on entering a system is not keyboard input, so it happens even while a text field has focus.
@@ -251,6 +260,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
   }
   KeepZoomRange(_this);
   FleetLabelsAfterZoom(_this);
+  galaxy_controls::AfterZoom(_this);
 }
 
 // Entering a system: widen the range before and after the game sets it up, and zoom to the default next update.
@@ -489,6 +499,8 @@ void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider*
 
 bool InstallZoom()
 {
+  if (!EnsureNavigationZoomUpdates())
+    return false;
   il2cpp::HookSet hooks("Zoom");
   IL2CPP_STAGE(hooks, PlanetViewUtils::Class::Method("Populate", 3), PlanetViewUtils_Populate_Hook);
   IL2CPP_STAGE(hooks,
@@ -502,14 +514,14 @@ bool InstallZoom()
   IL2CPP_STAGE(hooks, PlanetViewUtils::Class::Method("CameraZoomedEventHandler"),
                PlanetViewUtils_CameraZoomedEventHandler_Hook);
   IL2CPP_STAGE(hooks, PlanetViewUtils::Class::Method("get_FlatRenderable"), PlanetViewUtils_get_FlatRenderable_Hook);
-  IL2CPP_STAGE(hooks, NavigationZoom::Class::Method("Update"), NavigationZoom_Update_Hook);
   // TODO: SetDepth has only ever been detoured on Windows and the reason was not recorded; check its prologue
   // against SPUD's overwrite size before enabling it on macOS.
 #if _WIN32
   IL2CPP_STAGE(hooks, NavigationZoom::Class::Method("SetDepth"), NavigationZoom_SetDepth_Hook);
 #endif
   IL2CPP_STAGE(hooks, NavigationZoom::Class::Method("SetViewParameters"), NavigationZoom_SetViewParameters_Hook);
-  return hooks.Commit();
+  camera_zoom_installed = hooks.Commit();
+  return camera_zoom_installed;
 }
 
 bool InstallPan()
@@ -542,6 +554,17 @@ bool InstallInteriorZoom()
   return interior_zoom_installed;
 }
 } // namespace
+
+bool EnsureNavigationZoomUpdates()
+{
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("NavigationZoomUpdates");
+    IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(NavigationZoom::Class::Method<void()>("Update")),
+                    NavigationZoom_Update_Hook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
 
 bool EnsureOrbitConstraints()
 {

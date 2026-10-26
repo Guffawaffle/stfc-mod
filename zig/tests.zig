@@ -146,9 +146,10 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         test_gameplay_presentation.dependOn(&run.step);
         test_mod.dependOn(&run.step);
     }
-    inline for (.{ "officer_preset_order", "hud_visibility", "toast_parameters", "planned_system_warp" }) |fixture| {
+    inline for (.{ "officer_preset_order", "hud_visibility", "toast_parameters", "planned_system_warp", "galaxy_policy", "galaxy_selection_pins", "galaxy_selection_policy" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
+        module.addIncludePath(b.path("third_party/libil2cpp"));
         module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
         const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
@@ -159,6 +160,13 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         if (comptime std.mem.eql(u8, fixture, "hud_visibility")) test_hud_visibility.dependOn(&run.step);
         if (comptime std.mem.eql(u8, fixture, "toast_parameters")) test_toast_parameters.dependOn(&run.step);
         if (comptime std.mem.eql(u8, fixture, "planned_system_warp")) test_planned_system_warp.dependOn(&run.step);
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        deps.nlohmannJson(ctx).linkInto(module);
+        module.addCSourceFile(.{ .file = b.path("tests/galaxy_housing_data_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        addFixture(ctx, build_tests, test_mod, "galaxy-housing-data-tests", module);
     }
     {
         const module = ctx.createModule(true);

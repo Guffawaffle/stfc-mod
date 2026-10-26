@@ -6,6 +6,7 @@
 // The test API must suppress imported declarations before any binding header.
 #include "game/chat.h"
 #include "game/fleet.h"
+#include "game/galaxy.h"
 #include "game/navigation.h"
 #include "game/settings.h"
 #include "settings/native_boolean_callback.h"
@@ -22,6 +23,7 @@
 #include <deque>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -857,6 +859,12 @@ API(FieldInfo*, il2cpp_class_get_field_from_name, (Il2CppClass * klass, const ch
   return nullptr;
 }
 END_API
+API(Il2CppClass*, il2cpp_class_get_element_class, (Il2CppClass * klass))
+{
+  return klass && klass->byval_arg.type == IL2CPP_TYPE_SZARRAY ? il2cpp_class_from_type(klass->byval_arg.data.type)
+                                                               : nullptr;
+}
+END_API
 API(Il2CppClass*, il2cpp_class_from_type, (const Il2CppType* type))
 {
   // A vector's type union points to its element type rather than its own class.
@@ -1305,6 +1313,116 @@ void ShipIdentityObservations()
           "ship identity never substitutes FleetPlayerData.Id, hull or display name");
 }
 
+struct GalaxyTestDictionary {
+  Il2CppObject                     header{};
+  std::map<int32_t, Il2CppObject*> entries;
+  bool                             contains_fails = false, count_changes = false;
+  int32_t                          count_reads = 0;
+};
+int32_t GalaxyDictionaryCount(Il2CppObject* object, const MethodInfo*)
+{
+  auto& dictionary = *reinterpret_cast<GalaxyTestDictionary*>(object);
+  return static_cast<int32_t>(dictionary.entries.size())
+         + (dictionary.count_changes && ++dictionary.count_reads > 1 ? 1 : 0);
+}
+bool GalaxyDictionaryContains(Il2CppObject* object, int32_t key, const MethodInfo*)
+{
+  auto& dictionary = *reinterpret_cast<GalaxyTestDictionary*>(object);
+  if (dictionary.contains_fails)
+    throw std::runtime_error("controlled dictionary observation failure");
+  return dictionary.entries.contains(key);
+}
+Il2CppObject* GalaxyDictionaryItem(Il2CppObject* object, int32_t key, const MethodInfo*)
+{ return reinterpret_cast<GalaxyTestDictionary*>(object)->entries.at(key); }
+
+void GalaxyObservations()
+{
+  auto& galaxy_class = Define("Digit.PrimeServer.Models", "OptimisedGalaxy", IL2CPP_TYPE_CLASS, &object_class);
+  auto& node_class =
+      Define("Digit.PrimeServer.Models", "GalaxyNode", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(galaxy_binding::Node));
+  AddField(node_class, "_galaxy", galaxy_class, 0);
+  AddField(node_class, "_index", int_class, offsetof(galaxy_binding::Node, index));
+  Il2CppObject galaxy{};
+  galaxy.klass = &galaxy_class.klass;
+  Require(galaxy_binding::NodeLayout(), "retained GalaxyNode metadata qualifies its inline reference/index layout");
+  Require(!galaxy_binding::NodeId({reinterpret_cast<galaxy_binding::OptimisedGalaxy*>(&galaxy), 0, 0}),
+          "missing GalaxyNode.ID stays unavailable without invoking a null MethodInfo");
+  auto& dictionary_class = Define("Game", "GalaxyInteractionDictionary", IL2CPP_TYPE_CLASS, &object_class);
+  AddMethod(dictionary_class, "get_Count", reinterpret_cast<void*>(&GalaxyDictionaryCount), T(int_class), {});
+  AddMethod(dictionary_class, "ContainsKey", reinterpret_cast<void*>(&GalaxyDictionaryContains), T(bool_class),
+            {T(int_class)});
+  AddMethod(dictionary_class, "get_Item", reinterpret_cast<void*>(&GalaxyDictionaryItem), T(object_class),
+            {T(int_class)});
+  GalaxyTestDictionary dictionary;
+  dictionary.header.klass = &dictionary_class.klass;
+  dictionary.entries      = {{2, &galaxy}, {17, nullptr}};
+  auto observe_dictionary = [&] {
+    galaxy_binding::PinReader  reader;
+    std::vector<Il2CppObject*> values;
+    return reader.Dictionary(&dictionary.header, values) && values.size() == 1 && values[0] == &galaxy;
+  };
+  const auto dictionary_roots = warp_roots.size();
+  Require(observe_dictionary(), "production dictionary scan covers retained keys and known null values");
+  dictionary.entries[18] = &galaxy;
+  Require(!observe_dictionary(), "future enum keys deny retirement rather than claiming complete owners");
+  dictionary.entries.erase(18);
+  dictionary.contains_fails = true;
+  Require(!observe_dictionary(), "failed native dictionary lookup keeps retirement unknown");
+  dictionary.contains_fails = false;
+  dictionary.count_changes  = true;
+  Require(!observe_dictionary(), "dictionary count mutation during observation denies retirement");
+  dictionary.count_changes = false;
+  warp_root_failure        = true;
+  Require(!observe_dictionary(), "failed dictionary value custody denies retirement");
+  warp_root_failure = false;
+  Require(observe_dictionary() && warp_roots.size() == dictionary_roots,
+          "dictionary owner roots release on successful and failed observations");
+  auto& vector_class                     = Define("System", "Int32[]", IL2CPP_TYPE_SZARRAY, &array_class);
+  vector_class.klass.byval_arg.data.type = T(int_class);
+  struct Vector {
+    Il2CppObject        header{};
+    Il2CppArrayBounds*  bounds = nullptr;
+    il2cpp_array_size_t length = 3;
+    int32_t             values[3]{7, 8, 9};
+  } vector;
+  vector.header.klass = &vector_class.klass;
+  struct Repeated {
+    Il2CppObject header{};
+    Il2CppArray* array = nullptr;
+    int32_t      count = 3;
+  } repeated;
+  auto& repeated_class = Define("Google.Protobuf.Collections", "RepeatedField`1", IL2CPP_TYPE_CLASS, &object_class);
+  AddField(repeated_class, "array", vector_class, offsetof(Repeated, array));
+  AddField(repeated_class, "count", int_class, offsetof(Repeated, count));
+  repeated.header.klass = &repeated_class.klass;
+  repeated.array        = reinterpret_cast<Il2CppArray*>(&vector);
+  const auto before     = warp_roots.size();
+  {
+    auto values = galaxy_binding::ReadValues<int32_t>(reinterpret_cast<galaxy_binding::Reference*>(&repeated), 3);
+    Require(values && values->data.size() == 3 && values->data[0] == 7 && values->data[2] == 9
+                && warp_roots.size() == before + 2,
+            "Galaxy backing vector retains container and array without per-node boxing");
+  }
+  Require(warp_roots.size() == before, "Galaxy vector roots release after owned scan");
+  repeated.count = 2;
+  Require(!galaxy_binding::ReadValues<int32_t>(reinterpret_cast<galaxy_binding::Reference*>(&repeated), 3),
+          "mismatched source count is unavailable");
+  repeated.count = 3;
+  vector.length  = 2;
+  Require(!galaxy_binding::ReadValues<int32_t>(reinterpret_cast<galaxy_binding::Reference*>(&repeated), 3),
+          "backing capacity cannot be shorter than source count");
+  vector.length                          = 3;
+  vector_class.klass.byval_arg.data.type = T(unsigned_int_class);
+  Require(!galaxy_binding::ReadValues<int32_t>(reinterpret_cast<galaxy_binding::Reference*>(&repeated), 3),
+          "same-width unsigned backing values cannot become signed coordinates");
+  vector_class.klass.byval_arg.data.type = T(int_class);
+  warp_root_failure                      = true;
+  Require(!galaxy_binding::ReadValues<int32_t>(reinterpret_cast<galaxy_binding::Reference*>(&repeated), 3),
+          "failed scan custody rejects backing-vector access");
+  warp_root_failure = false;
+  Require(warp_roots.size() == before, "rejected Galaxy vectors leak no GC handles");
+}
+
 void ReferenceArrayObservations()
 {
   struct Vector {
@@ -1708,6 +1826,7 @@ int main(int argc, char** argv)
   }
   ChatAvatarRetentionObservations();
   ShipIdentityObservations();
+  GalaxyObservations();
   ReferenceArrayObservations();
   ReferenceArrayGetterObservations();
   CheckedUnityVisualObservations();

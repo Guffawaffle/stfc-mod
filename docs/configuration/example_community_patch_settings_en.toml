@@ -154,6 +154,22 @@ enable_experimental = false
 #  <[===========================================================================================================================]>
 
 [graphics]
+# Select minor systems at far Galaxy zoom without enabling all their rendered entities.
+galaxy_extended_selection = false
+# Let the native Default / Mining / Hostiles / Hazards buttons select multiple layers.
+galaxy_multi_select = false
+# Static, source-qualified station-housing indicator; not live docking-slot availability.
+galaxy_station_housing = false
+galaxy_overlay_default = true
+galaxy_overlay_mining = false
+galaxy_overlay_hostiles = false
+galaxy_overlay_hazards = false
+# Native / always / threshold, independently for major and minor systems.
+galaxy_label_major_detail = "native"
+galaxy_label_minor_detail = "native"
+# Normalized zoom: 0 is near, 1 is far. Threshold 0 never expands; 1 always expands.
+galaxy_label_major_threshold = 0.5
+galaxy_label_minor_threshold = 0.5
 
 # Subgroup: Display
 # -----------------

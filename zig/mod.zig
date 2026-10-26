@@ -189,6 +189,7 @@ fn embedImages(ctx: *const Ctx, module: *std.Build.Module) void {
         .{ "embedded_loading_image.h", "g_embeddedLoadingImage", bg_image },
         .{ "embedded_logo_image.h", "g_embeddedLogoImage", b.path("assets/stfc-mod-logo.png") },
         .{ "embedded_cc_logo_image.h", "g_embeddedCCLogoImage", b.path("assets/official-cc-logo.png") },
+        .{ "embedded_station_housing.h", "g_embeddedStationHousing", b.path("assets/data/station_housing.json") },
     };
     for (table) |entry| {
         const header, const symbol, const path = entry;

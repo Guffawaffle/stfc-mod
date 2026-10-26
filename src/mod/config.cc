@@ -693,6 +693,27 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("graphics", "ui_scale_ship", g.ui_scale_ship);
   r.Read("graphics", "ui_scale_viewer", g.ui_scale_viewer);
   r.Read("graphics", "ship_hotkey_badges", g.ship_hotkey_badges);
+  r.Read("graphics", "galaxy_extended_selection", g.galaxy_extended_selection);
+  r.Read("graphics", "galaxy_multi_select", g.galaxy_multi_select);
+  r.Read("graphics", "galaxy_station_housing", g.galaxy_station_housing);
+  constexpr std::array galaxy_layers{"galaxy_overlay_default", "galaxy_overlay_mining", "galaxy_overlay_hostiles",
+                                     "galaxy_overlay_hazards"};
+  for (size_t i = 0; i < galaxy_layers.size(); ++i)
+    r.Read("graphics", galaxy_layers[i], g.galaxy_overlays[i]);
+  if (std::ranges::none_of(g.galaxy_overlays, [](bool value) { return value; })) {
+    g.galaxy_overlays[0] = true;
+    r.Record("graphics", "galaxy_overlay_default", true);
+  }
+  const Choice<galaxy_controls::ZoomMode> galaxy_modes[]{{"native", galaxy_controls::ZoomMode::Native},
+                                                         {"always", galaxy_controls::ZoomMode::Always},
+                                                         {"threshold", galaxy_controls::ZoomMode::Threshold}};
+  const auto galaxy_profile = [&r, &galaxy_modes](std::string prefix, galaxy_controls::ZoomProfile& profile) {
+    r.Choose("graphics", prefix + "_detail", profile.mode, galaxy_modes);
+    r.ReadValid("graphics", prefix + "_threshold", profile.threshold,
+                [](float value) { return std::isfinite(value) && value >= 0.f && value <= 1.f; });
+  };
+  galaxy_profile("galaxy_label_major", g.galaxy_label_major);
+  galaxy_profile("galaxy_label_minor", g.galaxy_label_minor);
   r.Read("graphics", "zoom", g.zoom);
   r.ReadValid("graphics", "haven_zoom", g.haven_zoom, [](float v) { return std::isfinite(v) && v >= 0.0f; });
   r.Read("graphics", "hide_haven_water", g.hide_haven_water);

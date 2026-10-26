@@ -85,6 +85,10 @@ struct LayoutElement : Behaviour {
   }
 };
 
+struct HorizontalLayoutGroup : Behaviour {
+  using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "HorizontalLayoutGroup">;
+};
+
 struct PointerEventData : il2cpp::Object {
   using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.EventSystems", "PointerEventData">;
 

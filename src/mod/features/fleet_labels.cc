@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/galaxy.h"
 #include "features/ship_shortcut_badges.h"
 
 #include "game/navigation.h"
@@ -251,8 +252,12 @@ void NavigationLOD_UpdateLOD_Hook(auto original, NavigationLOD* _this, ZoomLevel
 {
   const auto revision  = fleet_labels.Revision(_this);
   const auto effective = fleet_labels.LevelFor(_this, level);
-  if (!effective || fleet_labels.Revision(_this) != revision)
-    return original(_this, level);
+  if (!effective || fleet_labels.Revision(_this) != revision) {
+    const auto galaxy = galaxy_controls::LodLevel(_this, level);
+    if (galaxy != level)
+      _this->SetTargetLevel(galaxy);
+    return original(_this, galaxy);
+  }
   // The target level is set on both sides of the update so the game's own bookkeeping agrees with ours.
   _this->SetTargetLevel(*effective);
   original(_this, *effective);
@@ -293,17 +298,26 @@ bool InstallFleetLabels()
   // Installed whether or not zoom_label_* is set, so labels can be switched at runtime. Missing fields and
   // properties (_lod, Context, FleetType) read as null or zero, which the hooks treat as native labels. The zoom
   // reports come from camera.cc's NavigationZoom.Update hook, so that method has to exist too.
-  if (!NavigationZoom::Class::Method("Update") || !EnsureNavigationFleetLifecycle())
+  if (!EnsureNavigationZoomUpdates() || !EnsureNavigationFleetLifecycle())
     return false;
-  il2cpp::HookSet hooks("FleetLabels");
-  IL2CPP_STAGE(hooks, NavigationLOD::Class::Method("UpdateLOD"), NavigationLOD_UpdateLOD_Hook);
   // camera.cc's zoom hooks report here whether or not this installed; they only count once it has.
-  if (!hooks.Commit())
+  if (!EnsureNavigationLodUpdates())
     return false;
   fleet_labels.MarkInstalled();
   return true;
 }
 } // namespace
+
+bool EnsureNavigationLodUpdates()
+{
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("NavigationLodUpdates");
+    IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(NavigationLOD::Class::Method<void(ZoomLevels)>("UpdateLOD")),
+                    NavigationLOD_UpdateLOD_Hook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
 
 bool EnsureNavigationFleetLifecycle()
 {

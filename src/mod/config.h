@@ -1,4 +1,5 @@
 #pragma once
+#include "galaxy_policy.h"
 
 // User settings from the settings TOML. Each struct is a TOML section and each member is named after its key,
 // with its default as the initializer: Config::Get().graphics.ui_scale is [graphics] ui_scale. They are read at
@@ -197,7 +198,13 @@ public:
     float ui_scale_ship   = 1.0f;
     float ui_scale_viewer = 1.2f;
     // Show the active mod ship shortcut on local-player fleet labels in system view.
-    bool ship_hotkey_badges = true;
+    bool                         ship_hotkey_badges        = true;
+    bool                         galaxy_extended_selection = false;
+    bool                         galaxy_multi_select       = false;
+    bool                         galaxy_station_housing    = false;
+    std::array<bool, 4>          galaxy_overlays{true, false, false, false}; // Default, Mining, Hostiles, Hazards.
+    galaxy_controls::ZoomProfile galaxy_label_major{galaxy_controls::ZoomMode::Native, .5f};
+    galaxy_controls::ZoomProfile galaxy_label_minor{galaxy_controls::ZoomMode::Native, .5f};
     // The farthest system zoom; presets and zoom shortcuts are in the same unit.
     float zoom             = 5000.0f;
     float haven_zoom       = 4000.0f;

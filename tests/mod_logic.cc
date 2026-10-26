@@ -371,6 +371,38 @@ void UpstreamSettings()
 {
   toml::table effective;
   const auto  defaults = Config::Parse(toml::table{}, effective, false);
+  Check(!defaults->graphics.galaxy_extended_selection && !defaults->graphics.galaxy_multi_select
+            && !defaults->graphics.galaxy_station_housing && defaults->graphics.galaxy_overlays[0],
+        "Galaxy optional behavior and Default layer retain PLAY defaults");
+  const auto galaxy = Config::Parse(toml::parse(R"(
+    [graphics]
+    galaxy_extended_selection = true
+    galaxy_multi_select = true
+    galaxy_station_housing = true
+    galaxy_overlay_default = false
+    galaxy_overlay_mining = true
+    galaxy_overlay_hostiles = true
+    galaxy_overlay_hazards = true
+    galaxy_label_major_detail = " ALWAYS "
+    galaxy_label_minor_detail = "THRESHOLD"
+    galaxy_label_minor_threshold = 0.35
+  )"),
+                                    effective, false);
+  Check(galaxy->graphics.galaxy_extended_selection && galaxy->graphics.galaxy_multi_select
+            && galaxy->graphics.galaxy_station_housing && !galaxy->graphics.galaxy_overlays[0]
+            && galaxy->graphics.galaxy_overlays[1] && galaxy->graphics.galaxy_overlays[2]
+            && galaxy->graphics.galaxy_overlays[3]
+            && galaxy->graphics.galaxy_label_major.mode == galaxy_controls::ZoomMode::Always
+            && galaxy->graphics.galaxy_label_minor.mode == galaxy_controls::ZoomMode::Threshold
+            && galaxy->graphics.galaxy_label_minor.threshold == .35f,
+        "Galaxy independent selection, composition, housing and normalized profiles survive parsing");
+  const auto no_layer = Config::Parse(toml::parse("[graphics]\ngalaxy_overlay_default=false\ngalaxy_label_minor_"
+                                                  "threshold=nan\ngalaxy_label_major_detail='invalid'"),
+                                      effective, false);
+  Check(no_layer->graphics.galaxy_overlays[0] && effective["graphics"]["galaxy_overlay_default"].value<bool>() == true
+            && no_layer->graphics.galaxy_label_minor.threshold == .5f
+            && no_layer->graphics.galaxy_label_major.mode == galaxy_controls::ZoomMode::Native,
+        "empty Galaxy selection and invalid profile values retain safe PLAY fallbacks");
   Check(defaults->graphics.ship_hotkey_badges && effective["graphics"]["ship_hotkey_badges"].value<bool>() == true,
         "downstream ship shortcut badges retain their enabled default");
   const auto hidden_badges = Config::Parse(toml::parse("[graphics]\nship_hotkey_badges = false"), effective, false);

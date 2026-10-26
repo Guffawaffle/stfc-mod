@@ -190,6 +190,9 @@ constexpr const Feature* kFeatures[] = {
     // System orbit is parked by product decision; its code is retained but not installed.
     // fleet_labels.cc
     &kFleetLabels,
+    // galaxy.cc and galaxy_selection.cc reuse the existing navigation camera/LOD owners.
+    &kGalaxyLabels,
+    &kGalaxySelection,
     &kShipShortcutBadges,
     // opc_indicators.cc
     &kOpcIndicators,

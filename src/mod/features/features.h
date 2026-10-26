@@ -143,7 +143,11 @@ bool FleetActionShortcuts();
 
 // fleet_labels.cc
 bool                 EnsureNavigationFleetLifecycle();
+bool                 EnsureNavigationLodUpdates();
+bool                 EnsureNavigationZoomUpdates();
 extern const Feature kFleetLabels;
+extern const Feature kGalaxyLabels;
+extern const Feature kGalaxySelection;
 extern const Feature kShipShortcutBadges;
 // Fed by camera.cc's zoom hooks: the camera's depth on each update and system entry, then its zoom after the
 // game's own update.
