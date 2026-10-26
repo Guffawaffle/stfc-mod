@@ -970,12 +970,22 @@
           "tests/galaxy_selection_pins_test.cc; tests/galaxy_selection_policy_test.cc; tests/il2cpp_bindings.cc",
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
         ],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "efb4903904763ed69608e1c4d5700d20720505f6",
+            "installedSha256": "ffafb23dacd95c194b37e3d6e0d73e4a9da217ac47b3d3f9bc88e9551b26b308",
+            "platform": "Windows client273 ordinary session",
+            "behavior": "Far-zoom click opens systems",
+            "result": "passed; user reply yes, yes, and yes. Looking good for those"
+          }
+        ]
       },
       "dependenciesAndLimitations": "Native Mod Settings enable control remains missing. Native tap/fallback, pending interaction and pool-pressure behavior require exact-artifact in-game qualification.",
       "restorationCommits": [
-        "251889690a2377429e72e233dafffcbf370fa6dc"
+        "251889690a2377429e72e233dafffcbf370fa6dc",
+        "efb4903904763ed69608e1c4d5700d20720505f6"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },
@@ -1000,12 +1010,13 @@
           "tests/galaxy_policy_test.cc; tests/mod_logic.cc",
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Native Mod Settings choice/threshold controls remain missing. In-tier crossing, culling and scene replacement need native qualification.",
       "restorationCommits": [
-        "251889690a2377429e72e233dafffcbf370fa6dc"
+        "251889690a2377429e72e233dafffcbf370fa6dc",
+        "efb4903904763ed69608e1c4d5700d20720505f6"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },
@@ -1030,12 +1041,22 @@
           "tests/galaxy_policy_test.cc; tests/mod_logic.cc",
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
         ],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "efb4903904763ed69608e1c4d5700d20720505f6",
+            "installedSha256": "ffafb23dacd95c194b37e3d6e0d73e4a9da217ac47b3d3f9bc88e9551b26b308",
+            "platform": "Windows client273 ordinary session",
+            "behavior": "Default/Mining/Hostiles/Hazards can stay selected together",
+            "result": "passed; user reply yes, yes, and yes. Looking good for those"
+          }
+        ]
       },
       "dependenciesAndLimitations": "Native Mod Settings overlay controls remain missing. All15 native combinations and pooled layout/reload/restart need runtime qualification.",
       "restorationCommits": [
-        "251889690a2377429e72e233dafffcbf370fa6dc"
+        "251889690a2377429e72e233dafffcbf370fa6dc",
+        "efb4903904763ed69608e1c4d5700d20720505f6"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },
@@ -1060,12 +1081,22 @@
           "tests/galaxy_housing_data_test.cc; tests/il2cpp_bindings.cc",
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
         ],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "efb4903904763ed69608e1c4d5700d20720505f6",
+            "installedSha256": "ffafb23dacd95c194b37e3d6e0d73e4a9da217ac47b3d3f9bc88e9551b26b308",
+            "platform": "Windows client273 ordinary session",
+            "behavior": "Housing markers appear",
+            "result": "passed; user reply yes, yes, and yes. Looking good for those"
+          }
+        ]
       },
       "dependenciesAndLimitations": "Native Mod Settings enable control remains missing. Marker appearance and pooled release/rebind are unverified; dataset says housing-capable, not free slots.",
       "restorationCommits": [
-        "251889690a2377429e72e233dafffcbf370fa6dc"
+        "251889690a2377429e72e233dafffcbf370fa6dc",
+        "efb4903904763ed69608e1c4d5700d20720505f6"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },

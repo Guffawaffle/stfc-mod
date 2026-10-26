@@ -132,3 +132,50 @@ no macOS build or runtime qualification is claimed here.
 
 Direct tools and independent read-only collaboration were used. No Runner-governed execution, CI campaign,
 PR maintenance, push, merge, game deployment or cycle is claimed by this checkpoint.
+
+
+## First native trial and correction
+
+The first authorized trial deployed `25188969` after building. Labels/housing installed, but far selection
+declined because `TKTapRecognizer` was incorrectly bound to Assembly-CSharp. Retained273 puts type26076
+in TouchKit (image78, types26064–26077). `efb49039` corrects that binding and adds an assembly-sensitive
+controlled-runtime regression. The previous fake image adapter treated every assembly as the same image;
+the new case refuses the recognizer in the wrong image. The correction passed 213/213 local build steps
+and the Windows PE checks before deployment.
+
+Corrected installed DLL SHA-256:
+`ffafb23dacd95c194b37e3d6e0d73e4a9da217ac47b3d3f9bc88e9551b26b308`.
+The exact installed bytes match the built artifact. The fresh ordinary Windows273 session reports all
+62 groups installed, including GalaxyLabels/GalaxySelection, and FrameTick ready with no startup errors.
+This is startup smoke, not evidence of correct Galaxy gameplay or macOS behavior. Player tests remain pending.
+
+A trial-configuration edit incorrectly overlooked the existing quoted Galaxy keys and inserted two duplicate
+bare keys. Parsing failed and the intermediate session used defaults; the saved user settings were not
+reset. Removing exactly those two inserted lines restored valid TOML. The repaired file reloaded, then
+the game restarted to restore startup-only switches and clear fallback-session live intents. Effective
+Galaxy options and representative saved scale/zoom values were independently compared with the original
+file. All match after restart. No intended configuration changes remain. Do not reuse the failed regex
+edit approach: parse and validate the complete TOML before any future configuration write.
+
+Evidence remains under `.ax/galaxy-parity-20261025`: `galaxy-deploy.json`/`galaxy-cycle.json` for the
+superseded first candidate; `touchkit-deploy.json`, `touchkit-cycle.json`, `touchkit-build.log`,
+`touchkit-startup.log`, `touchkit-native-receipt.json`, `config-repair.json` and
+`config-repair-restart.json` for the correction, incident and final session. Deployment wrappers report
+the canonical checkout's branch as routing metadata; the explicit artifact/source checkpoint in these
+receipts identifies the isolated migration candidate. No canonical branch switch or build occurred.
+
+
+### Player confirmation on corrected candidate
+
+Guff confirmed **yes** to all three requested checks on the corrected installed candidate: far-zoom clicks
+open systems; the four native layers can remain selected together; housing markers appear. The full original
+configuration was restored and startup values read back before the request. These are direct player checks,
+not inferences from installation counts. They do not qualify every15-layer combination, retirement pressure,
+all pooled/reentry failures, separate major/minor thresholds, macOS, or the still-missing Settings controls.
+The four Galaxy dispositions therefore remain Partial with explicit verified-subset evidence.
+
+The next queued gameplay gap is officer-preset ordering/native save. Continue from the existing pure policy
+and retained native oracle rather than repeating discovery or activating the parked prototype. Native save
+updates canonical `_data[OrderId]` and independently resolves a displayed receiver, so a data-only pointer
+swap remains disproven. The canonical-source/receiver-map transition and nested-save case require their own
+synthetic adapter qualification before activation. Existing preset data/stores remain untouched.

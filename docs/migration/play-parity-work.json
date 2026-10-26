@@ -210,7 +210,7 @@
       "deps": [
         "P01"
       ],
-      "status": "gameplay-implemented-local-qualified-native-trial-and-settings-pending",
+      "status": "windows-boot-qualified-gameplay-and-settings-pending",
       "steps": [
         "Restore major/minor detail and thresholds with bind/release/LOD semantics.",
         "Restore four overlay flags and multi-select, native mode mapping and disable cleanup.",
@@ -218,7 +218,7 @@
       ],
       "trial": "Near/far major/minor labels; multiple overlays, last-active toggle and native mode.",
       "sourceCheckpoint": "251889690a2377429e72e233dafffcbf370fa6dc",
-      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/galaxy-local-receipt.json; 213/213 local build steps"
+      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; 213/213 local build steps; installed groups62/62, not gameplay parity"
     },
     {
       "id": "P14",
@@ -226,7 +226,7 @@
       "deps": [
         "P13"
       ],
-      "status": "gameplay-implemented-local-qualified-native-trial-and-settings-pending",
+      "status": "windows-boot-qualified-gameplay-and-settings-pending",
       "steps": [
         "Restore qualified Far-tier extended selection and label proxies.",
         "Restore station-housing key/data and star/name-row lifecycle using checked metadata.",
@@ -234,7 +234,7 @@
       ],
       "trial": "Far Galaxy select, known housing/nonhousing systems, zoom/recycled labels and disable.",
       "sourceCheckpoint": "251889690a2377429e72e233dafffcbf370fa6dc",
-      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/galaxy-local-receipt.json; 213/213 local build steps"
+      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; 213/213 local build steps; installed groups62/62, not gameplay parity"
     },
     {
       "id": "P15",
