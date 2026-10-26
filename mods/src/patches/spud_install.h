@@ -4,6 +4,30 @@
 
 namespace native_hooks
 {
+// These vendor errors do not distinguish pre-mutation refusal from failure
+// after target bytes or thread IPs changed. Unknown future codes fail closed.
+constexpr bool SpudInstallRequiresStop(spud::detour_error result) noexcept
+{
+  switch (result) {
+    case spud::detour_error::kOk:
+    case spud::detour_error::kUnsupportedArch:
+    case spud::detour_error::kDecodeFailed:
+    case spud::detour_error::kInsufficientBytes:
+    case spud::detour_error::kTargetChanged:
+    case spud::detour_error::kBusy:
+    case spud::detour_error::kChainFull:
+    case spud::detour_error::kControlFlowEnforced:
+    case spud::detour_error::kNotFound:
+    case spud::detour_error::kUnwindFailed:
+      return false;
+    case spud::detour_error::kProtectionFailed:
+    case spud::detour_error::kSuspensionUnavailable:
+    case spud::detour_error::kRollbackFailed:
+      return true;
+  }
+  return true;
+}
+
 // Installation-only reporting: no work is added to the hooked call path.
 void ReportSpudInstall(spud::detour_error result, int os_error, spud::failure_detail detail, const char* file, int line,
                        const char* hook) noexcept;

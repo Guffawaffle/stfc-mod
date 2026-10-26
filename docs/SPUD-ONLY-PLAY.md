@@ -31,7 +31,8 @@ The earlier migration checkpoint and its implementation stash remain untouched.
   macro's permanent, per-site cached success/null-failure behavior. Installation
   results are reported outside the hot call path. Every refusal includes source
   site, error, OS status, reason and diagnostic address when available.
-  `rollback_failed` aborts rather than continuing with indeterminate patch bytes.
+  Ambiguous protection/suspension failures, rollback failure and unknown future
+  errors abort rather than deliberately continuing with indeterminate native state.
   Bootstrap null/exception is visible. Summary counts attempts, not features or
   behavioral parity. Lazy installations may occur after the startup summary.
 - The 49 other changed product files contain only an include substitution.
@@ -98,3 +99,30 @@ actual reason rather than disabling guards or silently counting a feature ready.
 Current worktree and local receipts are under
 `D:/dev/stfc-workspace/worktrees/play-spud/Downstream` and
 `D:/dev/stfc-workspace/.ax/play-spud-20261025` respectively.
+
+## Pre-PR semantic review corrections, 2026-10-26
+
+General, hostile and independent read-only lanes reviewed receipt
+`434678f1f79cc78ec43dfaab1c8936086c3a6cae4713c2b2cdc6e9bca4946710`,
+base `cad98ef7`, head `cad56049`. The standard receipt used static-persona
+constraints because its memory connection was unavailable.
+
+All three identified that `protection_failed` can follow a target-byte write or
+cache-flush failure, and `suspension_unavailable` can follow partial thread-IP
+redirection. The host now treats both as indeterminate, like rollback failure;
+unknown future codes also fail closed. This cannot undo vendor cleanup/resumption
+before the error returns. Vendor source remains unmodified; protected patching
+and unwind support remain enabled.
+
+The relocation fixture now checks the disposition and actually invokes the fatal
+adapter in isolated children for all three ambiguous errors and an unknown code.
+A SIGABRT handler exits with a unique code, distinguishing fatal dispatch from
+ordinary return. These tests do not simulate every OS-level mutation failure.
+
+The packaging correction gives an explicit single Apple target architecture
+precedence over host processor detection and rejects unsupported/multiarch
+requests. `tests/spud_architecture.cmake` covers ARM/Intel host-target permutations;
+this is configuration logic qualification, not a macOS build/runtime result.
+
+Correction receipts and review evidence are in
+`D:/dev/stfc-workspace/.ax/play-spud-review-20261026`.

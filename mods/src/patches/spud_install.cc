@@ -35,8 +35,10 @@ void native_hooks::ReportSpudInstall(spud::detour_error result, int os_error, sp
   } catch (...) {
     // Diagnostic delivery must not obscure a successful permanent installation.
   }
-  if (result == spud::detour_error::kRollbackFailed) {
-    // Executable bytes may be indeterminate. Never continue login/gameplay.
+  if (SpudInstallRequiresStop(result)) {
+    // Never deliberately continue with indeterminate code/thread state. The
+    // vendor may already have resumed threads or released failed resources:
+    // stopping here cannot retrospectively repair that earlier window.
     std::abort();
   }
 }
