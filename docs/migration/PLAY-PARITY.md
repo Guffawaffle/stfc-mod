@@ -372,3 +372,11 @@ Exercise same-value refresh, config reload, rapid close/reopen and disabled
 ForbiddenTechConfirm independently. Observe normal quit with a pending state save,
 then a genuine native veto, and confirm subsequent saving works. No such runtime
 trial, macOS build or macOS native behavior is claimed by the local checks above.
+
+
+## Galaxy restoration cohort
+
+[Galaxy controls](M8-GALAXY-CONTROLS.md) restores the far-zoom selection, independent overlays,
+major/minor visibility profiles and housing marker gameplay paths. The machine inventory retains
+Partial dispositions because their native Mod Settings controls and exact-artifact game verification
+remain outstanding. Tests/builds are local evidence, not player-verified parity.

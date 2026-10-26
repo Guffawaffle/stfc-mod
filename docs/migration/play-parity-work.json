@@ -210,13 +210,15 @@
       "deps": [
         "P01"
       ],
-      "status": "queued",
+      "status": "gameplay-implemented-local-qualified-native-trial-and-settings-pending",
       "steps": [
         "Restore major/minor detail and thresholds with bind/release/LOD semantics.",
         "Restore four overlay flags and multi-select, native mode mapping and disable cleanup.",
         "Use one cohesive Galaxy owner and existing pure policy/dataset validation where available."
       ],
-      "trial": "Near/far major/minor labels; multiple overlays, last-active toggle and native mode."
+      "trial": "Near/far major/minor labels; multiple overlays, last-active toggle and native mode.",
+      "sourceCheckpoint": "251889690a2377429e72e233dafffcbf370fa6dc",
+      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/galaxy-local-receipt.json; 213/213 local build steps"
     },
     {
       "id": "P14",
@@ -224,13 +226,15 @@
       "deps": [
         "P13"
       ],
-      "status": "queued",
+      "status": "gameplay-implemented-local-qualified-native-trial-and-settings-pending",
       "steps": [
         "Restore qualified Far-tier extended selection and label proxies.",
         "Restore station-housing key/data and star/name-row lifecycle using checked metadata.",
-        "Preserve platform dispatch differences and disabled native behavior."
+        "Preserve ordinary native dispatch, qualify the correlated Far fallback separately on each platform, and retain disabled native behavior."
       ],
-      "trial": "Far Galaxy select, known housing/nonhousing systems, zoom/recycled labels and disable."
+      "trial": "Far Galaxy select, known housing/nonhousing systems, zoom/recycled labels and disable.",
+      "sourceCheckpoint": "251889690a2377429e72e233dafffcbf370fa6dc",
+      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/galaxy-local-receipt.json; 213/213 local build steps"
     },
     {
       "id": "P15",

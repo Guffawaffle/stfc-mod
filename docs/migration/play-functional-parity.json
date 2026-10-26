@@ -952,102 +952,122 @@
     {
       "id": "PLAY-GALAXY-SELECTION",
       "name": "Far-tier system tapping",
-      "classification": "Missing",
+      "classification": "Partial",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/galaxy_selection.cc",
         "symbolOrWorkflow": "OnTapRecognised"
       },
       "migration": {
-        "path": "src/mod/features/camera.cc",
-        "symbolOrWorkflow": "No Galaxy adapter"
+        "path": "src/mod/features/galaxy_selection.cc",
+        "symbolOrWorkflow": "kGalaxySelection; typed backing arrays, immutable POI pool, native tap correlation"
       },
       "expectedBehavior": "Far-tier system tapping",
       "verificationProcedure": "Far/native taps, pinned systems, overlapping hit candidates, temporary proxy disposal.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "tests/galaxy_selection_pins_test.cc; tests/galaxy_selection_policy_test.cc; tests/il2cpp_bindings.cc",
+          "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Far/native taps, pinned systems, overlapping hit candidates, temporary proxy disposal.",
-      "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "dependenciesAndLimitations": "Native Mod Settings enable control remains missing. Native tap/fallback, pending interaction and pool-pressure behavior require exact-artifact in-game qualification.",
+      "restorationCommits": [
+        "251889690a2377429e72e233dafffcbf370fa6dc"
+      ],
+      "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },
     {
       "id": "PLAY-GALAXY-DETAIL",
       "name": "Independent major/minor label and culling profiles",
-      "classification": "Missing",
+      "classification": "Partial",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/galaxy_labels.cc",
         "symbolOrWorkflow": "LOD"
       },
       "migration": {
-        "path": "src/mod/features/fleet_labels.cc",
-        "symbolOrWorkflow": "No Galaxy adapter"
+        "path": "src/mod/features/galaxy.cc",
+        "symbolOrWorkflow": "kGalaxyLabels; shared camera/LOD updates and qualified major/minor profiles"
       },
       "expectedBehavior": "Independent major/minor label and culling profiles",
       "verificationProcedure": "Within-tier thresholds, camera replacement, hidden minor nodes, return to native.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "tests/galaxy_policy_test.cc; tests/mod_logic.cc",
+          "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Within-tier thresholds, camera replacement, hidden minor nodes, return to native.",
-      "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "dependenciesAndLimitations": "Native Mod Settings choice/threshold controls remain missing. In-tier crossing, culling and scene replacement need native qualification.",
+      "restorationCommits": [
+        "251889690a2377429e72e233dafffcbf370fa6dc"
+      ],
+      "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },
     {
       "id": "PLAY-GALAXY-OVERLAYS",
       "name": "Multiple simultaneous overlays and native selection state",
-      "classification": "Missing",
+      "classification": "Partial",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/galaxy_labels.cc",
         "symbolOrWorkflow": "Overlay"
       },
       "migration": {
-        "path": "src/mod/features/camera.cc",
-        "symbolOrWorkflow": "No Galaxy adapter"
+        "path": "src/mod/features/galaxy.cc",
+        "symbolOrWorkflow": "native HUD toggles, helper/fallback composition, representative mode, reversible layout, registered saving"
       },
       "expectedBehavior": "Multiple simultaneous overlays and native selection state",
       "verificationProcedure": "Every overlay combination, toggle/reload/restart, representative native animation and reversible layout.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "tests/galaxy_policy_test.cc; tests/mod_logic.cc",
+          "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Every overlay combination, toggle/reload/restart, representative native animation and reversible layout.",
-      "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "dependenciesAndLimitations": "Native Mod Settings overlay controls remain missing. All15 native combinations and pooled layout/reload/restart need runtime qualification.",
+      "restorationCommits": [
+        "251889690a2377429e72e233dafffcbf370fa6dc"
+      ],
+      "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },
     {
       "id": "PLAY-GALAXY-HOUSING",
       "name": "Data-backed station housing marker",
-      "classification": "Missing",
+      "classification": "Partial",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/galaxy_housing.cc",
         "symbolOrWorkflow": "Housing"
       },
       "migration": {
-        "path": "src/mod/features/camera.cc",
-        "symbolOrWorkflow": "No Galaxy adapter"
+        "path": "src/mod/features/galaxy.cc",
+        "symbolOrWorkflow": "GalaxyHousing; retained dataset, native home sprite and lifecycle journal"
       },
       "expectedBehavior": "Data-backed station housing marker",
       "verificationProcedure": "Known housing/nonhousing nodes, name visibility, settings disable, pooled rebind/release.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "tests/galaxy_housing_data_test.cc; tests/il2cpp_bindings.cc",
+          "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Known housing/nonhousing nodes, name visibility, settings disable, pooled rebind/release.",
-      "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "dependenciesAndLimitations": "Native Mod Settings enable control remains missing. Marker appearance and pooled release/rebind are unverified; dataset says housing-capable, not free slots.",
+      "restorationCommits": [
+        "251889690a2377429e72e233dafffcbf370fa6dc"
+      ],
+      "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md."
     },
     {
       "id": "PLAY-HAVEN-ZOOM",
