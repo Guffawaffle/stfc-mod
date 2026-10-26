@@ -74,6 +74,11 @@ No controlled old-SPUD timing comparison or per-operation attribution was run.
 Successful installation does not establish each player workflow's equivalence;
 Settings, Galaxy, chat, travel and presets still need player qualification.
 
+Initial player response after trying the requested Settings/workflow check:
+"seems just fine - scroll doesnt spill into ui -- looking good".
+This confirms a favorable native trial and contained scrolling; it is not an
+independent exhaustive assertion about every shortcut, preset or gameplay path.
+
 The later CMake CRT-selection correction honors Xmake's supplied runtime for
 debug configurations too. The release trial already used MultiThreaded; this
 does not retrospectively qualify a debug or macOS build.
