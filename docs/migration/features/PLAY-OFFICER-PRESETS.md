@@ -26,3 +26,36 @@ feature. Source preservation cannot justify reintroducing its unqualified raw
 controller lifetime, reentrant rendering or original-save fallback hazards.
 See [cohort evidence and options](../FEATURE-COHORT-20261026-02.md).
 Pure fixtures and native compilation do not establish safe preset saving.
+
+## Operator clarification and next integration boundary — 2026-10-26
+
+Officer preset ordering is **not functioning in the current migration**. Guff
+withdrew the proposed error explanation: it was speculation, not evidence. Do
+not investigate officer sorting or attribute the separate contained
+`GetComponent` exception to this failure. The established blocker is the missing
+native preset adapter described above.
+
+The next integration should preserve the complete workflow, including applying
+the saved display order, modifier-click handling, canonical native preset saves,
+replacement-row adoption and release. Shift+Edit moves up; Ctrl+Edit on Windows
+or Command+Edit on macOS moves down. Recognized reorder clicks must consume the
+native Edit action, including an end boundary; ordinary Edit remains native
+renaming. Preserve the source's both/neither-modifier rule unless explicitly
+changed. The source only consumes a move when its reorder handler succeeds;
+the requested recognized-click consumption must be accounted for explicitly,
+not represented as a qualified behavior of the absent adapter.
+
+Keep three persistence boundaries distinct:
+
+- **Feature settings:** `config_settings.cc` / `ValueSetting` call the registered
+  `runtime_config::SaveSetting` path into the selected TOML file.
+- **Local display order:** `mod_state::QueueOfficerOrder` persists
+  `officer_preset_order` through the existing state worker. Admission is not a
+  durable-save receipt. Integrating a caller and loading/applying its result are
+  still part of the missing native workflow.
+- **Actual preset contents:** the game's native save callback must run exactly
+  once against canonical data and the corresponding visible receiver mapping.
+  Neither a TOML write nor a local state receipt substitutes for that save.
+
+Further tests and cycles remain on hold. No live configuration/store contents
+were inspected or changed for this clarification.

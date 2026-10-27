@@ -191,3 +191,32 @@ and bind/viewport corrections qualified offline; existing pin ordering retained.
 Native interactions are only partially accepted, the pinned-group visual issue
 is open, and preset ordering remains missing. Finish the held UI qualification
 before treating this cohort as accepted or starting another batch.
+
+## Preset priority and Settings persistence clarification — 2026-10-26
+
+Guff clarified that preset ordering is not functioning and withdrew speculation
+about an error in sorting code. Do not pursue that causal hypothesis. The
+missing native preset adapter, including its canonical save/receiver boundary,
+is the next integration priority. The exact modifier-click consumption and
+three distinct persistence responsibilities are recorded in
+[the preset contract](features/PLAY-OFFICER-PRESETS.md#operator-clarification-and-next-integration-boundary--2026-10-26).
+
+A read-only follow-up traced the current Settings-to-TOML wiring; it is already
+present and does not require another writer:
+
+| Boundary | Existing implementation |
+| --- | --- |
+| Apply and verify UI value | `src/mod/settings/value_settings.h`: `SetFromUser` verifies readback before calling `Persist`; unchanged values also support save retry. |
+| Register and serialize setting | `src/mod/settings/config_settings.cc`: `MakeConfigDefinition` attaches key registration, `SaveSetting`, and matching `GetSaveStatus`. `persisted_setting.h` provides the reusable equivalent. |
+| Select the existing config file | `src/mod/config.cc` calls `runtime_config::Configure`; `runtime_config.cc` constructs the writer with `File::Path(File::Config())`. No independent path/identity discovery is introduced by the UI. |
+| Save off-thread and report outcome | `runtime_config_writer.h/.cc`: registered keys, per-key revisions, pending/failure status and retry; `toml_editor` / `config_save` perform preserving edits and checked file replacement. A changed live value is not automatically reported as a successful disk save. |
+| Normal quit and veto | `runtime_config.cc`: the shared quit owner drains both the TOML worker and `mod_state`, with veto resumption. No second preset-specific quit hook is needed. |
+
+Relevant existing fixtures include `config_settings_test.cc`,
+`runtime_config_test.cc`, `runtime_config_writer_test.cc`, `toml_editor_test.cc`,
+`config_save_test.cc` and `config_save_failure_test.cc`. The earlier e979f692
+Windows suite is the recorded automated evidence; **no new tests, builds or
+runtime persistence trials ran during this follow-up**. In-game change → save
+receipt → close/reopen/relaunch still needs deliberate qualification when the
+operator releases the hold. Do not claim the user's existing TOML or saved
+preset order was inspected, repaired or runtime-verified by this source trace.

@@ -719,7 +719,20 @@
             "Native preset save/source/receiver adapter remains missing; no activation"
           ]
         }
-      ]
+      ],
+      "operatorClarification": {
+        "date": "2026-10-26",
+        "observation": "Officer preset ordering is not functioning; the proposed sorting-error explanation was withdrawn as speculation.",
+        "nextPriority": "Integrate the missing native preset workflow, including persisted display-order application and canonical native save/receiver handling.",
+        "inputContract": "Shift+Edit up; Ctrl+Edit Windows / Command+Edit macOS down. Recognized reorder clicks consume native Edit, including boundaries; ordinary rename and source both/neither-modifier handling remain distinct.",
+        "persistenceOwners": {
+          "settings": "Existing registered runtime_config::SaveSetting path to selected TOML file; source wiring inspected, no new runtime save trial.",
+          "displayOrder": "mod_state::QueueOfficerOrder -> officer_preset_order in state.json; admission is not durability and native caller/application remains missing.",
+          "presetContents": "Game native save callback with canonical data and matching receiver mapping; not a TOML/state write."
+        },
+        "hold": "Further testing and cycles remain held; no speculative sorting-error investigation.",
+        "evidence": "docs/migration/features/PLAY-OFFICER-PRESETS.md#operator-clarification-and-next-integration-boundary--2026-10-26"
+      }
     },
     {
       "id": "PLAY-PINS-ORDER",
