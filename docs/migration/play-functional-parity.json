@@ -466,7 +466,14 @@
           "Frozen play-dev reassessment: docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md; input/model/catalog fixtures qualified at 241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
         ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "artifactSha256": "66074968bcc1c5718d9ec1c3a5f089a70e7c9de7d1b6468b96afb1320d79d1cc",
+          "implementation": "241372c3efb2e3b1c5f0c9fa5ee336387044cfc6",
+          "scope": "User reports both requested pilot areas work; individual edge cases not itemized. Not whole-feature equivalence."
+        }
       },
       "dependenciesAndLimitations": "Double/triple clicks, badge clicks, recycled tiles, held Enter, focus and patch disabled. Migration intentionally uses one assignment per key press; acceptance pending.",
       "restorationCommits": [
@@ -518,7 +525,97 @@
           "artifactReceipt": "D:/dev/stfc-workspace/.ax/migrate-play-feature-241372c3-receipt.json",
           "artifactReceiptSha256": "8081ac3f64ee871c8ea34756f7e3c1793cd18e319897d9191bcb7c38ac444ecd"
         }
-      ]
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/double_click_assign_ship.cc",
+              "symbol": "original gameplay hook"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/double_click_assign_ship.cc",
+              "symbol": "AssignShipEnterKeyUpdate; shared tile callback"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/double_click_assign_ship.cc",
+              "symbol": "AssignShipEnterKeyUpdate; shared tile callback"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/double_click_assign_ship.cc",
+              "symbol": "AssignShipEnterKeyUpdate; shared tile callback"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/dock.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ]
+        }
+      ],
+      "userEntryPoint": "Swap Ship; Mod Settings → Officers & Ships",
+      "configurationKeys": [
+        "ui.double_click_to_assign_ship"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "see exact candidate/workflow evidence",
+        "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
+      },
+      "catalogStatus": "Windows basic workflow confirmed; edge/custody limits retained"
     },
     {
       "id": "PLAY-DOCK-SYNC",
@@ -2123,27 +2220,132 @@
     {
       "id": "SET-AUDIO-PICKER",
       "name": "Audio pages, custom file picker and preview",
-      "classification": "Partial",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/audio_alerts.cc",
         "symbolOrWorkflow": "AudioAlerts"
       },
       "migration": {
-        "path": "src/mod/features/notification_audio.cc",
-        "symbolOrWorkflow": "Playback only"
+        "path": "src/mod/settings/audio_alerts.cc",
+        "symbolOrWorkflow": "RegisterAudioAlertPages"
       },
       "expectedBehavior": "Audio pages, custom file picker and preview",
       "verificationProcedure": "Asynchronous picker ownership, cancel/invalid file/reload during playback, page release and persisted custom choice.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
+          "tests/audio_settings_test.cc"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Asynchronous picker ownership, cancel/invalid file/reload during playback, page release and persisted custom choice.",
+      "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-AUDIO-PICKER.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "absent",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src",
+              "symbol": "whole-source symbol scan found no custom loader/picker/preview producer"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/audio_alerts.cc",
+              "symbol": "RegisterAudioAlertPages / ChooseFile / PollFilePicker / Preview"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/audio_alerts.cc",
+              "symbol": "RegisterAudioAlertPages / ChooseFile / PollFilePicker / Preview"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/audio_alerts.cc",
+              "symbol": "RegisterAudioAlertPages / ChooseFile / PollFilePicker / Preview"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+          "presence": "consumer-only",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ]
+        }
+      ],
+      "contract": "docs/migration/features/SET-AUDIO-PICKER.md",
+      "userEntryPoint": "Mod Settings → Audio Alerts → alert page",
+      "configurationKeys": [
+        "audio.coalescing",
+        "audio.alert_*",
+        "ui.notify_incoming_player_attack"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "see exact candidate/workflow evidence",
+        "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
+      },
+      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-01",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "recordedImmediately": true
+      }
     },
     {
       "id": "SET-IMAGE-PICKER",
@@ -2171,7 +2373,14 @@
           "Frozen play-dev reassessment: docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md; input/model/catalog fixtures qualified at 241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
         ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "artifactSha256": "66074968bcc1c5718d9ec1c3a5f089a70e7c9de7d1b6468b96afb1320d79d1cc",
+          "implementation": "241372c3efb2e3b1c5f0c9fa5ee336387044cfc6",
+          "scope": "User reports both requested pilot areas work; individual edge cases not itemized. Not whole-feature equivalence."
+        }
       },
       "dependenciesAndLimitations": "Valid/invalid/Unicode selection, cancel retains prior image, asynchronous completion and truthful restart status.",
       "restorationCommits": [
@@ -2224,7 +2433,102 @@
           "artifactReceipt": "D:/dev/stfc-workspace/.ax/migrate-play-feature-241372c3-receipt.json",
           "artifactReceiptSha256": "8081ac3f64ee871c8ea34756f7e3c1793cd18e319897d9191bcb7c38ac444ecd"
         }
-      ]
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "consumer-only",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/config.cc",
+              "symbol": "existing config/gameplay consumer; no native Mod Settings registration"
+            }
+          ],
+          "differences": "consumer only"
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "ImageFileSetting; exact-entry fallback"
+            }
+          ],
+          "differences": "older synchronous fallback validation"
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "ImageFileSetting; exact-entry fallback"
+            }
+          ],
+          "differences": "bounded source validation"
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "ImageFileSetting; exact-entry fallback"
+            }
+          ],
+          "differences": "bounded source validation"
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ],
+          "differences": "adapted shared host, preserved models"
+        }
+      ],
+      "userEntryPoint": "Mod Settings → Loading Screens",
+      "configurationKeys": [
+        "graphics.loader_image"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "see exact candidate/workflow evidence",
+        "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
+      },
+      "catalogStatus": "Windows basic workflow confirmed; edge/custody limits retained"
     },
     {
       "id": "CFG-LOAD-RELOAD",
@@ -2749,6 +3053,452 @@
       },
       "dependenciesAndLimitations": "Ordinary title unchanged; legacy -ccm prefixes stem, immutable profile uses admitted ID. Test delayed window, Unicode/spaces and multiple clients. Presentation is not account identity.",
       "restorationCommits": []
+    },
+    {
+      "id": "SET-WARP-FILTERS",
+      "name": "Per-ship jump, warp and always-ask editors",
+      "classification": "Implemented, unverified",
+      "parentCapability": "PLAY-WARP-AUTO",
+      "baseline": {
+        "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "path": "mods/src/settings/upstream_settings.cc",
+        "symbolOrWorkflow": "Lists / ParseShipFilter"
+      },
+      "migration": {
+        "path": "src/mod/settings/config_settings.cc",
+        "symbolOrWorkflow": "RegisterConfigSettings / SET-WARP-FILTERS"
+      },
+      "expectedBehavior": "Per-ship jump, warp and always-ask editors as implemented in pinned play-dev",
+      "verificationProcedure": "Source contract in docs/migration/features/SET-WARP-FILTERS.md",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
+          "tests/config_settings_test.cc"
+        ],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-WARP-FILTERS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
+      "discovery": {
+        "sourceRef": "frozen/play-dev-20261026",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "date": "2026-10-26",
+        "state": "source scan completed once; bounded implementation and local qualification"
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "consumer-only",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/config.cc",
+              "symbol": "existing config/gameplay consumer; no native Mod Settings registration"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / three instant_warp_* editors"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / three instant_warp_* editors"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / three instant_warp_* editors"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+          "presence": "consumer-only",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ]
+        }
+      ],
+      "contract": "docs/migration/features/SET-WARP-FILTERS.md",
+      "userEntryPoint": "Mod Settings → Map & Travel → Ship route filters",
+      "configurationKeys": [
+        "ui.instant_warp_auto_jump",
+        "ui.instant_warp_auto_warp",
+        "ui.instant_warp_always_ask"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "see exact candidate/workflow evidence",
+        "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
+      },
+      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-01",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "recordedImmediately": true
+      }
+    },
+    {
+      "id": "SET-DAILY-FACTIONS",
+      "name": "Daily bulk-claim faction selector",
+      "classification": "Implemented, unverified",
+      "parentCapability": "PLAY-CLAIM",
+      "baseline": {
+        "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "path": "mods/src/settings/upstream_settings.cc",
+        "symbolOrWorkflow": "Lists / factionMask / factionText"
+      },
+      "migration": {
+        "path": "src/mod/settings/config_settings.cc",
+        "symbolOrWorkflow": "RegisterConfigSettings / SET-DAILY-FACTIONS"
+      },
+      "expectedBehavior": "Daily bulk-claim faction selector as implemented in pinned play-dev",
+      "verificationProcedure": "Source contract in docs/migration/features/SET-DAILY-FACTIONS.md",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
+          "tests/config_settings_test.cc"
+        ],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-DAILY-FACTIONS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
+      "discovery": {
+        "sourceRef": "frozen/play-dev-20261026",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "date": "2026-10-26",
+        "state": "source scan completed once; bounded implementation and local qualification"
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "consumer-only",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/config.cc",
+              "symbol": "existing config/gameplay consumer; no native Mod Settings registration"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / factionMask / factionText"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / factionMask / factionText"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / factionMask / factionText"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ],
+          "differences": "control exists, differing empty/all encoding"
+        }
+      ],
+      "contract": "docs/migration/features/SET-DAILY-FACTIONS.md",
+      "userEntryPoint": "Mod Settings → Claims & Confirmations",
+      "configurationKeys": [
+        "ui.daily_bulk_claim_factions"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "see exact candidate/workflow evidence",
+        "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
+      },
+      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-01",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "recordedImmediately": true
+      }
+    },
+    {
+      "id": "SET-BANNER-FILTERS",
+      "name": "Hidden banners and desktop notification filter editors",
+      "classification": "Implemented, unverified",
+      "parentCapability": "PLAY-NOTIFY-BANNERS",
+      "baseline": {
+        "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "path": "mods/src/settings/upstream_settings.cc",
+        "symbolOrWorkflow": "Lists / ParseBannerFilter / FormatBannerFilter"
+      },
+      "migration": {
+        "path": "src/mod/settings/config_settings.cc",
+        "symbolOrWorkflow": "RegisterConfigSettings / SET-BANNER-FILTERS"
+      },
+      "expectedBehavior": "Hidden banners and desktop notification filter editors as implemented in pinned play-dev",
+      "verificationProcedure": "Source contract in docs/migration/features/SET-BANNER-FILTERS.md",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
+          "tests/config_settings_test.cc"
+        ],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-BANNER-FILTERS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
+      "discovery": {
+        "sourceRef": "frozen/play-dev-20261026",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "date": "2026-10-26",
+        "state": "source scan completed once; bounded implementation and local qualification"
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "consumer-only",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/config.cc",
+              "symbol": "existing config/gameplay consumer; no native Mod Settings registration"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / disabled_banner_types / notify_banner_types"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / disabled_banner_types / notify_banner_types"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/settings/upstream_settings.cc",
+              "symbol": "Lists / disabled_banner_types / notify_banner_types"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+          "presence": "consumer-only",
+          "evidenceKind": "pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ]
+        }
+      ],
+      "contract": "docs/migration/features/SET-BANNER-FILTERS.md",
+      "userEntryPoint": "Mod Settings → Notifications",
+      "configurationKeys": [
+        "ui.disabled_banner_types",
+        "ui.notify_banner_types"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "see exact candidate/workflow evidence",
+        "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
+      },
+      "platformScope": "Hidden banner editor on both platforms; desktop allowlist editor Windows-only, preserving source.",
+      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-01",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "recordedImmediately": true
+      }
+    },
+    {
+      "id": "SET-AAI-ANALYSIS-ENTRY",
+      "name": "Battle Analysis settings entry and availability",
+      "classification": "Unresolved",
+      "parentCapability": "AAI (separate product; migration parked)",
+      "baseline": {
+        "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "path": "mods/src/settings/upstream_settings.cc",
+        "symbolOrWorkflow": "battle_log_summary_preview / conditional AAI readiness"
+      },
+      "migration": {
+        "path": "src/mod/settings/config_settings.cc",
+        "symbolOrWorkflow": "not assessed; outside four-feature cohort"
+      },
+      "expectedBehavior": "Battle Analysis settings entry and availability as implemented in pinned play-dev",
+      "verificationProcedure": "Deferred with the AAI product integration; do not restore a control without its owner.",
+      "validation": {
+        "staticSourceInspection": false,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "pending",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Registered immediately on discovery; no equivalence claim. UI control and underlying consumer are separate presence claims.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
+      "discovery": {
+        "sourceRef": "frozen/play-dev-20261026",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+        "date": "2026-10-26",
+        "state": "source-identified; deferred outside cohort"
+      }
     }
   ],
   "sourceCoverage": {
@@ -2945,5 +3695,6 @@
       "name": "GameObject duplicate SetActive and AddActionToQueue trace",
       "evidence": "PLAY installation blocks commented out; not required active functionality."
     }
-  ]
+  ],
+  "catalogCoverage": "Incremental inventory: historical PLAY plus explicitly scanned frozen-play-dev capabilities. Branch metadata exists only where inspected; missing means not assessed, not absent."
 }

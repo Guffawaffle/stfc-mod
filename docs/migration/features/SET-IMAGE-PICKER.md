@@ -79,3 +79,7 @@ entry uses embedded fallback. Overlong paths and failed probes remain unavailabl
 
 Checkpoints, candidate-bound commands/artifacts, native trial and remaining gaps:
 [MIGRATE-PLAY-FEATURE-PILOTS.md](../MIGRATE-PLAY-FEATURE-PILOTS.md).
+
+Guff subsequently confirmed both pilot workflows worked on Windows using the
+installed pilot artifact. That basic acceptance does not establish every pending
+reset, malformed-file, fallback or native-dialog case. See the linked pilot record.

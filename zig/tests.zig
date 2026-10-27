@@ -576,6 +576,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             .files = &.{
                 "tests/config_settings_test.cc",
                 "src/mod/settings/config_settings.cc",
+                "src/mod/settings/audio_alerts.cc",
                 "src/mod/settings/mod_pages.cc",
                 "src/mod/settings/shortcut_settings.cc",
                 "src/mod/settings/maintenance_pages.cc",
@@ -595,6 +596,20 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             module.linkFramework("Cocoa", .{});
         }
         const exe = ctx.executable("config-settings-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_mod.dependOn(&run.step);
+        test_settings_models.dependOn(&run.step);
+    }
+
+    {
+        const module = settingsModule(ctx, libs);
+        libs.spud.includeInto(module);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/audio_settings_test.cc", "src/mod/settings/audio_alerts.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{ "-Wno-invalid-offsetof", "-Wno-deprecated-literal-operator", "-UNDEBUG" }),
+        });
+        const exe = ctx.executable("audio-settings-tests", module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         const run = b.addRunArtifact(exe);
         test_mod.dependOn(&run.step);

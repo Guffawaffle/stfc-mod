@@ -78,6 +78,10 @@ Current run, checkpoints, artifacts, and pending trial are recorded in
 Classification remains implementation/qualification work until that evidence is
 attached. Do not mark overall functional parity complete.
 
+Guff subsequently confirmed both pilot workflows worked on Windows using the
+installed pilot artifact. That basic acceptance does not resolve full-snapshot
+custody or establish all native edge cases listed here. See the linked pilot record.
+
 The extracted production `dock_assignment::EnterRequested` input boundary is
 exercised with the real Shortcut capture state by `shortcut_capture_guard_test`.
 It covers capture/drain, main/keypad edges, held continuation, focused text,

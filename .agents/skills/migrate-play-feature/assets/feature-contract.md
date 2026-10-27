@@ -10,6 +10,17 @@ Contract version: 1. Status: <discovery / implementation / verification>.
 - Existing inventory ID:
 - Authorized work and exclusions:
 
+| Inspected branch | Exact revision | Presence: control / consumer / absent / not assessed | Evidence and differences |
+| --- | --- | --- | --- |
+| upstream dev | | | |
+| play | | | |
+| play-dev / frozen source | | | |
+| refactor | | | |
+
+Record activation/settings location, platforms, parent/dependencies, source scan
+date, migration checkpoint and verification scope. Add undocumented discoveries
+to the inventory immediately; keep out-of-scope discoveries out of implementation.
+
 ## Source workflow and ownership
 
 Describe activation → producers/callbacks → consumers → cleanup. Link pinned

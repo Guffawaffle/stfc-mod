@@ -1,7 +1,9 @@
 // Production catalog/models with synthetic feature readiness, registered-key saves and filesystem paths.
 #include "config.h"
+#include "config_filters.h"
 #include "config_save_fixture.h"
 #include "features/features.h"
+#include "features/fleet_notification_settings.h"
 #include "file.h"
 #include "frame.h"
 #include "runtime_config.h"
@@ -14,6 +16,7 @@
 #include "settings/shortcut_catalog.h"
 #include "settings/shortcut_settings.h"
 #include "settings/text_entry.h"
+#include "text.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -119,6 +122,12 @@ std::future<std::string> OpenImageFilePicker()
   image_picked = {};
   return image_picked.get_future();
 }
+std::future<std::string> OpenAudioFilePicker()
+{
+  std::promise<std::string> cancelled;
+  cancelled.set_value("");
+  return cancelled.get_future();
+}
 
 namespace File
 {
@@ -154,6 +163,13 @@ std::span<const FeatureInstallation> FeatureInstallations()
 { return features; }
 bool IncomingPlayerAttackAvailable()
 { return false; }
+bool ToastAudioAvailable()
+{
+  return std::ranges::any_of(features, [](const auto& f) { return std::string_view(f.name) == "Toasts"; });
+}
+bool FleetNotificationAudioAvailable(FleetNotificationKind)
+{ return false; }
+void RefreshFleetNotificationAudio() {}
 void ResetQueueRecoveryTracking()
 { ++queue_resets; }
 void RefreshFleetLabelControls()
@@ -416,6 +432,30 @@ int main()
 #endif
 
   auto* factions = Find<ChoiceSetting>(catalog, "ui.daily_bulk_claim_factions");
+  Config::Get().ui.daily_bulk_claim_factions.clear();
+  Check(factions && *factions->state().Observe().state.value == 7,
+        "blank/native faction context displays all selected");
+  for (int mask = 0; mask < 8; ++mask) {
+    const auto outcome = factions->state().SetFromUser(mask, factions->state().Observe()).outcome;
+    Check((outcome == Outcome::AppliedVerified || outcome == Outcome::Unchanged)
+              && *factions->state().Observe().state.value == mask,
+          "each source faction combination applies and reads back exactly");
+    toml::table input{{"ui", toml::table{{"daily_bulk_claim_factions",
+                                          std::get<std::string>(saved.at("ui.daily_bulk_claim_factions"))}}}},
+        parsed;
+    auto        reopened = Config::Parse(input, parsed, false);
+    const auto& values   = reopened->ui.daily_bulk_claim_factions;
+    for (int i = 0; i < 3; ++i) {
+      constexpr std::array names{"federation", "klingon", "romulan"};
+      Check(bool(mask & (1 << i)) == (values.empty() || std::ranges::contains(values, names[i])),
+            "each persisted faction mask survives the actual startup parser");
+    }
+  }
+  Check(std::get<std::string>(saved.at("ui.daily_bulk_claim_factions")).empty(),
+        "all factions uses source blank encoding");
+  std::vector<std::string> parsed_factions;
+  Check(!ParseFactionFilter("none, federation", parsed_factions) && parsed_factions == std::vector<std::string>{"none"},
+        "contradictory none is invalid to strict editors and preserves a nonempty sentinel");
   Check(factions && factions->multiple()
             && factions->state().SetFromUser(0, factions->state().Observe()).outcome == Outcome::AppliedVerified
             && Config::Get().ui.daily_bulk_claim_factions == std::vector<std::string>{"none"}
@@ -430,6 +470,63 @@ int main()
                    == Outcome::AppliedVerified
             && Config::Get().audio.alert_victory.source == "missing-custom.wav",
         "choosing a builtin does not discard the retained custom source");
+
+#if (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
+  auto* routes = Exact("ui.instant_warp_auto_jump");
+  Check(routes && !routes->Read(0).actionable(), "route editor requires the actual installed consumer");
+  Enable("InstantWarp");
+  routes->invoke(0);
+  Check(editor && !editor->validate("*, Enterprise").empty()
+            && editor->validate(" U.S.S. Enterprise-D, D'Vor ").empty(),
+        "route editor normalizes names and rejects mixed wildcard intent");
+  Check(editor->commit(" U.S.S. Enterprise-D, D'Vor ")
+            && std::get<std::string>(saved.at("ui.instant_warp_auto_jump")) == "ENTERPRISE D, DVOR",
+        "per-ship route edits save canonical names through the existing key");
+  Check(ShipNameMatches(ShipNameWords("USS Enterprise-D"), Config::Get().ui.instant_warp_auto_jump.names[0]),
+        "saved route editor words feed the existing matching implementation");
+  routes->invoke(0);
+  auto delayed_route = editor->commit;
+  routes->reset();
+  Check(!delayed_route("Relativity"), "reset invalidates an older route draft");
+  routes->invoke(0);
+  ++visit;
+  Check(!editor->commit("*"), "departed route editor cannot publish");
+  routes->invoke(0);
+  Check(editor->commit("* ") && Config::Get().ui.instant_warp_auto_jump.all, "standalone wildcard remains supported");
+  auto* warp = Exact("ui.instant_warp_auto_warp");
+  auto* ask  = Exact("ui.instant_warp_always_ask");
+  Check(warp && ask, "all three independently owned source filters are registered");
+  for (auto* route : {routes, warp, ask})
+    route->reset();
+  auto* banners = Exact("ui.disabled_banner_types");
+  Check(banners && banners->Read(0).actionable(), "existing toast owner exposes the banner editor");
+  banners->invoke(0);
+  Check(!editor->validate("Victory, MADE_UP_BANNER").empty() && editor->validate(" victory, Victory, defeat ").empty(),
+        "banner editor rejects unknown labels and accepts source casing/duplicates");
+  Check(editor->commit(" victory, Victory, defeat ")
+            && std::get<std::string>(saved.at("ui.disabled_banner_types")) == "Victory, Defeat",
+        "banner editor writes catalog-ordered distinct names");
+  banners->invoke(0);
+  Check(editor->commit("All"), "All expands existing known banner types");
+  {
+    toml::table input{{"ui", toml::table{{"disabled_banner_types", "All"}}}}, parsed;
+    Check(Config::Parse(input, parsed, false)->ui.disabled_banner_types == Config::Get().ui.disabled_banner_types,
+          "editor All and existing startup All have identical concrete consumer sets");
+  }
+  banners->invoke(0);
+  Config::Get().ui.disabled_banner_types.clear();
+  Check(!editor->commit("Defeat"), "newer external banner state invalidates a draft");
+#if _WIN32
+  auto* forwarding = Exact("ui.notify_banner_types");
+  Check(forwarding && forwarding != banners, "desktop allowlist has its own canonical model");
+  forwarding->invoke(0);
+  Check(editor->commit("Victory") && Config::Get().ui.disabled_banner_types.empty(),
+        "desktop forwarding preference never changes banner visibility");
+  forwarding->reset();
+#endif
+  banners->reset();
+  CloseTextEntry();
+#endif
   Check(registered.contains("shortcuts.move_left") && registered.contains("shortcuts.show_lookup") && raw_queries == 0,
         "all shortcut keys register without sampling input or initializing recording");
   constexpr auto action    = Action::kMoveLeft;

@@ -23,6 +23,10 @@ revision; the canonical checkout may be on unrelated work.
 
 Find the existing capability ID in
 [play-functional-parity.json](../../../docs/migration/play-functional-parity.json).
+When a distinct capability is undocumented, add a discovered/unassessed entry
+immediately, with source evidence and its parent relationship. Discovery does not
+authorize implementing that extra capability. Keep the inventory growing as the
+product catalog; do not wait for a port to succeed before recording it.
 Historical PLAY dispositions and recovery prompts are evidence, not current authority.
 If an old entry disappeared or became dormant in the selected source, investigate
 that change before restoring it.
@@ -84,6 +88,10 @@ Update the selected inventory entries additively with contract/evidence links an
 source-bound assessments. Preserve old baselines and exclusions. Link from
 [PLAY-PARITY.md](../../../docs/migration/PLAY-PARITY.md) rather than maintaining a
 competing inventory. Record exact checkpoints, known gaps, and the next action.
+Record inspected branch presence at exact revisions for upstream dev, play,
+play-dev, frozen source and refactor. Distinguish a config/gameplay consumer from
+an in-game control, and absence from not assessed. A branch name is not proof
+about its future state; source presence is not runtime qualification.
 Keep unresolved obligations visible; do not mark overall parity complete.
 
 For a genuine blocker, retain completed independent work and report the specific

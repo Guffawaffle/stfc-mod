@@ -3,6 +3,7 @@
 #include "features/features.h"
 #include "features/fleet_arrival_tracker.h"
 #include "features/fleet_audio_activation.h"
+#include "features/fleet_notification_settings.h"
 #include "features/fleet_notification_types.h"
 #include "features/fleet_opc_sample.h"
 #include "features/fleet_watch.h"
@@ -377,6 +378,11 @@ bool InstallFleetNotifications()
   return true;
 }
 } // namespace
+
+bool FleetNotificationAudioAvailable(FleetNotificationKind kind)
+{ return (s_available_events & fleet_notification_bit(kind)) != 0; }
+void RefreshFleetNotificationAudio()
+{ RefreshFleetAlerts(); }
 
 const Feature kFleetNotifications{"FleetNotifications", &Config::Patches::fleetnotificationhooks,
                                   InstallFleetNotifications, RefreshFleetAlerts};

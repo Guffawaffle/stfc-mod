@@ -1,0 +1,133 @@
+# Frozen PLAY feature cohort 20261026-01
+
+2026-10-26, America/Chicago. Four bounded source-preserving migrations following
+the accepted `migrate-play-feature` procedure. Implementation remains in the
+existing `feature/migrate-play-feature-pilots-20261026` worktree. This does not
+resume the entire parity sprint or authorize branch promotion.
+
+## Exact inputs and catalog
+
+- Source: `frozen/play-dev-20261026` = `1baa55fedf1758b19f843cc59707b8901a0b4998`.
+- Target base: `05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952`.
+- Inspected local play: `cad98ef7990dd66167eb64ea5dda525c1fe2c296`.
+- Inspected local upstream dev: `6ceb892baade31d907071db7bf72374902c8e668`.
+- Preserved study archive: `076c85a84ee5d126b02582f55936ccfc4a066a29`.
+
+These are local revision observations, not assertions about current remote heads.
+No source ref was advanced, other checkout switched, or new worktree created.
+
+The [JSON inventory](play-functional-parity.json) is the sole status source. Its
+generated [feature catalog](FEATURE-CATALOG.md) shows branch presence, entry
+points and current qualification. Full metadata includes source paths/symbols,
+parent capability, canonical keys, platforms, contracts and validation limits.
+Generate with `python scripts/render-feature-catalog.py`; `--check` checks freshness,
+unique IDs, pinned revisions and contract existence. It does not establish complete
+discovery or functional equivalence.
+
+The existing 101 entries were retained. Three newly distinguished Settings
+subfeatures were registered on discovery. The incidental
+`SET-AAI-ANALYSIS-ENTRY` was also recorded immediately, but remains deferred and
+unassessed: it is not a fifth migration. Total inventory: 105 entries. Only the
+two pilots and these four have the new branch-presence assessment; absent metadata
+elsewhere means not assessed, not absent from a branch.
+
+## Four completed source scans and adaptations
+
+Each scan read the complete selected producer, supporting headers, registration,
+models, configuration, consumers, lifecycle and tests at the frozen revision.
+The common list-editor source block was read once and traced into each consumer.
+Read-only branch provenance and correction review were delegated separately;
+implementation stayed in one continuous foreground session. No LexRunner Run,
+Attempt or orchestration is claimed.
+
+| Contract | Preserved source and narrow target adaptation | Existing consumer retained |
+| --- | --- | --- |
+| [SET-WARP-FILTERS](features/SET-WARP-FILTERS.md) | Source ExactEntry behavior and strict comma-list validation; adapt normalized strings to existing typed ShipFilter word vectors, shared page-visit guard and preserving writer. Three canonical keys, wildcard and precedence retained. | `src/mod/features/instant_warp.cc` and its Ctrl/Command/default routing. |
+| [SET-DAILY-FACTIONS](features/SET-DAILY-FACTIONS.md) | Existing multiple-choice control reconciled with source: empty/all displays all three; all persists blank, none persists explicit `none`. No replacement claims implementation. | `src/mod/features/missions.cc`, including non-main-faction eligibility. |
+| [SET-BANNER-FILTERS](features/SET-BANNER-FILTERS.md) | Source exact editors, strict validation, defaults/save/reset; use the single existing banner catalog. Keep hidden-banner and desktop-notification lists independent, and source platform scope. | Existing typed Toasts delivery/audio/suppression order. |
+| [SET-AUDIO-PICKER](features/SET-AUDIO-PICKER.md) | Preserve source alert/page state machine, async owned tasks, persistence, custom reuse and preview. Adapt nested Config, lazy shared frame delivery and narrow readiness/refresh exports. Share the existing image/audio platform dialog providers. | Existing bounded file decoder, prepared playback and fleet activation. |
+
+### Integration decisions
+
+- No new game hook, frame owner, decoder, playback engine, watcher or Settings
+  framework. Pure models and preserving registered-key writer remain their owners.
+- Strict editor validation is distinct from tolerant manual TOML startup. Route
+  reading shares its parser but ignores a false result as before; faction/banner
+  startup warning/default behavior is not replaced by the strict editor parser.
+- Source banner `All` has a sentinel plus expanded types. Target already expands
+  concrete known types. Preserve the existing target representation and test its
+  startup equivalence; do not invent future-state wildcard behavior.
+- File chooser/loader workers own paths, futures and prepared audio. Config,
+  settings models and native page refresh remain on the game thread. Only one
+  pending file operation is admitted. Preview reuses prepared audio without decode.
+- An external chooser is process-level explicit intent, as in source; page departure
+  alone does not cancel it. No borrowed Unity object crosses the worker boundary.
+- A completed sound cannot publish over an observed newer cue, explicit reset/retry,
+  or unavailable owner. Pending Custom admission is not falsely shown as an applied
+  cue. Computation may finish after publication is revoked. These are explicit
+  safety improvements, not a claim of byte-identical legacy behavior.
+- The generation guard covers observed replacement and explicit editor intent,
+  not unobserved external A→B→A changes or authenticated account epochs.
+- No configuration keys/defaults were invented, stores migrated, TOML edited or
+  reward claims executed. No AAI/Kit feature expansion, UI redesign or CI work.
+
+## Local verification
+
+Toolchain: Zig 0.16.0, VS 18 amd64 environment, Windows x86_64 MSVC ABI. Existing
+`D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/Run-LocalGate.ps1`
+with `-Targets 'test-mod test-il2cpp'`: **210/210 build/run steps passed**, production
+libraries ReleaseFast and assertion fixtures Debug. This is a step count, not a
+claim of 210 tests. Log: `D:/dev/stfc-workspace/.ax/feature-cohort-01-tests-20261026.log`.
+
+- `tests/config_settings_test.cc` exercises production catalog/model/writer
+  adapters: route normalization/wildcards, stale/page-departed commits, reset,
+  canonical keys, all eight faction masks and actual startup parse round-trips,
+  banner canonicalization/All/invalid input and independent allowlist values.
+- `tests/audio_settings_test.cc` uses the production alert producer and source
+  positives plus delayed/cancelled/failed dialog/decoder completion, observed ABA,
+  unchanged-default reset, reset during blocked decoding, lazy frame admission,
+  owner gates, prepared custom reuse and preview without a new decode. The blocked
+  test worker automatically releases within three seconds; no main-thread wait.
+- Registration stays inert: fixtures check that constructing the catalog does
+  not acquire configuration, game objects, frame service, files or audio devices.
+- Read-only correction review found missing Toasts readiness composition and
+  observed ABA publication risk; both were fixed and covered. Correction-delta
+  review reported no residual findings. This is scoped review, not a general PR gate.
+- Native pre-check: `zig build mods -Dtarget=x86_64-windows-msvc
+  -Doptimize=ReleaseFast -j4 --summary all`, **23/23 steps passed**. A final source-bound
+  DLL/receipt is recorded below after the implementation checkpoint; this initial
+  success alone does not identify a deployable candidate.
+- Skill validator, generated-catalog check and `git diff --check` passed.
+
+No local macOS SDK work: operator-directed qualification is CI for both supported
+architectures, then Mcohall for native testing. No macOS compile/runtime success
+is claimed. Synthetic host adapters cannot prove COM/Cocoa dialogs, audible output,
+native focus/Back, actual course execution, rewards or notification delivery.
+
+## Focused in-game qualification
+
+Use the exact candidate/artifact below. First open Mod Settings normally; test
+without changing unrelated preferences. Restore deliberate test edits afterward.
+
+1. Map & Travel → Ship route filters: open each editor, enter a ship name or `*`,
+   inspect normalization; reject mixed wildcard/unknown syntax; cancel/back; check
+   source precedence separately on an intended trip. Browse must not write TOML.
+2. Claims & Confirmations: independently toggle faction choices, verify reopening
+   and none/all semantics. No real reward collection is necessary for UI acceptance.
+3. Notifications: open hidden banners and (Windows) desktop allowlist; validate,
+   cancel, edit and reset one list without changing the other. Actual banner/audio/
+   desktop delivery needs a separately observed triggering event.
+4. Audio Alerts: preview a built-in, choose/cancel a local supported sound file,
+   load/preview Custom, return to built-in/custom without reloading, and reset while
+   selection is pending. Check native dialog and Unicode path behavior. Test fleet
+   alert settings only when their real owner is available. Do not trigger external
+   network messages or gameplay actions merely to satisfy a fixture.
+
+Whole-product parity remains false. Native interaction, failure paths and platform
+qualification must not be inferred from compilation or the previous pilot trial.
+
+## Checkpoint and recovery
+
+Implementation, final candidate receipts and continuity references are appended
+after qualification. Original source and study archive stay pinned. Next discovery
+starts from an unported capability, not another scan of these four contracts.

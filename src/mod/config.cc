@@ -3,6 +3,7 @@
 
 #include "config.h"
 
+#include "config_filters.h"
 #include "config_save.h"
 #include "features/notification_audio.h"
 #include "file.h"
@@ -310,12 +311,10 @@ private:
 ShipFilter ReadShipFilter(Reader& reader, std::string_view key)
 {
   const auto value = reader.Get<std::string>("ui", key, "");
-  if (StripAsciiWhitespace(value) == "*")
-    return {.all = true};
   ShipFilter filter;
-  for (const auto& token : StrSplit(value, ','))
-    if (auto words = ShipNameWords(token); !words.empty())
-      filter.names.push_back(std::move(words));
+  // Startup remains tolerant of malformed manual lists. The native editor
+  // rejects the same parser's false result instead of silently accepting it.
+  ParseShipFilter(value, filter);
   return filter;
 }
 
@@ -607,6 +606,99 @@ bool SaveEffective(const toml::table& effective, bool startup)
   return created_primary;
 }
 } // namespace
+
+// PLAY config_filters.cc, adapted to the existing typed ShipFilter and shared
+// banner catalog. No native objects or filesystem operations are involved.
+bool ParseShipFilter(std::string_view text, ShipFilter& filter)
+{
+  filter = {};
+  if (StripAsciiWhitespace(text) == "*") {
+    filter.all = true;
+    return true;
+  }
+  bool valid = true;
+  for (const auto& token : StrSplit(text, ',')) {
+    const auto normalized = NormalizeShipName(token);
+    if (normalized.empty())
+      valid = false;
+    else {
+      if (token == "*")
+        valid = false;
+      // Preserve tolerant startup's literal mixed wildcard pattern; an editor
+      // rejects the entire false result. Normalize only once for matching.
+      filter.names.push_back(ShipNameWords(token));
+    }
+  }
+  return valid;
+}
+
+std::string FormatShipFilter(const ShipFilter& filter)
+{
+  if (filter.all)
+    return "*";
+  std::string text;
+  for (const auto& words : filter.names) {
+    if (!text.empty())
+      text += ", ";
+    bool first = true;
+    for (const auto& word : words) {
+      if (!std::exchange(first, false))
+        text += ' ';
+      text += word;
+    }
+  }
+  return text;
+}
+
+bool ParseFactionFilter(std::string_view text, std::vector<std::string>& factions)
+{
+  factions.clear();
+  bool valid = true, none = false;
+  for (const auto& token : StrSplit(text, ',')) {
+    auto name = AsciiStrToLower(token);
+    if (name == "none")
+      none = true;
+    else if (!std::ranges::contains(kKnownFactions, name))
+      valid = false;
+    else if (!std::ranges::contains(factions, name))
+      factions.push_back(std::move(name));
+  }
+  if (none) {
+    valid    = valid && factions.empty();
+    factions = {"none"}; // Empty means all/native; none must remain nonempty.
+  }
+  return valid;
+}
+
+bool ParseBannerFilter(std::string_view text, std::vector<int>& types)
+{
+  types.clear();
+  bool valid = true;
+  for (const auto& token : StrSplit(text, ',')) {
+    const auto name  = AsciiStrToUpper(token);
+    bool       found = false;
+    for (const auto& entry : kBannerTypes)
+      if (name == "ALL" || name == AsciiStrToUpper(entry.name)) {
+        if (!std::ranges::contains(types, std::to_underlying(entry.value)))
+          types.push_back(std::to_underlying(entry.value));
+        found = true;
+      }
+    valid = valid && found;
+  }
+  return valid;
+}
+
+std::string FormatBannerFilter(const std::vector<int>& types)
+{
+  std::string text;
+  for (const auto& entry : kBannerTypes)
+    if (std::ranges::contains(types, std::to_underlying(entry.value))) {
+      if (!text.empty())
+        text += ", ";
+      text += entry.name;
+    }
+  return text;
+}
 
 std::unique_ptr<Config> Config::Parse(const toml::table& file, toml::table& effective, bool log_values)
 {

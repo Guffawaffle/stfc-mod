@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/fleet_notification_settings.h"
 #include "features/incoming_player_attack_tracker.h"
 #include "features/notification_audio.h"
 #include "features/notifications.h"
@@ -526,6 +527,13 @@ void ToastNotificationFrame()
 } // namespace
 
 const Feature kToasts{"Toasts", &Config::Patches::toastbannerhooks, InstallToasts, ToastNotificationFrame};
+
+bool ToastAudioAvailable()
+{
+  return std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
+    return feature.name && std::string_view(feature.name) == "Toasts" && feature.state == InstallState::kInstalled;
+  });
+}
 
 void InitializeDesktopNotifications()
 {

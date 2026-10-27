@@ -1,23 +1,24 @@
 #ifdef __APPLE__
+#include "settings/audio_file_picker.h"
 #include "settings/image_file_picker.h"
 #import <AppKit/AppKit.h>
 #import <dispatch/dispatch.h>
 #include <memory>
 
-// Image branch of pinned PLAY's audio_file_picker_mac.mm. Cocoa remains on its
-// main queue; the caller receives only an owned UTF-8 path future.
-std::future<std::string> OpenImageFilePicker()
+namespace
+{
+std::future<std::string> OpenFilePicker(bool image)
 {
   auto result = std::make_shared<std::promise<std::string>>();
   auto future = result->get_future();
   dispatch_async(dispatch_get_main_queue(), ^{
     @autoreleasepool {
       NSOpenPanel* panel = [NSOpenPanel openPanel];
-      [panel setTitle:@"Choose a loading image"];
+      [panel setTitle:image ? @"Choose a loading image" : @"Choose an alert sound"];
       [panel setCanChooseFiles:YES];
       [panel setCanChooseDirectories:NO];
       [panel setAllowsMultipleSelection:NO];
-      [panel setAllowedFileTypes:@[@"png", @"jpg", @"jpeg"]];
+      [panel setAllowedFileTypes:image ? @[@"png", @"jpg", @"jpeg"] : @[@"wav", @"mp3"]];
       [panel beginWithCompletionHandler:^(NSModalResponse response) {
         const char* path = response == NSModalResponseOK ? [[[panel URL] path] UTF8String] : nullptr;
         result->set_value(path ? std::string(path) : std::string{});
@@ -26,4 +27,7 @@ std::future<std::string> OpenImageFilePicker()
   });
   return future;
 }
+} // namespace
+std::future<std::string> OpenAudioFilePicker() { return OpenFilePicker(false); }
+std::future<std::string> OpenImageFilePicker() { return OpenFilePicker(true); }
 #endif

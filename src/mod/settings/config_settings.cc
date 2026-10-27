@@ -1,7 +1,8 @@
 // PLAY's configuration controls, adapted to the foundation's nested Config and existing feature/save owners.
-// Exact text, shortcut editing and file-picker presentation are added by their own adapters.
+// Shared settings catalog; shortcut and custom-file workflows have their own adapters.
 #include "config_settings.h"
 #include "config.h"
+#include "config_filters.h"
 #include "confirmation_settings.h"
 #include "features/features.h"
 #include "features/galaxy.h"
@@ -161,6 +162,60 @@ namespace
         return std::to_chars(text, text + sizeof(text), value);
     }();
     return written.ec == std::errc{} ? std::string(text, written.ptr) : std::string{};
+  }
+
+  // The PLAY ExactEntry workflow, reusing the current host's page custody.
+  template <class Parse>
+  void ExactText(PageCatalog& catalog, const char* page, const std::shared_ptr<ValueSetting<std::string>>& setting,
+                 Parse parse)
+  {
+    auto action           = Keep<ActionSetting>();
+    action->identity      = setting->id() + ".exact";
+    action->label         = setting->label();
+    action->metadata      = &setting->metadata();
+    action->reset         = [setting] { setting->Reset(setting->Observe()); };
+    action->retry         = [setting] { setting->RetrySave(setting->Observe()); };
+    action->prepare_reset = [setting] { return PrepareReset(*setting); };
+    action->status        = [setting] { return setting->status_text(); };
+    action->save_status   = [setting] { return setting->save_status(); };
+    action->default_label = [setting] { return setting->default_value().value_or(""); };
+    action->read          = [setting](size_t) {
+      const auto observed = setting->Observe();
+      auto       text     = observed.state.known() ? *observed.state.value : "Unavailable";
+      if (text.empty())
+        text = "(empty)";
+      const auto status = setting->status_text();
+      if (!status.empty())
+        text += "\n" + status;
+      return ActionSetting::Presentation{setting->label(), "Edit", std::move(text), observed.state.known()};
+    };
+    action->invoke = [setting, parse](size_t) {
+      const auto observed = setting->Observe();
+      const auto visit    = native::CurrentPageVisit();
+      if (!observed.state.known() || !native::IsPageVisitCurrent(visit))
+        return;
+      const auto initial = *observed.state.value;
+      auto       help    = setting->metadata().description;
+      if (const auto value = setting->default_value())
+        help += "\nDefault: " + (value->empty() ? std::string("(empty)") : *value);
+      OpenTextEntry({.title = setting->label(),
+                     .value = initial,
+                     .help  = std::move(help),
+                     .validate =
+                         [parse](std::string_view text) {
+                           return parse(text) ? std::string{} : std::string("Enter a valid value.");
+                         },
+                     .commit =
+                         [setting, observed, visit, parse, initial](std::string_view text) {
+                           const auto value = parse(text);
+                           if (!value || !native::IsPageVisitCurrent(visit))
+                             return false;
+                           const auto result =
+                               setting->SetFromUser(text == initial ? *observed.state.value : *value, observed).outcome;
+                           return result == Outcome::AppliedVerified || result == Outcome::Unchanged;
+                         }});
+    };
+    catalog.AddAction(page, *action);
   }
   template <class T> std::optional<T> ParseExactNumber(std::string_view text, T minimum, T maximum)
   {
@@ -673,9 +728,25 @@ void RegisterConfigSettings(PageCatalog& catalog)
         {"auto", "always", "never"});
 
   static constexpr std::array faction_names{"federation", "klingon", "romulan"};
-  auto                        factions = MakeConfigDefinition<int>(
+  const auto                  faction_text = [](int mask) {
+    if (!mask)
+      return std::string("none");
+    if (mask == 7)
+      return std::string{}; // Source blank retains native/all claiming.
+    std::string text;
+    for (int i = 0; i < 3; ++i)
+      if (mask & (1 << i)) {
+        if (!text.empty())
+          text += ", ";
+        text += faction_names[i];
+      }
+    return text;
+  };
+  auto factions = MakeConfigDefinition<int>(
       "ui", "daily_bulk_claim_factions", "Daily bulk-claim factions", 7,
       [] {
+        if (Config::Get().ui.daily_bulk_claim_factions.empty())
+          return 7;
         int mask = 0;
         for (int i = 0; i < 3; ++i)
           if (std::ranges::find(Config::Get().ui.daily_bulk_claim_factions, faction_names[i])
@@ -683,110 +754,75 @@ void RegisterConfigSettings(PageCatalog& catalog)
             mask |= 1 << i;
         return mask;
       },
-      [](int mask) {
-        auto& values = Config::Get().ui.daily_bulk_claim_factions;
-        values.clear();
-        for (int i = 0; i < 3; ++i)
-          if (mask & (1 << i))
-            values.emplace_back(faction_names[i]);
-        if (!mask)
-          values.emplace_back("none");
+      [faction_text](int mask) {
+        std::vector<std::string> values;
+        if (!ParseFactionFilter(faction_text(mask), values))
+          return false;
+        Config::Get().ui.daily_bulk_claim_factions = std::move(values);
         return true;
       },
       Owner("DailyClaimFilter"), Timing::ReopenView, "Select faction dailies to include in bulk claims.", "",
-      [](int mask) -> config_edit::Value {
-        std::string value;
-        for (int i = 0; i < 3; ++i)
-          if (mask & (1 << i)) {
-            if (!value.empty())
-              value += ',';
-            value += faction_names[i];
-          }
-        return mask ? value : "none";
-      });
+      [faction_text](int mask) -> config_edit::Value { return faction_text(mask); });
   catalog.AddChoice("community_mod.claims",
                     *Keep<ChoiceSetting>(std::move(factions),
                                          std::vector<std::string>{"Federation", "Klingon", "Romulan"},
                                          ChoiceMode::Multiple));
 
-  Choice(
-      catalog, "community_mod.audio", "audio", "coalescing", "Audio coalescing", int(AudioCoalescing::Same),
-      [] { return int(NotificationAudioCoalescing()); },
-      [](int value) {
-        const auto mode                = static_cast<AudioCoalescing>(value);
-        Config::Get().audio.coalescing = mode;
-        SetNotificationAudioCoalescing(mode);
-        return true;
-      },
-      [] { return true; }, Timing::Live, "How concurrent audio requests are combined.",
-      {"None - play every request", "Same - absorb repeats", "All - absorb concurrent requests"},
-      {"none", "same", "all"});
-  struct Alert {
-    const char*          key;
-    const char*          label;
-    NotificationAudioCue Config::Audio::* cue;
-    const char*                           owner;
+  const auto filter_page = "community_mod.travel.filters";
+  catalog.AddPage(filter_page, "Ship route filters", "community_mod.travel");
+  struct RouteFilter {
+    const char* key;
+    const char* label;
+    ShipFilter Config::Ui::* member;
   };
-  for (const auto& alert : std::initializer_list<Alert>{
-           {"alert_incoming_player_attack", "Incoming player attack (ships)",
-            &Config::Audio::alert_incoming_player_attack, "Toasts"},
-           {"alert_victory", "Battle victory", &Config::Audio::alert_victory, "Toasts"},
-           {"alert_defeat", "Battle defeat", &Config::Audio::alert_defeat, "Toasts"},
-           {"alert_armada_created", "Armada created", &Config::Audio::alert_armada_created, "Toasts"},
-           {"alert_armada_battle_won", "Armada victory", &Config::Audio::alert_armada_battle_won, "Toasts"},
-           {"alert_armada_battle_lost", "Armada defeat", &Config::Audio::alert_armada_battle_lost, "Toasts"},
-           {"alert_fleet_arrived_in_system", "Arrived in system", &Config::Audio::alert_fleet_arrived_in_system,
-            "FleetNotifications"},
-           {"alert_fleet_arrived_at_destination", "Arrived at destination",
-            &Config::Audio::alert_fleet_arrived_at_destination, "FleetNotifications"},
-           {"alert_fleet_started_mining", "Started mining", &Config::Audio::alert_fleet_started_mining,
-            "FleetNotifications"},
-           {"alert_fleet_node_depleted", "Node depleted", &Config::Audio::alert_fleet_node_depleted,
-            "FleetNodeDepletion"},
-           {"alert_fleet_docked", "Docked", &Config::Audio::alert_fleet_docked, "FleetNotifications"},
-           {"alert_fleet_repair_complete", "Repair complete", &Config::Audio::alert_fleet_repair_complete,
-            "FleetNotifications"},
-           {"alert_fleet_miner_opc", "Miner over protected cargo", &Config::Audio::alert_fleet_miner_opc,
-            "FleetNotifications"}}) {
-    const auto page = std::string("community_mod.audio.") + alert.key;
-    catalog.AddPage(page, alert.label, "community_mod.audio");
-    auto custom     = std::make_shared<std::optional<NotificationAudioCue>>();
-    auto definition = MakeConfigDefinition<int>(
-        "audio", alert.key, "Sound", 0,
-        [alert, custom] {
-          const auto& cue     = Config::Get().audio.*alert.cue;
-          const auto  builtin = NotificationSoundFromName(cue.source);
-          if (!builtin)
-            *custom = cue;
-          return builtin ? int(*builtin) : int(NotificationSound::kCount);
-        },
-        [alert, custom](int value) {
-          if (value < 0 || value > int(NotificationSound::kCount))
+  for (const auto& filter :
+       {RouteFilter{"instant_warp_auto_jump", "Always jump with these ships", &Config::Ui::instant_warp_auto_jump},
+        RouteFilter{"instant_warp_auto_warp", "Always warp with these ships", &Config::Ui::instant_warp_auto_warp},
+        RouteFilter{"instant_warp_always_ask", "Always ask for these ships", &Config::Ui::instant_warp_always_ask}}) {
+    auto setting = Keep<ValueSetting<std::string>>(MakeConfigDefinition<std::string>(
+        "ui", filter.key, filter.label, FormatShipFilter(Defaults().ui.*filter.member),
+        [filter] { return FormatShipFilter(Config::Get().ui.*filter.member); },
+        [filter](const std::string& text) {
+          ShipFilter value;
+          if (!ParseShipFilter(text, value))
             return false;
-          if (value == int(NotificationSound::kCount)) {
-            if (!*custom)
-              return false;
-            Config::Get().audio.*alert.cue = **custom;
-          } else
-            Config::Get().audio.*alert.cue = NotificationAudioCue(static_cast<NotificationSound>(value));
+          Config::Get().ui.*filter.member = std::move(value);
           return true;
         },
-        std::string_view(alert.key) == "alert_incoming_player_attack" ? incoming : Owner(alert.owner), Timing::Live,
-        "Choose a built-in sound or retain the previously configured custom file.", "",
-        [custom](int value) -> config_edit::Value {
-          return value == int(NotificationSound::kCount) && *custom
-                     ? (**custom).source
-                     : std::string(NotificationSoundName(static_cast<NotificationSound>(value)));
-        });
-    catalog.AddChoice(page, *Keep<ChoiceSetting>(std::move(definition),
-                                                 std::vector<std::string>{"Off", "Default", "Info", "Success",
-                                                                          "Warning", "Alarm", "Arrival", "Soft", "Ping",
-                                                                          "Repair", "Custom file (configured)"}));
-    if (std::string_view(alert.key) == "alert_incoming_player_attack")
-      Boolean(
-          catalog, page.c_str(), "ui", "notify_incoming_player_attack", "Desktop notification",
-          [](auto& config) -> auto& { return config.ui.notify_incoming_player_attack; }, incoming, Timing::Live,
-          "Show a desktop notification for incoming player attacks against owned ships.");
+        Owner("InstantWarp"), Timing::ReopenView,
+        "Comma-separated ship names, or * for every ship. Always ask wins, then jump, then warp, then the default. "
+        "Reopen fleet management after changing them."));
+    ExactText(catalog, filter_page, setting, [](std::string_view text) -> std::optional<std::string> {
+      ShipFilter value;
+      return ParseShipFilter(text, value) ? std::optional{FormatShipFilter(value)} : std::nullopt;
+    });
+  }
+  for (const bool notify : {false, true}) {
+#if !_WIN32
+    if (notify)
+      continue; // Preserve the source control's platform scope.
+#endif
+    auto setting = Keep<ValueSetting<std::string>>(MakeConfigDefinition<std::string>(
+        "ui", notify ? "notify_banner_types" : "disabled_banner_types",
+        notify ? "Banners allowed to notify" : "Hidden banner types", "",
+        [notify] {
+          return FormatBannerFilter(notify ? Config::Get().ui.notify_banner_types
+                                           : Config::Get().ui.disabled_banner_types);
+        },
+        [notify](const std::string& text) {
+          std::vector<int> types;
+          if (!ParseBannerFilter(text, types))
+            return false;
+          (notify ? Config::Get().ui.notify_banner_types : Config::Get().ui.disabled_banner_types) = std::move(types);
+          return true;
+        },
+        Owner("Toasts"), Timing::Live,
+        "Comma-separated banner names from the English example configuration, or All. Unknown names are rejected. "
+        "Hiding a banner does not independently disable sound or desktop notifications."));
+    ExactText(catalog, "community_mod.notifications", setting, [](std::string_view text) -> std::optional<std::string> {
+      std::vector<int> types;
+      return ParseBannerFilter(text, types) ? std::optional{FormatBannerFilter(types)} : std::nullopt;
+    });
   }
 }
 

@@ -1,5 +1,15 @@
 # Downstream play preservation target
 
+## Frozen-source feature cohorts — 2026-10-26
+
+The accepted source-preserving procedure now continues with
+[four Settings workflows](FEATURE-COHORT-20261026-01.md). The generated
+[feature catalog](FEATURE-CATALOG.md) adds pinned upstream dev, play, play-dev and
+refactor observations to the existing JSON inventory. Unexamined entries remain
+explicitly unassessed against those refs; this is not a whole-product parity claim.
+The two initial pilots received basic Windows player confirmation. Detailed edge
+cases and macOS qualification remain separate, as recorded in their contracts.
+
 ## Bounded frozen-play-dev pilots — 2026-10-26
 
 The [migration skill pilots](MIGRATE-PLAY-FEATURE-PILOTS.md) reassess only

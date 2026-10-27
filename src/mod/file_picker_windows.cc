@@ -1,4 +1,5 @@
 #if _WIN32
+#include "settings/audio_file_picker.h"
 #include "settings/file_picker_task.h"
 #include "settings/image_file_picker.h"
 #include <Windows.h>
@@ -7,11 +8,11 @@
 #include <stdexcept>
 #include <wrl/client.h>
 
-// Image branch of pinned PLAY's audio_file_picker_windows.cc; same dialog,
-// Unicode, cancellation and ownership operations, without the audio UI producer.
-std::future<std::string> OpenImageFilePicker()
+namespace
 {
-  return mod_settings::RunFilePickerTask([]() -> std::string {
+std::future<std::string> OpenFilePicker(bool image)
+{
+  return mod_settings::RunFilePickerTask([image]() -> std::string {
     struct Apartment {
       HRESULT result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
       ~Apartment()
@@ -30,10 +31,12 @@ std::future<std::string> OpenImageFilePicker()
     DWORD options = 0;
     check(dialog->GetOptions(&options));
     check(dialog->SetOptions(options | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_NOCHANGEDIR));
-    const COMDLG_FILTERSPEC filter{L"Images (*.png; *.jpg; *.jpeg)", L"*.png;*.jpg;*.jpeg"};
+    const COMDLG_FILTERSPEC filter = image ? COMDLG_FILTERSPEC{L"Images (*.png; *.jpg; *.jpeg)", L"*.png;*.jpg;*.jpeg"}
+                                           : COMDLG_FILTERSPEC{L"Audio files (*.wav; *.mp3)", L"*.wav;*.mp3"};
     check(dialog->SetFileTypes(1, &filter));
-    check(dialog->SetTitle(L"Choose a loading image"));
-    const auto result = dialog->Show(nullptr); // Unowned: do not disable Unity input.
+    check(dialog->SetTitle(image ? L"Choose a loading image" : L"Choose an alert sound"));
+    // Unowned: a modal dialog owned by the Unity window would disable game input.
+    const auto result = dialog->Show(nullptr);
     if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED))
       return {};
     check(result);
@@ -50,4 +53,9 @@ std::future<std::string> OpenImageFilePicker()
     return std::string(reinterpret_cast<const char*>(utf8.data()), utf8.size());
   });
 }
+} // namespace
+std::future<std::string> OpenAudioFilePicker()
+{ return OpenFilePicker(false); }
+std::future<std::string> OpenImageFilePicker()
+{ return OpenFilePicker(true); }
 #endif

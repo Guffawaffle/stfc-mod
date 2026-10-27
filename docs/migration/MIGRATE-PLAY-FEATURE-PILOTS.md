@@ -25,6 +25,15 @@ macOS qualification direction confirmed by the operator: builds will run in CI;
 Mcohall will perform native testing when ready. Do not create a local SDK project
 or treat Windows success as macOS qualification. No CI changes are requested here.
 
+### Subsequent player confirmation and procedure acceptance
+
+Guff reported that both pilot workflows worked in the installed Windows build
+("both work") and approved using the procedure for further migrations. This is
+basic player confirmation tied to the artifact above, not itemized verification
+of every capture, reset, native-object custody or failure case. Keep those
+limitations below visible. No overall parity, release or macOS claim follows.
+The next bounded application is [cohort 20261026-01](FEATURE-COHORT-20261026-01.md).
+
 ## Source and recovery boundary
 
 - Frozen source: `frozen/play-dev-20261026` =
