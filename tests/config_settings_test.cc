@@ -3,9 +3,11 @@
 #include "config_save_fixture.h"
 #include "features/features.h"
 #include "file.h"
+#include "frame.h"
 #include "runtime_config.h"
 #include "settings/config_settings.h"
 #include "settings/confirmation_settings.h"
+#include "settings/image_file_picker.h"
 #include "settings/mod_pages.h"
 #include "settings/native_controls.h"
 #include "settings/shortcut_capture.h"
@@ -15,6 +17,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -34,7 +37,11 @@ bool                                          conflict = false;
 std::optional<mod_settings::TextEntryRequest> editor;
 mod_settings::native::PageVisitToken          visit = 1;
 mod_settings::ShortcutCapture::Keys           raw_held{}, raw_down{};
-size_t                                        raw_queries = 0;
+size_t                                        raw_queries    = 0;
+ScreenManagerUpdateCallback                   image_poll     = nullptr;
+bool                                          frame_delivery = false, admit_image_poll = true;
+size_t                                        frame_queries = 0, frame_registrations = 0, picker_opens = 0;
+std::promise<std::string>                     image_picked;
 
 void Check(bool value, const char* message)
 {
@@ -92,6 +99,26 @@ mod_settings::ActionSetting& ShortcutRow(Action action, std::string_view suffix)
   std::abort();
 }
 } // namespace
+
+bool FrameDeliveryAvailable() noexcept
+{
+  ++frame_queries;
+  return frame_delivery;
+}
+bool RegisterFrameCallback(ScreenManagerUpdateCallback callback, const char*) noexcept
+{
+  ++frame_registrations;
+  if (!admit_image_poll)
+    return false;
+  image_poll = callback;
+  return true;
+}
+std::future<std::string> OpenImageFilePicker()
+{
+  ++picker_opens;
+  image_picked = {};
+  return image_picked.get_future();
+}
 
 namespace File
 {
@@ -231,6 +258,8 @@ int main()
   auto& catalog = BuildModPages();
   Check(&BuildModPages() == &catalog && path_reads == 0 && saved.empty(),
         "catalog registration is stable and never loads, mutates or saves live configuration");
+  Check(frame_queries == 0 && frame_registrations == 0 && picker_opens == 0,
+        "loading image catalog registration does not acquire native or worker services");
   Check(registered.contains("control.hotkeys_extended") && registered.contains("audio.alert_fleet_miner_opc")
             && registered.contains("graphics.galaxy_label_minor_threshold"),
         "original control keys register with the existing writer");
@@ -243,6 +272,53 @@ int main()
   Enable("Toasts");
   Enable("DailyClaimFilter");
   Enable("FleetLabels");
+  auto* image = Exact("graphics.loader_image");
+  Check(image && !image->Read(0).actionable(), "loading image remains unavailable without a renderer owner");
+  Enable("LoginScreen");
+  const auto active_image = Config::Get().graphics.loader_image;
+  const auto image_path   = (directory.Root() / "loading.png").string();
+  std::ofstream(image_path) << "SYNTHETIC regular-file fixture; not a decoded image";
+  image->invoke(0); // No polling delivery: use the source's exact-entry fallback.
+  Check(editor && picker_opens == 0, "missing polling delivery selects exact path entry");
+  Check(!editor->validate("  ").size(), "empty exact path uses the embedded fallback");
+  const auto await_validation = [&] {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (!editor->validate(image_path).empty() && std::chrono::steady_clock::now() < end)
+      std::this_thread::yield();
+    Check(editor->validate(image_path).empty(), "owned asynchronous path validation completed");
+  };
+  await_validation();
+  Check(editor->validation_changed && editor->validation_changed(), "completion notifies an unchanged editor draft");
+  auto stale_image_commit = editor->commit;
+  ++visit;
+  Check(!stale_image_commit(image_path) && !saved.contains("graphics.loader_image"),
+        "departed-page exact intent cannot save its delayed validation result");
+  CloseTextEntry();
+  frame_delivery   = true;
+  admit_image_poll = false;
+  image->invoke(0);
+  Check(editor && frame_registrations == 1 && picker_opens == 0, "rejected polling admission also uses exact entry");
+  await_validation();
+  Check(editor->commit("  " + image_path + "  ")
+            && std::get<std::string>(saved.at("graphics.loader_image")) == image_path
+            && Config::Get().graphics.loader_image == active_image,
+        "exact image intent trims and persists the registered key without changing active restart state");
+  CloseTextEntry();
+  image->reset();
+  Check(std::get<std::string>(saved.at("graphics.loader_image")).empty(), "image reset persists the original default");
+  admit_image_poll = true;
+  image->invoke(0);
+  image->invoke(0);
+  Check(image_poll && picker_opens == 1 && !image->Read(0).actionable(), "picker admission is lazy and bounded");
+  image_picked.set_value(image_path);
+  const auto image_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  do {
+    image_poll();
+    std::this_thread::yield();
+  } while (!image->Read(0).actionable() && std::chrono::steady_clock::now() < image_deadline);
+  Check(image->Read(0).actionable() && std::get<std::string>(saved.at("graphics.loader_image")) == image_path
+            && Config::Get().graphics.loader_image == active_image,
+        "the production catalog polling adapter applies the source picker model's verified restart intent");
   auto before = cargo->Observe();
   Check(before.state.value == true, "live boolean reads active Config");
   Check(cargo->SetFromUser(false, before).outcome == Outcome::AppliedVerified && !Config::Get().ui.show_player_cargo
@@ -263,9 +339,9 @@ int main()
 
   for (const bool player : {true, false}) {
     auto* detail = Find<ChoiceSetting>(catalog, player ? "graphics.zoom_label_player_detail"
-                                                      : "graphics.zoom_label_non_player_detail");
-    auto* threshold = Number<float>(player ? "graphics.zoom_label_player_threshold"
-                                           : "graphics.zoom_label_non_player_threshold");
+                                                       : "graphics.zoom_label_non_player_detail");
+    auto* threshold =
+        Number<float>(player ? "graphics.zoom_label_player_threshold" : "graphics.zoom_label_non_player_threshold");
     Check(detail && threshold, "both fleet-label profiles have their production controls");
     const auto refreshes = fleet_label_refreshes;
     Check(detail->state().SetFromUser(int(FleetLabelDetail::kExpanded), detail->state().Observe()).outcome

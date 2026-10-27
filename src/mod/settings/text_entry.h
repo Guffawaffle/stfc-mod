@@ -19,6 +19,8 @@ struct TextEntryRequest {
   // A read-only recording popup samples raw input; Return is a candidate, never implicit Apply.
   std::function<std::optional<std::string>()> record_frame;
   std::function<void()>                       record_again;
+  // Owned validation may complete without a text edit. No worker calls the UI.
+  std::function<bool()> validation_changed;
 };
 #if defined(STFC_SETTINGS_TEXT_ENTRY_FIXTURE) || (defined(_WIN32) && defined(_M_X64)) || defined(__APPLE__)
 bool OpenTextEntry(TextEntryRequest request);

@@ -6,7 +6,10 @@
 #include "features/features.h"
 #include "features/galaxy.h"
 #include "features/notification_audio.h"
+#include "frame.h"
 #include "game/notifications.h"
+#include "image_file_setting.h"
+#include "image_path_entry.h"
 #include "native_controls.h"
 #include "runtime_config.h"
 #include "text_entry.h"
@@ -29,6 +32,14 @@ namespace
   using Timing    = ApplyTiming;
   std::vector<std::shared_ptr<void>> models;
   std::vector<ConfigNumberControl>   numbers;
+  std::shared_ptr<ImageFileSetting>  loading_image_picker;
+  bool                               loading_image_poll_registered = false;
+
+  void PollLoadingImagePicker()
+  {
+    if (loading_image_picker && loading_image_picker->Poll())
+      native::RequestPageRefresh();
+  }
 
   template <class T, class... Args> std::shared_ptr<T> Keep(Args&&... args)
   {
@@ -498,6 +509,49 @@ void RegisterConfigSettings(PageCatalog& catalog)
   FLOAT("loading", graphics, loader_logo_scale, "Loading logo scale",
         Either(Owner("LoginScreen"), Owner("TransitionScreen")), Restart, "Multiplier for the loading-screen logo.",
         "multiplier", positive, largest, 3, .1f);
+  auto image                  = Keep<ValueSetting<std::string>>(MakeConfigDefinition<std::string>(
+      "graphics", "loader_image", "Loading image path", Defaults().graphics.loader_image,
+      [] { return Config::Get().graphics.loader_image; },
+      [](const std::string& path) {
+        Config::Get().graphics.loader_image = path;
+        return true;
+      },
+      Either(Owner("LoginScreen"), Owner("TransitionScreen")), Timing::Restart,
+      "Path to an image readable by the game. Empty uses the embedded fallback. This does not move or copy the "
+      "image."));
+  auto image_action           = Keep<ActionSetting>();
+  image_action->identity      = image->id() + ".exact";
+  image_action->label         = image->label();
+  image_action->metadata      = &image->metadata();
+  image_action->prepare_reset = [image] { return PrepareReset(*image); };
+  image_action->reset         = [image] { image->Reset(image->Observe()); };
+  image_action->retry         = [image] { image->RetrySave(image->Observe()); };
+  image_action->status        = [image] { return image->status_text(); };
+  image_action->save_status   = [image] { return image->save_status(); };
+  image_action->default_label = [image] { return *image->default_value(); };
+  image_action->read          = [image](size_t) {
+    const auto value = image->Observe();
+    return ActionSetting::Presentation{image->label(), "Edit", value.state.known() ? *value.state.value : "Unavailable",
+                                       value.state.known()};
+  };
+  loading_image_picker    = Keep<ImageFileSetting>(image, *image_action);
+  const auto choose_image = image_action->invoke;
+  image_action->invoke    = [image, choose_image](size_t index) {
+    if (!image->Observe().state.known())
+      return;
+    // Catalog construction stays pure. Reuse the existing anchor only.
+    if (!loading_image_poll_registered && FrameDeliveryAvailable())
+      loading_image_poll_registered = RegisterFrameCallback(PollLoadingImagePicker, "LoadingImagePicker");
+    if (loading_image_poll_registered && FrameDeliveryAvailable())
+      choose_image(index);
+    else {
+      const auto visit   = native::CurrentPageVisit();
+      auto       request = ImagePathEntry(image, [visit] { return native::IsPageVisitCurrent(visit); });
+      if (!OpenTextEntry(std::move(request)))
+        LoadingImagePathValidator().Cancel();
+    }
+  };
+  catalog.AddAction("community_mod.loading", *image_action);
   BOOL("galaxy", graphics, galaxy_extended_selection, "Extended system selection", galaxy_controls::SelectionAvailable,
        Live, "Extend supported Far-tier Galaxy selection.");
   Boolean(catalog, "community_mod.galaxy", "graphics", "galaxy_station_housing", "Station housing",

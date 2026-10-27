@@ -1,3 +1,4 @@
+#include "features/dock_assignment_input.h"
 #include "settings/shortcut_capture_guard.h"
 #include "shortcuts.h"
 #include <algorithm>
@@ -9,6 +10,7 @@
 namespace
 {
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held_keys{}, down_keys{};
+bool                                                      text_focused = false;
 
 void Check(bool condition, const char* message)
 {
@@ -27,8 +29,16 @@ void SetKeys(std::initializer_list<unity::KeyCode> held, std::initializer_list<u
     down_keys[std::to_underlying(key)] = true;
 }
 void PollCapture(bool focused = true)
-{ Shortcut::UpdateCapture(focused, std::ranges::any_of(held_keys, [](bool held) { return held; })); }
+{
+  Shortcut::UpdateCapture(focused, std::ranges::any_of(held_keys, [](bool held) { return held; }));
+}
 } // namespace
+
+Config& Config::Get()
+{
+  static Config config;
+  return config;
+}
 
 namespace unity::Key
 {
@@ -36,12 +46,14 @@ bool Pressed(KeyCode key)
 { return held_keys[std::to_underlying(key)]; }
 bool Down(KeyCode key)
 { return down_keys[std::to_underlying(key)]; }
+bool IsInputFocused()
+{ return text_focused; }
 bool IsModified()
 {
-  constexpr std::array modifiers{KeyCode::LeftAlt,      KeyCode::LeftControl,  KeyCode::LeftShift,
-                                 KeyCode::RightAlt,     KeyCode::RightControl, KeyCode::RightShift,
-                                 KeyCode::AltGr,        KeyCode::LeftCommand,  KeyCode::RightCommand,
-                                 KeyCode::LeftWindows,  KeyCode::RightWindows};
+  constexpr std::array modifiers{KeyCode::LeftAlt,     KeyCode::LeftControl,  KeyCode::LeftShift,
+                                 KeyCode::RightAlt,    KeyCode::RightControl, KeyCode::RightShift,
+                                 KeyCode::AltGr,       KeyCode::LeftCommand,  KeyCode::RightCommand,
+                                 KeyCode::LeftWindows, KeyCode::RightWindows};
   return std::ranges::any_of(modifiers, Pressed);
 }
 } // namespace unity::Key
@@ -100,8 +112,8 @@ void GuardPolicy()
 
   // Model dispatch order: claim/cancel can happen in earlier UI frame work. The gate runs before even a hotkey
   // mode toggle or awaited button, and does not depend on the old shortcut engine having matched a chord.
-  int dispatches = 0;
-  const auto dispatch = [&](bool focused, bool held) {
+  int        dispatches = 0;
+  const auto dispatch   = [&](bool focused, bool held) {
     if (!guard.BeforeDispatch(focused, held))
       ++dispatches;
   };
@@ -115,7 +127,6 @@ void GuardPolicy()
   Check(dispatches == 0, "accepted Enter cannot leak through the release boundary");
   dispatch(true, false);
   Check(dispatches == 1, "normal dispatch resumes after capture input is fully released");
-
 }
 
 void HostPolicy()
@@ -143,6 +154,8 @@ void HostPolicy()
         "production claim blocks immediately before its first frame update");
   Check(!Shortcut::IsDown(Action::kShowGalaxy) && unity::Key::Down(KeyCode::Return),
         "captured Enter remains readable by the editor without matching gameplay");
+  Config::Get().ui.double_click_to_assign_ship = true;
+  Check(!dock_assignment::EnterRequested(true), "the production dock input consumer also honors capture");
   Check(Shortcut::Owns(KeyCode::Return) && !Shortcut::Owns(KeyCode::RightArrow),
         "capture ownership follows held physical keys rather than inventing held keys");
   PollCapture();
@@ -176,6 +189,7 @@ void HostPolicy()
   PollCapture();
   Check(!Shortcut::IsDown(Action::kShowGalaxy) && Shortcut::Owns(KeyCode::Return),
         "accepted popup Enter remains owned after the editor unbinds");
+  Check(!dock_assignment::EnterRequested(true), "a released editor's Enter cannot leak to dock assignment");
   SetKeys({});
   PollCapture(false);
   Check(Shortcut::CaptureBlocksShortcuts(), "unfocused release cannot return production input");
@@ -186,13 +200,46 @@ void HostPolicy()
   Check(!Shortcut::CaptureBlocksShortcuts(), "production capture relinquishes a later input frame");
   SetKeys({KeyCode::Return}, {KeyCode::Return});
   Check(Shortcut::IsDown(Action::kShowGalaxy), "a fresh Enter matches normally after capture release");
+  Check(dock_assignment::EnterRequested(true), "fresh Enter reaches dock assignment after capture release");
   SetKeys({});
   Shortcut::Set({});
+}
+
+void DockInput()
+{
+  using unity::KeyCode;
+  auto& config                          = Config::Get();
+  config.ui.double_click_to_assign_ship = true;
+  SetKeys({KeyCode::Return}, {KeyCode::Return});
+  Check(!dock_assignment::EnterRequested(false), "uninstalled tile owner cannot assign on Enter");
+  Check(dock_assignment::EnterRequested(true), "Return edge requests assignment");
+  SetKeys({KeyCode::Return});
+  Check(!dock_assignment::EnterRequested(true), "held continuation does not repeat assignment");
+  SetKeys({KeyCode::KeypadEnter}, {KeyCode::KeypadEnter});
+  Check(dock_assignment::EnterRequested(true), "keypad Enter edge requests assignment");
+  text_focused = true;
+  Check(!dock_assignment::EnterRequested(true), "text focus prevents assignment");
+  text_focused               = false;
+  config.patches.hotkeyhooks = false;
+  Check(!dock_assignment::EnterRequested(true), "the original hotkey patch gate is preserved");
+  config.patches.hotkeyhooks                = true;
+  config.patches.doubleclickassignshiphooks = false;
+  Check(!dock_assignment::EnterRequested(true), "disabled assignment patch cannot borrow the pin hook");
+  config.patches.doubleclickassignshiphooks = true;
+  config.ui.double_click_to_assign_ship     = false;
+  Check(!dock_assignment::EnterRequested(true), "live disabled assignment setting takes effect");
+  config.ui.double_click_to_assign_ship = true;
+  config.control.hotkeys_enabled        = false;
+  config.control.use_scopely_hotkeys    = true;
+  Check(dock_assignment::EnterRequested(true), "ordinary shortcut modes do not disable assignment");
+  SetKeys({});
+  Check(!dock_assignment::EnterRequested(true), "released input cannot request assignment");
 }
 
 int main()
 {
   GuardPolicy();
   HostPolicy();
+  DockInput();
   std::cout << "PASS shortcut capture policy and production matching/release integration\n";
 }

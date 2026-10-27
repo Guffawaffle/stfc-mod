@@ -86,6 +86,19 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         addFixture(ctx, build_tests, test_mod, b.fmt("{s}-tests", .{fixture}), module);
     }
 
+    inline for (.{ "image_file_setting", "image_path_validator", "file_picker_task" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        if (comptime std.mem.eql(u8, fixture, "image_file_setting"))
+            run.addDirectoryArg(b.path(".zig-cache/image-file-setting-fixture"));
+        test_settings_models.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+
     inline for (.{ "keyboard_layout", "keyboard_chord" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
@@ -556,6 +569,9 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
 
     {
         const module = settingsModule(ctx, libs);
+        // The catalog's lazy picker admission uses the shared frame declarations.
+        // This remains header-only: synthetic owners supply those functions.
+        libs.spud.includeInto(module);
         module.addCSourceFiles(.{
             .files = &.{
                 "tests/config_settings_test.cc",

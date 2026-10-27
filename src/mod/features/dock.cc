@@ -9,6 +9,7 @@
 
 #include "checked_ship_order.h"
 #include "config.h"
+#include "features/dock_assignment_input.h"
 #include "features/features.h"
 #include "features/ship_pin_input.h"
 #include "frame.h"
@@ -338,7 +339,10 @@ std::chrono::steady_clock::time_point last_click_time{};
 void PressAssignButton()
 {
   for (auto* widget : unity::Instances<AssignShipsWidget>()) {
-    if (!CanvasController::OnScreen(widget))
+    // The tracker snapshot is borrowed. Root before managed calls and check
+    // Unity lifetime independently; no custody or cached dock survives this call.
+    auto owner = il2cpp::GcHandle::Strong(widget);
+    if (!owner || !unity::Alive(widget) || !CanvasController::OnScreen(widget))
       continue;
     auto* wrapper = widget->assignButton();
     auto* inner   = wrapper ? wrapper->Widget() : nullptr;
@@ -367,9 +371,7 @@ void AssignOnDoubleClick(FleetPlayerData* ship)
 void AssignOnEnterFrame()
 {
   // Down, not Pressed: a held Enter must press Assign once, not every frame.
-  if (double_click_installed && Config::Get().ui.double_click_to_assign_ship
-      && (unity::Key::Down(unity::KeyCode::Return) || unity::Key::Down(unity::KeyCode::KeypadEnter))
-      && !unity::Key::IsInputFocused())
+  if (dock_assignment::EnterRequested(double_click_installed))
     PressAssignButton();
 }
 
@@ -565,7 +567,7 @@ const Feature kPinnedShips{"PinnedShips", &Config::Patches::pinnedshiphooks, Ins
 const Feature kPinnedShipClick{"PinnedShipClick", &Config::Patches::pinnedshiphooks, InstallPinnedShipClick};
 const Feature kDoubleClickAssign{"DoubleClickAssign", &Config::Patches::doubleclickassignshiphooks,
                                  InstallDoubleClickAssign};
-// Frame work only. Enter needs no hook, so it follows the setting alone.
-const Feature kAssignOnEnter{"AssignOnEnter", nullptr, nullptr, AssignOnEnterFrame};
+// Enter was driven by the hotkey patch in PLAY, independently of ordinary shortcut mode.
+const Feature kAssignOnEnter{"AssignOnEnter", &Config::Patches::hotkeyhooks, nullptr, AssignOnEnterFrame};
 // Frame work only, installed with the hotkeys it was introduced with.
 const Feature kDockSelection{"DockSelection", &Config::Patches::hotkeyhooks, nullptr, DockSelectionFrame};

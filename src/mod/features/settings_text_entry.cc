@@ -153,7 +153,13 @@ void NativeTextEntryFrame()
       }
       return; // Return/KeypadEnter are recordable; only explicit Confirm submits a recording request.
     }
-    if (state.surface.Read() != state.session.Value())
+    const auto  token              = state.session_token;
+    const auto* request            = state.session.Request();
+    const auto  validation_notice  = request->validation_changed;
+    const bool  validation_changed = validation_notice && validation_notice();
+    if (!state.session.Current(token))
+      return;
+    if (validation_changed || state.surface.Read() != state.session.Value())
       ValidateTextEntry();
     if (!state.session.Active())
       return;
