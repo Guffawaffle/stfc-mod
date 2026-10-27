@@ -10,6 +10,10 @@ All 42 pinned AAI fixtures and 96 retained-report result comparisons pass;
 native gameplay and macOS qualification remain distinct from those results.
 This is a selected play-dev capability batch, not an overall parity claim.
 
+On 2026-10-27 Guff reported AAI working during normal use. Record this as basic
+Windows player confirmation; individual interaction paths and macOS remain
+separately qualified in the host contract. No additional cycle was needed.
+
 ## Officer and pin workflow cohort — 2026-10-26
 
 [Cohort 20261026-02](FEATURE-COHORT-20261026-02.md) performs the next four complete

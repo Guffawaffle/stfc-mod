@@ -202,3 +202,16 @@ macOS still needs CI with the explicit private source/host flags for both suppor
 architectures, then Mcohall's runtime checks. There was no push, release, branch
 promotion or Runner-orchestrated implementation. The independent AAI development
 checkout, frozen play-dev, PLAY and canonical unrelated work remain untouched.
+
+## Player-use update — 2026-10-27
+
+Guff returned and reported: "AAI worked today while at work!" This confirms
+successful ordinary Windows use beyond the recorded startup check. No new build
+or cycle was performed for this update. The report follows deployment of
+`4271c076`; a fresh artifact identity and individual subworkflows were not checked
+in this exchange. Preserve the original startup receipt rather than attributing
+today's use to its historical PID.
+
+Basic player use is accepted. Participant switching, Settings toggle/persistence,
+explicit cancellation, detailed inspection and the workshop visual corrections
+are not individually qualified by that broad report. macOS remains separate.

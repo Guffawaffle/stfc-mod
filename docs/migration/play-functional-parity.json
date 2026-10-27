@@ -4679,7 +4679,15 @@
         "Windows",
         "macOS"
       ],
-      "catalogStatus": "AAI deployed and startup-qualified on Windows; report UI/interaction and macOS qualification pending",
+      "catalogStatus": "Basic Windows player use confirmed 2026-10-27; detailed interaction paths and macOS qualification remain separate",
+      "playerUseReports": [
+        {
+          "date": "2026-10-27",
+          "report": "AAI worked today while at work!",
+          "qualification": "Basic Windows normal-use confirmation; subworkflows were not individually specified. Follows deployment of4271c076; no fresh artifact/PID check or cycle in this exchange.",
+          "reference": "docs/migration/features/PLAY-AAI.md#player-use-update--2026-10-27"
+        }
+      ],
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261027-AAI",
@@ -5041,7 +5049,7 @@
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
     "currentSourceCommit": "4271c0760f9485ab1b769b3b43d03730d96b75da",
     "artifactSha256": "6edff545c928769160f874a9a9182b7d43a015ab8e3e52fb6ae9fbe88025d587",
-    "qualification": "Current4271c076 adds pinned AAI host;71 groups/report+Back hooks/frame delivery installed with no fresh startup errors. Player report UI and Mac qualification pending. Existing preset acceptance remains attached to its earlier exact candidate; no overall parity claim.",
+    "qualification": "Current4271c076 adds pinned AAI host;71 groups/report+Back hooks/frame delivery installed with no fresh startup errors. Basic Windows player use confirmed2026-10-27; individual interaction paths and Mac remain separately qualified. Existing preset acceptance remains attached to its earlier exact candidate; no overall parity claim.",
     "currentRuntime": {
       "sourceCommit": "4271c0760f9485ab1b769b3b43d03730d96b75da",
       "buildMode": "releasedbg",
