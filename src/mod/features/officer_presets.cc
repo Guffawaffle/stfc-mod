@@ -71,11 +71,15 @@ struct PresetView {
   std::vector<bool>                                  empty;
   std::vector<std::size_t>                           native_mapping;
   std::shared_ptr<const preset_boundary::Projection> projected;
-  bool                                               detached = false, busy = false, repair_pending = false;
-  const char*                                        readiness_reason   = "not-checked";
-  std::int32_t                                       readiness_index    = -1;
-  const void*                                        readiness_expected = nullptr;
-  const void*                                        readiness_actual   = nullptr;
+  std::shared_ptr<const preset_boundary::Projection> pending_projection;
+  std::uint64_t                                      pending_ticket = 0;
+  std::optional<float>                               pending_scroll;
+  bool         native_ready = false, projection_requested = true, request_preserve_scroll = false;
+  bool         detached = false, busy = false, repair_pending = false;
+  const char*  readiness_reason   = "not-checked";
+  std::int32_t readiness_index    = -1;
+  const void*  readiness_expected = nullptr;
+  const void*  readiness_actual   = nullptr;
 
   preset_boundary::Identity Observe() const noexcept
   {
@@ -309,9 +313,40 @@ bool PresetRendererReady(PresetView& view, const void* source, std::span<const s
   return ready;
 }
 
+bool PresetInitializing(const PresetView& view)
+{ return preset_fields.regenerating.Read(view.scroller.Get()) || preset_fields.initializing.Read(view.scroller.Get()); }
+
+enum class PresetProjectionResult { Pending, Ready, Failed };
+PresetProjectionResult FinishPresetProjection(const std::shared_ptr<PresetView>& view)
+{
+  if (!view->pending_projection || !view->pending_ticket || !view->boundary.Current(view->Observe()))
+    return PresetProjectionResult::Failed;
+  if (PresetInitializing(*view))
+    return PresetProjectionResult::Pending; // Native owns completion; don't clear/rebuild it again.
+  const auto projection = view->pending_projection;
+  const bool ready      = PresetRendererReady(*view, projection->source, projection->view_to_canonical);
+  const bool adopted    = view->boundary.FinishTransition(view->pending_ticket, view->Observe(), view->Source(), ready);
+  TracePreset(*view, adopted ? "projection-ready" : "projection-rejected");
+  view->pending_ticket = 0;
+  view->pending_projection.reset();
+  if (!adopted) {
+    view->boundary.RequestCanonical();
+    view->repair_pending = false;
+    view->pending_scroll.reset();
+    return PresetProjectionResult::Failed;
+  }
+  view->display     = std::move(view->candidate);
+  view->projected   = projection;
+  const auto scroll = std::exchange(view->pending_scroll, std::nullopt);
+  if (scroll)
+    (void)view->scroller.Get<PresetSmartScroller>()->TryCall<"RestoreScrollPosition", void(float)>(*scroll);
+  return PresetProjectionResult::Ready;
+}
+
 void RepairPresetView(const std::shared_ptr<PresetView>& view)
 {
-  if (!view || view->busy || !view->boundary.Current(view->Observe()))
+  if (!view || view->busy || !view->native_ready || PresetInitializing(*view)
+      || !view->boundary.Current(view->Observe()))
     return;
   view->busy = true;
   struct Exit {
@@ -336,6 +371,9 @@ void RepairPresetView(const std::shared_ptr<PresetView>& view)
     view->display.Reset();
     view->candidate.Reset();
     view->projected.reset();
+    view->pending_projection.reset();
+    view->pending_ticket = 0;
+    view->pending_scroll.reset();
   }
 }
 
@@ -343,6 +381,11 @@ bool RenderPresetOrder(const std::shared_ptr<PresetView>& view, bool preserve_sc
 {
   if (!view || view->busy || !view->boundary.Current(view->Observe()))
     return false;
+  view->projection_requested    = true;
+  view->request_preserve_scroll = preserve_scroll;
+  if (!view->native_ready || PresetInitializing(*view))
+    return false; // Wait for native Start/initialization without writing any source or annotation.
+  view->projection_requested = false;
   std::vector<preset_order::Row> rows;
   if (!ReadPresetRows(*view, rows))
     return false;
@@ -362,14 +405,16 @@ bool RenderPresetOrder(const std::shared_ptr<PresetView>& view, bool preserve_sc
   const auto ticket = view->boundary.BeginTransition(projection);
   if (!ticket)
     return false;
-  view->candidate = std::move(root);
-  view->busy      = true;
+  view->candidate          = std::move(root);
+  view->pending_projection = projection;
+  view->pending_ticket     = ticket;
+  view->busy               = true;
   struct BusyExit {
     PresetView& view;
     ~BusyExit()
     {
       view.busy = false;
-      if (view.boundary.State() == preset_boundary::Phase::Transition) {
+      if (view.boundary.State() == preset_boundary::Phase::Transition && !view.pending_ticket) {
         view.boundary.RequestCanonical();
         view.repair_pending = false; // Request repair, not an already-started rebuild.
       }
@@ -381,24 +426,22 @@ bool RenderPresetOrder(const std::shared_ptr<PresetView>& view, bool preserve_sc
     if (item)
       (void)preset_fields.presentation.Write(item, view->presentations[index]);
   }
-  auto*      scroller = view->scroller.Get<PresetSmartScroller>();
-  const auto scroll   = scroller->TryCall<"get_ScrollPosition", float()>();
+  auto*      scroller  = view->scroller.Get<PresetSmartScroller>();
+  const auto scroll    = scroller->TryCall<"get_ScrollPosition", float()>();
+  view->pending_scroll = preserve_scroll && scroll.succeeded ? std::optional<float>{scroll.value} : std::nullopt;
   TracePreset(*view, "projection-before-clear");
   const auto rebuilt = scroller->TryCall<"ClearAndGenerateContents", void(il2cpp::Object*, il2cpp::Object*)>(
       view->controller.Get<il2cpp::Object>(), reinterpret_cast<il2cpp::Object*>(array));
-  const bool ready = PresetRendererReady(*view, array, projection->view_to_canonical);
+  view->busy = false;
   TracePreset(*view, rebuilt.succeeded ? "projection-clear-returned" : "projection-clear-invocation-failed");
-  const bool adopted = view->boundary.FinishTransition(ticket, view->Observe(), view->Source(), ready);
-  view->busy         = false;
-  if (!adopted) {
-    RepairPresetView(view);
+  if (!rebuilt.succeeded) {
+    view->pending_ticket = 0;
+    view->pending_projection.reset();
+    view->boundary.RequestCanonical();
+    view->repair_pending = false;
     return false;
   }
-  view->display   = std::move(view->candidate);
-  view->projected = std::move(projection);
-  if (preserve_scroll && scroll.succeeded)
-    (void)scroller->TryCall<"RestoreScrollPosition", void(float)>(scroll.value);
-  return true;
+  return FinishPresetProjection(view) != PresetProjectionResult::Failed;
 }
 
 std::shared_ptr<PresetView> AcquirePresetView(OfficerPresetsViewController* controller)
@@ -441,6 +484,13 @@ void RetirePresetView(const std::shared_ptr<PresetView>& view)
 {
   if (!view)
     return;
+  if (view->boundary.State() == preset_boundary::Phase::Native) {
+    // No projected source exists. In particular, don't manufacture _data while
+    // the initial native list is still waiting for SmartScroller.Start().
+    view->detached = true;
+    view->boundary.Detach();
+    return;
+  }
   // Keep guard/roots alive until the enclosing native release/rebind returns.
   view->boundary.BeginRelease();
   (void)view->RestoreNative();
@@ -481,8 +531,8 @@ void OfficerPresetsViewController_OnDidBindCanvasContext_Hook(auto original, Off
   preset_views.insert_or_assign(self, view);
   active_preset_view = view;
   TracePreset(*view, "acquired-after-native-bind");
-  if (!RenderPresetOrder(view, false))
-    spdlog::warn("[OfficerPresetReorder] bound native view; local projection not ready");
+  // Native binding can return with _data=null and its real source held for
+  // Start(). The frame callback waits for canonical source AND renderer ready.
 }
 
 void OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook(auto original, OfficerPresetsViewController* self)
@@ -597,6 +647,25 @@ void PresetFrame()
   auto view = active_preset_view;
   if (!view || view->busy || !view->boundary.Current(view->Observe()))
     return;
+  const auto phase = view->boundary.State();
+  if (phase == preset_boundary::Phase::Native) {
+    if (PresetEnabled() && view->projection_requested
+        && PresetRendererReady(*view, view->canonical.Get(), view->native_mapping)) {
+      view->native_ready = true;
+      TracePreset(*view, "native-initialization-ready");
+      (void)RenderPresetOrder(view, view->request_preserve_scroll);
+    }
+    return;
+  }
+  if (phase == preset_boundary::Phase::Transition) {
+    if (PresetEnabled()) {
+      (void)FinishPresetProjection(view);
+      return;
+    }
+    view->boundary.RequestCanonical();
+  }
+  if (PresetInitializing(*view))
+    return; // In-flight native work settles before projection or repair.
   if (view->boundary.State() == preset_boundary::Phase::Restore && !view->repair_pending) {
     RepairPresetView(view);
     return;
@@ -611,7 +680,12 @@ void PresetFrame()
       view->candidate.Reset();
       view->display.Reset();
       view->projected.reset();
+      view->pending_projection.reset();
+      view->pending_ticket = 0;
+      view->pending_scroll.reset();
     }
+  } else if (PresetEnabled() && view->projection_requested && phase == preset_boundary::Phase::Projected) {
+    (void)RenderPresetOrder(view, view->request_preserve_scroll);
   }
 }
 

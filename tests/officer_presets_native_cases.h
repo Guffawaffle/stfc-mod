@@ -75,8 +75,15 @@ void PresetRebuild(PresetSmartScroller* object, il2cpp::Object*, il2cpp::Object*
 {
   auto& scroll = *reinterpret_cast<PresetNativeScroller*>(object);
   ++preset_test_rebuilds;
+  if (preset_test_defer) {
+    // Actual captured first-open shape: native bind holds data until Start,
+    // with no adopted source or spawned receiver map yet.
+    scroll.initializing = source;
+    return;
+  }
   scroll.source       = source;
-  scroll.regenerating = preset_test_defer;
+  scroll.regenerating = false;
+  scroll.initializing = nullptr;
   auto* items         = source;
   if (source->klass->byval_arg.type != IL2CPP_TYPE_SZARRAY)
     items = reinterpret_cast<il2cpp::Object*>(reinterpret_cast<PresetNativeList*>(source)->items);
@@ -90,6 +97,13 @@ float PresetScroll(PresetSmartScroller* object, const MethodInfo*)
 { return reinterpret_cast<PresetNativeScroller*>(object)->position; }
 void PresetRestoreScroll(PresetSmartScroller* object, float value, const MethodInfo*)
 { reinterpret_cast<PresetNativeScroller*>(object)->position = value; }
+
+void PresetNativeBind(OfficerPresetsViewController* owner)
+{
+  auto& controller = *reinterpret_cast<PresetNativeController*>(owner);
+  auto& context    = *reinterpret_cast<PresetNativeContext*>(controller.context);
+  PresetRebuild(controller.scroller, owner, context.list, nullptr);
+}
 
 void DefinePresetRuntime()
 {
@@ -158,15 +172,40 @@ void OfficerPresetNativeObservations()
   context.list = reinterpret_cast<il2cpp::Object*>(&list);
   PresetNativeScroller scroll;
   scroll.header.klass = PresetSmartScroller::Class::Raw();
-  scroll.source       = context.list;
+  scroll.source       = nullptr;
   PresetNativeController controller{
       {OfficerPresetsViewController::Class::Raw(), nullptr}, ctx, reinterpret_cast<PresetSmartScroller*>(&scroll)};
   auto* owner      = reinterpret_cast<OfficerPresetsViewController*>(&controller);
   auto* scroller   = reinterpret_cast<PresetSmartScroller*>(&scroll);
   preset_test_disk = nlohmann::json{{"officer_preset_order", {"9007199254740993", "0", "9"}}};
   LoadPresetOrder();
-  OfficerPresetsViewController_OnDidBindCanvasContext_Hook([](auto*) {}, owner);
-  auto view = active_preset_view;
+  preset_test_defer = true;
+  OfficerPresetsViewController_OnDidBindCanvasContext_Hook(PresetNativeBind, owner);
+  auto       view              = active_preset_view;
+  const auto native_bind_calls = preset_test_rebuilds;
+  for (int frame = 0; frame < 3; ++frame)
+    PresetFrame();
+  Require(view && view->boundary.State() == preset_boundary::Phase::Native && !view->native_ready && !scroll.source
+              && scroll.initializing == context.list && preset_test_rebuilds == native_bind_calls,
+          "first bind/frames leave native null source and held list untouched before Start");
+  for (int index = 0; index < 4; ++index)
+    Require(items[index].presentation == 10 + index, "no presentation writes before native initialization");
+  OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook(
+      [&](auto*) {
+        Require(!scroll.source && scroll.initializing == context.list,
+                "close before native Start leaves the uninitialized native source untouched");
+      },
+      owner);
+  view.reset();
+  Require(preset_views.empty() && !active_preset_view && warp_roots.size() == roots_before,
+          "closing an initial pending bind disposes feature custody without a repair");
+  OfficerPresetsViewController_OnDidBindCanvasContext_Hook(PresetNativeBind, owner);
+  view = active_preset_view;
+  // Native Start/retrigger now adopts its own canonical list and creates the
+  // receiver map. The feature may project only after observing that completion.
+  preset_test_defer = false;
+  PresetNativeBind(owner);
+  PresetFrame();
   Require(view && view->boundary.State() == preset_boundary::Phase::Projected,
           "production bind roots and projects a canonical typed list");
   Require(scroll.widgets[0].context == reinterpret_cast<OfficerPresetItemContext*>(&items[2])
@@ -221,12 +260,33 @@ void OfficerPresetNativeObservations()
 
   // A malformed receiver map must not be certified by successful invocation.
   preset_test_bad_renderer = true;
-  Require(!RenderPresetOrder(view, false) && scroll.source == context.list && view->repair_pending,
+  Require(!RenderPresetOrder(view, false) && view->boundary.State() == preset_boundary::Phase::Restore,
+          "failed renderer qualification schedules repair outside the rebuild stack");
+  PresetFrame();
+  Require(scroll.source == context.list && view->repair_pending,
           "wrong renderer after rebuild requires canonical repair, not a projected readiness claim");
   preset_test_bad_renderer = false;
   RepairPresetView(view);
   Require(view->boundary.State() == preset_boundary::Phase::Native, "canonical repair verifies source and receivers");
   Require(RenderPresetOrder(view, false), "reprojection after repair");
+  // A later native rebuild may also be asynchronous. Keep its candidate rooted
+  // and wait; don't replace/rebuild underneath pending initialization.
+  preset_test_defer         = true;
+  const auto before_pending = preset_test_rebuilds;
+  Require(RenderPresetOrder(view, true) && view->boundary.State() == preset_boundary::Phase::Transition,
+          "pending native rebuild is not a failed projection");
+  auto* pending_source        = scroll.initializing;
+  auto* source_during_pending = scroll.source;
+  PresetFrame();
+  PresetFrame();
+  Require(preset_test_rebuilds == before_pending + 1 && scroll.source == source_during_pending
+              && scroll.initializing == pending_source,
+          "waiting frames do not clear/force a pending native source");
+  preset_test_defer = false;
+  PresetRebuild(scroller, owner, pending_source, nullptr);
+  PresetFrame();
+  Require(view->boundary.State() == preset_boundary::Phase::Projected && !view->pending_ticket,
+          "completed native source/receiver adoption finalizes the same pending projection");
   // A nested save and an escaping exception must preserve original call counts
   // and the enclosing canonical source, not run a save again as a fallback.
   int nested = 0;
@@ -274,8 +334,9 @@ void OfficerPresetNativeObservations()
   // must not restore its old display array into the newer bound view.
   auto* before_rebind = scroll.source;
   OfficerPresetsViewController_OnSaveSlotsSuccess_Hook(
-      [&](auto*, bool) { OfficerPresetsViewController_OnDidBindCanvasContext_Hook([](auto*) {}, owner); }, owner,
+      [&](auto*, bool) { OfficerPresetsViewController_OnDidBindCanvasContext_Hook(PresetNativeBind, owner); }, owner,
       false);
+  PresetFrame();
   auto new_view = active_preset_view;
   Require(new_view && new_view != view && scroll.source != before_rebind
               && new_view->boundary.State() == preset_boundary::Phase::Projected,
@@ -292,7 +353,8 @@ void OfficerPresetNativeObservations()
   Require(scroll.source == context.list && preset_views.empty(), "closed source remains canonical after scope exit");
   new_view.reset();
 
-  OfficerPresetsViewController_OnDidBindCanvasContext_Hook([](auto*) {}, owner);
+  OfficerPresetsViewController_OnDidBindCanvasContext_Hook(PresetNativeBind, owner);
+  PresetFrame();
   view = active_preset_view;
   OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook(
       [&](auto*) {
@@ -305,7 +367,8 @@ void OfficerPresetNativeObservations()
           "release disposes native roots; no abandoned projection ownership");
   held_keys.fill(false);
   std::cout
-      << "Officer preset production adapter: bind, exact order, fixed empty rows, native replacement/receiver, chords, "
+      << "Officer preset production adapter: native Start wait/early close, async adoption, bind, exact order, fixed "
+         "empty rows, native replacement/receiver, chords, "
          "receipts, repair, nested/throwing saves, disable, same-source rebind, close during save and release passed\n";
 }
 } // namespace
