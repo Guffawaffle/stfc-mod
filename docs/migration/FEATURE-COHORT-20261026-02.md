@@ -284,3 +284,14 @@ artifact comparison describes that checkout; the operation instead explicitly
 used the qualified worktree artifact and expected SHA, without changing branches.
 The build occurred before downtime. No unrelated trial or additional cycle is
 authorized by this one-cycle qualification.
+
+### Enabled runtime trial failed; debugging in progress
+
+The operator reports a blank officer preset view with reordering enabled.
+Turning it off in the existing session did not recover the list; a manual restart
+with it off did. The actual TOML changed to `false` and persisted across that
+restart; the local-state file remained byte-identical to the pretrial hash.
+Thus Settings has one demonstrated native control/save/restart path, while the
+preset adapter is **regressed at runtime**. Offline and startup results remain
+valid only for their exercised layers. See the updated preset contract for logs,
+the native stack and diagnostic-only `8cfd43a1`; no cause is asserted yet.

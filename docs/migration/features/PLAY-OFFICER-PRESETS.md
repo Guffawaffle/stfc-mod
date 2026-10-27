@@ -1,9 +1,10 @@
 # PLAY-OFFICER-PRESETS — Officer preset ordering and native save
 
-**2026-10-27 status:** native adapter implemented at `30eeec8e`; production-adapter
-and disk-persistence fixtures pass offline. Exact-client Windows trial and
-macOS CI/Mcohall qualification remain pending. The initial gap assessment below
-is historical; see the implementation record at the end.
+**2026-10-27 status:** the enabled native trial at `30eeec8e` failed with a blank
+preset view, despite passing offline fixtures and boot checks. A fresh restart
+with the setting off works (operator report). Treat native behavior as regressed,
+not qualified. Diagnostic source `8cfd43a1` traces the unchanged failure path;
+cause remains unresolved. The initial gap assessment below is historical.
 
 Contract v1, scanned 2026-10-26. Frozen source `1baa55fedf1758b19f843cc59707b8901a0b4998`;
 target `play-dev-ripper@f4f64180543a9231234cd2b3d3f547dfa580476b`.
@@ -139,3 +140,36 @@ adapter, writer, TOML editor and filesystem in an isolated directory. See
 
 No new runtime deployment, store edit or player verification is implied by the
 offline implementation record.
+
+## Failed enabled trial and diagnostic boundary — 2026-10-27
+
+The main game booted with all 68 groups installed, but opening presets with
+reordering enabled produced a blank/blurred view. Mod log reported "bound native
+view; local projection not ready". The game's Player.log includes a
+`NullReferenceException` stack through `SmartScroller.ReassignItem` →
+`SmartScrollerBase.RebindAtStartingLocation` → `ClearAndGenerateContents` →
+native `OfficerPresetsViewController.OnDidBindCanvasContext`. Turning the setting
+off did not recover that same session. Guff manually restarted and confirmed the
+native list works with the setting off. Those facts do not yet prove which step
+first damages the renderer.
+
+The operator's Mod Settings change was observed as `false` in the actual TOML
+and survived the restart. This qualifies that one real control's off-save/restart
+path, not every Settings control or every save failure outcome. The local-state
+file hash remained unchanged across the failed trial; no reorder/save receipt was
+claimed. Retained logs/screenshot/assessment:
+`D:/dev/stfc-workspace/artifacts/preset-settings-20261027/failed-enabled-trial/`.
+
+`8cfd43a15e328164f7ac261f5d8d3220f4baea08` adds `_MODDBG` stage traces at native bind,
+projection clear and canonical repair, plus the exact readiness failure reason,
+source identity, row count, initializer state and first mismatched receiver. It
+does not apply the suspected asynchronous-initialization correction yet. A
+successful synchronous fixture had not represented native scroller initialization;
+do not use it to dismiss this runtime failure. Logging is event-bound, not a
+per-frame dump. The requested diagnostic build retains optimization and symbols
+(`ReleaseFast`, `moddbg=true`, identity mode `releasedbg`).
+
+Immediate rebuild/repair during canvas binding is a hypothesis to test against
+those traces and the retained native scroller implementation. Further functional
+changes should follow that evidence, preserve the existing native save guard,
+and add a reproducing controlled-runtime case for the actual failure.

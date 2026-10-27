@@ -545,7 +545,7 @@
     {
       "id": "PLAY-OFFICER-PRESETS",
       "name": "Preset ordering and canonical native save",
-      "classification": "Implemented, unverified",
+      "classification": "Regressed",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/officer_preset_reorder.cc",
@@ -564,7 +564,7 @@
           "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished.",
           "30eeec8e: 214/214 Windows build/run steps; production adapter and Settings disk fixtures explicitly rerun; 37/37 DLL build; see preset-settings-30eeec8e-receipt.json. No native UI/runtime claim."
         ],
-        "exactCandidateRuntime": "Main ordinary client273 PID51180: 68/68 hook groups installed including OfficerPresetReorder, FrameTick ready, responding window, zero fresh startup errors; exact installed disk hash matched. TOML/local-state hashes unchanged across deployment. Native UI/preset save and Settings write/reopen trial still pending.",
+        "exactCandidateRuntime": "30eeec8e: 68 groups/boot passed, but enabled preset UI is blank. Off in same session did not recover; operator manual restart off works. Settings off change reached TOML and persisted. Local-state SHA unchanged. Cause unresolved.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Exact-client source/renderer readiness, native preset save, persisted ordering and Settings UI persistence remain to qualify. Metadata preflight declines installation; a contradictory rooted canonical field write is fatal, never an unsafe save fallback. macOS CI/Mcohall pending. Shared file-I/O extraction and logging changes deferred.",
@@ -583,7 +583,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "Production adapter against controlled IL2CPP metadata/native bodies plus real isolated Settings disk pipeline passed offline; exact-client native trial pending. No claim based on the earlier e979 DLL boot.",
+        "Windows": "30eeec8e: 68 groups/boot passed, but enabled preset UI is blank. Off in same session did not recover; operator manual restart off works. Settings off change reached TOML and persisted. Local-state SHA unchanged. Cause unresolved.",
         "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
       },
       "branchObservations": [
@@ -705,10 +705,10 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "typed native integration implemented; production adapter and disk pipeline qualified offline; runtime pending",
+        "state": "runtime failure reproduced; diagnostic-only instrumentation at 8cfd43a1; not accepted",
         "recordedImmediately": true
       },
-      "catalogStatus": "Typed native adapter implemented and qualified offline; exact-client preset and Settings persistence trial pending",
+      "catalogStatus": "Enabled runtime trial failed: blank preset view; fresh disabled session works; diagnostic investigation active",
       "assessments": [
         {
           "version": 1,
@@ -752,15 +752,16 @@
             "implementationCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4"
           },
           "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
-          "migrationStatus": "Implemented, unverified",
+          "migrationStatus": "Regressed",
           "verification": {
             "automated": "214/214 Windows build/run steps; production preset adapter against controlled IL2CPP bodies plus real Settings model/adapter/worker/editor/filesystem integration. Native acquisition and UI/quit delivery simulated.",
-            "nativeRuntime": "Main ordinary client273 PID51180: 68/68 hook groups installed including OfficerPresetReorder, FrameTick ready, responding window, zero fresh startup errors; exact installed disk hash matched. TOML/local-state hashes unchanged across deployment. Native UI/preset save and Settings write/reopen trial still pending.",
+            "nativeRuntime": "30eeec8e: 68 groups/boot passed, but enabled preset UI is blank. Off in same session did not recover; operator manual restart off works. Settings off change reached TOML and persisted. Local-state SHA unchanged. Cause unresolved.",
             "macOS": "No local qualification; CI/Mcohall pending.",
             "nativeBuild": "37/37 complete Windows DLL build steps; x86_64/16 exports/static CRT/full source identity verified."
           },
           "evidence": "docs/migration/FEATURE-COHORT-20261026-02.md",
           "remaining": [
+            "Debug actual native bind/rebuild/repair failure; do not promote offline success into runtime qualification",
             "Exact-client native save/receiver and renderer readiness trial",
             "Settings UI -> TOML receipt -> reopen/relaunch trial",
             "macOS CI and Command+Edit trial"
@@ -4790,12 +4791,11 @@
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
     "currentSourceCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
     "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2",
-    "qualification": "Preset/Settings candidate boot qualified; player interaction and UI persistence trial pending. Existing partial pin acceptance and visual follow-ups remain separate.",
+    "qualification": "Current preset-enabled trial failed despite boot success. Settings off-save/restart observed; local-state untouched. Diagnostic build preparation active.",
     "nextCandidate": {
-      "sourceCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
-      "scope": "Preset integration and Settings persistence qualification",
-      "runtime": "Main ordinary client273 PID51180: 68/68 hook groups installed including OfficerPresetReorder, FrameTick ready, responding window, zero fresh startup errors; exact installed disk hash matched. TOML/local-state hashes unchanged across deployment. Native UI/preset save and Settings write/reopen trial still pending.",
-      "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2"
+      "sourceCommit": "8cfd43a15e328164f7ac261f5d8d3220f4baea08",
+      "scope": "Diagnostic preset bind/readiness traces; no functional fix yet",
+      "runtime": "Building releasedbg; not deployed."
     }
   }
 }
