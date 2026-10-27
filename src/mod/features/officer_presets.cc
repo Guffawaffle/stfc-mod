@@ -72,6 +72,10 @@ struct PresetView {
   std::vector<std::size_t>                           native_mapping;
   std::shared_ptr<const preset_boundary::Projection> projected;
   bool                                               detached = false, busy = false, repair_pending = false;
+  const char*                                        readiness_reason   = "not-checked";
+  std::int32_t                                       readiness_index    = -1;
+  const void*                                        readiness_expected = nullptr;
+  const void*                                        readiness_actual   = nullptr;
 
   preset_boundary::Identity Observe() const noexcept
   {
@@ -201,6 +205,22 @@ struct PresetSaving {
 };
 PresetSaving* preset_saving = nullptr; // Game-thread stack; never a worker-owned pointer.
 
+void TracePreset(const PresetView& view, const char* stage)
+{
+#if _MODDBG
+  spdlog::debug("[OfficerPresetReorder][trace] {} gen={} phase={} source={} canonical={} rows={} "
+                "regenerating={} held={} readiness={} index={} expected={} actual={}",
+                stage, view.identity.generation, static_cast<int>(view.boundary.State()), view.Source(),
+                static_cast<const void*>(view.canonical.Get()), view.tokens.size(),
+                preset_fields.regenerating.Read(view.scroller.Get()),
+                static_cast<const void*>(preset_fields.initializing.Read(view.scroller.Get())), view.readiness_reason,
+                view.readiness_index, view.readiness_expected, view.readiness_actual);
+#else
+  (void)view;
+  (void)stage;
+#endif
+}
+
 bool ReadPresetRows(PresetView& view, std::vector<preset_order::Row>& rows)
 {
   std::size_t count = 0;
@@ -239,26 +259,54 @@ bool ReadPresetRows(PresetView& view, std::vector<preset_order::Row>& rows)
 // coroutine cannot certify a renderer map merely because it adopted _data.
 bool PresetRendererReady(PresetView& view, const void* source, std::span<const std::size_t> mapping)
 {
-  if (!view.boundary.Current(view.Observe()) || view.Source() != source
-      || preset_fields.regenerating.Read(view.scroller.Get()) || preset_fields.initializing.Read(view.scroller.Get()))
+  view.readiness_index    = -1;
+  view.readiness_expected = view.readiness_actual = nullptr;
+  if (!view.boundary.Current(view.Observe())) {
+    view.readiness_reason = "owner-changed";
     return false;
+  }
+  if (view.Source() != source) {
+    view.readiness_reason = "source-not-adopted";
+    return false;
+  }
+  if (preset_fields.regenerating.Read(view.scroller.Get())) {
+    view.readiness_reason = "regenerating";
+    return false;
+  }
+  if (preset_fields.initializing.Read(view.scroller.Get())) {
+    view.readiness_reason = "initialization-holds-data";
+    return false;
+  }
   auto* items = view.Items();
-  if (!items || mapping.size() != view.tokens.size())
+  if (!items || mapping.size() != view.tokens.size()) {
+    view.readiness_reason = "canonical-shape-changed";
     return false;
+  }
   auto* scroller = view.scroller.Get<PresetSmartScroller>();
   for (std::size_t index = 0; index < mapping.size(); ++index) {
     il2cpp::Object* receiver = nullptr;
     const auto      result   = scroller->TryCall<"TryGetInstanceForIndex", bool(std::int32_t, il2cpp::Object*&)>(
         static_cast<std::int32_t>(index), receiver);
-    if (!result.succeeded)
+    if (!result.succeeded) {
+      view.readiness_reason = "lookup-unavailable";
+      view.readiness_index  = static_cast<std::int32_t>(index);
       return false;
+    }
     if (!result.value)
       continue; // An off-screen/virtualized row legitimately has no receiver.
     auto* widget = receiver ? receiver->As<OfficerPresetItemWidget>() : nullptr;
-    if (!widget || preset_fields.widget_context.Read(widget) != (*items)[mapping[index]])
+    if (!widget || preset_fields.widget_context.Read(widget) != (*items)[mapping[index]]) {
+      view.readiness_reason   = widget ? "receiver-context-mismatch" : "receiver-type-mismatch";
+      view.readiness_index    = static_cast<std::int32_t>(index);
+      view.readiness_expected = (*items)[mapping[index]];
+      view.readiness_actual   = widget ? static_cast<const void*>(preset_fields.widget_context.Read(widget))
+                                       : static_cast<const void*>(receiver);
       return false;
+    }
   }
-  return view.boundary.Current(view.Observe()) && view.Source() == source;
+  const bool ready      = view.boundary.Current(view.Observe()) && view.Source() == source;
+  view.readiness_reason = ready ? "ready" : "owner-or-source-changed-after-lookups";
+  return ready;
 }
 
 void RepairPresetView(const std::shared_ptr<PresetView>& view)
@@ -272,15 +320,17 @@ void RepairPresetView(const std::shared_ptr<PresetView>& view)
     { view.busy = false; }
   } exit{*view};
   view->boundary.RequestCanonical();
+  TracePreset(*view, "repair-enter");
   (void)view->RestoreNative();
   if (!view->RestoreSource(view->canonical.Get()))
     view->Unsupported();
-  (void)view->scroller.Get<PresetSmartScroller>()
-      ->TryCall<"ClearAndGenerateContents", void(il2cpp::Object*, il2cpp::Object*)>(
-          view->controller.Get<il2cpp::Object>(), view->canonical.Get<il2cpp::Object>());
+  const auto repaired = view->scroller.Get<PresetSmartScroller>()
+                            ->TryCall<"ClearAndGenerateContents", void(il2cpp::Object*, il2cpp::Object*)>(
+                                view->controller.Get<il2cpp::Object>(), view->canonical.Get<il2cpp::Object>());
   if (!view->boundary.Current(view->Observe()))
     return;
-  const bool ready     = PresetRendererReady(*view, view->canonical.Get(), view->native_mapping);
+  const bool ready = PresetRendererReady(*view, view->canonical.Get(), view->native_mapping);
+  TracePreset(*view, repaired.succeeded ? "repair-returned" : "repair-invocation-failed");
   view->repair_pending = !view->boundary.ConfirmCanonical(view->Observe(), view->Source(), ready);
   if (!view->repair_pending) {
     view->display.Reset();
@@ -333,9 +383,11 @@ bool RenderPresetOrder(const std::shared_ptr<PresetView>& view, bool preserve_sc
   }
   auto*      scroller = view->scroller.Get<PresetSmartScroller>();
   const auto scroll   = scroller->TryCall<"get_ScrollPosition", float()>();
-  (void)scroller->TryCall<"ClearAndGenerateContents", void(il2cpp::Object*, il2cpp::Object*)>(
+  TracePreset(*view, "projection-before-clear");
+  const auto rebuilt = scroller->TryCall<"ClearAndGenerateContents", void(il2cpp::Object*, il2cpp::Object*)>(
       view->controller.Get<il2cpp::Object>(), reinterpret_cast<il2cpp::Object*>(array));
-  const bool ready   = PresetRendererReady(*view, array, projection->view_to_canonical);
+  const bool ready = PresetRendererReady(*view, array, projection->view_to_canonical);
+  TracePreset(*view, rebuilt.succeeded ? "projection-clear-returned" : "projection-clear-invocation-failed");
   const bool adopted = view->boundary.FinishTransition(ticket, view->Observe(), view->Source(), ready);
   view->busy         = false;
   if (!adopted) {
@@ -398,12 +450,19 @@ void RetirePresetView(const std::shared_ptr<PresetView>& view)
 
 void OfficerPresetsViewController_OnDidBindCanvasContext_Hook(auto original, OfficerPresetsViewController* self)
 {
+#if _MODDBG
+  spdlog::debug("[OfficerPresetReorder][trace] native-bind-enter enabled={} controller={}", PresetEnabled(),
+                static_cast<const void*>(self));
+#endif
   const auto binding_ticket = ++preset_generation;
   const auto found          = preset_views.find(self);
   auto       old            = found != preset_views.end() ? found->second : nullptr;
   if (old)
     RetirePresetView(old);
   original(self);
+#if _MODDBG
+  spdlog::debug("[OfficerPresetReorder][trace] native-bind-returned controller={}", static_cast<const void*>(self));
+#endif
   // A reentrant bind owns the newer projection; never replace it on return.
   if (binding_ticket != preset_generation)
     return;
@@ -421,6 +480,7 @@ void OfficerPresetsViewController_OnDidBindCanvasContext_Hook(auto original, Off
     return;
   preset_views.insert_or_assign(self, view);
   active_preset_view = view;
+  TracePreset(*view, "acquired-after-native-bind");
   if (!RenderPresetOrder(view, false))
     spdlog::warn("[OfficerPresetReorder] bound native view; local projection not ready");
 }
