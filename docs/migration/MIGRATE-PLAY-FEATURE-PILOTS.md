@@ -1,7 +1,29 @@
 # migrate-play-feature — first two pilots
 
-2026-10-26 (America/Chicago). Bounded offline work, not resumption of whole-product
-parity. No game cycle, deployment, configuration change, push, or promotion.
+2026-10-26 (America/Chicago). Bounded work, not resumption of whole-product parity.
+The implementation checkpoint was offline. The subsequently authorized Windows
+pilot deployment is recorded below; no push or promotion occurred.
+
+## Subsequent authorized pilot launch
+
+The operator requested the exact pilot DLL in the main ordinary installation.
+Verified artifact `66074968bcc1c5718d9ec1c3a5f089a70e7c9de7d1b6468b96afb1320d79d1cc`
+replaced the installed DLL using existing AX deployment helpers under the runtime
+lease, after rechecking PID 2968/creation identity. No build ran during downtime.
+New process: PID 42964, launched 2026-10-27 01:32:53 UTC, installation
+`C:/Games/Star Trek Fleet Command/default/game`, client 273. The expected local
+module path loaded, the window responded, and FrameTick reported ready. Primary
+TOML SHA-256 remained `78c248ce73fad72394405765db17fb95b5ee454c8be51fc8eddcf482b7f4f6f1`
+before deployment and after launch. No settings edits or store migration.
+
+Cycle/deploy/boot receipts and startup log:
+`D:/dev/stfc-workspace/artifacts/migrate-play-feature-20261026/main-runtime/`.
+This is boot evidence, not player confirmation of assignment, picker, or Settings
+behavior. Earlier offline receipt claims remain tied to their original checkpoint.
+
+macOS qualification direction confirmed by the operator: builds will run in CI;
+Mcohall will perform native testing when ready. Do not create a local SDK project
+or treat Windows success as macOS qualification. No CI changes are requested here.
 
 ## Source and recovery boundary
 
