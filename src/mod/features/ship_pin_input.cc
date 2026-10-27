@@ -77,6 +77,20 @@ unity::ScrollRect* PinScroll(ShipTileWidget* tile)
   auto* transform = tile ? tile->Transform() : nullptr;
   return transform ? transform->FindInParents<unity::ScrollRect>() : nullptr;
 }
+unity::RectTransform* PinViewport(unity::ScrollRect* scroll)
+{
+  if (!scroll)
+    return nullptr;
+  const auto viewport = scroll->TryCall<"get_viewport", unity::RectTransform*>();
+  if (!viewport)
+    return nullptr;
+  if (viewport.value)
+    return viewport.value;
+  // Preserve PLAY's unset-viewport fallback to the ScrollRect's own rectangle.
+  // A failed observation is distinct from a successfully observed null viewport.
+  const auto transform = scroll->TryCall<"get_transform", unity::Transform*>();
+  return transform && transform.value ? transform.value->As<unity::RectTransform>() : nullptr;
+}
 unity::RectTransform* PinChild(unity::Transform* parent, const char* name)
 {
   auto* child = parent ? parent->Find(name) : nullptr;
@@ -386,7 +400,7 @@ void PinPreview(unity::Vector2 position)
     return;
   auto* band = PinRefreshBand(scroll, source->PinContext());
   if (!band) {
-    auto*      viewport = scroll->viewport();
+    auto*      viewport = PinViewport(scroll);
     const auto size     = viewport ? viewport->TryCall<"get_rect", unity::Rect>() : il2cpp::CallResult<unity::Rect>{};
     if (size && std::isfinite(size.value.height) && size.value.height > 8) {
       auto* cue = PinSurface(viewport, kPinCue, {0, 0.5f}, {0, 0.5f}, {32, size.value.height - 8}, {4, 0},
@@ -410,7 +424,7 @@ void PinPreview(unity::Vector2 position)
 void PinDrop(ShipTileWidget* source, unity::ScrollRect* scroll, unity::Vector2 position, pointer::Identity expected)
 {
   if (!source || !scroll || !expected || PinIdentity(source) != expected
-      || !PinContains(scroll->viewport(), position).value_or(false))
+      || !PinContains(PinViewport(scroll), position).value_or(false))
     return;
   auto*      context = source->PinContext();
   const auto fleet   = source->TryCall<"get_Context", FleetPlayerData*>();
