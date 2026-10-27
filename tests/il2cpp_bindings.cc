@@ -1740,6 +1740,7 @@ void PlannedWarpBindingObservations()
 
 #include "settings_pages_bindings_cases.h"
 #include "settings_values_bindings_cases.h"
+#include "officer_presets_native_cases.h"
 
 int main(int argc, char** argv)
 try {
@@ -2275,6 +2276,7 @@ try {
   InputFocus();
   SettingsPageBindingObservations();
   SettingsValuesBindingObservations();
+  OfficerPresetNativeObservations();
   std::cout << "IL2CPP binding tests passed\n";
 } catch (const std::exception& error) {
   std::cerr << "IL2CPP binding fixture failed: " << error.what() << '\n';

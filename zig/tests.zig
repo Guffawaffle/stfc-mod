@@ -303,6 +303,22 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
+        module.addIncludePath(b.path("tests"));
+        libs.toml_editor.linkInto(module);
+        module.addCSourceFiles(.{
+            .files = &.{ "tests/settings_persistence_integration_test.cc", "src/mod/toml_editor.cc", "src/mod/config_save.cc" },
+            .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}),
+        });
+        const exe = ctx.executable("settings-persistence-integration-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        test_runtime_config.dependOn(&run.step);
+        test_settings_models.dependOn(&run.step);
+        test_mod.dependOn(&run.step);
+    }
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
         libs.toml.linkInto(module);
         module.addCSourceFile(.{ .file = b.path("tests/runtime_reload_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
         const exe = ctx.executable("runtime-reload-tests", module);
@@ -425,7 +441,10 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         const module = ctx.createModule(true);
         libs.il2cpp.linkInto(module);
         // The fake API must precede consumers so the linker does not pull in production API storage.
-        module.addCSourceFile(.{ .file = b.path("tests/il2cpp_bindings.cc"), .flags = flags });
+        module.addCSourceFile(.{ .file = b.path("tests/il2cpp_bindings.cc"), .flags = mod_flags });
+        libs.spdlog.linkInto(module);
+        libs.toml.includeInto(module);
+        deps.nlohmannJson(ctx).includeInto(module);
         module.addIncludePath(b.path("src/mod"));
         module.addIncludePath(b.path("src/libs/unity/include"));
         module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });

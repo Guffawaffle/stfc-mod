@@ -1,8 +1,9 @@
 #pragma once
 
-// Inactive experiment for the preset save/index boundary. The adapter owns and
-// roots every native object; these pointers are identity tokens only. No hook
-// installs or managed operations live here.
+// Preset save/index protocol, shared with the controlled-runtime fixtures. The
+// native adapter owns and roots every managed object; these pointers are identity
+// tokens only. No hook installs or managed operations live here. Protocol tests
+// alone do not establish native adapter or exact-client qualification.
 #include <cstddef>
 #include <cstdint>
 #include <exception>

@@ -215,6 +215,8 @@ void Refresh() noexcept;
 
 // officers.cc
 extern const Feature kOfficerSort;
+// officer_presets.cc: local ordering; native save and state-file receipts remain separate.
+extern const Feature kOfficerPresetReorder;
 
 // settings.cc: native FC/FT confirmation core; full Mod Settings pages are restored separately.
 extern const Feature kNativeSettings;
