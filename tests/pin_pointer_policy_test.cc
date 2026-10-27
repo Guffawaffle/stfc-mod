@@ -123,6 +123,21 @@ void InputEpochs()
         "reentrant completion published a second toggle");
   Check(!policy.Press(first, 9, -1, {0, 0}, epoch + 22ms, 0), "unavailable frame identity was admitted");
 }
+void SameShipRebind()
+{
+  ObservedPolicy     policy;
+  constexpr Identity same_ship_new_episode{first.tile, first.generation + 1, first.ship};
+  policy.Press(first, 9, -1, {0, 0}, epoch);
+  policy.Begin(9, -1, Point{8, 0}, true, epoch + 125ms);
+  policy.InvalidateTile(first.tile); // Native SetWidgetData, including unchanged ship/context.
+  Check(!policy.Source() && !policy.End(9, -1, true, true).commit,
+        "a native rebind must revoke an in-flight drag even for the same ship");
+  Check(policy.Release(same_ship_new_episode, true, true, epoch + 140ms) != Click::Toggle,
+        "rebound same-ship release must not turn a stale drag into a pin toggle");
+  policy.Press(same_ship_new_episode, 9, -1, {0, 0}, epoch + 200ms);
+  Check(policy.Release(same_ship_new_episode, true, true, epoch + 210ms) == Click::Consume,
+        "fresh same-ship binding must start a new badge pair");
+}
 } // namespace
 int main()
 {
@@ -131,6 +146,7 @@ int main()
     ScrollingAndDrag();
     Cancellation();
     InputEpochs();
+    SameShipRebind();
     std::cout
         << "Pin pointer policy passed: fresh badge pairs, native scroll, held drag, source and focus cancellation\n";
     return 0;

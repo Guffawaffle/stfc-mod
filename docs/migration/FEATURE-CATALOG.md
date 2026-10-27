@@ -14,6 +14,10 @@ and player-confirmed behavior are separate evidence.
 
 | ID / feature | Player entry point | Upstream dev | play | play-dev | Refactor | Current qualification |
 | --- | --- | --- | --- | --- | --- | --- |
+| [PLAY-OFFICER-SORT — Below Deck Ability sort](features/PLAY-OFFICER-SORT.md) | Officer roster and assignment sort menus | present @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `f4f64180` | Source scan complete; current implementation qualification in progress |
+| [PLAY-OFFICER-PRESETS — Preset ordering and canonical native save](features/PLAY-OFFICER-PRESETS.md) | Officer Presets; Shift/Ctrl/Command name edit | absent @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | absent @ `f4f64180` | Source-qualified; native feature still missing: save/renderer adapter unqualified |
+| [PLAY-PINS-ORDER — Stable-ID ship pins and legacy-name fallback](features/PLAY-PINS-ORDER.md) | Swap Ship pin order | partial @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `f4f64180` | Source scan complete; current implementation qualification in progress |
+| [PLAY-PINS-INPUT — Badge double-click and hold-drag pin gestures](features/PLAY-PINS-INPUT.md) | Swap Ship badge double-click and held drag | absent @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `f4f64180` | Source scan complete; current implementation qualification in progress |
 | [PLAY-DOCK-ASSIGN — Double-click and Enter assignment](features/PLAY-DOCK-ASSIGN.md) | Swap Ship; Mod Settings → Officers & Ships | present @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic workflow confirmed; edge/custody limits retained |
 | [SET-AUDIO-PICKER — Audio pages, custom file picker and preview](features/SET-AUDIO-PICKER.md) | Mod Settings → Audio Alerts → alert page | absent @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
 | [SET-IMAGE-PICKER — Loading-image picker and exact entry](features/SET-IMAGE-PICKER.md) | Mod Settings → Loading Screens | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic workflow confirmed; edge/custody limits retained |
@@ -46,10 +50,6 @@ when their migration is deferred.
 | PLAY-MINING-CYCLE | Mining node, occupant and cargo cycle | Implemented, unverified | mods/src/patches/parts/mining_preview.cc |
 | PLAY-CARGO-FORMAT | Cargo abbreviation precision | Implemented, unverified | mods/src/patches/parts/cargo_format.cc |
 | PLAY-CARGO-INSTANT | Instant cargo counter with native flag restoration | Implemented, unverified | mods/src/patches/parts/instant_cargo.cc |
-| PLAY-OFFICER-SORT | Below Deck Ability sort | Implemented, unverified | mods/src/patches/parts/officer_sort.cc |
-| PLAY-OFFICER-PRESETS | Preset ordering and canonical native save | Missing | mods/src/patches/parts/officer_preset_reorder.cc |
-| PLAY-PINS-ORDER | Stable-ID ship pins and legacy-name fallback | Implemented, unverified | mods/src/patches/parts/pinned_ship_sort.cc |
-| PLAY-PINS-INPUT | Badge double-click and hold-drag pin gestures | Implemented, unverified | mods/src/patches/swap_ship_pin_input.cc |
 | PLAY-DOCK-SYNC | Management ship selects actual dock slot | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
 | PLAY-SCREEN-ACTIONS | Ship/officer/preset navigation and deferred buttons | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
 | PLAY-FOCUS-SEARCH | Search focus and legacy cross-section setting alias | Implemented, unverified | mods/src/patches/parts/focus_search.cc |

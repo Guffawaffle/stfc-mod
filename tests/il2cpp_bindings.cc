@@ -521,10 +521,15 @@ void Base_ExplodeVoid(Il2CppObject*, const MethodInfo*)
 void Never(Il2CppObject*, const MethodInfo*)
 { throw std::runtime_error("shared generic method was called natively"); }
 
-const MethodInfo* delegate_target      = nullptr;
-bool              delegate_ctor_throws = false;
+const MethodInfo* delegate_target           = nullptr;
+bool              delegate_ctor_throws      = false;
+bool              delegate_require_root     = false;
+bool              delegate_allocation_fails = false;
 void              DelegateInvoker(Il2CppMethodPointer, const MethodInfo*, void* self, void** args, void*)
 {
+  if (delegate_require_root)
+    Require(std::ranges::any_of(warp_roots, [self](const auto& root) { return root.second == self; }),
+            "delegate is rooted throughout constructor invocation");
   if (delegate_ctor_throws)
     throw Il2CppExceptionWrapper(&thrown);
   // Delegate(object target, IntPtr method): the second argument points at the MethodInfo address.
@@ -1022,6 +1027,8 @@ END_API
 API(Il2CppObject*, il2cpp_object_new, (const Il2CppClass* klass))
 {
   if (klass == &action_class.klass) {
+    if (delegate_allocation_fails)
+      return nullptr;
     delegate_object.object.klass = const_cast<Il2CppClass*>(klass);
     return &delegate_object.object;
   }
@@ -2020,12 +2027,27 @@ try {
   boxed_failure = boxed_null = false;
 
   // Delegates bind static methods and can jump to native code.
-  auto  target   = Base::Class::Method("OnEvent");
-  auto* delegate = reinterpret_cast<Il2CppDelegate*>(
+  const auto delegate_roots_before = warp_roots.size();
+  delegate_require_root            = true;
+  auto  target                     = Base::Class::Method("OnEvent");
+  auto* delegate                   = reinterpret_cast<Il2CppDelegate*>(
       il2cpp::NewDelegate(&action_class.klass, target, reinterpret_cast<Il2CppMethodPointer>(&NativeTarget)));
   Require(delegate && delegate_target == target.Info()
               && delegate->method_ptr == reinterpret_cast<Il2CppMethodPointer>(&NativeTarget),
           "static delegate");
+  Require(warp_roots.size() == delegate_roots_before, "static delegate construction releases its temporary root");
+  delegate_allocation_fails = true;
+  Require(!il2cpp::NewDelegate(&action_class.klass, target) && warp_roots.size() == delegate_roots_before,
+          "null delegate allocation must not invoke a constructor or leak a root");
+  delegate_allocation_fails = false;
+  warp_root_failure         = true;
+  Require(!il2cpp::NewDelegate(&action_class.klass, target), "failed delegate custody must not invoke constructor");
+  warp_root_failure    = false;
+  delegate_ctor_throws = true;
+  Require(!il2cpp::NewDelegate(&action_class.klass, target) && warp_roots.size() == delegate_roots_before,
+          "static delegate constructor failure returns null and releases custody");
+  delegate_ctor_throws  = false;
+  delegate_require_root = false;
 
   MethodInfo closed_schema           = *Base::Class::Method("ExplodeVoid").Info();
   closed_schema.methodPointer        = reinterpret_cast<Il2CppMethodPointer>(&ClosedTarget);

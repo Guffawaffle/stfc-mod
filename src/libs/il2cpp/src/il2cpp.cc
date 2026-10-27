@@ -611,16 +611,28 @@ Il2CppObject* NewDelegate(Il2CppClass* delegate_class, Method target, Il2CppMeth
   // Delegate(object target, IntPtr method). Runtime invocation rejects static targets for this
   // constructor; its generated invoker accepts a null target and a MethodInfo address.
   const auto* ctor = FirstMethod(delegate_class, ".ctor", [](const MethodInfo* method) {
-    return method->parameters_count == 2 && method->parameters[0]->type == IL2CPP_TYPE_OBJECT
-           && method->parameters[1]->type == IL2CPP_TYPE_I && method->invoker_method;
+    return !IsStatic(method) && method->parameters_count == 2 && method->parameters
+           && method->parameters[0]->type == IL2CPP_TYPE_OBJECT && !method->parameters[0]->byref
+           && method->parameters[1]->type == IL2CPP_TYPE_I && !method->parameters[1]->byref && method->invoker_method;
   });
   if (!ctor) {
     Report(std::format("[IL2CPP] {} has no (object, IntPtr) delegate constructor", ClassName(delegate_class)));
     return nullptr;
   }
-  auto* delegate = il2cpp_object_new(delegate_class);
-  void* args[]   = {nullptr, &info};
-  ctor->invoker_method(ctor->methodPointer, ctor, delegate, args, nullptr);
+  auto owner = GcHandle::Strong(il2cpp_object_new(delegate_class));
+  if (!owner)
+    return nullptr;
+  void* args[] = {nullptr, &info};
+  try {
+    ctor->invoker_method(ctor->methodPointer, ctor, owner.Get(), args, nullptr);
+  } catch (const Il2CppExceptionWrapper& error) {
+    detail::ReportException(ctor, error.ex);
+    return nullptr;
+  } catch (...) {
+    detail::ReportException(ctor, nullptr);
+    return nullptr;
+  }
+  auto* delegate = owner.Get();
   if (native)
     reinterpret_cast<Il2CppDelegate*>(delegate)->method_ptr = native;
   return delegate;

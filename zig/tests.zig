@@ -79,7 +79,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         addFixture(ctx, build_tests, test_mod, "notification-audio-files-tests", module);
     }
 
-    inline for (.{ "keyboard_layout_diagnostics", "officer_preset_handoff", "discovery_tow_policy", "native_text_entry" }) |fixture| {
+    inline for (.{ "keyboard_layout_diagnostics", "officer_preset_handoff", "officer_sort_compare", "discovery_tow_policy", "native_text_entry" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
         module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });

@@ -257,11 +257,7 @@ void PinBind(ShipTileWidget* tile)
   }
   state.group_refresh_frames = 3;
   std::erase_if(state.tiles, [](const PinTile& row) { return row.tile.Get() == nullptr; });
-  auto* row = PinRecord(tile);
-  // A native binding event starts a new presentation episode even if its ship
-  // and context IDs happen to be unchanged (for example close/reopen).
-  if (state.policy.LastClickIdentity().tile == PinToken(tile))
-    state.policy.ForgetClick();
+  auto*      row     = PinRecord(tile);
   auto*      context = tile->PinContext();
   const auto fleet   = tile->TryCall<"get_Context", FleetPlayerData*>();
   const auto id      = context && fleet && fleet.value ? fleet.value->ShipInstanceId() : std::nullopt;
@@ -277,10 +273,15 @@ void PinBind(ShipTileWidget* tile)
     state.policy.Reset();
     spdlog::warn("[ShipPinInput] weak tile custody unavailable; pin input disabled rather than guessing drop targets");
   }
-  if (row && (row->ship != id.value_or(0) || row->context.Get() != context)) {
+  if (row) {
+    // Every SetWidgetData starts another native presentation episode, including
+    // same-context/same-ship rebinds. No in-flight drag or click crosses that bind.
     state.policy.InvalidateTile(PinToken(tile));
-    row->ship    = id.value_or(0);
-    row->context = il2cpp::GcHandle::Weak(context);
+    row->ship = id.value_or(0);
+    if (!context)
+      row->context.Reset();
+    else if (row->context.Get() != context)
+      row->context = il2cpp::GcHandle::Weak(context);
     if (context && !row->context) {
       state.installed = false;
       state.policy.Reset();

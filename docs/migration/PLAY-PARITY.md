@@ -1,5 +1,15 @@
 # Downstream play preservation target
 
+## Officer and pin workflow cohort — 2026-10-26
+
+[Cohort 20261026-02](FEATURE-COHORT-20261026-02.md) performs the next four complete
+frozen-source scans. Below Deck sort construction regains explicit source custody
+and field qualification; pin gestures invalidate every native bind episode, even
+for unchanged ship/context IDs. Existing durable pin ordering and checked writes
+are retained. Officer preset ordering remains missing until its actual native
+save/source/receiver boundary is qualified; a config entry or pure experiment is
+not counted as restored functionality.
+
 ## Active Ripper migration branch — 2026-10-26
 
 `play-dev-ripper` is the active continuation of the long Ripper refactor, including

@@ -366,9 +366,114 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Both screens/directions, locked/tied officers, repeated initialization and failed optional comparers.",
+      "dependenciesAndLimitations": "See current cohort numbered source contract, retained target safety differences, focused automated checks and pending native/macOS qualification.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-OFFICER-SORT.md",
+      "userEntryPoint": "Officer roster and assignment sort menus",
+      "configurationKeys": [
+        "patches.officersorthooks",
+        "ui.officer_sort"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_sort.cc",
+              "symbol": "InitializeOfficerSorters / InitializeAssignmentSorters"
+            }
+          ],
+          "differences": "Existing typed implementation; restore source construction custody/preflight without changing comparator meaning."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_sort.cc",
+              "symbol": "InitializeOfficerSorters / InitializeAssignmentSorters"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_sort.cc",
+              "symbol": "InitializeOfficerSorters / InitializeAssignmentSorters"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_sort.cc",
+              "symbol": "InitializeOfficerSorters / InitializeAssignmentSorters"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/officers.cc",
+              "symbol": "InitializeOfficerSorters / InitializeAssignmentSorters"
+            }
+          ],
+          "differences": "Existing typed implementation; restore source construction custody/preflight without changing comparator meaning."
+        }
+      ],
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-02",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+        "state": "single full source workflow scan complete; target qualification in progress",
+        "recordedImmediately": true
+      },
+      "catalogStatus": "Source scan complete; current implementation qualification in progress"
     },
     {
       "id": "PLAY-OFFICER-PRESETS",
@@ -391,9 +496,114 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Inactive officer_preset_handoff experiment passes 201 deterministic checks, including transition saves. Native canonical reference writes, renderer readiness/repair and exact-client activation remain unqualified. Product is still Missing; the experiment does not restore it.",
+      "dependenciesAndLimitations": "Actual native adapter absent. Pointer-only source handoff disproved by retained Windows273 evidence: native save also uses independent receiver map. Need checked canonical source/renderer readiness, replacement synchronization, reentry/release and recoverable failure qualification before activation. Pure policy/handoff tests do not establish restored gameplay.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
+      "userEntryPoint": "Officer Presets; Shift/Ctrl/Command name edit",
+      "configurationKeys": [
+        "patches.officerpresetreorderhooks",
+        "ui.allow_officer_preset_reordering"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "absent",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_preset_reorder.cc",
+              "symbol": "InstallOfficerPresetReorderHooks / canonical save and display order"
+            }
+          ],
+          "differences": "Native feature absent; typed policy/config and inactive handoff experiment are not a product adapter."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_preset_reorder.cc",
+              "symbol": "InstallOfficerPresetReorderHooks / canonical save and display order"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_preset_reorder.cc",
+              "symbol": "InstallOfficerPresetReorderHooks / canonical save and display order"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/officer_preset_reorder.cc",
+              "symbol": "InstallOfficerPresetReorderHooks / canonical save and display order"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+          "presence": "absent",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/officers.cc",
+              "symbol": "InstallOfficerPresetReorderHooks / canonical save and display order"
+            }
+          ],
+          "differences": "Native feature absent; typed policy/config and inactive handoff experiment are not a product adapter."
+        }
+      ],
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-02",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+        "state": "single full source workflow scan complete; target qualification in progress",
+        "recordedImmediately": true
+      },
+      "catalogStatus": "Source-qualified; native feature still missing: save/renderer adapter unqualified"
     },
     {
       "id": "PLAY-PINS-ORDER",
@@ -416,9 +626,117 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Same hull/level ties, large IDs, ambiguous legacy names, failed write/rollback, receipt publication and restart.",
+      "dependenciesAndLimitations": "See current cohort numbered source contract, retained target safety differences, focused automated checks and pending native/macOS qualification.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-PINS-ORDER.md",
+      "userEntryPoint": "Swap Ship pin order",
+      "configurationKeys": [
+        "patches.pinnedshiphooks",
+        "ui.pinned_ships"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "partial",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/pinned_ship_sort.cc",
+              "symbol": "ReorderPinnedShips / durable receipt publication"
+            }
+          ],
+          "differences": "Target retains checked native writes and rooted snapshots; upstream has legacy name sorting only."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/pinned_ship_sort.cc",
+              "symbol": "ReorderPinnedShips / durable receipt publication"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/pinned_ship_sort.cc",
+              "symbol": "ReorderPinnedShips / durable receipt publication"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/pinned_ship_sort.cc",
+              "symbol": "ReorderPinnedShips / durable receipt publication"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/dock.cc",
+              "symbol": "ReorderPinnedShips / durable receipt publication"
+            }
+          ],
+          "differences": "Target retains checked native writes and rooted snapshots; upstream has legacy name sorting only."
+        }
+      ],
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-02",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+        "state": "single full source workflow scan complete; target qualification in progress",
+        "recordedImmediately": true
+      },
+      "catalogStatus": "Source scan complete; current implementation qualification in progress",
+      "parsedOnlySettings": [
+        "patches.pinnedshipclicktoggle; source and target actual owner is pinnedshiphooks"
+      ]
     },
     {
       "id": "PLAY-PINS-INPUT",
@@ -441,9 +759,116 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Drop inside/outside group/viewport, recycled tile, focus loss, missing end-drag, native scrolling, failed persistence and rapid edits.",
+      "dependenciesAndLimitations": "See current cohort numbered source contract, retained target safety differences, focused automated checks and pending native/macOS qualification.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-PINS-INPUT.md",
+      "userEntryPoint": "Swap Ship badge double-click and held drag",
+      "configurationKeys": [
+        "patches.pinnedshiphooks"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "platformQualification": {
+        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "absent",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/swap_ship_pin_input.cc",
+              "symbol": "Install / HandleTileClick / held ScrollRect drag"
+            }
+          ],
+          "differences": "Target already has pointer policy/decorations; parsed-only pinnedshipclicktoggle is not the actual owner."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/swap_ship_pin_input.cc",
+              "symbol": "Install / HandleTileClick / held ScrollRect drag"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/swap_ship_pin_input.cc",
+              "symbol": "Install / HandleTileClick / held ScrollRect drag"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/swap_ship_pin_input.cc",
+              "symbol": "Install / HandleTileClick / held ScrollRect drag"
+            }
+          ],
+          "differences": "Play-dev adds queued state admission/receipt handling where applicable; source logic preserved as contract."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+          "presence": "present",
+          "evidenceKind": "pinned local source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/ship_pin_input.cc",
+              "symbol": "Install / HandleTileClick / held ScrollRect drag"
+            }
+          ],
+          "differences": "Target already has pointer policy/decorations; parsed-only pinnedshipclicktoggle is not the actual owner."
+        }
+      ],
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261026-02",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+        "state": "single full source workflow scan complete; target qualification in progress",
+        "recordedImmediately": true
+      },
+      "catalogStatus": "Source scan complete; current implementation qualification in progress",
+      "parsedOnlySettings": [
+        "patches.pinnedshipclicktoggle; source and target actual owner is pinnedshiphooks"
+      ]
     },
     {
       "id": "PLAY-DOCK-ASSIGN",

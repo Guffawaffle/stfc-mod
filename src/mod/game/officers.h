@@ -57,3 +57,17 @@ struct OfficerSortGenerators : il2cpp::Object {
   il2cpp::List<ProcessingOption*>* assignmentOptions()
   { return Field<"_assignmentOptions", il2cpp::List<ProcessingOption*>*>(); }
 };
+
+// The source explicitly qualifies these fields before creating managed menu
+// entries. Missing default-returning setters must not publish an incomplete sorter.
+inline bool OfficerSortFieldsAvailable()
+{
+  return SortFunction::Class::HasField<"_displayKey", Il2CppString*>()
+         && SortFunction::Class::HasField<"_ascending", il2cpp::Object*>()
+         && SortFunction::Class::HasField<"_descending", il2cpp::Object*>()
+         && ProcessingOption::Class::HasField<"_displayKey", Il2CppString*>()
+         && ProcessingOption::Class::HasField<"_sortingOption", SortFunction*>()
+         && OfficerSortGenerators::Class::HasField<"_rosterSorters", il2cpp::List<SortFunction*>*>()
+         && OfficerSortGenerators::Class::HasField<"_rosterOptions", il2cpp::List<ProcessingOption*>*>()
+         && OfficerSortGenerators::Class::HasField<"_assignmentOptions", il2cpp::List<ProcessingOption*>*>();
+}
