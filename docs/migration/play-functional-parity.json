@@ -564,7 +564,7 @@
           "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished.",
           "30eeec8e: 214/214 Windows build/run steps; production adapter and Settings disk fixtures explicitly rerun; 37/37 DLL build; see preset-settings-30eeec8e-receipt.json. No native UI/runtime claim."
         ],
-        "exactCandidateRuntime": "30eeec8e is not yet deployed. Controlled native bodies and isolated disk integration do not establish in-game save correctness.",
+        "exactCandidateRuntime": "Main ordinary client273 PID51180: 68/68 hook groups installed including OfficerPresetReorder, FrameTick ready, responding window, zero fresh startup errors; exact installed disk hash matched. TOML/local-state hashes unchanged across deployment. Native UI/preset save and Settings write/reopen trial still pending.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Exact-client source/renderer readiness, native preset save, persisted ordering and Settings UI persistence remain to qualify. Metadata preflight declines installation; a contradictory rooted canonical field write is fatal, never an unsafe save fallback. macOS CI/Mcohall pending. Shared file-I/O extraction and logging changes deferred.",
@@ -755,7 +755,7 @@
           "migrationStatus": "Implemented, unverified",
           "verification": {
             "automated": "214/214 Windows build/run steps; production preset adapter against controlled IL2CPP bodies plus real Settings model/adapter/worker/editor/filesystem integration. Native acquisition and UI/quit delivery simulated.",
-            "nativeRuntime": "Not deployed or player verified.",
+            "nativeRuntime": "Main ordinary client273 PID51180: 68/68 hook groups installed including OfficerPresetReorder, FrameTick ready, responding window, zero fresh startup errors; exact installed disk hash matched. TOML/local-state hashes unchanged across deployment. Native UI/preset save and Settings write/reopen trial still pending.",
             "macOS": "No local qualification; CI/Mcohall pending.",
             "nativeBuild": "37/37 complete Windows DLL build steps; x86_64/16 exports/static CRT/full source identity verified."
           },
@@ -780,7 +780,7 @@
           "displayOrder": "mod_state::QueueOfficerOrder -> officer_preset_order in state.json; admission is not durability and native caller/application remains missing.",
           "presetContents": "Game native save callback with canonical data and matching receiver mapping; not a TOML/state write."
         },
-        "hold": "Latest authorization proceeds with preset integration and Settings end-to-end verification. No unrelated trial or game cycle has been performed; earlier runtime hold remains relevant before deployment.",
+        "hold": "Guff explicitly authorized one main-game cycle for this focused preset/Settings trial; performed. No unrelated trial or further cycle follows from that authorization.",
         "evidence": "docs/migration/features/PLAY-OFFICER-PRESETS.md#operator-clarification-and-next-integration-boundary--2026-10-26"
       }
     },
@@ -4788,13 +4788,13 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "e979f69248c581ce1b26267966da3da32bfdb533",
-    "artifactSha256": "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a",
-    "qualification": "Cohort02 tests/build/boot qualified; pin interaction partial acceptance; group visual issue and unattributed contained UI exception open; native preset adapter missing; further testing/cycles held by operator. Later notes/source comment only, no new build.",
+    "currentSourceCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
+    "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2",
+    "qualification": "Preset/Settings candidate boot qualified; player interaction and UI persistence trial pending. Existing partial pin acceptance and visual follow-ups remain separate.",
     "nextCandidate": {
       "sourceCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
       "scope": "Preset integration and Settings persistence qualification",
-      "runtime": "Not deployed; current installed e979f692 unaffected.",
+      "runtime": "Main ordinary client273 PID51180: 68/68 hook groups installed including OfficerPresetReorder, FrameTick ready, responding window, zero fresh startup errors; exact installed disk hash matched. TOML/local-state hashes unchanged across deployment. Native UI/preset save and Settings write/reopen trial still pending.",
       "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2"
     }
   }

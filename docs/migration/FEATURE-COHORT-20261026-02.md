@@ -256,6 +256,31 @@ explicitly rerun successfully and hashed. Receipt:
 `fdb7c2034877c47f527682c142c1c0bc257ff45ddc65569d40bf900b298948c3`.
 It records exact source inputs, toolchain, executable identities and logs.
 
-This candidate has not been deployed. The earlier testing hold was queried for
-one focused main-game trial; elapsed time is not authorization. The running
-e979f692 build and player stores were left unchanged during this offline pass.
+At the offline checkpoint this candidate had not been deployed. The earlier
+testing hold was queried for one focused main-game trial; elapsed time was not
+treated as authorization. The running e979f692 build and player stores were left
+unchanged during the offline pass.
+
+### Authorized main-game boot — 2026-10-27
+
+Guff explicitly released the hold for one main-game cycle and this focused trial.
+The completed build was deployed through the existing AX runtime exclusion and
+prebuilt deployment helper: PID 50172 to **51180**, ordinary main installation
+`C:/Games/Star Trek Fleet Command/default/game`, client 273. All **68 groups**
+reported installed, including `OfficerPresetReorder`; FrameTick ready, responding
+game window, zero fresh startup errors. The local version.dll path was observed
+and installed disk SHA matched the candidate. In-memory bytes were not hashed.
+
+TOML and local-state hashes were unchanged across deployment. Existing runtime
+configuration already has preset reordering enabled, and the existing local
+state contains 22 order entries; that observation is not proof of a new Settings
+write or successful preset operation. Player interaction, native preset save and
+Settings UI write/reopen verification are still pending.
+
+Receipts: `D:/dev/stfc-workspace/artifacts/preset-settings-20261027/main-runtime/`
+(`cycle.json`, `deploy.json`, `boot.json`, `stores-before.json`). The canonical
+Downstream checkout stayed on its unrelated branch. The helper's default source
+artifact comparison describes that checkout; the operation instead explicitly
+used the qualified worktree artifact and expected SHA, without changing branches.
+The build occurred before downtime. No unrelated trial or additional cycle is
+authorized by this one-cycle qualification.
