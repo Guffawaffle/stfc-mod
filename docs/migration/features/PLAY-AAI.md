@@ -51,8 +51,9 @@ and indeterminate custody remain unchanged and require regression tests.
 
 ## Qualification plan and current status
 
-The host integration is implemented and qualified offline. Native deployment
-and player interaction are not established by the offline results below.
+The host integration is implemented, qualified offline, deployed and startup-tested
+on Windows. Player report interaction remains pending; see the exact native
+checkpoint below. Offline calculations and startup do not establish UI acceptance.
 
 - Exercise the actual host adapter with complete, degraded and indeterminate
   installation reports; feature callback delivery remains separately qualified.
@@ -143,3 +144,61 @@ Zig or CI build must supply the documented host/source flags. A macOS CI build
 without that selection is not evidence that AAI compiled. Private-source
 provisioning and both Mac architectures still need that future qualification;
 no CI/release infrastructure was changed in this batch.
+
+## Exact native checkpoint and return-to-testing handoff
+
+Implementation commit **`4271c0760f9485ab1b769b3b43d03730d96b75da`** on
+`play-dev-ripper`. The committed source was built through the existing AX Zig
+route, with clean AAI pin `4bece2e` and UI Lab enabled. The first cycle request
+refused the now-absent old PID before building or touching runtime state. An
+independent process observation confirmed the game had closed; the explicitly
+selected ordinary main installation was then built/deployed/launched normally.
+No unrelated process or account was selected.
+
+- Main installation: `C:/Games/Star Trek Fleet Command/default/game`, client 273.
+- New process: **55740**, launched at approximately **02:48 CDT, 2026-10-27**.
+- Installed DLL SHA-256:
+  `6edff545c928769160f874a9a9182b7d43a015ab8e3e52fb6ae9fbe88025d587`.
+- Embedded source identity is the exact clean implementation commit above.
+  Source/pin stability, copy hash, proxy exports and static CRT were verified.
+- Actual logs show both AAI targets **installed**, all **71 feature groups**
+  installed, and `FrameTick delivery: ready`. These are capability groups, not a
+  claim of 71 native detours. Zero fresh mod error/critical lines in captured log.
+- All five pre-launch configuration/state files remained byte-identical.
+  No TOML edit, store migration, crew modification or UI automation was performed.
+
+The operator went to bed before the trial. Leave player interaction **pending**;
+do not promote source equivalence, passing fixtures or startup into native UI
+qualification. No further input was requested overnight.
+
+Receipts and recovery:
+
+- `D:/dev/stfc-workspace/artifacts/aai-migration-20261027/runtime/qualification.json`
+  (SHA-256 `6dbd90e53ac9ac017513d21294244c6c7ce7a56f249f9bfbe722f3447c6222f4`).
+  Includes exact build/cycle, per-target logs, process and store-hash comparison.
+- `D:/dev/stfc-workspace/artifacts/aai-migration-20261027/offline-qualification.json`
+  (SHA-256 `40810dcf5551ebe2f9c88b521ad27540fb5c0a02ef927cdda346d85df11deadb`).
+  Includes 42 current pinned fixture identities, two host fixture identities,
+  six explicit adapter reruns, current logs and replay/source-gate receipts.
+  Historical differently named M1 test executables are excluded.
+- `D:/dev/stfc-workspace/.ax/aai-migration-cycle-20261027.json` is the exact final
+  build/deploy/startup record; the prior dirty-worktree artifact was not used as
+  evidence for the later clean-commit binary.
+
+When Guff returns, the smallest useful trial is:
+
+1. Open a native battle summary → Battle Analysis. Check the immediate Overview,
+   ship identity/artwork and recorded totals; switch participant if available.
+2. Request Crew & Effects, inspect supplied crew/one ability, then open Tactical
+   Console and select a round/event. Check selection and response while retaining
+   battle context. No new mechanics or redesigned layout are expected.
+3. Back/close/reopen analysis and return to the native report. Check normal Mod
+   Settings navigation and the live AAI toggle, including re-enable/reopen.
+4. Workshop is available only because this development candidate explicitly
+   enabled UI Lab. Its presence does not qualify its previously pending visual
+   corrections. Do not expand the toolkit during this AAI trial.
+
+macOS still needs CI with the explicit private source/host flags for both supported
+architectures, then Mcohall's runtime checks. There was no push, release, branch
+promotion or Runner-orchestrated implementation. The independent AAI development
+checkout, frozen play-dev, PLAY and canonical unrelated work remain untouched.

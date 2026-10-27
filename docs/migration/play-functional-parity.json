@@ -4620,11 +4620,13 @@
         "localAutomatedEvidence": [
           "Production configuration catalog fixture exercises missing owner, frame-not-ready, live default and exact registered-key save; included in319-step suite."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "AAI owner and FrameTick ready in actual4271c076 startup. Settings row/control interaction and real save not tried on this candidate; synthetic catalog/writer path passed.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Requires compiled native AAI and actual shared-frame readiness. Native UI toggle/save trial pending; source presence is not native qualification.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "4271c0760f9485ab1b769b3b43d03730d96b75da"
+      ],
       "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
       "discovery": {
         "sourceRef": "frozen/play-dev-20261026",
@@ -4659,11 +4661,13 @@
           "96 whole JSON/exit-status retained-report comparisons against independently retained pinned M1b tools; six reports, every participant; capture bytes unchanged.",
           "Six private-input source gates; complete native UI-Lab-enabled DLL41/41 and non-AAI DLL37/37; original private checkout unmodified."
         ],
-        "exactCandidateRuntime": "Not deployed for AAI at offline checkpoint; prior preset-only binary does not qualify AAI.",
+        "exactCandidateRuntime": "4271c076 / client273 / ordinary main PID55740: actual source-pinned report observer and Back both installed, all71 feature groups installed, FrameTick delivery ready, no fresh mod errors; all5 config/state hashes unchanged. User asleep: no report UI/artwork/interaction trial, no automation.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Pinned AAI4bece2e unchanged; f1421907 external development work not substituted. Native report/Back/artwork/selection/worker UI trial pending. macOS CI/Mcohall separate; no local Mac qualification. Shared Config/header compile and exact legacy behavior retained.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "4271c0760f9485ab1b769b3b43d03730d96b75da"
+      ],
       "activationAndDependencies": "Explicit private host build; patches.battlelogsummaryhooks and live ui.battle_log_summary_preview; existing single frame owner; immutable AAI/source dependencies.",
       "contract": "docs/migration/features/PLAY-AAI.md",
       "userEntryPoint": "Native battle summary -> Battle Analysis; Mod Settings -> Interface & Scale",
@@ -4675,13 +4679,13 @@
         "Windows",
         "macOS"
       ],
-      "catalogStatus": "Native host implemented; all42 analytical fixtures and96 retained-report comparisons pass; in-game qualification pending",
+      "catalogStatus": "AAI deployed and startup-qualified on Windows; report UI/interaction and macOS qualification pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261027-AAI",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f0ad3838865f006c14f3d9b1d0b97842ec3f8e58",
-        "state": "source-preserving integration and offline qualification complete; native trial pending",
+        "state": "implementation and offline qualification complete; exact-candidate Windows startup passed; player trial pending",
         "recordedImmediately": true
       },
       "branchObservations": [
@@ -4764,6 +4768,61 @@
             }
           ],
           "differences": "At target base only optional producer/archive exists; this batch adds native host."
+        },
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "4271c0760f9485ab1b769b3b43d03730d96b75da",
+          "presence": "present",
+          "evidenceKind": "source-bound offline checks and exact Windows startup, not player-verified UI equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/aai.cc",
+              "symbol": "AAIReportObserver / AAIBack / BattleLogSummary; central per-target and frame readiness"
+            },
+            {
+              "path": "D:/dev/stfc-workspace/artifacts/aai-migration-20261027/runtime/qualification.json",
+              "symbol": "Actual report/Back installation and shared-frame startup"
+            }
+          ],
+          "differences": "Unchanged pinned AAI4bece2e; narrow host transactions, compile prerequisites, frame/config/Settings adapters. General Zig default remains private-source-free; daily AX binding explicitly includes AAI."
+        }
+      ],
+      "platformQualification": {
+        "Windows": "4271c076 / client273 / ordinary main PID55740: actual source-pinned report observer and Back both installed, all71 feature groups installed, FrameTick delivery ready, no fresh mod errors; all5 config/state hashes unchanged. User asleep: no report UI/artwork/interaction trial, no automation.",
+        "macOS": "Shared implementation; CI must select explicit clean private AAI source/host flags. No local Mac compile/runtime claim; Mcohall pending."
+      },
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "f0ad3838865f006c14f3d9b1d0b97842ec3f8e58",
+            "implementationCommit": "4271c0760f9485ab1b769b3b43d03730d96b75da"
+          },
+          "contract": "docs/migration/features/PLAY-AAI.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "automated": "319/319 combined steps;42 pinned AAI fixtures; finalhost10/10; finalSettings150/150; real native detour fixture;96 retained-result comparisons across6 reports.",
+            "nativeBuild": "41/41 native UI-Lab-enabled build;37/37 disabled build; source/pin/binary/proxy verified.",
+            "nativeRuntime": "4271c076 / client273 / ordinary main PID55740: actual source-pinned report observer and Back both installed, all71 feature groups installed, FrameTick delivery ready, no fresh mod errors; all5 config/state hashes unchanged. User asleep: no report UI/artwork/interaction trial, no automation.",
+            "macOS": "Shared implementation; CI must select explicit clean private AAI source/host flags. No local Mac compile/runtime claim; Mcohall pending."
+          },
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/aai-migration-20261027/runtime/qualification.json",
+          "artifactReceiptSha256": "6dbd90e53ac9ac017513d21294244c6c7ce7a56f249f9bfbe722f3447c6222f4",
+          "artifactSha256": "6edff545c928769160f874a9a9182b7d43a015ab8e3e52fb6ae9fbe88025d587",
+          "remaining": [
+            "Exact-client native Overview/Crew/Console/Back/artwork/selection/toggle trial",
+            "macOS CI with private inputs and Mcohall native trial"
+          ]
         }
       ]
     }
@@ -4980,17 +5039,18 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "a0565d7e7a801679086e56c287d47e7c867bdbb3",
-    "artifactSha256": "ec9339e4cb3748f22a129c7f1873f9b18e299d353af999cdece165aee442dd29",
-    "qualification": "Current preset initialization correction has basic Windows player acceptance and eight local-order persistence receipts; macOS and extended native save paths unqualified. Overall functional parity remains false.",
+    "currentSourceCommit": "4271c0760f9485ab1b769b3b43d03730d96b75da",
+    "artifactSha256": "6edff545c928769160f874a9a9182b7d43a015ab8e3e52fb6ae9fbe88025d587",
+    "qualification": "Current4271c076 adds pinned AAI host;71 groups/report+Back hooks/frame delivery installed with no fresh startup errors. Player report UI and Mac qualification pending. Existing preset acceptance remains attached to its earlier exact candidate; no overall parity claim.",
     "currentRuntime": {
-      "sourceCommit": "a0565d7e7a801679086e56c287d47e7c867bdbb3",
+      "sourceCommit": "4271c0760f9485ab1b769b3b43d03730d96b75da",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 48968,
-      "receipt": "D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json"
+      "pidAtQualification": 55740,
+      "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
+      "receipt": "D:/dev/stfc-workspace/artifacts/aai-migration-20261027/runtime/qualification.json"
     }
   }
 }
