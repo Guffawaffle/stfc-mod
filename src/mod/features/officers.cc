@@ -76,7 +76,7 @@ il2cpp::GcHandle NewSortFunction(const char* key, bool roster)
 
   // SortFunction's parameterless constructor has no generated code; every field Compare reads is set here.
   auto sort = il2cpp::GcHandle::Strong(il2cpp::Allocate<SortFunction>());
-  auto text = il2cpp::GcHandle::Strong(il2cpp::NewString(key));
+  auto text = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(il2cpp::NewString(key)));
   if (!sort || !text)
     return {};
   auto* value = sort.Get<SortFunction>();
@@ -129,7 +129,7 @@ void AddBelowDeckOption(il2cpp::List<ProcessingOption*>* options, const char* ke
     sorters->Add(sort);
 
   auto  option_owner = il2cpp::GcHandle::Strong(il2cpp::Allocate<ProcessingOption>());
-  auto  text         = il2cpp::GcHandle::Strong(il2cpp::NewString(key));
+  auto  text         = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(il2cpp::NewString(key)));
   auto* option       = option_owner.Get<ProcessingOption>();
   if (!option || !text)
     return;
