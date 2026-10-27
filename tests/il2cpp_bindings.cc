@@ -521,12 +521,14 @@ void Base_ExplodeVoid(Il2CppObject*, const MethodInfo*)
 void Never(Il2CppObject*, const MethodInfo*)
 { throw std::runtime_error("shared generic method was called natively"); }
 
-const MethodInfo* delegate_target           = nullptr;
-bool              delegate_ctor_throws      = false;
-bool              delegate_require_root     = false;
-bool              delegate_allocation_fails = false;
+const MethodInfo* delegate_target            = nullptr;
+bool              delegate_ctor_throws       = false;
+bool              delegate_require_root      = false;
+bool              delegate_allocation_fails  = false;
+unsigned          delegate_constructor_calls = 0;
 void              DelegateInvoker(Il2CppMethodPointer, const MethodInfo*, void* self, void** args, void*)
 {
+  ++delegate_constructor_calls;
   if (delegate_require_root)
     Require(std::ranges::any_of(warp_roots, [self](const auto& root) { return root.second == self; }),
             "delegate is rooted throughout constructor invocation");
@@ -2036,12 +2038,15 @@ try {
               && delegate->method_ptr == reinterpret_cast<Il2CppMethodPointer>(&NativeTarget),
           "static delegate");
   Require(warp_roots.size() == delegate_roots_before, "static delegate construction releases its temporary root");
-  delegate_allocation_fails = true;
-  Require(!il2cpp::NewDelegate(&action_class.klass, target) && warp_roots.size() == delegate_roots_before,
+  const auto calls_before_rejection = delegate_constructor_calls;
+  delegate_allocation_fails         = true;
+  Require(!il2cpp::NewDelegate(&action_class.klass, target) && warp_roots.size() == delegate_roots_before
+              && delegate_constructor_calls == calls_before_rejection,
           "null delegate allocation must not invoke a constructor or leak a root");
   delegate_allocation_fails = false;
   warp_root_failure         = true;
-  Require(!il2cpp::NewDelegate(&action_class.klass, target), "failed delegate custody must not invoke constructor");
+  Require(!il2cpp::NewDelegate(&action_class.klass, target) && delegate_constructor_calls == calls_before_rejection,
+          "failed delegate custody must not invoke constructor");
   warp_root_failure    = false;
   delegate_ctor_throws = true;
   Require(!il2cpp::NewDelegate(&action_class.klass, target) && warp_roots.size() == delegate_roots_before,
