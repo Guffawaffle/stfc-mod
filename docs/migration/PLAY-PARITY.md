@@ -1,5 +1,15 @@
 # Downstream play preservation target
 
+## Fleet and queue workflow cohort — 2026-10-27
+
+[Cohort 20261027-01](FEATURE-COHORT-20261027-01.md) reassesses the existing fleet
+actions, preview/Escape and two queue recovery workflows against frozen play-dev.
+It preserves working policies and repairs observed integration omissions, with
+actual adapter tests rather than policy-only claims. The historical repair
+interlock was discovered separately and remains a named follow-up, not an
+assumed fix in this batch. Native race/input and macOS qualification remain
+explicit; this is not whole-product parity.
+
 ## Native AAI integration — 2026-10-27
 
 The [AAI host contract](features/PLAY-AAI.md) ports the frozen play-dev dependency

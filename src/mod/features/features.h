@@ -79,11 +79,9 @@ private:
   std::chrono::steady_clock::time_point next_{};
 };
 
-// action_queue.cc. Recovery and thin protection are Windows only.
-#if _WIN32
+// action_queue.cc. Shared installers check native metadata and macOS entry fit before staging.
 extern const Feature kActionQueueRecovery;
 extern const Feature kThinQueueProtection;
-#endif
 extern const Feature kQueueAddressGuard;
 // Forgets the pending recovery attempts when the queue is switched off or on. Never touches the game's queues.
 void ResetQueueRecoveryTracking();

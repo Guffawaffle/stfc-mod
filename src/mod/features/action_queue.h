@@ -248,3 +248,6 @@ inline bool UseDeployedAddress(const AddressEvidence& e)
          && e.deployed == e.target;
 }
 } // namespace action_queue
+
+// Owner-thread setting transitions retire correlations without touching native queues.
+void ResetQueueRecoveryTracking();

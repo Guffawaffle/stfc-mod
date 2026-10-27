@@ -466,6 +466,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             missing_class.addArg(mode);
             test_il2cpp.dependOn(&missing_class.step);
         }
+        inline for (.{ "queue-native", "queue-field-pointer", "queue-list-pointer", "queue-alias", "queue-response-layout", "queue-result-layout", "fleet-native" }) |mode| {
+            const queue_case = b.addRunArtifact(exe);
+            queue_case.addArg(mode);
+            test_il2cpp.dependOn(&queue_case.step);
+        }
         // Avatar field/target qualification is also process-cached. Exercise
         // absent native retention support and each malformed schema separately.
         inline for (.{

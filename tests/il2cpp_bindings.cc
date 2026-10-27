@@ -571,10 +571,11 @@ void ClosedInvoker(Il2CppMethodPointer pointer, const MethodInfo* method, void* 
 void WarpInvokerSentinel(Il2CppMethodPointer, const MethodInfo*, void*, void**, void*)
 { Require(false, "the fake runtime must own invocation instead of calling a metadata sentinel directly"); }
 
-MethodInfo*   base_describe     = nullptr;
-MethodInfo*   shared_method     = nullptr;
-int32_t       shared_result     = 41;
-int           boxed_invocations = 0;
+MethodInfo*   base_describe      = nullptr;
+MethodInfo*   shared_method      = nullptr;
+int32_t       shared_result      = 41;
+int64_t       queue_boxed_target = 100;
+int           boxed_invocations  = 0;
 bool          boxed_failure = false, boxed_null = false;
 bool          array_class_missing  = false;
 bool          string_class_missing = false;
@@ -970,7 +971,11 @@ API(const MethodInfo*, il2cpp_object_get_virtual_method, (Il2CppObject * object,
 }
 END_API
 API(void*, il2cpp_object_unbox, (Il2CppObject * object))
-{ return object == &warp_vector_box.header ? static_cast<void*>(&warp_vector_box.value) : &shared_result; }
+{
+  if (object == &warp_vector_box.header)
+    return &warp_vector_box.value;
+  return object->klass == &long_class.klass ? static_cast<void*>(&queue_boxed_target) : &shared_result;
+}
 END_API
 API(Il2CppObject*, il2cpp_runtime_invoke, (const MethodInfo* method, void*, void** args, Il2CppException** exception))
 {
@@ -1738,14 +1743,27 @@ void PlannedWarpBindingObservations()
 }
 } // namespace
 
+// These fixture fragments extend the same controlled runtime in dependency order.
+// clang-format off
 #include "settings_pages_bindings_cases.h"
 #include "settings_values_bindings_cases.h"
 #include "officer_presets_native_cases.h"
+#include "action_queue_bindings_cases.h"
+#include "fleet_actions_bindings_cases.h"
+// clang-format on
 
 int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "fleet-native") {
+    FleetNativeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("queue-")) {
+    QueueNativeCases(argv[1]);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("chat-avatar-method-")) {
     ChatAvatarMethodRejection(argv[1]);
     return 0;

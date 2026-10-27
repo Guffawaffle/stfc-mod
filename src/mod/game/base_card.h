@@ -50,29 +50,7 @@ inline const MethodInfo* ContextGetter(Il2CppClass* owner, const char* name)
 }
 
 inline bool ResponseLayout(il2cpp::Method candidate)
-{
-  const auto* method = candidate.Info();
-  if (!method || !method->parameters || method->parameters_count != 1 || method->has_full_generic_sharing_signature
-      || !method->parameters[0] || method->parameters[0]->byref || method->parameters[0]->type != IL2CPP_TYPE_VALUETYPE)
-    return false;
-  // Take the class from the actual callback parameter, not an assumed assembly.
-  auto* expected = il2cpp_class_from_type(method->parameters[0]);
-  if (!expected || std::strcmp(il2cpp_class_get_namespace(expected), "Digit.PrimeServer.Events") != 0
-      || std::strcmp(il2cpp_class_get_name(expected), "SetCourseResponseEventArgs") != 0)
-    return false;
-  uint32_t alignment = 0;
-  if (il2cpp_class_value_size(expected, &alignment) != sizeof(SetCourseResponse))
-    return false;
-  const auto field = [expected](const char* name, size_t offset, Il2CppTypeEnum type) {
-    auto* value = il2cpp_class_get_field_from_name(expected, name);
-    return value && value->type && !value->type->byref && !(value->type->attrs & FIELD_ATTRIBUTE_STATIC)
-           && value->offset == static_cast<int32_t>(sizeof(Il2CppObject) + offset) && value->type->type == type;
-  };
-  return field("<FleetId>k__BackingField", offsetof(SetCourseResponse, fleet_id), IL2CPP_TYPE_I8)
-         && field("<Success>k__BackingField", offsetof(SetCourseResponse, success), IL2CPP_TYPE_BOOLEAN)
-         && field("<IsRecall>k__BackingField", offsetof(SetCourseResponse, is_recall), IL2CPP_TYPE_BOOLEAN)
-         && field("<TargetId>k__BackingField", offsetof(SetCourseResponse, target_id), IL2CPP_TYPE_OBJECT);
-}
+{ return queue_binding::ResponseLayout(candidate); }
 
 inline const Api& Native()
 {
@@ -141,8 +119,8 @@ inline bool Matches(BattleTargetData* data, NavigationInteractionUIContext* cont
   if (!base || !base.value || !own || own.value || !valid || !valid.value || !player
       || player.value != response.fleet_id)
     return false;
-  auto target_user = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(
-      planned_warp_binding::Reference<"get_TargetUserID", Il2CppString>(data).value));
+  auto target_user = il2cpp::GcHandle::Strong(
+      reinterpret_cast<Il2CppObject*>(planned_warp_binding::Reference<"get_TargetUserID", Il2CppString>(data).value));
   auto context_user = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(Native().user, context));
   if (!il2cpp::detail::ReadField<Il2CppObject*>(Native().poi, context)
       || !SameUser(context_user.Get(), target_user.Get()))

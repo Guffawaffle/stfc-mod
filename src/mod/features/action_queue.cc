@@ -77,8 +77,10 @@ action_queue::QueueSnapshot SnapshotOf(ActionQueueInstance* queue)
       .last_engaged_target_id = queue->LastEngagedTargetId(),
       .pending_target_id      = queue->PendingEngageTargetId(),
   };
-  for (auto* action : *actions | std::views::take(snapshot.target_ids.size())) {
-    const auto target = action ? action->FleetId() : 0;
+  const auto captured = std::min(snapshot.count, static_cast<int>(snapshot.target_ids.size()));
+  for (int i = 0; i < captured; ++i) {
+    const auto action = actions->TryCall<"get_Item", QueueableAction*(int32_t)>(i);
+    const auto target = action && action.value && action.value->Is<QueueableAction>() ? action.value->FleetId() : 0;
     if (!target)
       return {};
     snapshot.target_ids[snapshot.captured_target_count++] = target;
@@ -128,18 +130,21 @@ action_queue::RetryState RetryStateOf(ActionQueueInstance* queue, int64_t target
     return state;
   state.count = count.value;
   if (state.count > 0) {
-    auto* head = (*actions)[0];
-    if (!head)
+    const auto head = actions->TryCall<"get_Item", QueueableAction*(int32_t)>(0);
+    if (!head || !head.value || !head.value->Is<QueueableAction>())
       return state;
-    state.front = head->FleetId();
+    state.front = head.value->FleetId();
     if (!state.front)
       return state;
   }
   if (target) {
-    for (auto* action : *actions) {
-      if (!action || !action->FleetId())
+    // Iterate the one qualified count. List::end() performs a second unchecked Count call, whose failure reads
+    // as zero and could otherwise establish false absence from a nonempty secondary fleet queue.
+    for (int i = 0; i < state.count; ++i) {
+      const auto action = actions->TryCall<"get_Item", QueueableAction*(int32_t)>(i);
+      if (!action || !action.value || !action.value->Is<QueueableAction>() || !action.value->FleetId())
         return state;
-      state.contains_target |= action->FleetId() == target;
+      state.contains_target |= action.value->FleetId() == target;
     }
   }
   state.valid = state.fleet != 0;
@@ -182,11 +187,10 @@ EngageResult ActionQueueManager_TryPlanPathAndEngageTarget_Hook(auto original, A
 bool ActionQueueManager_ShouldRetryFailedSetCourse_Hook(auto original, ActionQueueManager* _this, int64_t target,
                                                         ActionQueueInstance* queue)
 {
-  const bool enabled = QueueFixesEnabled();
-  if (!enabled)
+  if (!QueueFixesEnabled())
     ClearRequests();
   const bool retry = original(_this, target, queue);
-  if (retry || !enabled || !current_course)
+  if (retry || !QueueFixesEnabled() || !current_course)
     return retry;
   const auto& course = *current_course;
   const auto  state  = RetryStateOf(queue, target);
@@ -197,7 +201,7 @@ bool ActionQueueManager_ShouldRetryFailedSetCourse_Hook(auto original, ActionQue
     return retry;
   // The native false branch removes the target from every fleet's queue. Leave that to it while any queue might
   // still hold the target.
-  if (!AbsentFromAllQueues(_this, target))
+  if (!AbsentFromAllQueues(_this, target) || !QueueFixesEnabled())
     return retry;
   std::lock_guard lock(recovery_mutex);
   if (!recovery_requests.Consume(queue, state, target, Clock::now()))
@@ -246,7 +250,7 @@ bool ResumeAfterPrune(ActionQueueManager* manager, ActionQueueInstance* queue, F
   if (!action_queue::IsNativePruneResumeCandidate(QueueFixesEnabled(), idle, before, after))
     return false;
   const auto confirmed = SnapshotOf(queue);
-  if (!action_queue::IsStableResumePostcondition(after, confirmed))
+  if (!action_queue::IsStableResumePostcondition(after, confirmed) || !QueueFixesEnabled())
     return false;
   // A contained native exception is unavailable evidence, never EngageResult::Success (whose value is zero).
   const auto result =
@@ -312,12 +316,20 @@ void ActionQueueManager_OnFleetsDisposedEventHandler_Hook(auto original, ActionQ
         destroyed.push_back(id);
   original(_this, fleets);
   for (const auto target : destroyed) {
-    const auto queue = SnapshotOf(FindQueueWithHead(_this, target));
-    if (!action_queue::ShouldProcessDestroyedHead(true, true, target, queue))
+    if (!QueueFixesEnabled())
+      break;
+    auto*      source = FindQueueWithHead(_this, target);
+    const auto before = SnapshotOf(source);
+    if (!action_queue::ShouldProcessDestroyedHead(true, true, target, before)
+        || FindQueueWithHead(_this, target) != source)
       continue;
-    _this->ProcessQueue(target, false);
-    spdlog::info("[ThinQueueProtection] removed destroyed target {} from the head of fleet {}'s queue", target,
-                 queue.player_fleet_id);
+    const auto confirmed = SnapshotOf(source);
+    if (!QueueFixesEnabled() || !action_queue::ShouldProcessDestroyedHead(true, true, target, confirmed)
+        || confirmed.player_fleet_id != before.player_fleet_id || confirmed.count != before.count)
+      continue;
+    if (_this->TryCall<"ProcessQueue", void(int64_t, bool)>(target, false))
+      spdlog::info("[ThinQueueProtection] processed destroyed target {} at the head of fleet {}'s queue", target,
+                   confirmed.player_fleet_id);
   }
 }
 
@@ -439,22 +451,41 @@ FleetDeployedData* DeploymentService_GetDeployedFleet_Hook(auto original, Deploy
 
 // --- Installation ---
 
-#if _WIN32
+bool QueueTargetsDistinct(std::span<void* const> entries)
+{
+  for (size_t i = 0; i < entries.size(); ++i)
+    if (entries[i] && std::ranges::contains(entries.first(i), entries[i]))
+      return false;
+  return true;
+}
+
 bool InstallActionQueueRecovery()
 {
   if (!ActionQueueInstance::SafetyFieldsAvailable())
     return false;
   using Manager = ActionQueueManager::Class;
+  const auto engage =
+      Manager::Method<EngageResult(FleetPlayerData*, ActionQueueInstance*)>("TryPlanPathAndEngageTarget");
+  const auto retry    = Manager::Method<bool(int64_t, ActionQueueInstance*)>("ShouldRetryFailedSetCourse");
+  const auto response = Manager::Method<void(SetCourseResponse)>("OnSetCourseResponseEventHandler");
+  const auto clear    = Manager::Method<void()>("StopWatchdogAndClearAllQueues");
+  if (!queue_binding::ResponseLayout(response) || !queue_binding::EngageResultLayout(engage)) {
+    spdlog::warn(
+        "[ActionQueueRecovery] course response or engage result layout unavailable; leaving native handling unchanged");
+    return false;
+  }
+  const std::array entries{il2cpp::CheckedEntry(engage), il2cpp::CheckedEntry(retry), il2cpp::CheckedEntry(response),
+                           il2cpp::CheckedEntry(clear)};
+  if (!QueueTargetsDistinct(entries)) {
+    spdlog::warn(
+        "[ActionQueueRecovery] incompatible callbacks share a native entry; leaving native handling unchanged");
+    return false;
+  }
   il2cpp::HookSet hooks("ActionQueueRecovery");
-  IL2CPP_STAGE(hooks,
-               Manager::Method<EngageResult(FleetPlayerData*, ActionQueueInstance*)>("TryPlanPathAndEngageTarget"),
-               ActionQueueManager_TryPlanPathAndEngageTarget_Hook);
-  IL2CPP_STAGE(hooks, Manager::Method<bool(int64_t, ActionQueueInstance*)>("ShouldRetryFailedSetCourse"),
-               ActionQueueManager_ShouldRetryFailedSetCourse_Hook);
-  IL2CPP_STAGE(hooks, Manager::Method<void(SetCourseResponse)>("OnSetCourseResponseEventHandler"),
-               ActionQueueManager_OnSetCourseResponseEventHandler_Hook);
-  IL2CPP_STAGE(hooks, Manager::Method<void()>("StopWatchdogAndClearAllQueues"),
-               ActionQueueManager_StopWatchdogAndClearAllQueues_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[0], ActionQueueManager_TryPlanPathAndEngageTarget_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[1], ActionQueueManager_ShouldRetryFailedSetCourse_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[2], ActionQueueManager_OnSetCourseResponseEventHandler_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[3], ActionQueueManager_StopWatchdogAndClearAllQueues_Hook);
   return hooks.Commit();
 }
 
@@ -464,18 +495,25 @@ bool InstallThinQueueProtection()
     return false;
   using Manager = ActionQueueManager::Class;
   // Called rather than hooked: a missing one would read as a successful engage.
-  if (!Manager::Method<EngageResult(FleetPlayerData*, ActionQueueInstance*)>("TryPlanPathAndEngageTarget"))
+  if (!queue_binding::EngageResultLayout(
+          Manager::Method<EngageResult(FleetPlayerData*, ActionQueueInstance*)>("TryPlanPathAndEngageTarget")))
     return false;
+  const std::array entries{
+      il2cpp::CheckedEntry(Manager::Method<bool(FleetPlayerData*)>("DoPlanPathAndEngageTarget")),
+      il2cpp::CheckedEntry(
+          Manager::Method<void(ActionQueueInstance*, FleetPlayerData*, FleetDeployedData*)>("HandleStall")),
+      il2cpp::CheckedEntry(Manager::Method<void(il2cpp::List<FleetDeployedData*>*)>("OnFleetsDisposedEventHandler"))};
+  if (!QueueTargetsDistinct(entries)) {
+    spdlog::warn(
+        "[ThinQueueProtection] incompatible callbacks share a native entry; leaving native handling unchanged");
+    return false;
+  }
   il2cpp::HookSet hooks("ThinQueueProtection");
-  IL2CPP_STAGE(hooks, Manager::Method<bool(FleetPlayerData*)>("DoPlanPathAndEngageTarget"),
-               ActionQueueManager_DoPlanPathAndEngageTarget_Hook);
-  IL2CPP_STAGE(hooks, Manager::Method<void(ActionQueueInstance*, FleetPlayerData*, FleetDeployedData*)>("HandleStall"),
-               ActionQueueManager_HandleStall_Hook);
-  IL2CPP_STAGE(hooks, Manager::Method<void(il2cpp::List<FleetDeployedData*>*)>("OnFleetsDisposedEventHandler"),
-               ActionQueueManager_OnFleetsDisposedEventHandler_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[0], ActionQueueManager_DoPlanPathAndEngageTarget_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[1], ActionQueueManager_HandleStall_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[2], ActionQueueManager_OnFleetsDisposedEventHandler_Hook);
   return hooks.Commit();
 }
-#endif
 
 bool InstallQueueAddressGuard()
 {
@@ -495,12 +533,10 @@ bool InstallQueueAddressGuard()
 void ResetQueueRecoveryTracking()
 { ClearRequests(); }
 
-// The recovery and thin protection targets have only been checked against SPUD's patch size on Windows.
-#if _WIN32
+// Shared installers use CheckedEntry; macOS declines undersized native entries. Windows targets are unchanged.
 const Feature kActionQueueRecovery{"ActionQueueRecovery", &Config::Patches::actionqueuerecoveryhooks,
                                    InstallActionQueueRecovery};
 const Feature kThinQueueProtection{"ThinQueueProtection", &Config::Patches::thinqueueprotectionhooks,
                                    InstallThinQueueProtection};
-#endif
 const Feature kQueueAddressGuard{"QueueAddressGuard", &Config::Patches::queueaddressguardhooks,
                                  InstallQueueAddressGuard};

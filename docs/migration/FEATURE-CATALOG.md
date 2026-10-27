@@ -14,6 +14,10 @@ and player-confirmed behavior are separate evidence.
 
 | ID / feature | Player entry point | Upstream dev | play | play-dev | Refactor | Current qualification |
 | --- | --- | --- | --- | --- | --- | --- |
+| [PLAY-FLEET-ACTIONS — Contextual movement, attack, repair, recall and queue actions](features/PLAY-FLEET-ACTIONS.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `fa3860a7` | Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending |
+| [PLAY-FLEET-PREVIEW-GATES — Preview, locate, recall and Escape precedence](features/PLAY-FLEET-PREVIEW-GATES.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `fa3860a7` | Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending |
+| [PLAY-QUEUE-RECOVERY — Vanished-target course recovery](features/PLAY-QUEUE-RECOVERY.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `fa3860a7` | Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending |
+| [PLAY-QUEUE-THIN — Native prefix-prune recovery](features/PLAY-QUEUE-THIN.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `fa3860a7` | Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending |
 | [PLAY-OFFICER-SORT — Below Deck Ability sort](features/PLAY-OFFICER-SORT.md) | Officer roster and assignment sort menus | present @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `e979f692` | Native BDA reported available; compatibility module retained; testing held |
 | [PLAY-OFFICER-PRESETS — Preset ordering and canonical native save](features/PLAY-OFFICER-PRESETS.md) | Officer Presets; Shift/Ctrl/Command name edit | absent @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `a0565d7e` | Basic Windows preset workflow accepted after initialization-order fix; macOS and native crew create/replace/delete remain unqualified |
 | [PLAY-PINS-ORDER — Stable-ID ship pins and legacy-name fallback](features/PLAY-PINS-ORDER.md) | Swap Ship pin order | partial @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `e979f692` | Source-preserved; partial pin trial; further testing held |
@@ -40,12 +44,8 @@ when their migration is deferred.
 | --- | --- | --- | --- |
 | PLAY-FLEET-SELECT | Fleet shortcut selection and repeated locate | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
 | PLAY-FLEET-TOW | Discovery shift-ship towing | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
-| PLAY-FLEET-ACTIONS | Contextual movement, attack, repair, recall and queue actions | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
-| PLAY-FLEET-PREVIEW-GATES | Preview, locate, recall and Escape precedence | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
 | PLAY-FLEET-ABILITY-RECOVERY | Expired ability button recovery | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
 | PLAY-QUEUE-SWITCH | Queue enable and persisted toggle | Implemented, unverified | mods/src/patches/parts/testing.cc |
-| PLAY-QUEUE-RECOVERY | Vanished-target course recovery | Partial | mods/src/patches/parts/action_queue.cc |
-| PLAY-QUEUE-THIN | Native prefix-prune recovery | Partial | mods/src/patches/parts/thin_queue_protection.cc |
 | PLAY-QUEUE-ADDRESS | Conservative deployed-address substitution | Implemented, unverified | mods/src/patches/parts/queue_address_guard.cc |
 | PLAY-CARGO-PREVIEW | Category defaults and delayed cargo opening | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
 | PLAY-MINING-CYCLE | Mining node, occupant and cargo cycle | Implemented, unverified | mods/src/patches/parts/mining_preview.cc |
@@ -133,6 +133,7 @@ when their migration is deferred.
 | PLAY-OUT-OF-DOCK-POWER | Exclude station-only power buffs | Implemented, unverified | mods/src/patches/parts/buff_fixes.cc |
 | PLAY-WINDOW-PROFILE-TITLE | Custom/profile window title | Implemented, unverified | mods/src/patches/parts/free_resize.cc |
 | SET-AAI-ANALYSIS-ENTRY | Battle Analysis settings entry and availability | Implemented, unverified | mods/src/settings/upstream_settings.cc |
+| PLAY-REPAIR-INTERLOCK | Historical stale repair action and instant-click interlock | Unresolved | mods/src/patches/parts/repair_action_interlock.cc |
 
 The JSON remains the sole machine-readable inventory. This document adds no
 independent migration status or execution authority.

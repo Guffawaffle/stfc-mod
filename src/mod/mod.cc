@@ -142,11 +142,9 @@ constexpr const Feature* kFeatures[] = {
     &kModState,
     // tracked_objects.cc
     &kObjectTracker,
-// action_queue.cc
-#if _WIN32
+    // action_queue.cc
     &kActionQueueRecovery,
     &kThinQueueProtection,
-#endif
     &kQueueAddressGuard,
     // anomaly_timer.cc
     &kAnomalyTimer,

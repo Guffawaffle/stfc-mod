@@ -53,9 +53,55 @@ struct FleetPress {
   { return primary || secondary || queue || queue_clear || recall || recall_cancel || repair; }
 };
 
-// The target's hull type is only known once the target's data has arrived; until then it reads as Any. A press
-// that lands in that window is replayed, as itself, on the next frame only.
-std::optional<FleetPress> pending_replay;
+// Target data may arrive one frame after its card. Keep a bounded owned request, never a borrowed widget/fleet
+// across frames, and never replay a press into a different participant, card or rebound target context.
+struct DeferredFleetPress {
+  FleetPress       press;
+  int32_t          frame    = -1;
+  int64_t          fleet_id = 0, target_id = 0;
+  il2cpp::GcHandle fleet, viewer, context;
+};
+// Retired on the game thread. Static destruction must not free managed roots after runtime shutdown.
+auto& pending_replay = *new std::optional<DeferredFleetPress>;
+
+void DeferFleetPress(const FleetPress& press, FleetPlayerData* fleet, PreScanTargetWidget* viewer,
+                     BattleTargetData* context)
+{
+  pending_replay.reset();
+  const auto frame = unity::Time::frameCount();
+  if (press.retry || frame < 0 || !fleet || !viewer || !context)
+    return;
+  const auto fleet_id  = fleet->TryCall<"get_Id", int64_t>();
+  const auto target_id = context->TryCall<"get_TargetID", int64_t>();
+  if (!fleet_id || fleet_id.value <= 0 || !target_id || target_id.value <= 0)
+    return;
+  DeferredFleetPress request{press,
+                             frame,
+                             fleet_id.value,
+                             target_id.value,
+                             il2cpp::GcHandle::Strong(fleet),
+                             il2cpp::GcHandle::Strong(viewer),
+                             il2cpp::GcHandle::Strong(context)};
+  if (request.fleet && request.viewer && request.context)
+    pending_replay = std::move(request);
+}
+
+bool FleetReplayMatches(const DeferredFleetPress& request, int32_t frame, FleetPlayerData* fleet,
+                        PreScanTargetWidget* viewer, BattleTargetData* context, int64_t fleet_id, int64_t target_id)
+{
+  return request.frame >= 0 && static_cast<int64_t>(frame) == static_cast<int64_t>(request.frame) + 1 && fleet && viewer
+         && context && request.fleet.Get() == fleet && request.viewer.Get() == viewer
+         && request.context.Get() == context && fleet_id == request.fleet_id && target_id == request.target_id;
+}
+
+void RetireFleetReplay()
+{
+  if (!pending_replay)
+    return;
+  const auto now = unity::Time::frameCount();
+  if (now < pending_replay->frame || static_cast<int64_t>(now) > static_cast<int64_t>(pending_replay->frame) + 1)
+    pending_replay.reset();
+}
 
 bool ControllerShown(VisibilityController* controller)
 { return controller && controller->IsShown(); }
@@ -121,8 +167,8 @@ bool ArmadaViewerShown(ArmadaObjectViewerWidget* armada)
   return true;
 }
 
-// Requests `type` on the fleet when it is in one of `states`. With `help_state`, a fleet in that state (or one the
-// action was just requested for) also asks its alliance for help.
+// Requests `type` in one of `states`. If that did not succeed, a fleet already in `help_state` asks for alliance
+// help. Preserve the frozen short circuit: successful normal actions do not also submit a help action.
 bool RequestFleetAction(FleetLocalViewController* panel, FleetPlayerData* fleet, ActionType type,
                         std::span<const FleetState> states, FleetState help_state = FleetState::Unknown)
 {
@@ -133,7 +179,7 @@ bool RequestFleetAction(FleetLocalViewController* panel, FleetPlayerData* fleet,
     requested = panel->RequestAction(fleet, type, 0, ActionBehaviour::Default);
   }
   if (help_state != FleetState::Unknown && (requested || fleet->CurrentState() == help_state))
-    requested = panel->RequestAction(fleet, type, 0, ActionBehaviour::AskHelp) || requested;
+    requested = requested || panel->RequestAction(fleet, type, 0, ActionBehaviour::AskHelp);
   spdlog::trace("[Hotkeys] action {} on fleet {} in state {}: {}", type.flagValue, fleet->Id(),
                 std::to_underlying(fleet->CurrentState()), requested);
   return requested;
@@ -148,6 +194,8 @@ bool ActOnPreScan(PreScanTargetWidget* pre_scan, const FleetPress& pressed, Flee
 
   // A mining node's card sits on top of the pre-scan: scan it or start mining.
   if (auto* mine = unity::Newest<MiningObjectViewerWidget>(); TargetShown(mine, pressed)) {
+    if (pressed.retry)
+      return true; // A saved pre-scan action cannot transfer to an overlapping mining card.
     if (pressed.secondary && buttons) {
       buttons->OnScanButtonClicked();
       return true;
@@ -161,6 +209,10 @@ bool ActOnPreScan(PreScanTargetWidget* pre_scan, const FleetPress& pressed, Flee
   if (auto* add_to_queue = pre_scan->addToQueueButtonWidget();
       pressed.queue && queue->IsQueueUnlocked() && add_to_queue && buttons) {
     const auto type = TargetHullType(buttons->Context());
+    if (type == HullType::Any && !pressed.retry) {
+      DeferFleetPress(pressed, fleet, pre_scan, buttons->Context());
+      return true;
+    }
     if (type != HullType::ArmadaTarget && (type != HullType::Any || pressed.retry)) {
       if (add_to_queue->isActiveAndEnabled()) {
         if (auto* listener = add_to_queue->semaphoreButtonListener(); listener && !queue->IsQueueFull(fleet)) {
@@ -172,7 +224,7 @@ bool ActOnPreScan(PreScanTargetWidget* pre_scan, const FleetPress& pressed, Flee
         return true;
       }
       if (type == HullType::Any) {
-        pending_replay = pressed;
+        DeferFleetPress(pressed, fleet, pre_scan, buttons->Context());
         return true;
       }
     }
@@ -200,7 +252,7 @@ bool ActOnPreScan(PreScanTargetWidget* pre_scan, const FleetPress& pressed, Flee
       return true;
     }
     if (type == HullType::Any) {
-      pending_replay = pressed;
+      DeferFleetPress(pressed, fleet, pre_scan, buttons->Context());
       return true;
     }
   }
@@ -214,7 +266,7 @@ template <class T> il2cpp::GcHandle WarpRoot(const il2cpp::CallResult<T*>& value
   if (!value || !value.value)
     return {};
   auto root = il2cpp::GcHandle::Strong(value.value);
-  if (!root || !root.Get() || !root.Get<il2cpp::Object>()->Is<T>())
+  if (!root || !root.Get() || !root.template Get<il2cpp::Object>()->template Is<T>())
     return {};
   return root;
 }
@@ -418,7 +470,7 @@ bool BeginDiscoveryTow(FleetBarViewController* bar, int32_t index)
     return false;
   auto selected =
       WarpRoot(fleets.Get<FleetsManager>()->TryCall<"GetFleetPlayerData", FleetPlayerData*(int32_t)>(index));
-  auto data = WarpRoot(context.Get<FleetBarContext>()->TryCall<"get_FleetData", il2cpp::ArrayObject*>());
+  auto data = WarpRoot(context.template Get<FleetBarContext>()->TryCall<"get_FleetData", il2cpp::ArrayObject*>());
   if (!selected || !data)
     return false;
   const auto array = il2cpp::TryReferenceArray<FleetPlayerData*>(data.Get());
@@ -432,8 +484,8 @@ bool BeginDiscoveryTow(FleetBarViewController* bar, int32_t index)
       continue;
     if (!root)
       return false;
-    const auto hull = planned_warp_binding::Scalar<"get_HullId", int64_t>(root.Get<FleetPlayerData>());
-    const auto slot = planned_warp_binding::Scalar<"get_Index", int32_t>(root.Get<FleetPlayerData>());
+    const auto hull = planned_warp_binding::Scalar<"get_HullId", int64_t>(root.template Get<FleetPlayerData>());
+    const auto slot = planned_warp_binding::Scalar<"get_Index", int32_t>(root.template Get<FleetPlayerData>());
     if (!hull || !slot)
       return false;
     if (hull.value == 1307832955 && slot.value >= 0 && (discovery_slot < 0 || slot.value < discovery_slot)) {
@@ -543,7 +595,7 @@ template <class ReadContext> bool TryPlannedSystemWarp(FleetPlayerData* fleet, R
     auto context    = WarpRoot(read_context());
     if (!fleet_root || !context || Hub::CurrentSection() != SectionID::Navigation_Galaxy)
       return false;
-    const auto fleet_id = fleet_root.Get<FleetPlayerData>()->TryId();
+    const auto fleet_id = fleet_root.template Get<FleetPlayerData>()->TryId();
     if (!fleet_id)
       return false;
     auto deployment =
@@ -573,12 +625,12 @@ template <class ReadContext> bool TryPlannedSystemWarp(FleetPlayerData* fleet, R
     auto path          = WarpRoot(course.Get<CourseData>()->TryPath());
     auto target        = WarpRoot(course.Get<CourseData>()->TryTarget());
     auto start         = WarpRoot(course.Get<CourseData>()->TryStart());
-    auto fleet_address = WarpRoot(fleet_root.Get<FleetPlayerData>()->TryAddress());
+    auto fleet_address = WarpRoot(fleet_root.template Get<FleetPlayerData>()->TryAddress());
     if (!path || !target || !start || !fleet_address)
       return false;
     auto target_address = WarpRoot(target.Get<CourseNode>()->TryAddress());
     auto start_address  = WarpRoot(start.Get<CourseNode>()->TryAddress());
-    auto context_path   = WarpRoot(context.Get<NavigationInteractionUIContext>()->TryPath());
+    auto context_path   = WarpRoot(context.template Get<NavigationInteractionUIContext>()->TryPath());
     auto animator       = WarpRoot(navigation.Get<NavigationManager>()->TryTransitionAnimator());
     if (!target_address || !start_address || !context_path || !animator)
       return false;
@@ -603,7 +655,7 @@ template <class ReadContext> bool TryPlannedSystemWarp(FleetPlayerData* fleet, R
     evidence.target_node_id      = WarpObservation(target.Get<CourseNode>()->TryId());
     const auto destination       = target.Get<CourseNode>()->TrySystemPosition();
     const auto galaxy_position   = target.Get<CourseNode>()->TryGalaxyPosition();
-    const auto retained_position = context.Get<NavigationInteractionUIContext>()->TryPosition();
+    const auto retained_position = context.template Get<NavigationInteractionUIContext>()->TryPosition();
     if (destination)
       evidence.system_position = WarpPosition(destination.value);
     if (galaxy_position)
@@ -613,14 +665,14 @@ template <class ReadContext> bool TryPlannedSystemWarp(FleetPlayerData* fleet, R
       if (projected)
         evidence.projected_context_position = WarpPosition(projected.value);
     }
-    const auto observed_tree = context.Get<NavigationInteractionUIContext>()->TryTreeNode();
+    const auto observed_tree = context.template Get<NavigationInteractionUIContext>()->TryTreeNode();
     auto       tree          = WarpRoot(observed_tree);
     if (observed_tree && !observed_tree.value)
       evidence.tree_node = 0;
     else if (tree) {
       evidence.tree_node = WarpIdentity(tree);
-      evidence.tree_id   = WarpObservation(tree.Get<ITreeNode>()->TryId());
-      evidence.tree_type = WarpObservation(tree.Get<ITreeNode>()->TryType());
+      evidence.tree_id   = WarpObservation(tree.template Get<ITreeNode>()->TryId());
+      evidence.tree_type = WarpObservation(tree.template Get<ITreeNode>()->TryType());
     }
     evidence.path_identity = {WarpIdentity(path), WarpIdentity(context_path)};
 
@@ -639,8 +691,8 @@ template <class ReadContext> bool TryPlannedSystemWarp(FleetPlayerData* fleet, R
     if (!current_fleet_id || current_fleet_id.value != fleet_id.value)
       return false;
     auto       current_path     = WarpRoot(current_course.Get<CourseData>()->TryPath());
-    auto       retained_path    = WarpRoot(current_context.Get<NavigationInteractionUIContext>()->TryPath());
-    const auto current_position = current_context.Get<NavigationInteractionUIContext>()->TryPosition();
+    auto       retained_path    = WarpRoot(current_context.template Get<NavigationInteractionUIContext>()->TryPath());
+    const auto current_position = current_context.template Get<NavigationInteractionUIContext>()->TryPosition();
     if (!current_path || !retained_path || WarpIdentity(current_path) != WarpIdentity(path)
         || WarpIdentity(retained_path) != WarpIdentity(context_path) || !current_position || !retained_position
         || WarpPosition(current_position.value) != WarpPosition(retained_position.value))
@@ -741,7 +793,7 @@ bool ActOnViewer(const FleetPress& pressed, FleetPlayerData* fleet)
   return false;
 }
 
-void ActOnSelectedFleet(const FleetPress& pressed)
+void ActOnSelectedFleet(const FleetPress& pressed, const DeferredFleetPress* replay = nullptr)
 {
   auto* panel = FleetBarViewController::NewestPanel();
   auto* fleet = panel ? panel->fleet() : nullptr;
@@ -750,6 +802,23 @@ void ActOnSelectedFleet(const FleetPress& pressed)
   auto* queue = ActionQueueManager::Instance();
   if (!queue)
     return;
+
+  if (replay) {
+    auto*      viewer = replay->viewer.Get<PreScanTargetWidget>();
+    const auto alive  = viewer ? unity::TryAlive(viewer) : il2cpp::CallResult<bool>{};
+    if (!alive || !alive.value)
+      return;
+    auto*      buttons   = viewer->scanEngageButtonsWidget();
+    auto*      context   = buttons ? buttons->Context() : nullptr;
+    const auto fleet_id  = fleet->TryCall<"get_Id", int64_t>();
+    const auto target_id = context ? context->TryCall<"get_TargetID", int64_t>() : il2cpp::CallResult<int64_t>{};
+    if (fleet_id && target_id
+        && FleetReplayMatches(*replay, unity::Time::frameCount(), fleet, viewer, context, fleet_id.value,
+                              target_id.value)
+        && TargetShown(viewer, pressed))
+      (void)ActOnPreScan(viewer, pressed, fleet, queue);
+    return; // An expired/replaced target must never fall through to a different visible card or travel action.
+  }
 
   if (pressed.queue_clear) {
     queue->ClearQueue(fleet);
@@ -876,6 +945,7 @@ bool ActionQueueManager_IsQueueUnlocked_Hook(auto original, ActionQueueManager* 
 // usable. Four checks a second are plenty for a button.
 void AbilityButtonsFrame()
 {
+  RetireFleetReplay(); // Also runs in capture/native-hotkey/disabled modes which skip ordinary shortcut dispatch.
   DiscoveryTowFrame(); // Runs in every input mode so disable/capture can retire pending native work.
   static Throttle throttle(std::chrono::milliseconds(250));
   if (!throttle.Due())
@@ -984,7 +1054,7 @@ bool FleetShortcuts()
 bool FleetActionShortcuts()
 {
   // A replay lives for exactly the next frame, whatever that frame does.
-  const auto replayed = std::exchange(pending_replay, std::nullopt);
+  auto replayed = std::exchange(pending_replay, std::nullopt);
   if (unity::Key::IsInputFocused())
     return false;
 
@@ -1012,11 +1082,13 @@ bool FleetActionShortcuts()
       .repair        = Shortcut::IsDown(Action::kActionRepair),
   };
   if (replayed && !pressed.Any()) {
-    pressed       = *replayed;
+    pressed       = replayed->press;
     pressed.retry = true;
+  } else {
+    replayed.reset();
   }
   if (pressed.Any() && Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat())
-    ActOnSelectedFleet(pressed);
+    ActOnSelectedFleet(pressed, replayed ? &*replayed : nullptr);
 
   if (Shortcut::IsDown(Action::kActionView)) {
     if (mining_preview::Cycle())

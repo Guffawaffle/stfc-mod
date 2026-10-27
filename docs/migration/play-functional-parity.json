@@ -78,16 +78,71 @@
         "symbolOrWorkflow": "FleetActionShortcuts"
       },
       "expectedBehavior": "Contextual movement, attack, repair, recall and queue actions",
-      "verificationProcedure": "Exercise every viewer and fleet state; replace fleet/target during deferred retry; scene exit cancels.",
+      "verificationProcedure": "docs/migration/FEATURE-COHORT-20261027-01.md#focused-native-trial",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/fleet-queue-cohort-20261027/tests-6.log:230/230 Windows steps; actual production adapters in controlled runtime, pure policies, accepted file reload, Settings/preset and AAI host regressions."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort; older capability/user receipts remain historical and do not qualify this changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Exercise every viewer and fleet state; replace fleet/target during deferred retry; scene exit cancels.",
+      "dependenciesAndLimitations": "Source-preserved dispatch and bounded owned next-frame retry; no historical stale-repair interlock restored. Native button/scene/input trial and macOS remain unqualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-ACTIONS.md",
+      "catalogStatus": "Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending",
+      "userEntryPoint": "Fleet/target controls and configured shortcuts; Mod Settings -> Controls",
+      "configurationKeys": [
+        "control.hotkeys_enabled",
+        "control.primary_requires_visible_target",
+        "ui.disable_preview_locate",
+        "ui.disable_preview_recall"
+      ],
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "fa3860a733f675161907ccdcd39d1afa6c114e95",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_actions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "fa3860a733f675161907ccdcd39d1afa6c114e95"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-ACTIONS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Actual adapter/control/policy tests and source comparison; native candidate and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-FLEET-PREVIEW-GATES",
@@ -103,16 +158,71 @@
         "symbolOrWorkflow": "FleetActionShortcuts"
       },
       "expectedBehavior": "Preview, locate, recall and Escape precedence",
-      "verificationProcedure": "Nested target cards, rewards, held Escape, text focus and both hotkey modes.",
+      "verificationProcedure": "docs/migration/FEATURE-COHORT-20261027-01.md#focused-native-trial",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/fleet-queue-cohort-20261027/tests-6.log:230/230 Windows steps; actual production adapters in controlled runtime, pure policies, accepted file reload, Settings/preset and AAI host regressions."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort; older capability/user receipts remain historical and do not qualify this changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Nested target cards, rewards, held Escape, text focus and both hotkey modes.",
+      "dependenciesAndLimitations": "Source viewer precedence and capture rules retained; nested viewer production helper tested. Real native focus/rewards/transitions and macOS remain unqualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-PREVIEW-GATES.md",
+      "catalogStatus": "Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending",
+      "userEntryPoint": "Fleet/target controls and configured shortcuts; Mod Settings -> Controls",
+      "configurationKeys": [
+        "control.hotkeys_enabled",
+        "control.primary_requires_visible_target",
+        "ui.disable_preview_locate",
+        "ui.disable_preview_recall"
+      ],
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "fa3860a733f675161907ccdcd39d1afa6c114e95",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_actions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "fa3860a733f675161907ccdcd39d1afa6c114e95"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-PREVIEW-GATES.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Actual adapter/control/policy tests and source comparison; native candidate and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-FLEET-ABILITY-RECOVERY",
@@ -167,7 +277,7 @@
     {
       "id": "PLAY-QUEUE-RECOVERY",
       "name": "Vanished-target course recovery",
-      "classification": "Partial",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/action_queue.cc",
@@ -178,23 +288,76 @@
         "symbolOrWorkflow": "InstallActionQueueRecovery"
       },
       "expectedBehavior": "Vanished-target course recovery",
-      "verificationProcedure": "Out-of-order and old responses, replaced queues, disabled fixes, teardown and unavailable secondary queue count. macOS adapter remains absent.",
+      "verificationProcedure": "docs/migration/FEATURE-COHORT-20261027-01.md#focused-native-trial",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/fleet-queue-cohort-20261027/tests-6.log:230/230 Windows steps; actual production adapters in controlled runtime, pure policies, accepted file reload, Settings/preset and AAI host regressions."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort; older capability/user receipts remain historical and do not qualify this changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Out-of-order and old responses, replaced queues, disabled fixes, teardown and unavailable secondary queue count. macOS adapter remains absent.",
+      "dependenciesAndLimitations": "Shared Windows/macOS source and CheckedEntry admission; qualified native observations, live post-read gates and accepted reload invalidation. Real course-response race and macOS CI/runtime remain unqualified. Native remains responsible on refusal.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-QUEUE-RECOVERY.md",
+      "catalogStatus": "Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending",
+      "userEntryPoint": "Fleet/target controls and configured shortcuts; Mod Settings -> Controls",
+      "configurationKeys": [
+        "control.queue_enabled",
+        "control.kirshara_fixes"
+      ],
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/action_queue.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/action_queue.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/action_queue.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "fa3860a733f675161907ccdcd39d1afa6c114e95",
+          "presence": "present",
+          "evidence": "src/mod/features/action_queue.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "fa3860a733f675161907ccdcd39d1afa6c114e95"
+          },
+          "contract": "docs/migration/features/PLAY-QUEUE-RECOVERY.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Actual adapter/control/policy tests and source comparison; native candidate and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-QUEUE-THIN",
       "name": "Native prefix-prune recovery",
-      "classification": "Partial",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/thin_queue_protection.cc",
@@ -205,18 +368,71 @@
         "symbolOrWorkflow": "InstallThinQueueProtection"
       },
       "expectedBehavior": "Native prefix-prune recovery",
-      "verificationProcedure": "Unknown latches/count/state decline; engage exception preserves original false; disposal/watchdog/replacement; macOS target qualification pending.",
+      "verificationProcedure": "docs/migration/FEATURE-COHORT-20261027-01.md#focused-native-trial",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/fleet-queue-cohort-20261027/tests-6.log:230/230 Windows steps; actual production adapters in controlled runtime, pure policies, accepted file reload, Settings/preset and AAI host regressions."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort; older capability/user receipts remain historical and do not qualify this changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Unknown latches/count/state decline; engage exception preserves original false; disposal/watchdog/replacement; macOS target qualification pending.",
+      "dependenciesAndLimitations": "Original prefix/suffix policy preserved with checked native acquisition and restored disposal confirmation. Actual adapter tests include planner/watchdog/replacement/disable/managed failure. Native race and macOS CI/runtime qualification pending.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-QUEUE-THIN.md",
+      "catalogStatus": "Frozen source reassessed; Windows production-adapter checks passed; exact-client workflow and macOS qualification pending",
+      "userEntryPoint": "Fleet/target controls and configured shortcuts; Mod Settings -> Controls",
+      "configurationKeys": [
+        "control.queue_enabled",
+        "control.kirshara_fixes"
+      ],
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/thin_queue_protection.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/thin_queue_protection.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/thin_queue_protection.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "fa3860a733f675161907ccdcd39d1afa6c114e95",
+          "presence": "present",
+          "evidence": "src/mod/features/action_queue.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "fa3860a733f675161907ccdcd39d1afa6c114e95"
+          },
+          "contract": "docs/migration/features/PLAY-QUEUE-THIN.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Actual adapter/control/policy tests and source comparison; native candidate and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-QUEUE-ADDRESS",
@@ -4833,6 +5049,32 @@
           ]
         }
       ]
+    },
+    {
+      "id": "PLAY-REPAIR-INTERLOCK",
+      "name": "Historical stale repair action and instant-click interlock",
+      "classification": "Unresolved",
+      "baseline": {
+        "revision": "0ba8de71c459fa66f1343077afeaf1f36c996edb",
+        "path": "mods/src/patches/parts/repair_action_interlock.cc",
+        "symbolOrWorkflow": "GetActionStatus / GetInstantButtonContext / OnInstantButtonClickCallback"
+      },
+      "migration": {
+        "path": "src/mod/features/fleet_actions.cc",
+        "symbolOrWorkflow": "No identified interlock; keyboard repair/help dispatch is a separate path"
+      },
+      "expectedBehavior": "Historical protection retained for investigation: preserve coherent repairing status and guard bounded stale post-completion instant clicks. Applicability to current client remains unqualified.",
+      "verificationProcedure": "First qualify native current-client repair status/context/click behavior and revisit original interlock policy; do not infer current need from historical promotion.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "not attempted",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Guff requested follow-up2026-10-27. Historical source existed at0ba8de71 but is absent from frozen1baa55fe; reconciliation merge5beebf4b already lacks these paths. Absence predates this Ripper migration. No resurrection authorized by discovery; no claim that keyboard help ordering fixes the repair bug.",
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-REPAIR-INTERLOCK.md",
+      "activationAndDependencies": "Historical three native hooks and patch switch; current-client need, ownership and reason for omission remain to investigate."
     }
   ],
   "sourceCoverage": {

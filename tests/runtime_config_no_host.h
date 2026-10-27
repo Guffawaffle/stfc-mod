@@ -11,4 +11,5 @@ void        SetReloadSnapshot(runtime_config::ReloadSnapshot snapshot);
 void        SetCaptureFailure(bool fail);
 void        Reset();
 std::size_t CaptureCount() noexcept;
+std::size_t QueueResetCount() noexcept;
 } // namespace runtime_config_fixture

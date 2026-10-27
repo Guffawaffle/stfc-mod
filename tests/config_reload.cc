@@ -344,6 +344,31 @@ int main(int argc, char** argv)
                 && Config::Get().control.keyboard_layout_mode == "layout" && read_primary() == rejected_primary,
             "diagnostic refresh must use accepted settings after a rejected reload without editing the primary");
     }
+    // Accepted queue-policy transitions retire correlations even if no native queue callback ran while off.
+    // This exercises production Config::Reload/Activate; only the reset sink is substituted.
+    runtime_config_fixture::SetReloadSnapshot({});
+    Write("[control]\nqueue_enabled = true\nkirshara_fixes = true\n");
+    Check(Config::Reload(), "establish enabled queue policy");
+    const auto queue_resets = runtime_config_fixture::QueueResetCount();
+    Write("[control]\nqueue_enabled = false\nkirshara_fixes = true\n");
+    Check(Config::Reload() && runtime_config_fixture::QueueResetCount() == queue_resets + 1,
+          "accepted queue disable must retire correlations");
+    Write("[control]\nqueue_enabled = false\nkirshara_fixes = true\n[graphics]\nui_scale = 1.5\n");
+    Check(Config::Reload() && runtime_config_fixture::QueueResetCount() == queue_resets + 1,
+          "unrelated accepted changes must not retire queue correlations");
+    Write("[control]\nqueue_enabled = true\nkirshara_fixes = true\n");
+    fail_vars = true;
+    Check(!Config::Reload() && runtime_config_fixture::QueueResetCount() == queue_resets + 1,
+          "rejected reload cannot reset correlations or activate a new queue policy");
+    fail_vars = false;
+    Check(Config::Reload() && runtime_config_fixture::QueueResetCount() == queue_resets + 2,
+          "accepted queue re-enable retires old correlations");
+    Write("[control]\nqueue_enabled = true\nkirshara_fixes = false\n");
+    Check(Config::Reload() && runtime_config_fixture::QueueResetCount() == queue_resets + 3,
+          "accepted protection disable retires correlations");
+    Write("[control]\nqueue_enabled = true\nkirshara_fixes = true\n");
+    Check(Config::Reload() && runtime_config_fixture::QueueResetCount() == queue_resets + 4,
+          "accepted protection re-enable retires correlations");
   } catch (const std::exception& error) {
     std::cerr << error.what() << '\n';
     result = 1;

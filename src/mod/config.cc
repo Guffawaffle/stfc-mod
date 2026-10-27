@@ -5,6 +5,7 @@
 
 #include "config_filters.h"
 #include "config_save.h"
+#include "features/action_queue.h"
 #include "features/notification_audio.h"
 #include "file.h"
 #include "keyboard_layout.h"
@@ -725,6 +726,12 @@ void Config::Activate(std::unique_ptr<Config> next)
   keyboard_layout::Configure(next->control.keyboard_layout_mode);
   Shortcut::Set(std::move(next->shortcuts_));
   std::atomic_store_explicit(&sync_config, next->sync_, std::memory_order_release);
+  // A live file reload can turn the protections off/on without a queue callback in between. Retire the old
+  // correlation at acceptance, just as the Settings and shortcut paths do; parsing/rejected reloads do not act.
+  if (current_config
+      && (current_config->control.queue_enabled != next->control.queue_enabled
+          || current_config->control.kirshara_fixes != next->control.kirshara_fixes))
+    ResetQueueRecoveryTracking();
   current_config = std::move(next);
 }
 

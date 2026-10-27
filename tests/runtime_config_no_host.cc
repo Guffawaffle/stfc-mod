@@ -8,6 +8,7 @@ namespace
 {
 runtime_config::ReloadSnapshot protected_values;
 std::size_t                    captures     = 0;
+std::size_t                    queue_resets = 0;
 bool                           fail_capture = false;
 } // namespace
 
@@ -21,11 +22,17 @@ void Reset()
 {
   protected_values.clear();
   captures     = 0;
+  queue_resets = 0;
   fail_capture = false;
 }
 std::size_t CaptureCount() noexcept
 { return captures; }
+std::size_t QueueResetCount() noexcept
+{ return queue_resets; }
 } // namespace runtime_config_fixture
+
+void ResetQueueRecoveryTracking()
+{ ++queue_resets; }
 
 namespace runtime_config
 {
