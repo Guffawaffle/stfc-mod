@@ -87,6 +87,13 @@ public:
   }
 
   template <typename Detour> void Stage(Detour&& detour)
+  { (void)StageRetained(std::forward<Detour>(detour)); }
+
+  // For an external consumer that needs the real trampoline after Commit. The
+  // set still owns installation/rollback/quarantine; retain only to query the
+  // committed handle, never to install/remove it independently. Existing Stage
+  // callers need no extra lifetime or return-value handling.
+  template <typename Detour> auto StageRetained(Detour&& detour)
   {
     RequireOpen();
     using Handle = std::remove_cvref_t<Detour>;
@@ -113,6 +120,7 @@ public:
                        [](void* value) { return static_cast<Handle*>(value)->is_installed(); }});
       published = true;
       transaction_.install(*handle);
+      return handle;
     } catch (...) {
       // Preserve every installed/unknown owner before stack unwinding. Checking
       // only the newest owner would miss earlier preinstalled handles in the set.

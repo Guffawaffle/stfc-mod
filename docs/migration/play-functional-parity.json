@@ -2,7 +2,7 @@
   "schema": "stfc-play-functional-parity/v1",
   "baseline": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
   "migrationDiscoveryHead": "5c921b65e2b35d0d1ba008f7b6dcbb25f93e3430",
-  "scope": "Player workflows and supporting contracts; later play-dev, AAI/Kit expansion excluded",
+  "scope": "Player workflows and supporting contracts; historical PLAY plus explicitly selected frozen-play-dev cohorts including native AAI host",
   "state": "discovery-and-restoration-in-progress",
   "authority": "PLAY-PARITY.md",
   "ci": "Explicitly parked; local builds and targeted tests only",
@@ -4602,8 +4602,8 @@
     {
       "id": "SET-AAI-ANALYSIS-ENTRY",
       "name": "Battle Analysis settings entry and availability",
-      "classification": "Unresolved",
-      "parentCapability": "AAI (separate product; migration parked)",
+      "classification": "Implemented, unverified",
+      "parentCapability": "PLAY-AAI",
       "baseline": {
         "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "path": "mods/src/settings/upstream_settings.cc",
@@ -4611,17 +4611,19 @@
       },
       "migration": {
         "path": "src/mod/settings/config_settings.cc",
-        "symbolOrWorkflow": "not assessed; outside four-feature cohort"
+        "symbolOrWorkflow": "Original live AAI key/default/help and registered writer; actual frame-ready owner availability"
       },
       "expectedBehavior": "Battle Analysis settings entry and availability as implemented in pinned play-dev",
-      "verificationProcedure": "Deferred with the AAI product integration; do not restore a control without its owner.",
+      "verificationProcedure": "Native Interface & Scale -> Battle Analysis toggle; disable closes AAI, re-enable/reopen report; writer receipt separately. Offline catalog proves unavailable without owner/frame, enabled default and exact saved key.",
       "validation": {
-        "staticSourceInspection": false,
-        "localAutomatedEvidence": [],
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "Production configuration catalog fixture exercises missing owner, frame-not-ready, live default and exact registered-key save; included in319-step suite."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Registered immediately on discovery; no equivalence claim. UI control and underlying consumer are separate presence claims.",
+      "dependenciesAndLimitations": "Requires compiled native AAI and actual shared-frame readiness. Native UI toggle/save trial pending; source presence is not native qualification.",
       "restorationCommits": [],
       "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
       "discovery": {
@@ -4629,8 +4631,141 @@
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
         "date": "2026-10-26",
-        "state": "source-identified; deferred outside cohort"
-      }
+        "state": "Original settings owner/availability traced; selected for AAI migration batch"
+      },
+      "contract": "docs/migration/features/PLAY-AAI.md"
+    },
+    {
+      "id": "PLAY-AAI",
+      "name": "Native Battle Analysis, Crew & Effects and Tactical Console host",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "path": "mods/src/patches/parts/battle_log_summary.cc",
+        "symbolOrWorkflow": "InstallBattleLogSummary; immutable AAI4bece2e; shared frame, report observer and Back"
+      },
+      "migration": {
+        "path": "src/mod/features/aai.cc",
+        "symbolOrWorkflow": "AAIReportObserver, AAIBack and BattleLogSummary through central feature/frame ownership; pinned native implementation linked by explicit aai-host",
+        "implementation": "zig/aai.zig; aai_host_detour.h; aai_native_platform.h; existing Config/Settings/HookSet/frame services"
+      },
+      "expectedBehavior": "Preserve pinned native Overview, on-demand Crew & Effects, Tactical Console, report entry/Back, capture/worker/source lifecycles and optional workshop.",
+      "verificationProcedure": "Contract A1-A10; host production-adapter fixtures, pinned AAI fixtures, retained replay comparison, full DLL and exact-client report/selection/Back/toggle trial.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "319/319 Windows build/run steps including all42 pinned AAI fixtures; final contained-install-error host delta10/10.",
+          "Real production hook shim/HookSet/SPUD transaction in fixture process proves actual trampoline, permanent custody and latched failure/success.",
+          "96 whole JSON/exit-status retained-report comparisons against independently retained pinned M1b tools; six reports, every participant; capture bytes unchanged.",
+          "Six private-input source gates; complete native UI-Lab-enabled DLL41/41 and non-AAI DLL37/37; original private checkout unmodified."
+        ],
+        "exactCandidateRuntime": "Not deployed for AAI at offline checkpoint; prior preset-only binary does not qualify AAI.",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Pinned AAI4bece2e unchanged; f1421907 external development work not substituted. Native report/Back/artwork/selection/worker UI trial pending. macOS CI/Mcohall separate; no local Mac qualification. Shared Config/header compile and exact legacy behavior retained.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Explicit private host build; patches.battlelogsummaryhooks and live ui.battle_log_summary_preview; existing single frame owner; immutable AAI/source dependencies.",
+      "contract": "docs/migration/features/PLAY-AAI.md",
+      "userEntryPoint": "Native battle summary -> Battle Analysis; Mod Settings -> Interface & Scale",
+      "configurationKeys": [
+        "patches.battlelogsummaryhooks",
+        "ui.battle_log_summary_preview"
+      ],
+      "platforms": [
+        "Windows",
+        "macOS"
+      ],
+      "catalogStatus": "Native host implemented; all42 analytical fixtures and96 retained-report comparisons pass; in-game qualification pending",
+      "migrationWorkflow": {
+        "process": "migrate-play-feature/v1",
+        "cohort": "20261027-AAI",
+        "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "targetBase": "f0ad3838865f006c14f3d9b1d0b97842ec3f8e58",
+        "state": "source-preserving integration and offline qualification complete; native trial pending",
+        "recordedImmediately": true
+      },
+      "branchObservations": [
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "dev",
+          "refRole": "upstream-dev",
+          "revision": "6ceb892baade31d907071db7bf72374902c8e668",
+          "presence": "absent",
+          "evidenceKind": "Pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/battle_log_summary.cc",
+              "symbol": "AAI host source/consumer search and immutable dependency pin"
+            }
+          ],
+          "differences": "No AAI consumer/config activation found in pinned source search."
+        },
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "absent",
+          "evidenceKind": "Pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/battle_log_summary.cc",
+              "symbol": "AAI host source/consumer search and immutable dependency pin"
+            }
+          ],
+          "differences": "No AAI consumer/config activation found in pinned source search."
+        },
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "play-dev",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "Pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/battle_log_summary.cc",
+              "symbol": "AAI host source/consumer search and immutable dependency pin"
+            }
+          ],
+          "differences": "Frozen play-dev host uses AAI4bece2e."
+        },
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "frozen-play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidenceKind": "Pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/battle_log_summary.cc",
+              "symbol": "AAI host source/consumer search and immutable dependency pin"
+            }
+          ],
+          "differences": "Frozen play-dev host uses AAI4bece2e."
+        },
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "f0ad3838865f006c14f3d9b1d0b97842ec3f8e58",
+          "presence": "partial",
+          "evidenceKind": "Pinned source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "zig/aai.zig",
+              "symbol": "AAI host source/consumer search and immutable dependency pin"
+            }
+          ],
+          "differences": "At target base only optional producer/archive exists; this batch adds native host."
+        }
+      ]
     }
   ],
   "sourceCoverage": {

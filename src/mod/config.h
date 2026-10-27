@@ -132,6 +132,7 @@ public:
     bool artifactexchangehooks      = true;
     bool audioeventhooks            = true;
     bool basecardhooks              = true;
+    bool battlelogsummaryhooks      = true;
     bool bufffixhooks               = true;
     bool cargoformathooks           = true;
     bool chatpatches                = true;
@@ -284,6 +285,8 @@ public:
     bool disable_veil_chat               = false;
     bool show_player_title               = true;
     bool allow_officer_preset_reordering = false;
+    // The optional private native product reads this live, including teardown.
+    bool battle_log_summary_preview = true;
 
     bool                     auto_open_bulk_claim_flyout = false;
     std::vector<std::string> daily_bulk_claim_factions{"federation", "klingon", "romulan"};

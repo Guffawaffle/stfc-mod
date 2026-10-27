@@ -24,6 +24,7 @@ and player-confirmed behavior are separate evidence.
 | [SET-WARP-FILTERS — Per-ship jump, warp and always-ask editors](features/SET-WARP-FILTERS.md) | Mod Settings → Map & Travel → Ship route filters | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
 | [SET-DAILY-FACTIONS — Daily bulk-claim faction selector](features/SET-DAILY-FACTIONS.md) | Mod Settings → Claims & Confirmations | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
 | [SET-BANNER-FILTERS — Hidden banners and desktop notification filter editors](features/SET-BANNER-FILTERS.md) | Mod Settings → Notifications | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
+| [PLAY-AAI — Native Battle Analysis, Crew & Effects and Tactical Console host](features/PLAY-AAI.md) | Native battle summary -> Battle Analysis; Mod Settings -> Interface & Scale | absent @ `6ceb892b` | absent @ `cad98ef7` | present @ `1baa55fe` | partial @ `f0ad3838` | Native host implemented; all42 analytical fixtures and96 retained-report comparisons pass; in-game qualification pending |
 
 Full pinned paths, symbols, differences and history are in each inventory entry.
 Frozen play-dev remains `1baa55fedf1758b19f843cc59707b8901a0b4998`.
@@ -131,7 +132,7 @@ when their migration is deferred.
 | PLAY-ARTIFACT-EXCHANGE-ALL | Hide only artifact bulk conversion | Implemented, unverified | mods/src/patches/parts/artifact_exchange.cc |
 | PLAY-OUT-OF-DOCK-POWER | Exclude station-only power buffs | Implemented, unverified | mods/src/patches/parts/buff_fixes.cc |
 | PLAY-WINDOW-PROFILE-TITLE | Custom/profile window title | Implemented, unverified | mods/src/patches/parts/free_resize.cc |
-| SET-AAI-ANALYSIS-ENTRY | Battle Analysis settings entry and availability | Unresolved | mods/src/settings/upstream_settings.cc |
+| SET-AAI-ANALYSIS-ENTRY | Battle Analysis settings entry and availability | Implemented, unverified | mods/src/settings/upstream_settings.cc |
 
 The JSON remains the sole machine-readable inventory. This document adds no
 independent migration status or execution authority.

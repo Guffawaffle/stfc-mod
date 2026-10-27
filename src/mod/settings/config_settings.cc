@@ -469,6 +469,15 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("interface", graphics, free_resize, "Free window resizing", Owner("FreeResize"), Restart,
        "Allow arbitrary window sizes on Windows.");
 #endif
+  const Available aai = [] {
+    return std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
+      return feature.name && std::string_view(feature.name) == "BattleLogSummary"
+             && feature.state == InstallState::kInstalled && feature.frame_ready;
+    });
+  };
+  BOOL("interface", ui, battle_log_summary_preview, "Battle Analysis (AAI)", aai, Live,
+       "Show Battle Analysis on combat reports. Turning this off closes analysis on the next update. "
+       "Requires an AAI-enabled build and battle-log hooks; reopen the report after enabling it.");
   BOOL("interface", ui, disable_escape_exit, "Block Escape exit prompt", hotkeys, Live,
        "Block the exit prompt except for an enabled double-tap.");
   INT("interface", ui, disable_escape_exit_timer, "Escape double-tap interval", hotkeys, Live,

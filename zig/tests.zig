@@ -392,6 +392,14 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         }
     }
 
+    {
+        const module = ctx.createModule(true);
+        libs.il2cpp.linkInto(module);
+        module.addIncludePath(b.path("src/mod"));
+        module.addCSourceFile(.{ .file = b.path("tests/aai_detour_test.cc"), .flags = flags });
+        addFixture(ctx, build_tests, test_il2cpp, "aai-detour-tests", module);
+    }
+
     // HookSet policy over SPUD's public generic installable-hook seam. Unsafe modes each need a fresh process:
     // the production native-state latch is monotonic and intentionally has no test reset API.
     {

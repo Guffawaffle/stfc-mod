@@ -328,6 +328,9 @@ audioeventhooks = true
 # Enable the buff fixes
 bufffixhooks = true
 basecardhooks = true
+
+# Install the optional AAI product's report/Back hooks and shared-frame service.
+battlelogsummaryhooks = true
 cargoformathooks = true
 chatpatches = true
 
@@ -772,6 +775,9 @@ notify_incoming_player_attack = false
 notify_fleet_events = ""
 # Allow moving officer presets into occupied slots.
 allow_officer_preset_reordering = false
+
+# Native Battle Analysis when built with AAI; applies live, without changing the native Battle Log.
+battle_log_summary_preview = true
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true
 auto_confirm_discovery = true

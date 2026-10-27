@@ -1,5 +1,15 @@
 # Downstream play preservation target
 
+## Native AAI integration — 2026-10-27
+
+The [AAI host contract](features/PLAY-AAI.md) ports the frozen play-dev dependency
+at `4bece2e` without changing its analytics, decoder, worker, native Overview,
+Crew & Effects, Tactical Console or optional Kit workshop. The host uses the
+existing transactional installation, frame owner and Settings persistence.
+All 42 pinned AAI fixtures and 96 retained-report result comparisons pass;
+native gameplay and macOS qualification remain distinct from those results.
+This is a selected play-dev capability batch, not an overall parity claim.
+
 ## Officer and pin workflow cohort — 2026-10-26
 
 [Cohort 20261026-02](FEATURE-COHORT-20261026-02.md) performs the next four complete

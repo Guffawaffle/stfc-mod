@@ -42,7 +42,8 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const options = Options.parse(b);
     const profiles_options = profiles.Options.parse(b);
-    mod.addUniversal(b, optimize, options, profiles_options.host);
+    const aai_options = aai.Options.parse(b);
+    mod.addUniversal(b, optimize, options, profiles_options.host, aai_options);
     const ctx = Ctx.init(b, target, optimize, options);
 
     // Libraries the native fixtures share with the shipped mod. None of them need networking or a platform SDK,
@@ -68,17 +69,17 @@ pub fn build(b: *std.Build) void {
 
     // Standalone producers stay outside the mod closure. Profiles enters that
     // closure only through its explicit host option; defaults inspect no private roots.
-    const aai_options = aai.Options.parse(b);
     var unicode: ?@import("zig/ctx.zig").Lib = null;
     if (aai_options.enabled and aai_options.native) {
         const package = b.lazyDependency("simdutf", .{}) orelse return;
         unicode = aai.simdutf(ctx, package.path(""));
     }
-    _ = aai.add(ctx, aai_options, .{
+    const aai_outputs = aai.add(ctx, aai_options, .{
         .json = deps.nlohmannJson(ctx),
         .il2cpp = il2cpp,
         .spud = spud,
         .spdlog = spdlog,
+        .toml = toml,
         .simdutf = unicode,
     });
     _ = shared_toml.add(ctx, shared_toml.Options.parse(b), .{
@@ -111,6 +112,7 @@ pub fn build(b: *std.Build) void {
     // The original optional adapter remains a separate producer/fixture. Only
     // the reviewed host adapter may enter this product's source/link closure.
     if (profiles_options.host) mod_libs.append(b.allocator, profiles_outputs.?.host.?) catch @panic("OOM");
+    if (aai_options.host) mod_libs.append(b.allocator, aai_outputs.?.native.?) catch @panic("OOM");
     mod.add(ctx, mod_libs.items, profiles_verification);
     launcher.add(ctx);
     tests.addDependencySmoke(ctx, &.{ proto, proto_runtime, cpr, curl, zlib });

@@ -42,6 +42,14 @@ struct FeatureInstallation {
 // feature's hooks installed but the one shared FrameTick did not. No initialization is triggered by this query.
 std::span<const FeatureInstallation> FeatureInstallations();
 
+// aai.cc: the private native product owns its two callbacks; host-owned
+// transactions, per-target reporting and the shared frame owner stay central.
+#if defined(STFC_AAI_ENABLED)
+extern const Feature kAaiReportObserver;
+extern const Feature kAaiBack;
+extern const Feature kBattleLogSummary;
+#endif
+
 // runtime_config.cc: registered-key saves and native quit/drain lifecycle.
 extern const Feature kRuntimeConfig;
 extern const Feature kModState;

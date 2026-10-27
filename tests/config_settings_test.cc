@@ -351,6 +351,18 @@ int main()
         "restart intent saves the requested value without changing the active field");
   auto* preset = Find<BooleanSetting>(catalog, "ui.allow_officer_preset_reordering");
   Check(preset && !preset->Observe().state.known(), "unqualified officer preset native owner stays disabled");
+  auto* aai = Find<BooleanSetting>(catalog, "ui.battle_log_summary_preview");
+  Check(aai && !aai->Observe().state.known(), "AAI control stays unavailable without its compiled/runtime owner");
+  Enable("BattleLogSummary");
+  features.back().frame_ready = false;
+  Check(!aai->Observe().state.known(), "AAI registration alone does not establish frame delivery");
+  features.back().frame_ready = true;
+  Check(aai->Observe().state.known() && Config::Get().ui.battle_log_summary_preview,
+        "ready native AAI retains the existing enabled default");
+  Check(aai->SetFromUser(false, aai->Observe()).outcome == Outcome::AppliedVerified
+            && !Config::Get().ui.battle_log_summary_preview
+            && !std::get<bool>(saved.at("ui.battle_log_summary_preview")),
+        "AAI live toggle retains the registered TOML owner and exact key");
   Check(!Find<BooleanSetting>(catalog, "graphics.borderless_fullscreen"), "dormant borderless behavior is not revived");
 
   for (const bool player : {true, false}) {

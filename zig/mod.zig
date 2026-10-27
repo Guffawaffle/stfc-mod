@@ -232,7 +232,7 @@ fn addLoader(ctx: *const Ctx, flags: []const []const u8) void {
 
 /// `macos-universal`: run this build for both macOS architectures and lipo the dylib and loader together.
 /// Each architecture is a child `zig build` because one graph resolves a single -Dtarget.
-pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: Options, profiles_host: bool) void {
+pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: Options, profiles_host: bool, aai_options: anytype) void {
     const step = b.step("macos-universal", "Build and merge ARM64 and Intel macOS dylib and loader");
     if (profiles_host) {
         step.dependOn(&b.addFail("Profiles host universal packaging is not qualified; build an explicit thin Windows/macOS target with its verified dependency prefix").step);
@@ -252,6 +252,12 @@ pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: 
         });
         if (options.bg_image.len != 0) child.addArg(b.fmt("-Dbg_image={s}", .{options.bg_image}));
         if (options.macos_sdk) |sdk| child.addArg(b.fmt("-Dmacos-sdk={s}", .{sdk}));
+        if (aai_options.host) {
+            child.addArg("-Daai-host=true");
+            if (aai_options.source) |source| child.addArg(b.fmt("-Daai-source={s}", .{source}));
+            child.addArg(b.fmt("-Daai-ui-lab={}", .{aai_options.ui_lab}));
+            child.addArg(b.fmt("-Daai-allow-dirty={}", .{aai_options.allow_dirty}));
+        }
         child.addArg("--prefix");
         prefixes[i] = child.addOutputDirectoryArg(arch);
         child.setCwd(b.path(""));

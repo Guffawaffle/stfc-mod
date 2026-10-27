@@ -99,6 +99,14 @@ Zig does not support Mach-O LTO, so macOS builds use ordinary optimized compilat
 For library-only checks, use `zig build il2cpp`, `zig build unity`, or `zig build mods` with the required target.
 Dependency build steps are `dep-spud`, `dep-protobuf`, `dep-net`, and `dep-spdlog`.
 
+Private downstream AAI is optional. `-Daai-host=true -Daai-source=<absolute-checkout>`
+links its pinned native implementation into the existing mod. The source must
+match `zig/aai.zig`; an explicit development override is recorded, never inferred.
+`-Daai-ui-lab=true` separately includes development studies. Producer targets
+`aai-core`, `aai-cli`, `aai-native` and `test-aai` remain independently usable with
+`-Daai=true`; `test-aai-host` requires host selection. Disabled builds do not
+inspect private paths. See the [host contract](docs/migration/features/PLAY-AAI.md).
+
 ## Run checks before submitting
 
 Format changed code and check whitespace:

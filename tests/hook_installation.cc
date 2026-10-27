@@ -174,7 +174,7 @@ void SafeCases()
     auto            trace = std::make_shared<std::vector<std::string>>();
     auto            a = Make("A", trace), b = Make("B", trace), c = Make("C", trace);
     il2cpp::HookSet set("Success");
-    set.Stage(FakeHook(a));
+    auto            retained = set.StageRetained(FakeHook(a));
     set.Stage(FakeHook(b));
     set.Stage(FakeHook(c));
     const auto result = set.CommitDetailed();
@@ -186,6 +186,9 @@ void SafeCases()
     for (const auto& state : {a, b, c})
       Require(state->installed && state->installs == 1 && state->uninstalls == 0 && state->detaches == 1,
               "successful hook lifecycle changed");
+    Require(a->destroys == 0 && retained->state == a, "retained staged handle lost post-commit query lifetime");
+    retained.reset();
+    Require(a->destroys == 1 && a->uninstalls == 0, "dropping a detached query handle changed installed ownership");
     RequireCached(set, result, trace);
   }
   for (unsigned failing = 0; failing < 3; ++failing) {

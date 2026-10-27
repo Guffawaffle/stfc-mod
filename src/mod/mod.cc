@@ -221,6 +221,12 @@ constexpr const Feature* kFeatures[] = {
     &kOfficerSort,
     // officer_presets.cc
     &kOfficerPresetReorder,
+#if defined(STFC_AAI_ENABLED)
+    // aai.cc: report/Back capabilities and shared-frame readiness are distinct.
+    &kAaiReportObserver,
+    &kAaiBack,
+    &kBattleLogSummary,
+#endif
     // settings.cc
     &kNativeSettings,
     &kNativeSettingsValues,
