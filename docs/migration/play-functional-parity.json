@@ -2239,11 +2239,13 @@
           "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
           "tests/audio_settings_test.cc"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-AUDIO-PICKER.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "branchObservations": [
         {
@@ -2320,6 +2322,22 @@
               "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
             }
           ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection plus automated adapters; native workflow pending",
+          "evidence": [
+            {
+              "path": "src/mod/settings/audio_alerts.cc",
+              "symbol": "RegisterAudioAlertPages"
+            }
+          ],
+          "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
         }
       ],
       "contract": "docs/migration/features/SET-AUDIO-PICKER.md",
@@ -2334,18 +2352,48 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "see exact candidate/workflow evidence",
+        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
-      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
         "recordedImmediately": true
-      }
+      },
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "feature/migrate-play-feature-pilots-20261026",
+            "base": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+            "implementationCommit": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+          },
+          "contract": "docs/migration/features/SET-AUDIO-PICKER.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
+            "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
+            "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
+            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
+          },
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-37e298a3-receipt.json",
+          "artifactReceiptSha256": "319efa15715dc6afbe5e2ef3042d9f0a3f55286b711f6c9abe36e424be6afdb1",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "runtimeEvidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/"
+        }
+      ],
+      "parentCapability": "PLAY-AUDIO-CUES"
     },
     {
       "id": "SET-IMAGE-PICKER",
@@ -3077,11 +3125,13 @@
           "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
           "tests/config_settings_test.cc"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-WARP-FILTERS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+      ],
       "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
       "discovery": {
         "sourceRef": "frozen/play-dev-20261026",
@@ -3165,6 +3215,22 @@
               "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
             }
           ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection plus automated adapters; native workflow pending",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / SET-WARP-FILTERS"
+            }
+          ],
+          "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
         }
       ],
       "contract": "docs/migration/features/SET-WARP-FILTERS.md",
@@ -3179,18 +3245,47 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "see exact candidate/workflow evidence",
+        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
-      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
         "recordedImmediately": true
-      }
+      },
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "feature/migrate-play-feature-pilots-20261026",
+            "base": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+            "implementationCommit": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+          },
+          "contract": "docs/migration/features/SET-WARP-FILTERS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
+            "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
+            "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
+            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
+          },
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-37e298a3-receipt.json",
+          "artifactReceiptSha256": "319efa15715dc6afbe5e2ef3042d9f0a3f55286b711f6c9abe36e424be6afdb1",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "runtimeEvidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/"
+        }
+      ]
     },
     {
       "id": "SET-DAILY-FACTIONS",
@@ -3215,11 +3310,13 @@
           "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
           "tests/config_settings_test.cc"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-DAILY-FACTIONS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+      ],
       "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
       "discovery": {
         "sourceRef": "frozen/play-dev-20261026",
@@ -3304,6 +3401,22 @@
             }
           ],
           "differences": "control exists, differing empty/all encoding"
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection plus automated adapters; native workflow pending",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / SET-DAILY-FACTIONS"
+            }
+          ],
+          "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
         }
       ],
       "contract": "docs/migration/features/SET-DAILY-FACTIONS.md",
@@ -3316,18 +3429,47 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "see exact candidate/workflow evidence",
+        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
-      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
         "recordedImmediately": true
-      }
+      },
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "feature/migrate-play-feature-pilots-20261026",
+            "base": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+            "implementationCommit": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+          },
+          "contract": "docs/migration/features/SET-DAILY-FACTIONS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
+            "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
+            "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
+            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
+          },
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-37e298a3-receipt.json",
+          "artifactReceiptSha256": "319efa15715dc6afbe5e2ef3042d9f0a3f55286b711f6c9abe36e424be6afdb1",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "runtimeEvidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/"
+        }
+      ]
     },
     {
       "id": "SET-BANNER-FILTERS",
@@ -3352,11 +3494,13 @@
           "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
           "tests/config_settings_test.cc"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-BANNER-FILTERS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+      ],
       "activationAndDependencies": "Existing native Settings/writer and corresponding product owner.",
       "discovery": {
         "sourceRef": "frozen/play-dev-20261026",
@@ -3440,6 +3584,22 @@
               "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
             }
           ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "feature/migrate-play-feature-pilots-20261026",
+          "refRole": "refactor",
+          "revision": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "presence": "present",
+          "evidenceKind": "pinned source inspection plus automated adapters; native workflow pending",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / SET-BANNER-FILTERS"
+            }
+          ],
+          "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
         }
       ],
       "contract": "docs/migration/features/SET-BANNER-FILTERS.md",
@@ -3453,19 +3613,48 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "see exact candidate/workflow evidence",
+        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
       "platformScope": "Hidden banner editor on both platforms; desktop allowlist editor Windows-only, preserving source.",
-      "catalogStatus": "Implemented; Windows automated checks pass; native trial pending",
+      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; automated validation passed; source-bound DLL verification pending",
+        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
         "recordedImmediately": true
-      }
+      },
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "feature/migrate-play-feature-pilots-20261026",
+            "base": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
+            "implementationCommit": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe"
+          },
+          "contract": "docs/migration/features/SET-BANNER-FILTERS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
+            "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
+            "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
+            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
+          },
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-37e298a3-receipt.json",
+          "artifactReceiptSha256": "319efa15715dc6afbe5e2ef3042d9f0a3f55286b711f6c9abe36e424be6afdb1",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "runtimeEvidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/"
+        }
+      ]
     },
     {
       "id": "SET-AAI-ANALYSIS-ENTRY",

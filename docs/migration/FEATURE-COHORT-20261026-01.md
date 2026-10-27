@@ -128,6 +128,61 @@ qualification must not be inferred from compilation or the previous pilot trial.
 
 ## Checkpoint and recovery
 
-Implementation, final candidate receipts and continuity references are appended
-after qualification. Original source and study archive stay pinned. Next discovery
-starts from an unported capability, not another scan of these four contracts.
+Implementation commit: `37e298a397fe4f56f0026e1c9dc6e05612ea69fe`. Subsequent
+inventory and qualification notes are documentation only; production/build/test
+inputs were checked unchanged from that commit.
+
+Final Windows default DLL build: **37/37 steps passed**. This is the default install
+target, separate from the 23-step `mods` static-library build. Candidate:
+`zig-out/feature-cohort-37e298a3/bin/version.dll`, SHA-256
+`916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939`.
+`scripts/verify-windows-binary.py` verified x86_64, exactly 16 proxy exports, static
+CRT and the complete embedded identity: source/base `37e298a3...`, build
+`feature-cohort-20261026-01`, mode `release`, channel `study`.
+
+Post-commit `test-mod test-il2cpp` gate again passed 210/210 steps. The three
+current audio, config-settings and owned-task fixture executables were explicitly
+re-executed successfully; their paths, selection method, hashes and outputs are
+retained in `D:/dev/stfc-workspace/.ax/feature-cohort-37e298a3-receipt.json`, SHA-256
+`319efa15715dc6afbe5e2ef3042d9f0a3f55286b711f6c9abe36e424be6afdb1`.
+The receipt records toolchain/input hashes and individual build/test log identities.
+One initial identity-option invocation was rejected during configure; no artifact
+was produced. The successful final invocation used explicit literal values and
+verified the resulting resource marker.
+
+Reproduce in the existing VS amd64 shell with Zig 0.16.0:
+
+```powershell
+zig build -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -j4 --summary all `
+  -p zig-out/feature-cohort-37e298a3 `
+  -Dstfc_source_state_id=37e298a397fe4f56f0026e1c9dc6e05612ea69fe `
+  -Dstfc_base_commit=37e298a397fe4f56f0026e1c9dc6e05612ea69fe `
+  -Dstfc_build_invocation_id=feature-cohort-20261026-01 -Dstfc_build_channel=study
+```
+
+### Authorized main-game boot smoke
+
+The candidate was built before stopping the game. Existing canonical AX lifecycle
+helpers then stopped the explicitly checked ordinary main PID 7464 / file time
+`134375393035625138`, deployed the exact DLL above and launched PID 51248 / file
+time `134375424875951356`. Installation:
+`C:/Games/Star Trek Fleet Command/default/game`, client 273. The local VERSION.dll
+module path was observed and the current installed disk hash matched; that does
+not independently hash in-memory module bytes. The system version.dll also appears
+normally in the module inventory.
+
+The window responded; startup logged FrameTick ready and zero error/critical
+lines. All four installation TOML files were byte-identical before deployment
+and after boot. No settings edits, store changes or build during game downtime.
+Receipts and retained startup log:
+`D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/`
+(`cycle.json`, `deploy.json`, `boot.json`, `startup-community_patch.log`). The
+canonical deploy helper's branch fields describe its own checkout; the explicit
+Zig source commit/marker above is the candidate identity.
+
+This is boot smoke, not player confirmation of the four workflows. Their native
+dialog/control/consumer checks above and macOS qualification remain pending.
+Original source and study archive stay pinned. The next discovery should start
+from an unported capability, not another scan of these four contracts. Recovery
+uses the scoped Downstream handoff with this worktree/branch and implementation
+commit explicitly named; no LexRunner continuity attribution is made.
