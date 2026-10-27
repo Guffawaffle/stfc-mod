@@ -11,6 +11,9 @@ parity. No game cycle, deployment, configuration change, push, or promotion.
   `076c85a84ee5d126b02582f55936ccfc4a066a29`, preserved.
 - Work branch: `feature/migrate-play-feature-pilots-20261026`, existing
   `D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream` worktree.
+- Implementation checkpoint: `241372c3efb2e3b1c5f0c9fa5ee336387044cfc6`.
+  Subsequent inventory/recovery edits are documentation only. Production inputs
+  were checked unchanged from that commit after all final checks.
 - Canonical product checkout remains on its separate Alliance Games study branch.
   The game remains on its existing installed build.
 
@@ -98,15 +101,34 @@ worktree, through the existing local gate helper or VS developer shell.
 | Base `test-mod test-il2cpp` | 202/202 build/run steps passed before feature edits. Not 202 independent behavior tests. |
 | Candidate `test-mod test-il2cpp` | 208/208 steps passed, including preserved/new picker and production capture/catalog fixtures. |
 | Windows `zig build mods` | 23/23 steps passed. Static native library only. |
-| Windows default DLL build | Initial candidate 37/37 steps passed; final post-review identity-bound build recorded below when complete. |
+| Windows default DLL build | Final candidate 37/37 steps passed; x86_64 proxy/16 exports/static CRT/full resource provenance marker verified. |
 | Skill metadata, relative references, `git diff --check` | Passed. These do not establish workflow or runtime correctness. |
 | macOS aarch64 ReleaseFast build | Could not configure: `.cache/toolchain/macos-sdk` absent, no SDK path/URL configured. No macOS compile/runtime claim; x86_64 also unqualified. |
 | Native dialogs, TMP completion state, button chain, game/client ABI | Pending. No boot smoke or player verification performed. |
 
 Local receipts/logs are under `D:/dev/stfc-workspace/.ax/` with
-`migrate-play-feature-*-20261026` names. Final source/artifact identities and manifest
-will be attached in the documentation checkpoint after the implementation commit.
-Earlier builds are not evidence for later source changes.
+`migrate-play-feature-*-20261026` names. Receipt:
+`D:/dev/stfc-workspace/.ax/migrate-play-feature-241372c3-receipt.json`, SHA-256
+`8081ac3f64ee871c8ea34756f7e3c1793cd18e319897d9191bcb7c38ac444ecd`.
+It records changed input hashes, five fixture executable identities and successful
+post-commit re-executions, log hashes, platform limits, and byte-identical source
+reuse of both models and the picker API. Earlier builds do not qualify later code.
+
+Final DLL (built, **not installed**):
+`zig-out/migrate-play-feature-241372c3/bin/version.dll`, SHA-256
+`66074968bcc1c5718d9ec1c3a5f089a70e7c9de7d1b6468b96afb1320d79d1cc`.
+Its resource marker carries implementation commit `241372c3...` as source/base,
+build `migrate-play-feature-20261026`, mode `release`, channel `study`.
+
+Reproduce the tests with the existing
+`D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/Run-LocalGate.ps1`
+and `-Targets 'test-mod test-il2cpp'`. In a VS amd64 developer shell, the DLL command
+is Zig 0.16.0 `build -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -j4
+--summary all -p zig-out/migrate-play-feature-241372c3`, with
+`-Dstfc_source_state_id=241372c3efb2e3b1c5f0c9fa5ee336387044cfc6`, the same
+`-Dstfc_base_commit`, `-Dstfc_build_invocation_id=migrate-play-feature-20261026`,
+and `-Dstfc_build_channel=study`. Verify it through
+`scripts/verify-windows-binary.py` with the complete resource marker, not a branch label.
 
 ## Workflow dogfood findings
 

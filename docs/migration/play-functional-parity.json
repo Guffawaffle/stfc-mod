@@ -462,15 +462,63 @@
       "verificationProcedure": "Double/triple clicks, badge clicks, recycled tiles, held Enter, focus and patch disabled. Migration intentionally uses one assignment per key press; acceptance pending.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "Frozen play-dev reassessment: docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md; input/model/catalog fixtures qualified at 241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Double/triple clicks, badge clicks, recycled tiles, held Enter, focus and patch disabled. Migration intentionally uses one assignment per key press; acceptance pending.",
       "restorationCommits": [
-        "working candidate after 5c921b65; not yet committed or deployed"
+        "working candidate after 5c921b65; not yet committed or deployed",
+        "241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-DOCK-ASSIGN.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "feature/migrate-play-feature-pilots-20261026",
+            "base": "076c85a84ee5d126b02582f55936ccfc4a066a29",
+            "implementationCommit": "241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
+          },
+          "contract": "docs/migration/features/PLAY-DOCK-ASSIGN.md",
+          "migrationStatus": "Partial",
+          "implemented": [
+            "Preserved existing double-click/shared tile owner",
+            "Restored Settings capture/drain suppression and hotkey patch relationship",
+            "Added per-candidate GC custody and Unity liveness checks"
+          ],
+          "decisions": [
+            "Retain one assignment per Enter edge and require successful tile-hook installation; explicit safety differences",
+            "Do not equate per-candidate custody with source full-snapshot rooted acquisition"
+          ],
+          "verification": {
+            "sourceComparison": "complete named implementation and supporting paths; see contract",
+            "automated": "208/208 Windows test-mod/test-il2cpp build/run steps passed; step count is not test count",
+            "fixtureLayers": [
+              "Production input boundary with real capture state; full frame/native button chain not exercised"
+            ],
+            "windowsNative": "37/37 final DLL build steps passed; x86_64/16 exports/static CRT/full source-bound provenance verified. No native runtime trial.",
+            "macOS": "not qualified; build configuration rejected missing macOS SDK",
+            "exactClient": "pending; no deployment or game cycle"
+          },
+          "remaining": [
+            "Full-snapshot custody/order differs; no UAF reproduced",
+            "Native double-click, pin gestures, button chain, destroyed/rebound docks and held-Enter acceptance remain unverified",
+            "Inherited ordinary-click pairing has no episode reset"
+          ],
+          "evidence": "docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md",
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/migrate-play-feature-241372c3-receipt.json",
+          "artifactReceiptSha256": "8081ac3f64ee871c8ea34756f7e3c1793cd18e319897d9191bcb7c38ac444ecd"
+        }
+      ]
     },
     {
       "id": "PLAY-DOCK-SYNC",
@@ -2100,27 +2148,83 @@
     {
       "id": "SET-IMAGE-PICKER",
       "name": "Loading-image picker and exact entry",
-      "classification": "Partial",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/settings/upstream_settings.cc",
         "symbolOrWorkflow": "LoadingImage"
       },
       "migration": {
-        "path": "src/mod/features/loading_screens.cc",
-        "symbolOrWorkflow": "Image consumer only"
+        "path": "src/mod/settings/config_settings.cc",
+        "symbolOrWorkflow": "RegisterConfigSettings loading-image action; ImageFileSetting; image_file_picker_windows.cc / image_file_picker_mac.mm",
+        "additionalEvidence": [
+          "src/mod/features/loading_screens.cc (unchanged consumer)",
+          "src/mod/settings/image_path_entry.h (exact fallback)",
+          "src/mod/features/settings_text_entry.cc (validation completion)"
+        ]
       },
       "expectedBehavior": "Loading-image picker and exact entry",
       "verificationProcedure": "Valid/invalid/Unicode selection, cancel retains prior image, asynchronous completion and truthful restart status.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "Frozen play-dev reassessment: docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md; input/model/catalog fixtures qualified at 241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Valid/invalid/Unicode selection, cancel retains prior image, asynchronous completion and truthful restart status.",
-      "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "restorationCommits": [
+        "241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
+      ],
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/SET-IMAGE-PICKER.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "feature/migrate-play-feature-pilots-20261026",
+            "base": "076c85a84ee5d126b02582f55936ccfc4a066a29",
+            "implementationCommit": "241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
+          },
+          "contract": "docs/migration/features/SET-IMAGE-PICKER.md",
+          "migrationStatus": "Implemented, unverified",
+          "implemented": [
+            "Reused unchanged source picker/validator models",
+            "Restored native image-only dialogs and nonjoining task ownership",
+            "Restored registered restart-only image setting, lazy frame polling and exact fallback",
+            "Added owned validation-completion notification to existing native editor"
+          ],
+          "decisions": [
+            "Catalog registration remains pure; admit polling only for explicit intent",
+            "External picker retains process-level intent; exact editor remains page-bound",
+            "Fallback requires native editor readiness, not just synthetic routing success"
+          ],
+          "verification": {
+            "sourceComparison": "complete named implementation and supporting paths; see contract",
+            "automated": "208/208 Windows test-mod/test-il2cpp build/run steps passed; step count is not test count",
+            "fixtureLayers": [
+              "Unchanged source models; production catalog with synthetic frame/editor/picker/writer; nonjoining worker; native TMP host not exercised"
+            ],
+            "windowsNative": "37/37 final DLL build steps passed; x86_64/16 exports/static CRT/full source-bound provenance verified. No native runtime trial.",
+            "macOS": "not qualified; build configuration rejected missing macOS SDK",
+            "exactClient": "pending; no deployment or game cycle"
+          },
+          "remaining": [
+            "Native Windows/Cocoa dialog lifecycle and Unicode selection",
+            "Native unchanged-draft validation refresh, replaced/cancelled editor and fallback with host ready",
+            "Image decode/fallback after restart; regular-file checks are not decode proof"
+          ],
+          "evidence": "docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md",
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/migrate-play-feature-241372c3-receipt.json",
+          "artifactReceiptSha256": "8081ac3f64ee871c8ea34756f7e3c1793cd18e319897d9191bcb7c38ac444ecd"
+        }
+      ]
     },
     {
       "id": "CFG-LOAD-RELOAD",

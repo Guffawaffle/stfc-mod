@@ -1,5 +1,16 @@
 # Downstream play preservation target
 
+## Bounded frozen-play-dev pilots — 2026-10-26
+
+The [migration skill pilots](MIGRATE-PLAY-FEATURE-PILOTS.md) reassess only
+PLAY-DOCK-ASSIGN and SET-IMAGE-PICKER against frozen play-dev
+`1baa55fedf1758b19f843cc59707b8901a0b4998`. Their contracts and additive inventory
+assessments preserve the historical PLAY baseline below. Assignment input
+omissions are repaired, but snapshot custody and native interactions remain
+unqualified. Image selection is implemented and tested offline, unverified in
+game. This is an isolated skill/pilot branch, not whole-product restoration,
+deployment, promotion, or a new overall-parity claim.
+
 ## Current alignment sprint checkpoint
 
 The [remaining alignment sprint](ALIGNMENT-SPRINT-20261025.md) restores native
