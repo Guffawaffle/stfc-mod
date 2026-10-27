@@ -1,10 +1,13 @@
 # PLAY-OFFICER-PRESETS — Officer preset ordering and native save
 
-**2026-10-27 status:** the enabled native trial at `30eeec8e` failed with a blank
-preset view, despite passing offline fixtures and boot checks. A fresh restart
-with the setting off works (operator report). Treat native behavior as regressed,
-not qualified. Diagnostic source `8cfd43a1` traces the unchanged failure path;
-cause remains unresolved. The initial gap assessment below is historical.
+**2026-10-27 status:** correction `a0565d7e` has basic Windows player acceptance:
+opening, Shift/Ctrl reordering without opening rename, plain Edit renaming the
+correct row with its crew unchanged, and retained order after closing/reopening.
+Eight local-order changes have successful persistence receipts. The earlier blank
+view was an initialization-order regression, diagnosed against the actual native
+scroller and reproduced in fixtures before correction. macOS and native crew
+creation/replacement/deletion remain unqualified. This is not overall parity.
+See [the accepted checkpoint](#initialization-correction-and-basic-windows-acceptance--2026-10-27).
 
 Contract v1, scanned 2026-10-26. Frozen source `1baa55fedf1758b19f843cc59707b8901a0b4998`;
 target `play-dev-ripper@f4f64180543a9231234cd2b3d3f547dfa580476b`.
@@ -17,7 +20,10 @@ hooks, canonical validation, separate display order, save/rebind/release,
 scroll preservation and state queue. Supporting `mod_state`, config, Settings
 availability and native preset/scroller classes are part of the workflow.
 
-| Obligation | Source behavior | Target status / qualification |
+The following table records the original scan, before native integration. Current
+qualification is recorded in the dated sections below.
+
+| Obligation | Source behavior | Target status at original scan |
 | --- | --- | --- |
 | P1 | Preserve int64 SlotId including zero; canonical OrderId equals index; refuse ambiguous filled duplicate identities. | Existing `officer_preset_order.h` policy supports this; native acquisition absent. |
 | P2 | Empty/all-null crew rows stay fixed, including duplicate pending SlotIds; IsOccupied is not authoritative. | Existing qualified observation/policy fixture supports this. |
@@ -122,7 +128,10 @@ Settings persistence is independently exercised through the real model, runtime
 adapter, writer, TOML editor and filesystem in an isolated directory. See
 [mechanism differences and the bounded follow-up](../PERSISTENCE-MECHANISMS.md).
 
-### Focused in-game qualification still required
+### Focused in-game qualification checklist at initial implementation
+
+This checklist predates the trial. The accepted checkpoint below identifies what
+has since passed and what remains untested; do not treat this list as a new request.
 
 1. Enable preset reordering in Mod Settings; observe save status and inspect the
    exact TOML value, then close/reopen Settings. Include a controlled return to
@@ -142,6 +151,8 @@ No new runtime deployment, store edit or player verification is implied by the
 offline implementation record.
 
 ## Failed enabled trial and diagnostic boundary — 2026-10-27
+
+Historical failure record; superseded by the correction and qualification below.
 
 The main game booted with all 68 groups installed, but opening presets with
 reordering enabled produced a blank/blurred view. Mod log reported "bound native
@@ -173,3 +184,77 @@ Immediate rebuild/repair during canvas binding is a hypothesis to test against
 those traces and the retained native scroller implementation. Further functional
 changes should follow that evidence, preserve the existing native save guard,
 and add a reproducing controlled-runtime case for the actual failure.
+
+## Initialization correction and basic Windows acceptance — 2026-10-27
+
+Implementation: `a0565d7e7a801679086e56c287d47e7c867bdbb3` on `play-dev-ripper`.
+The diagnostic trial (`e0c24c97`, incorporating `8cfd43a1`) established that native
+canvas binding returns **before** `SmartScroller.Start()`: live `_data` is null
+while the canonical list is held for initialization. The adapter immediately
+requested a display rebuild and then forced a canonical repair into that pending
+initializer. The retained native implementation confirms the deferred held-source
+path. Its GameAssembly SHA-256 matches client 273's installed image:
+`a9ab2edbc143cfba3aff35665e129006f73853070dbff206884fda04a235ab94`.
+This explains the observed blank view; it is not an officer-sort diagnosis.
+
+Binding now acquires roots without rebuilding. The existing frame callback waits
+for canonical source adoption, cleared initialization flags and matching receiver
+contexts before projecting. Pending display-source adoption retains the candidate
+and its ownership ticket rather than forcing repair or repeatedly rebuilding.
+Closing before native initialization detaches without manufacturing `_data`.
+Canonical save/index translation, exact identities, modifier behavior, state owner
+and save receipts are unchanged. No second task system or persistence owner.
+
+The production-adapter fixture now reproduces the initially null source with a
+held canonical list, repeated waiting frames, early close before `Start`, and later
+asynchronous source adoption. It proves no premature source/presentation mutation
+or repeated rebuild. Existing save replacement/receiver, nested and throwing save,
+disable/rebind, disposal and failure cases remain in that fixture.
+
+Windows `test-mod test-il2cpp` passed **214/214 build/run steps** at this source.
+The production-adapter executable was explicitly rerun with exit 0 and SHA-256
+`67ed93b170f1685379d7e07bf36944cc9e3b9b7094c6aa3b02a937a2422c8d27`.
+The complete Windows DLL build and x86_64 proxy/export/static-CRT/full-provenance
+verification passed separately. Installed `releasedbg` DLL SHA-256:
+`ec9339e4cb3748f22a129c7f1873f9b18e299d353af999cdece165aee442dd29`.
+The ordinary main game was cycled **after building**, PID 13068 → 48968,
+installation `C:/Games/Star Trek Fleet Command/default/game`. The source remained
+stable across the build; installed disk bytes matched. This is not an independent
+measurement of the in-memory module bytes.
+
+Actual trace: native bind retained the canonical list at 01:31:09.991; native
+initialization was ready at 01:31:10.130; projection was ready at 01:31:10.136.
+The captured corrected session has zero `SmartScroller.ReassignItem` exception
+stack occurrences and successful exact local-order receipts for revisions 1–8.
+Guff confirmed “worked”, then “yup all work” for this bounded workflow:
+
+- Presets open with reordering enabled.
+- Shift+Edit / Ctrl+Edit move rows and consume the rename action.
+- Plain Edit renames the intended disposable preset, keeping its crew unchanged.
+- Closing/reopening preserves local order and the renamed row.
+
+Those observations qualify basic Windows interaction, not every native failure
+path. Actual crew creation/replacement/deletion, forced-quit/power-loss durability,
+long stress sessions and macOS CI/Mcohall testing remain open. The earlier real
+Settings OFF-save/restart test qualifies that control's TOML path, not all Settings.
+The native rename result and local-order file receipts remain separate evidence.
+
+Retained evidence:
+
+- Accepted logs, executable rerun and source/binary/runtime receipt:
+  `D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json`
+  (SHA-256 `7ff68ebb310aba831812361f5c22551ab9f184a6a0dd165d9fca0302d10b2c6c`).
+- Reproduced diagnostic failure:
+  `D:/dev/stfc-workspace/artifacts/preset-settings-20261027/reproduced-debug/`.
+- Current full-suite log:
+  `D:/dev/stfc-workspace/.ax/preset-initialization-fix-tests.log`.
+- Exact build/cycle receipt:
+  `D:/dev/stfc-workspace/.ax/preset-initialization-fix-cycle.json`.
+
+The user-requested `ax build --zig` / `ax cycle --zig` adapter is machine-local,
+under canonical Downstream `.ax-priv`; it is not a new tracked product subsystem.
+Its source/binary checks and build-before-downtime flow were exercised for both
+diagnostic and corrected builds. Backup, final files, plans and test receipts are
+preserved in `D:/dev/stfc-workspace/artifacts/ax-zig-cycle-20261027/`.
+Default Xmake routing is unchanged; profile routing and AXF schema expansion were
+not added. Logging and shared low-level file-I/O extraction remain deferred.

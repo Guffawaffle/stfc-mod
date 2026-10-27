@@ -6,9 +6,10 @@
 frozen-source scans. Below Deck sort construction regains explicit source custody
 and field qualification; pin gestures invalidate every native bind episode, even
 for unchanged ship/context IDs. Existing durable pin ordering and checked writes
-are retained. Officer preset ordering remains missing until its actual native
-save/source/receiver boundary is qualified; a config entry or pure experiment is
-not counted as restored functionality.
+are retained. The later [preset integration and initialization correction](features/PLAY-OFFICER-PRESETS.md#initialization-correction-and-basic-windows-acceptance--2026-10-27)
+has basic Windows player acceptance for reorder, correct-row rename and retained
+local order. macOS, native crew replacement and extended failure paths remain
+unqualified; a config entry or passing pure fixture is not runtime equivalence.
 
 ## Active Ripper migration branch — 2026-10-26
 

@@ -545,7 +545,7 @@
     {
       "id": "PLAY-OFFICER-PRESETS",
       "name": "Preset ordering and canonical native save",
-      "classification": "Regressed",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/officer_preset_reorder.cc",
@@ -562,14 +562,17 @@
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
           "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished.",
-          "30eeec8e: 214/214 Windows build/run steps; production adapter and Settings disk fixtures explicitly rerun; 37/37 DLL build; see preset-settings-30eeec8e-receipt.json. No native UI/runtime claim."
+          "30eeec8e: 214/214 Windows build/run steps; production adapter and Settings disk fixtures explicitly rerun; 37/37 DLL build; see preset-settings-30eeec8e-receipt.json. No native UI/runtime claim.",
+          "a0565d7e: 214/214 Windows test-mod/test-il2cpp build/run steps; native Start wait/early close and async adoption cases against production adapter; explicit executable rerun exit 0; complete Windows DLL/provenance verification. D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json"
         ],
-        "exactCandidateRuntime": "30eeec8e: 68 groups/boot passed, but enabled preset UI is blank. Off in same session did not recover; operator manual restart off works. Settings off change reached TOML and persisted. Local-state SHA unchanged. Cause unresolved.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "a0565d7e/client 273/ordinary Windows main PID 48968: player confirms opening, Shift/Ctrl reorder consumption, plain Edit renames correct row with unchanged crew, retained order on close/reopen. Eight successful exact local-order receipts; no fresh SmartScroller.ReassignItem exception stacks in captured session. Basic workflow only; not all native save/failure paths.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerificationScope": "Basic Windows workflow player-verified; this boolean remains false for full feature/platform qualification."
       },
-      "dependenciesAndLimitations": "Exact-client source/renderer readiness, native preset save, persisted ordering and Settings UI persistence remain to qualify. Metadata preflight declines installation; a contradictory rooted canonical field write is fatal, never an unsafe save fallback. macOS CI/Mcohall pending. Shared file-I/O extraction and logging changes deferred.",
+      "dependenciesAndLimitations": "Native initialization wait corrected and basic Windows workflow accepted. Actual native crew creation/replacement/deletion, forced-quit/power-loss durability and macOS CI/Mcohall remain unqualified. One real Settings OFF-save/restart path passed, not every control. Metadata preflight declines installation; contradictory rooted canonical field write remains fatal, never an unsafe save fallback. Shared file-I/O extraction and logging deferred.",
       "restorationCommits": [
-        "30eeec8eb8f92c5946adbe95481d4c88aae64bf4"
+        "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
+        "a0565d7e7a801679086e56c287d47e7c867bdbb3"
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
@@ -583,7 +586,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "30eeec8e: 68 groups/boot passed, but enabled preset UI is blank. Off in same session did not recover; operator manual restart off works. Settings off change reached TOML and persisted. Local-state SHA unchanged. Cause unresolved.",
+        "Windows": "a0565d7e/client 273/ordinary Windows main PID 48968: player confirms opening, Shift/Ctrl reorder consumption, plain Edit renames correct row with unchanged crew, retained order on close/reopen. Eight successful exact local-order receipts; no fresh SmartScroller.ReassignItem exception stacks in captured session. Basic workflow only; not all native save/failure paths.",
         "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
       },
       "branchObservations": [
@@ -698,6 +701,26 @@
             }
           ],
           "differences": "Typed/rooted canonical handoff; receiver-map-aware scoped translation; recognized reorder clicks consume rename even when declined; exact state-save receipts. Default feature setting remains false."
+        },
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "a0565d7e7a801679086e56c287d47e7c867bdbb3",
+          "presence": "present",
+          "evidenceKind": "source-bound production-adapter fixtures, Windows DLL verification and bounded player-verified native workflow",
+          "evidence": [
+            {
+              "path": "src/mod/features/officer_presets.cc",
+              "symbol": "Native initialization readiness, async projection adoption, canonical native save/index translation"
+            },
+            {
+              "path": "D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json",
+              "symbol": "Exact source/DLL/executable identities, runtime trace and eight successful order-save receipts"
+            }
+          ],
+          "differences": "Wait for native Start instead of rebuilding/repairing during initial bind; retain pending candidate ownership until adoption; early close does not manufacture native data. Existing canonical save/receiver and persistence boundaries retained. macOS/extended native save cases unqualified."
         }
       ],
       "migrationWorkflow": {
@@ -705,10 +728,10 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "runtime failure reproduced; diagnostic-only instrumentation at 8cfd43a1; not accepted",
+        "state": "native implementation complete; basic Windows workflow accepted; extended native and macOS qualification pending",
         "recordedImmediately": true
       },
-      "catalogStatus": "Enabled runtime trial failed: blank preset view; fresh disabled session works; diagnostic investigation active",
+      "catalogStatus": "Basic Windows preset workflow accepted after initialization-order fix; macOS and native crew create/replace/delete remain unqualified",
       "assessments": [
         {
           "version": 1,
@@ -769,6 +792,38 @@
           "artifactReceipt": "D:/dev/stfc-workspace/.ax/preset-settings-30eeec8e-receipt.json",
           "artifactReceiptSha256": "fdb7c2034877c47f527682c142c1c0bc257ff45ddc65569d40bf900b298948c3",
           "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2"
+        },
+        {
+          "version": 3,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e0c24c97c5162157fcd24d981b86ab750b0ac9fe",
+            "implementationCommit": "a0565d7e7a801679086e56c287d47e7c867bdbb3"
+          },
+          "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "Complete frozen-source scan reused; correction narrows native scroller initialization lifecycle without changing canonical save protocol or state ownership.",
+            "automated": "214/214 Windows test-mod/test-il2cpp build/run steps; actual production adapter against controlled IL2CPP with null-source/held-list initialization, early close, async adoption and retained save/lifecycle cases. Explicit current executable rerun exit 0.",
+            "nativeBuild": "Complete Windows DLL build; x86_64, 16 proxy exports, static CRT and full source/base/build/mode/channel marker verified; source stable across build.",
+            "nativeRuntime": "a0565d7e/client 273/ordinary Windows main PID 48968: player confirms opening, Shift/Ctrl reorder consumption, plain Edit renames correct row with unchanged crew, retained order on close/reopen. Eight successful exact local-order receipts; no fresh SmartScroller.ReassignItem exception stacks in captured session. Basic workflow only; not all native save/failure paths.",
+            "settingsPersistence": "One real OFF toggle reached TOML and survived operator restart; isolated production model/writer/editor/filesystem tests cover wider failure and quit cases, not all native controls.",
+            "macOS": "No local build/runtime claim; CI and Mcohall qualification pending."
+          },
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json",
+          "artifactReceiptSha256": "7ff68ebb310aba831812361f5c22551ab9f184a6a0dd165d9fca0302d10b2c6c",
+          "artifactSha256": "ec9339e4cb3748f22a129c7f1873f9b18e299d353af999cdece165aee442dd29",
+          "evidence": "docs/migration/features/PLAY-OFFICER-PRESETS.md#initialization-correction-and-basic-windows-acceptance--2026-10-27",
+          "remaining": [
+            "macOS CI and Command+Edit native trial",
+            "Actual native crew creation/replacement/deletion and longer stress qualification",
+            "Forced-quit/power-loss durability not exercised in game"
+          ]
         }
       ],
       "operatorClarification": {
@@ -777,12 +832,13 @@
         "nextPriority": "Integrate the missing native preset workflow, including persisted display-order application and canonical native save/receiver handling.",
         "inputContract": "Shift+Edit up; Ctrl+Edit Windows / Command+Edit macOS down. Recognized reorder clicks consume native Edit, including boundaries; ordinary rename and source both/neither-modifier handling remain distinct.",
         "persistenceOwners": {
-          "settings": "Existing registered runtime_config::SaveSetting path to selected TOML file; source wiring inspected, no new runtime save trial.",
-          "displayOrder": "mod_state::QueueOfficerOrder -> officer_preset_order in state.json; admission is not durability and native caller/application remains missing.",
+          "settings": "Existing registered runtime_config::SaveSetting owner; actual OFF-save/restart observed plus isolated production disk integration tests.",
+          "displayOrder": "Existing mod_state::QueueOfficerOrder -> officer_preset_order in state.json; eight exact successful order-save receipts in corrected native trial, separate from native preset contents.",
           "presetContents": "Game native save callback with canonical data and matching receiver mapping; not a TOML/state write."
         },
-        "hold": "Guff explicitly authorized one main-game cycle for this focused preset/Settings trial; performed. No unrelated trial or further cycle follows from that authorization.",
-        "evidence": "docs/migration/features/PLAY-OFFICER-PRESETS.md#operator-clarification-and-next-integration-boundary--2026-10-26"
+        "hold": "One trial release followed by requested debugging and authorized Zig cycles; current basic Windows trial accepted. No additional cycle is needed for this documentation checkpoint.",
+        "evidence": "docs/migration/features/PLAY-OFFICER-PRESETS.md#operator-clarification-and-next-integration-boundary--2026-10-26",
+        "currentOutcome": "2026-10-27: user confirms all requested basic Windows rename/reorder/reopen checks; prior failure is retained in assessment v2, not current disposition."
       }
     },
     {
@@ -4789,13 +4845,17 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
-    "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2",
-    "qualification": "Current preset-enabled trial failed despite boot success. Settings off-save/restart observed; local-state untouched. Diagnostic build preparation active.",
-    "nextCandidate": {
-      "sourceCommit": "8cfd43a15e328164f7ac261f5d8d3220f4baea08",
-      "scope": "Diagnostic preset bind/readiness traces; no functional fix yet",
-      "runtime": "Building releasedbg; not deployed."
+    "currentSourceCommit": "a0565d7e7a801679086e56c287d47e7c867bdbb3",
+    "artifactSha256": "ec9339e4cb3748f22a129c7f1873f9b18e299d353af999cdece165aee442dd29",
+    "qualification": "Current preset initialization correction has basic Windows player acceptance and eight local-order persistence receipts; macOS and extended native save paths unqualified. Overall functional parity remains false.",
+    "currentRuntime": {
+      "sourceCommit": "a0565d7e7a801679086e56c287d47e7c867bdbb3",
+      "buildMode": "releasedbg",
+      "client": 273,
+      "installation": "C:/Games/Star Trek Fleet Command/default/game",
+      "profile": "ordinary",
+      "pidAtQualification": 48968,
+      "receipt": "D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json"
     }
   }
 }

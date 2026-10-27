@@ -285,7 +285,7 @@ used the qualified worktree artifact and expected SHA, without changing branches
 The build occurred before downtime. No unrelated trial or additional cycle is
 authorized by this one-cycle qualification.
 
-### Enabled runtime trial failed; debugging in progress
+### Enabled runtime trial failed — historical diagnostic checkpoint
 
 The operator reports a blank officer preset view with reordering enabled.
 Turning it off in the existing session did not recover the list; a manual restart
@@ -295,3 +295,40 @@ Thus Settings has one demonstrated native control/save/restart path, while the
 preset adapter is **regressed at runtime**. Offline and startup results remain
 valid only for their exercised layers. See the updated preset contract for logs,
 the native stack and diagnostic-only `8cfd43a1`; no cause is asserted yet.
+
+### Initialization corrected; basic Windows preset trial accepted
+
+`a0565d7e7a801679086e56c287d47e7c867bdbb3` fixes the observed native initialization
+ordering defect. Native binding returned with null live scroller data and a held
+canonical list, before `Start`. The initial adapter prematurely rebuilt/repaired
+that state. The corrected adapter acquires ownership at bind and waits in its
+existing frame callback for actual native readiness. Pending adoption and early
+close are explicit; canonical save/index translation is preserved.
+
+Current source passed **214/214 Windows test-mod/test-il2cpp build/run steps**,
+including reproducing initial-held-list, early-close and asynchronous-adoption
+cases against the production adapter. A complete Windows DLL build and embedded
+identity/proxy validation passed. Installed DLL SHA-256:
+`ec9339e4cb3748f22a129c7f1873f9b18e299d353af999cdece165aee442dd29`.
+The authorized debug cycle used `ax cycle --zig`, built while the game remained
+running, then stopped PID 13068 and launched PID 48968 in the ordinary main
+installation. No unrelated checkout or branch was changed.
+
+Guff reports successful opening, Shift/Ctrl reorder without opening rename, plain
+Edit renaming the correct disposable row with crew unchanged, and retained local
+order after closing/reopening. Logs show the expected native-ready → projection
+sequence, eight successful exact local-order persistence receipts and no fresh
+`SmartScroller.ReassignItem` exception stacks. This supersedes the failed-enabled
+runtime disposition for **this source and bounded Windows workflow**.
+
+The [preset contract](features/PLAY-OFFICER-PRESETS.md#initialization-correction-and-basic-windows-acceptance--2026-10-27)
+records the native evidence, tests, changes and precise remaining limits. Accepted
+receipt/logs: `D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/`.
+Actual native crew create/replace/delete, forced-quit durability and macOS
+CI/Mcohall remain unqualified. Earlier pin decoration and Settings presentation
+feedback remain deferred; this is not whole-cohort or whole-product acceptance.
+
+The requested machine-local AX Zig adapter and its recoverable files/tests are
+preserved in `D:/dev/stfc-workspace/artifacts/ax-zig-cycle-20261027/`. Default
+Xmake routing remains unchanged. No Runner orchestration, new persistence
+framework, logging refactor or additional feature migration was introduced.
