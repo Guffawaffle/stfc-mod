@@ -220,3 +220,42 @@ runtime persistence trials ran during this follow-up**. In-game change → save
 receipt → close/reopen/relaunch still needs deliberate qualification when the
 operator releases the hold. Do not claim the user's existing TOML or saved
 preset order was inspected, repaired or runtime-verified by this source trace.
+
+## Preset integration follow-through — 2026-10-27
+
+`30eeec8eb8f92c5946adbe95481d4c88aae64bf4` implements the previously missing
+typed native preset adapter and the source-preserving local-order/state-receipt
+path. See [the updated contract](features/PLAY-OFFICER-PRESETS.md#native-integration--2026-10-27)
+for adaptations, critical save/index invariants and the exact-client checklist.
+This supersedes the historical "adapter missing" implementation disposition;
+it does not promote the earlier boot or partial pin acceptance into a preset
+runtime qualification.
+
+Windows `test-mod test-il2cpp` passed 214/214 build/run steps, including the new
+production preset adapter controlled-runtime cases and Settings disk-persistence
+integration fixture. `D:/dev/stfc-workspace/.ax/preset-settings-integration-final-tests.log`
+is the current full-suite log. Early iterations caught fixture dependency and
+linkage problems; they were corrected, not described as product regressions or
+passing builds. The initial `mods` target built the static mod library only;
+the complete version.dll build/verification is a separate required check.
+
+No generalized persistence framework or low-level I/O extraction was introduced.
+[PERSISTENCE-MECHANISMS.md](PERSISTENCE-MECHANISMS.md) records real duplication and
+the important differences in locking, replacement, validation and failures.
+Logging, Settings presentation, pin-group decoration and custom sorts remain
+outside this integration.
+
+The complete Windows DLL subsequently passed **37/37 build steps**, and
+`verify-windows-binary.py` verified x86_64, all 16 proxy exports, static CRT and
+the complete source/base/build/mode/channel marker. DLL:
+`zig-out/preset-settings-30eeec8e/bin/version.dll`, SHA-256
+`86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2`.
+The current production adapter and Settings disk fixture executables were also
+explicitly rerun successfully and hashed. Receipt:
+`D:/dev/stfc-workspace/.ax/preset-settings-30eeec8e-receipt.json`, SHA-256
+`fdb7c2034877c47f527682c142c1c0bc257ff45ddc65569d40bf900b298948c3`.
+It records exact source inputs, toolchain, executable identities and logs.
+
+This candidate has not been deployed. The earlier testing hold was queried for
+one focused main-game trial; elapsed time is not authorization. The running
+e979f692 build and player stores were left unchanged during this offline pass.

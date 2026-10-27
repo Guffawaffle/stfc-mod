@@ -1,5 +1,10 @@
 # PLAY-OFFICER-PRESETS — Officer preset ordering and native save
 
+**2026-10-27 status:** native adapter implemented at `30eeec8e`; production-adapter
+and disk-persistence fixtures pass offline. Exact-client Windows trial and
+macOS CI/Mcohall qualification remain pending. The initial gap assessment below
+is historical; see the implementation record at the end.
+
 Contract v1, scanned 2026-10-26. Frozen source `1baa55fedf1758b19f843cc59707b8901a0b4998`;
 target `play-dev-ripper@f4f64180543a9231234cd2b3d3f547dfa580476b`.
 Windows/macOS; `patches.officerpresetreorderhooks=true`,
@@ -59,3 +64,78 @@ Keep three persistence boundaries distinct:
 
 Further tests and cycles remain on hold. No live configuration/store contents
 were inspected or changed for this clarification.
+
+## Native integration — 2026-10-27
+
+Implementation `30eeec8eb8f92c5946adbe95481d4c88aae64bf4` reuses the existing
+`officer_preset_order` policy, `officer_preset_handoff` protocol and `mod_state`
+owner. The complete frozen source scan is not repeated or replaced by a feature
+description. Narrow adaptations are explicit:
+
+- Checked typed bindings in `src/mod/game/officer_presets.h` replace raw layouts
+  and cached unmanaged controller pointers. Metadata is resolved before
+  projecting; controller/context/scroller/canonical and display/candidate arrays
+  retain strong GC custody through saves and re-entry.
+- One `OfficerPresetReorder` descriptor uses the existing patch switch and one
+  transactional HookSet. The new scoped scroller-lookup hook replaces the source's
+  observer-only `OfficerManager.TryGetPresetItemContext` hook. Exact IDs and
+  appended/new slots are obtained from the canonical list at binding/move time.
+- The canonical list remains unchanged during display sorting. Native saves run
+  once with canonical `_data`; only that controller/scroller/save scope translates
+  canonical OrderId into the qualified display index. Native row replacements
+  propagate through GC-barrier array writes before their matching receiver binds.
+- Readiness checks compare source, initialization state and existing receiver
+  contexts. A successful rebuild call alone does not qualify the projection.
+  Failed/partial transitions retain roots and require canonical repair; receipts
+  and readiness can be observed by the feature's normal frame callback.
+- Disable, release, same-source rebind, nested saves and original exceptions do
+  not bypass a guard or restore an older array into a newer generation. A save
+  scope can finish after its view closes without republishing that view.
+- Shift up / Ctrl Windows or Command macOS down consumes native Edit on a
+  recognized reorder request, including a boundary/declined request. Both/neither
+  modifier retains normal native rename. This strengthens the explicit operator
+  consumption requirement beyond the old success-only fallback.
+- Local moves remain immediately accepted session state, as in the source.
+  `QueueOfficerOrder` admission logs pending versus unadmitted; only the exact
+  latest successful `Group::OfficerOrder` receipt is logged as persisted. Failure
+  retains the accepted session order without claiming a durable save.
+
+The pre-resolved canonical field write is deliberately a synchronous field
+operation, not a managed rebuild inside native save. Missing metadata refuses
+installation. A contradictory readback of that rooted, pre-resolved write is a
+fatal invariant violation rather than permission to call native save against a
+display list. This is not how an ordinary file-save failure is handled and must
+remain visible in the exact-client/platform qualification. No unsupported write
+fallback is represented as success.
+
+Verification includes the existing policy/handoff tests plus
+`tests/officer_presets_native_cases.h`, compiled with the **production feature**
+and game bindings against the controlled IL2CPP runtime. It covers exact large/zero
+IDs, fixed empty rows, metadata enum fields, source/receiver handoff, replacement,
+modifier/boundary behavior, pending/failed receipts, failed renderer readiness,
+canonical repair, nested/throwing saves, disable, same-source rebind, close during
+save and root disposal. Fake native bodies and file-state admissions are identified
+as such; these are not in-game observations.
+
+Settings persistence is independently exercised through the real model, runtime
+adapter, writer, TOML editor and filesystem in an isolated directory. See
+[mechanism differences and the bounded follow-up](../PERSISTENCE-MECHANISMS.md).
+
+### Focused in-game qualification still required
+
+1. Enable preset reordering in Mod Settings; observe save status and inspect the
+   exact TOML value, then close/reopen Settings. Include a controlled return to
+   the previous value and a relaunch when the testing hold is released.
+2. Open presets with filled and empty rows. Shift+Edit up and Ctrl+Edit down;
+   recognized chords must not open rename, including at boundaries. Plain Edit
+   must still rename. Verify the selected crew remains the intended crew.
+3. Rename/save one operator-chosen disposable preset using native controls.
+   Verify correct contents and row, no unrelated preset changed, and reopen the
+   preset screen. Inspect local-order pending/persisted receipts separately from
+   the game's native save result. Do not automate overwriting player crews.
+4. Close/reopen, disable/re-enable, scroll, and quit/relaunch. Confirm saved local
+   order, fixed empties, normal native selection and no stale display source.
+5. macOS requires its own CI build and Mcohall trial, including Command+Edit.
+
+No new runtime deployment, store edit or player verification is implied by the
+offline implementation record.

@@ -545,28 +545,32 @@
     {
       "id": "PLAY-OFFICER-PRESETS",
       "name": "Preset ordering and canonical native save",
-      "classification": "Missing",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/parts/officer_preset_reorder.cc",
         "symbolOrWorkflow": "OnSaveSlotsSuccess"
       },
       "migration": {
-        "path": "src/mod/features/officers.cc",
-        "symbolOrWorkflow": "No native adapter"
+        "path": "src/mod/features/officer_presets.cc",
+        "symbolOrWorkflow": "OfficerPresetReorder transactional typed adapter; canonical save/index handoff; state receipt reporting",
+        "implementation": "src/mod/features/officer_presets.cc; checked game/officer_presets.h; shared policy/handoff; existing mod_state owner and receipts"
       },
       "expectedBehavior": "Preset ordering and canonical native save",
-      "verificationProcedure": "Modifier move, quiet/fixed empty rows, large SlotId, nested save during old/new projection adoption, disable/release, restart. Parked draft is unsafe and inactive.",
+      "verificationProcedure": "Enable/reopen presets; Shift+Edit up, Ctrl Windows/Command macOS down; confirm consumed rename and fixed empties. Use an operator-chosen disposable preset for native rename/crew save, verify correct row/crew, disable/rebind/release/reopen/relaunch and exact local-order receipts. See contract for scope and platform limits.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished."
+          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished.",
+          "30eeec8e: 214/214 Windows build/run steps; production adapter and Settings disk fixtures explicitly rerun; 37/37 DLL build; see preset-settings-30eeec8e-receipt.json. No native UI/runtime claim."
         ],
-        "exactCandidateRuntime": "No native preset adapter activated; pure fixture success is not product runtime.",
+        "exactCandidateRuntime": "30eeec8e is not yet deployed. Controlled native bodies and isolated disk integration do not establish in-game save correctness.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Actual native adapter absent. Pointer-only source handoff disproved by retained Windows273 evidence: native save also uses independent receiver map. Need checked canonical source/renderer readiness, replacement synchronization, reentry/release and recoverable failure qualification before activation. Pure policy/handoff tests do not establish restored gameplay.",
-      "restorationCommits": [],
+      "dependenciesAndLimitations": "Exact-client source/renderer readiness, native preset save, persisted ordering and Settings UI persistence remain to qualify. Metadata preflight declines installation; a contradictory rooted canonical field write is fatal, never an unsafe save fallback. macOS CI/Mcohall pending. Shared file-I/O extraction and logging changes deferred.",
+      "restorationCommits": [
+        "30eeec8eb8f92c5946adbe95481d4c88aae64bf4"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
       "userEntryPoint": "Officer Presets; Shift/Ctrl/Command name edit",
@@ -579,7 +583,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "Pure policy/handoff fixtures only. Product native adapter remains absent/inactive; full DLL build/boot does not qualify missing integration.",
+        "Windows": "Production adapter against controlled IL2CPP metadata/native bodies plus real isolated Settings disk pipeline passed offline; exact-client native trial pending. No claim based on the earlier e979 DLL boot.",
         "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
       },
       "branchObservations": [
@@ -678,6 +682,22 @@
             }
           ],
           "differences": "Preset native integration remains absent. Other selected implementations retained with explicit source-preserving custody/field/bind-episode/viewport corrections; see contract."
+        },
+        {
+          "date": "2026-10-27",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
+          "presence": "present",
+          "evidenceKind": "source and production-adapter controlled-runtime tests; not in-game equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/officer_presets.cc",
+              "symbol": "InstallOfficerPresetReorder / OnSaveSlotsSuccess / scoped TryGetInstanceForIndex translation"
+            }
+          ],
+          "differences": "Typed/rooted canonical handoff; receiver-map-aware scoped translation; recognized reorder clicks consume rename even when declined; exact state-save receipts. Default feature setting remains false."
         }
       ],
       "migrationWorkflow": {
@@ -685,10 +705,10 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "source scan complete; native adapter still absent/unqualified; no activation",
+        "state": "typed native integration implemented; production adapter and disk pipeline qualified offline; runtime pending",
         "recordedImmediately": true
       },
-      "catalogStatus": "Missing native adapter; source/pure-policy qualified only",
+      "catalogStatus": "Typed native adapter implemented and qualified offline; exact-client preset and Settings persistence trial pending",
       "assessments": [
         {
           "version": 1,
@@ -718,6 +738,36 @@
           "remaining": [
             "Native preset save/source/receiver adapter remains missing; no activation"
           ]
+        },
+        {
+          "version": 2,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "44c3389abd6f33bd1ef33b12591303b5509ffd5a",
+            "implementationCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4"
+          },
+          "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "automated": "214/214 Windows build/run steps; production preset adapter against controlled IL2CPP bodies plus real Settings model/adapter/worker/editor/filesystem integration. Native acquisition and UI/quit delivery simulated.",
+            "nativeRuntime": "Not deployed or player verified.",
+            "macOS": "No local qualification; CI/Mcohall pending.",
+            "nativeBuild": "37/37 complete Windows DLL build steps; x86_64/16 exports/static CRT/full source identity verified."
+          },
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-02.md",
+          "remaining": [
+            "Exact-client native save/receiver and renderer readiness trial",
+            "Settings UI -> TOML receipt -> reopen/relaunch trial",
+            "macOS CI and Command+Edit trial"
+          ],
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/preset-settings-30eeec8e-receipt.json",
+          "artifactReceiptSha256": "fdb7c2034877c47f527682c142c1c0bc257ff45ddc65569d40bf900b298948c3",
+          "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2"
         }
       ],
       "operatorClarification": {
@@ -730,7 +780,7 @@
           "displayOrder": "mod_state::QueueOfficerOrder -> officer_preset_order in state.json; admission is not durability and native caller/application remains missing.",
           "presetContents": "Game native save callback with canonical data and matching receiver mapping; not a TOML/state write."
         },
-        "hold": "Further testing and cycles remain held; no speculative sorting-error investigation.",
+        "hold": "Latest authorization proceeds with preset integration and Settings end-to-end verification. No unrelated trial or game cycle has been performed; earlier runtime hold remains relevant before deployment.",
         "evidence": "docs/migration/features/PLAY-OFFICER-PRESETS.md#operator-clarification-and-next-integration-boundary--2026-10-26"
       }
     },
@@ -4740,6 +4790,12 @@
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
     "currentSourceCommit": "e979f69248c581ce1b26267966da3da32bfdb533",
     "artifactSha256": "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a",
-    "qualification": "Cohort02 tests/build/boot qualified; pin interaction partial acceptance; group visual issue and unattributed contained UI exception open; native preset adapter missing; further testing/cycles held by operator. Later notes/source comment only, no new build."
+    "qualification": "Cohort02 tests/build/boot qualified; pin interaction partial acceptance; group visual issue and unattributed contained UI exception open; native preset adapter missing; further testing/cycles held by operator. Later notes/source comment only, no new build.",
+    "nextCandidate": {
+      "sourceCommit": "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
+      "scope": "Preset integration and Settings persistence qualification",
+      "runtime": "Not deployed; current installed e979f692 unaffected.",
+      "artifactSha256": "86d06335fb08882d5c170ca5a4b36e5333ecae9b26349c5315d4c0522e30a1e2"
+    }
   }
 }
