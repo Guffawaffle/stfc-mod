@@ -601,6 +601,22 @@
               "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
             }
           ]
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
+          "presence": "present",
+          "evidenceKind": "branch consolidation; prior inspected feature implementation retained; no new equivalence claim",
+          "evidence": [
+            {
+              "path": "src/mod/features/dock.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ],
+          "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
       "userEntryPoint": "Swap Ship; Mod Settings → Officers & Ships",
@@ -2155,13 +2171,16 @@
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
-          "tests/maintenance_pages_test.cc: absent duplicate root row; search results/navigation/Clear preserved; empty-query error visibility and Dismiss refresh. See cohort Search-row correction."
+          "tests/maintenance_pages_test.cc: absent duplicate root row; search results/navigation/Clear preserved; empty-query error visibility and Dismiss refresh. See cohort Search-row correction.",
+          "D:/dev/stfc-workspace/.ax/play-dev-ripper-8aa5f2ac-receipt.json: source-bound 210/210 test/build steps, 37/37 full DLL and explicit maintenance fixture re-execution."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Correction 8aa5f2ac, main ordinary Windows client273 PID48852/filetime134375441138301477: exact disk artifact/module path, FrameTick ready, zero startup errors and four unchanged TOML files. Native search interaction not yet rechecked.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Native search and metadata navigation retained. Later Search-row correction needs separate source-bound native qualification; prior general Settings acceptance does not itemize these edge cases.",
-      "restorationCommits": [],
+      "dependenciesAndLimitations": "Native header input and metadata navigation retained. Search-row correction tests/build/boot qualified; actual search typing, result click/Back and failure rendering after this correction remain unverified.",
+      "restorationCommits": [
+        "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
     {
@@ -2346,6 +2365,22 @@
             }
           ],
           "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
+          "presence": "present",
+          "evidenceKind": "branch consolidation; prior inspected feature implementation retained; no new equivalence claim",
+          "evidence": [
+            {
+              "path": "src/mod/settings/audio_alerts.cc",
+              "symbol": "RegisterAudioAlertPages"
+            }
+          ],
+          "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
       "contract": "docs/migration/features/SET-AUDIO-PICKER.md",
@@ -2570,6 +2605,22 @@
             }
           ],
           "differences": "adapted shared host, preserved models"
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
+          "presence": "present",
+          "evidenceKind": "branch consolidation; prior inspected feature implementation retained; no new equivalence claim",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / existing typed consumer at pre-cohort base"
+            }
+          ],
+          "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
       "userEntryPoint": "Mod Settings → Loading Screens",
@@ -3246,6 +3297,22 @@
             }
           ],
           "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
+          "presence": "present",
+          "evidenceKind": "branch consolidation; prior inspected feature implementation retained; no new equivalence claim",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / SET-WARP-FILTERS"
+            }
+          ],
+          "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
       "contract": "docs/migration/features/SET-WARP-FILTERS.md",
@@ -3448,6 +3515,22 @@
             }
           ],
           "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
+          "presence": "present",
+          "evidenceKind": "branch consolidation; prior inspected feature implementation retained; no new equivalence claim",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / SET-DAILY-FACTIONS"
+            }
+          ],
+          "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
       "contract": "docs/migration/features/SET-DAILY-FACTIONS.md",
@@ -3638,6 +3721,22 @@
             }
           ],
           "differences": "See numbered contract obligations and intentional adaptations in docs/migration/FEATURE-COHORT-20261026-01.md; source presence is not runtime equivalence."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
+          "presence": "present",
+          "evidenceKind": "branch consolidation; prior inspected feature implementation retained; no new equivalence claim",
+          "evidence": [
+            {
+              "path": "src/mod/settings/config_settings.cc",
+              "symbol": "RegisterConfigSettings / SET-BANNER-FILTERS"
+            }
+          ],
+          "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
       "contract": "docs/migration/features/SET-BANNER-FILTERS.md",
@@ -3948,6 +4047,9 @@
       "ref": "study/ripper-typed-bindings-20261026",
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
-    "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26"
+    "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
+    "currentSourceCommit": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
+    "artifactSha256": "ef8fd85143bf58875a263113b8c9192315bbb756c30b16d1757b4910579937c7",
+    "qualification": "Prior cohort basic acceptance retained; later Search-row correction tests/build/main Windows boot passed; native search interaction and macOS pending."
   }
 }

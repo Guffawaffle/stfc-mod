@@ -228,4 +228,26 @@ search/result navigation/Clear, visible failure feedback and dismissal. Correcti
 review reported no residual defect. No new hook, input service or settings write.
 
 The earlier accepted DLL remains identified above; it does not include this
-later correction. This delta needs its own source-bound build and native trial.
+later correction. Correction source: `8aa5f2ac1ca63c2453e69de624af7f61f7ca498d`
+on `play-dev-ripper`. Tests passed 210/210 build/run steps, the full Windows DLL
+build passed 37/37 steps, and the maintenance fixture was explicitly re-executed.
+The x86_64/16-export/static-CRT/full-marker verifier passed. Candidate:
+`zig-out/play-dev-ripper-8aa5f2ac/bin/version.dll`, SHA-256
+`ef8fd85143bf58875a263113b8c9192315bbb756c30b16d1757b4910579937c7`.
+Receipt: `D:/dev/stfc-workspace/.ax/play-dev-ripper-8aa5f2ac-receipt.json`, SHA-256
+`47c57235a8ce36b3e3e4a57d0e1bfa9f483abc3c87d354294807141233cbd87d`.
+
+The authorized main ordinary cycle completed after the build: PID 51248 to 48852
+(new file time `134375441138301477`), client 273, same installation. Local module
+path and exact installed disk hash observed; the window responded, FrameTick was
+ready and startup had zero error/critical lines. All four TOML files stayed
+unchanged. Receipts/log:
+`D:/dev/stfc-workspace/artifacts/play-dev-ripper-20261026/search-row-runtime/`.
+This qualifies build/boot, not native search interaction after the correction.
+macOS remains on the CI/Mcohall qualification route.
+
+Branch consolidation required no merge: the former feature branch already
+contained the archived long refactor. It was renamed without history changes;
+the old M1b local pointer was safely deleted only after both ancestor checks.
+No remote operation, `play`/`play-dev` movement or release promotion occurred.
+Local read-only delta review is not a three-lane publication review gate.
