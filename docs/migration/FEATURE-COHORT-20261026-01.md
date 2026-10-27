@@ -180,9 +180,28 @@ Receipts and retained startup log:
 canonical deploy helper's branch fields describe its own checkout; the explicit
 Zig source commit/marker above is the candidate identity.
 
-This is boot smoke, not player confirmation of the four workflows. Their native
-dialog/control/consumer checks above and macOS qualification remain pending.
+This boot smoke alone does not establish the four workflows. Guff subsequently
+reported "Seems good" in response to the four-workflow trial request. Record this
+as basic Windows acceptance of the installed candidate, not itemized completion
+of every native dialog/control/consumer edge case. macOS remains unqualified.
 Original source and study archive stay pinned. The next discovery should start
 from an unported capability, not another scan of these four contracts. Recovery
 uses the scoped Downstream handoff with this worktree/branch and implementation
 commit explicitly named; no LexRunner continuity attribution is made.
+
+## Deferred Settings follow-ups
+
+Operator feedback, 2026-10-26: these are inherited usability/design improvements,
+not newly discovered migration regressions. Medium priority ("semi-priority"),
+explicitly deferred; no UI work or additional cycle is requested now.
+
+- **SET-UX-STYLING:** Visual sweep across Mod Settings, especially subsection
+  header backgrounds and selected-row styling. Preserve readable hierarchy and
+  avoid the previously rejected heavy white selected fill.
+- **SET-UX-BANNER-LISTS:** Revisit the hidden-banner and desktop allowlist editing
+  experience. The current source-preserved text editors remain the accepted baseline.
+- **SET-UX-SHIP-ROUTES:** Revisit ship-specific jump/warp/always-ask controls. Keep
+  existing matching, precedence and persistence semantics unless deliberately changed.
+
+These follow-ups do not block continuing feature migration and do not change the
+current analytical, Settings or gameplay contracts.

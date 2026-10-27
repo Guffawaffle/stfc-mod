@@ -2240,7 +2240,14 @@
           "tests/audio_settings_test.cc"
         ],
         "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "implementation": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "scope": "Seems good response to four-workflow trial request. Basic Windows acceptance; individual controls and edge cases not itemized. Not whole-feature equivalence."
+        }
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-AUDIO-PICKER.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
       "restorationCommits": [
@@ -2352,16 +2359,16 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
+        "Windows": "Tests/build/boot pass; Guff basic acceptance reported for installed candidate. Individual edge cases not itemized.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
-      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
+      "catalogStatus": "Windows basic acceptance reported; detailed edge cases and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
+        "state": "implemented; Windows automated/build/boot qualified and basic player acceptance reported; detailed edge cases/macOS pending",
         "recordedImmediately": true
       },
       "assessments": [
@@ -2383,7 +2390,7 @@
             "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
             "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
             "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
-            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "runtime": "Authorized Windows boot and Guff basic acceptance of installed candidate; not itemized native edge-case verification. See playerConfirmation.",
             "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
           },
           "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
@@ -3126,7 +3133,14 @@
           "tests/config_settings_test.cc"
         ],
         "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "implementation": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "scope": "Seems good response to four-workflow trial request. Basic Windows acceptance; individual controls and edge cases not itemized. Not whole-feature equivalence."
+        }
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-WARP-FILTERS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
       "restorationCommits": [
@@ -3245,16 +3259,16 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
+        "Windows": "Tests/build/boot pass; Guff basic acceptance reported for installed candidate. Individual edge cases not itemized.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
-      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
+      "catalogStatus": "Windows basic acceptance reported; detailed edge cases and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
+        "state": "implemented; Windows automated/build/boot qualified and basic player acceptance reported; detailed edge cases/macOS pending",
         "recordedImmediately": true
       },
       "assessments": [
@@ -3276,7 +3290,7 @@
             "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
             "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
             "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
-            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "runtime": "Authorized Windows boot and Guff basic acceptance of installed candidate; not itemized native edge-case verification. See playerConfirmation.",
             "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
           },
           "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
@@ -3284,6 +3298,15 @@
           "artifactReceiptSha256": "319efa15715dc6afbe5e2ef3042d9f0a3f55286b711f6c9abe36e424be6afdb1",
           "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
           "runtimeEvidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/"
+        }
+      ],
+      "followUps": [
+        {
+          "id": "SET-UX-SHIP-ROUTES",
+          "priority": "medium",
+          "status": "deferred",
+          "kind": "inherited UX improvement, not migration regression",
+          "reference": "docs/migration/FEATURE-COHORT-20261026-01.md#deferred-settings-follow-ups"
         }
       ]
     },
@@ -3311,7 +3334,14 @@
           "tests/config_settings_test.cc"
         ],
         "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "implementation": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "scope": "Seems good response to four-workflow trial request. Basic Windows acceptance; individual controls and edge cases not itemized. Not whole-feature equivalence."
+        }
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-DAILY-FACTIONS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
       "restorationCommits": [
@@ -3429,16 +3459,16 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
+        "Windows": "Tests/build/boot pass; Guff basic acceptance reported for installed candidate. Individual edge cases not itemized.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
-      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
+      "catalogStatus": "Windows basic acceptance reported; detailed edge cases and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
+        "state": "implemented; Windows automated/build/boot qualified and basic player acceptance reported; detailed edge cases/macOS pending",
         "recordedImmediately": true
       },
       "assessments": [
@@ -3460,7 +3490,7 @@
             "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
             "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
             "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
-            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "runtime": "Authorized Windows boot and Guff basic acceptance of installed candidate; not itemized native edge-case verification. See playerConfirmation.",
             "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
           },
           "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
@@ -3495,7 +3525,14 @@
           "tests/config_settings_test.cc"
         ],
         "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
+          "implementation": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
+          "scope": "Seems good response to four-workflow trial request. Basic Windows acceptance; individual controls and edge cases not itemized. Not whole-feature equivalence."
+        }
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-BANNER-FILTERS.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
       "restorationCommits": [
@@ -3613,17 +3650,17 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "210/210 automated build/run steps; 37/37 final DLL build; exact artifact boot smoke. Player workflow pending; see cohort record.",
+        "Windows": "Tests/build/boot pass; Guff basic acceptance reported for installed candidate. Individual edge cases not itemized.",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
       "platformScope": "Hidden banner editor on both platforms; desktop allowlist editor Windows-only, preserving source.",
-      "catalogStatus": "Implemented; Windows tests/build/boot pass; player workflow and macOS pending",
+      "catalogStatus": "Windows basic acceptance reported; detailed edge cases and macOS pending",
       "migrationWorkflow": {
         "process": "migrate-play-feature/v1",
         "cohort": "20261026-01",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "05ee3d7f66eec4d9cb39f8924d012a7ca1ec5952",
-        "state": "implemented; Windows automated/build/boot qualification complete; player workflow pending",
+        "state": "implemented; Windows automated/build/boot qualified and basic player acceptance reported; detailed edge cases/macOS pending",
         "recordedImmediately": true
       },
       "assessments": [
@@ -3645,7 +3682,7 @@
             "sourceComparison": "Complete selected workflow source and support paths; one bounded scan per feature; see numbered obligations.",
             "automated": "210/210 Windows test-mod/test-il2cpp build/run steps passed; production model/catalog/writer adapters with controlled host boundaries. Step count is not test count.",
             "nativeBuild": "37/37 Windows default DLL steps; x86_64, 16 exports, static CRT and complete provenance marker verified.",
-            "runtime": "Authorized main ordinary Windows boot, client 273; all four TOML files unchanged; native player workflow pending.",
+            "runtime": "Authorized Windows boot and Guff basic acceptance of installed candidate; not itemized native edge-case verification. See playerConfirmation.",
             "macOS": "CI and Mcohall qualification pending; Windows results are not Mac evidence."
           },
           "evidence": "docs/migration/FEATURE-COHORT-20261026-01.md",
@@ -3653,6 +3690,15 @@
           "artifactReceiptSha256": "319efa15715dc6afbe5e2ef3042d9f0a3f55286b711f6c9abe36e424be6afdb1",
           "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
           "runtimeEvidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/"
+        }
+      ],
+      "followUps": [
+        {
+          "id": "SET-UX-BANNER-LISTS",
+          "priority": "medium",
+          "status": "deferred",
+          "kind": "inherited UX improvement, not migration regression",
+          "reference": "docs/migration/FEATURE-COHORT-20261026-01.md#deferred-settings-follow-ups"
         }
       ]
     },
