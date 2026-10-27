@@ -1,5 +1,29 @@
 # Downstream play preservation target
 
+## Active Ripper migration branch — 2026-10-26
+
+`play-dev-ripper` is the active continuation of the long Ripper refactor, including
+the source-preserving pilots and the four-feature Settings cohort. It uses the
+existing `D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream` checkout.
+This is a development integration checkpoint: **launch accepted, partial Windows
+player testing, Settings UX work deferred**. It is not a release or a whole-product
+parity claim. `play` and `play-dev` remain unchanged.
+
+The former `feature/migrate-play-feature-pilots-20261026` branch is renamed to
+this active branch without changing history. The obsolete local
+`integration/ripper-foundation-m1b-20261025` pointer at
+`9a2018affa88915cfbf45803945637a64b95068f` is removed only after verifying it is an
+ancestor of the active branch and not checked out elsewhere. Its history remains
+in the active branch and study archive. No remote branch is deleted.
+
+Preserve `study/ripper-typed-bindings-20261026` at
+`076c85a84ee5d126b02582f55936ccfc4a066a29` as the long-term technical reference,
+and `frozen/play-dev-20261026` at `1baa55fedf1758b19f843cc59707b8901a0b4998`
+as the immutable feature source. Other study branches are not part of this cleanup.
+Earlier branch names in receipts and source observations are historical facts.
+The [cohort record](FEATURE-COHORT-20261026-01.md) retains exact artifacts,
+qualification limits, the Search-row correction and deferred Settings work.
+
 ## Frozen-source feature cohorts — 2026-10-26
 
 The accepted source-preserving procedure now continues with

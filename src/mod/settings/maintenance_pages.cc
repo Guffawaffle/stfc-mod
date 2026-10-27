@@ -11,7 +11,6 @@ namespace mod_settings
 {
 namespace
 {
-  constexpr auto search_id  = "community_mod.search.focus";
   constexpr auto results_id = "community_mod.search.results";
   constexpr auto notice_id  = "community_mod.save_notice";
   struct MaintenanceState {
@@ -166,26 +165,14 @@ void RegisterMaintenanceTools(PageCatalog& catalog)
   RegisterMaintenancePages(catalog); // Preserved prepare/current/apply/reset and per-key retry contracts.
   QualifyMaintenanceDialogs(catalog, before);
 
-  auto focus      = std::make_shared<ActionSetting>();
-  focus->identity = search_id;
-  focus->label    = "Search settings";
-  focus->read     = [](std::size_t) {
-    const bool available = native::SettingsSearchAvailable();
-    return ActionSetting::Presentation{"Search settings", "Search",
-                                       available ? Tools().navigation_error : "Search unavailable", available};
-  };
-  focus->invoke = [](std::size_t) {
-    if (!native::FocusSettingsSearch()) {
-      Tools().navigation_error = "Search is unavailable in this Settings context.";
-      native::RequestPageRefresh();
-    }
-  };
-  KeepCommand(catalog, state.root, std::move(focus));
+  // The native root-page header owns search input; only its results need rows.
   auto results      = std::make_shared<ActionSetting>();
   results->identity = results_id;
   results->label    = "Search results";
   results->count    = [] {
-    return Tools().query.empty() ? std::size_t(0) : 1 + std::min(Tools().matches.size(), SettingsSearch::ResultLimit);
+    if (Tools().query.empty())
+      return std::size_t(!Tools().navigation_error.empty());
+    return 1 + std::min(Tools().matches.size(), SettingsSearch::ResultLimit);
   };
   results->read = [](std::size_t index) {
     if (index == 0) {
@@ -193,7 +180,9 @@ void RegisterMaintenanceTools(PageCatalog& catalog)
                                            : std::to_string(Tools().matches.size()) + " results";
       if (Tools().matches.size() > SettingsSearch::ResultLimit)
         label += " (showing first 32; narrow the search)";
-      return ActionSetting::Presentation{std::move(label), "Clear", Tools().navigation_error};
+      const bool empty = Tools().query.empty();
+      return ActionSetting::Presentation{empty ? "Search unavailable" : std::move(label), empty ? "Dismiss" : "Clear",
+                                         Tools().navigation_error};
     }
     if (index > Tools().matches.size())
       return ActionSetting::Presentation{"", "", "", false, false};
@@ -206,7 +195,9 @@ void RegisterMaintenanceTools(PageCatalog& catalog)
   };
   results->invoke = [](std::size_t index) {
     if (index == 0) {
+      Tools().navigation_error.clear();
       SetSettingsSearchQuery({});
+      native::RequestPageRefresh(); // Dismiss must refresh even when the query was already empty.
       return;
     }
     if (index > Tools().matches.size())

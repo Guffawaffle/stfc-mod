@@ -2147,19 +2147,20 @@
       },
       "migration": {
         "path": "src/mod/features/settings_search.cc",
-        "symbolOrWorkflow": "Model only"
+        "symbolOrWorkflow": "Automatic native header field and metadata results; redundant permanent focus row removed by operator request."
       },
       "expectedBehavior": "Settings search with contextual return",
       "verificationProcedure": "Labels/TOML/shortcuts, hidden conditional results, Back-to-search, typing and held-key release ownership.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
+          "tests/maintenance_pages_test.cc: absent duplicate root row; search results/navigation/Clear preserved; empty-query error visibility and Dismiss refresh. See cohort Search-row correction."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Inline native search, metadata results, deferred same-tree navigation, section reveal and row focus implemented; actual native trial pending.",
+      "dependenciesAndLimitations": "Native search and metadata navigation retained. Later Search-row correction needs separate source-bound native qualification; prior general Settings acceptance does not itemize these edge cases.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
     },
@@ -3931,5 +3932,22 @@
       "evidence": "PLAY installation blocks commented out; not required active functionality."
     }
   ],
-  "catalogCoverage": "Incremental inventory: historical PLAY plus explicitly scanned frozen-play-dev capabilities. Branch metadata exists only where inspected; missing means not assessed, not absent."
+  "catalogCoverage": "Incremental inventory: historical PLAY plus explicitly scanned frozen-play-dev capabilities. Branch metadata exists only where inspected; missing means not assessed, not absent.",
+  "activeMigration": {
+    "branch": "play-dev-ripper",
+    "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+    "status": "Development integration: launch accepted; partial Windows player test; Settings UX follow-ups deferred. Not release or overall parity.",
+    "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
+    "acceptedCheckpoint": "91bb05434aed6f4397d2e218d06504f4bc7a9a45",
+    "obsoleteLocalPointer": {
+      "ref": "integration/ripper-foundation-m1b-20261025",
+      "revision": "9a2018affa88915cfbf45803945637a64b95068f",
+      "disposition": "Remove only after ancestor/not-checked-out verification; history retained, no remote deletion."
+    },
+    "studyArchive": {
+      "ref": "study/ripper-typed-bindings-20261026",
+      "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
+    },
+    "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26"
+  }
 }

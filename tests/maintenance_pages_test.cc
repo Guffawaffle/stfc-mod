@@ -7,8 +7,8 @@
 
 namespace
 {
-bool                                          save_failure = false, editor_available = true, search_available = true;
-unsigned                                      refreshes = 0, focus_calls = 0, path_reads = 0;
+bool                                          save_failure = false, editor_available = true;
+unsigned                                      refreshes = 0, path_reads = 0;
 std::string                                   opened_page, opened_item;
 std::optional<mod_settings::TextEntryRequest> editor;
 void                                          Check(bool value, const char* message)
@@ -64,13 +64,6 @@ namespace native
 {
   void RequestPageRefresh()
   { ++refreshes; }
-  bool SettingsSearchAvailable()
-  { return search_available; }
-  bool FocusSettingsSearch()
-  {
-    ++focus_calls;
-    return search_available;
-  }
   bool QueueSettingsPage(std::string_view page, std::string_view item, bool returning)
   {
     Check(returning, "search result requests the same-context Back return");
@@ -175,9 +168,9 @@ int main()
   Check(!editor && reset.Read(0).value.find("could not open") != std::string::npos && writes == 2,
         "unavailable native dialogs expose failure instead of claiming reset success");
 
-  auto& search = Action(pages, "community_mod.search.focus");
-  search.invoke(0);
-  Check(focus_calls == 1, "Search focuses the native field instead of being a no-op menu item");
+  Check(std::ranges::none_of(pages.front().Controls<ActionSetting>(),
+                             [](const auto* action) { return action->id() == "community_mod.search.focus"; }),
+        "root navigation has no redundant Search row beside the native header field");
   SetSettingsSearchQuery("graphics.zoom_speed");
   auto& results = Action(pages, "community_mod.search.results");
   Check(results.Count() == 2 && results.Read(1).value == "graphics.zoom_speed",
@@ -190,6 +183,15 @@ int main()
   results.invoke(0);
   Check(SettingsSearchQuery().empty() && results.Count() == 0 && FilterMaintenanceSearch(pages.front(), "camera"),
         "Clear restores normal navigation without changing settings");
+  SetSettingsSearchError("The native search field could not open. Reopen Settings to try again.");
+  Check(results.Count() == 1 && results.Read(0).label == "Search unavailable"
+            && results.Read(0).value.find("Reopen Settings") != std::string::npos && results.Read(0).button == "Dismiss"
+            && FilterMaintenanceSearch(pages.front(), "camera"),
+        "header creation failures remain visible beside normal categories without a permanent Search row");
+  const auto refresh_before_dismiss = refreshes;
+  results.invoke(0);
+  Check(results.Count() == 0 && refreshes > refresh_before_dismiss && SettingsSearchQuery().empty(),
+        "Dismiss clears an empty-query search failure and refreshes the page");
   save_failure      = true;
   const auto notice = Action(pages, "community_mod.save_notice").Read(0);
   Check(notice.visible && !notice.actionable() && notice.label.find("not saved") != std::string::npos,

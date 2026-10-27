@@ -107,7 +107,7 @@ bool OpenSearch(SettingsPageController* controller, PageVisitToken token)
     state.opening = false;
     CloseSearch();
     SetSettingsSearchQuery({});
-    SetSettingsSearchError("The native search field could not open. Reopen Settings or try Search again.");
+    SetSettingsSearchError("The native search field could not open. Reopen Settings to try again.");
     return false;
   }
 }

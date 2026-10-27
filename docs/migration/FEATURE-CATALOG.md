@@ -135,3 +135,8 @@ when their migration is deferred.
 
 The JSON remains the sole machine-readable inventory. This document adds no
 independent migration status or execution authority.
+
+## Active migration
+
+Branch: `play-dev-ripper`. Development integration: launch accepted; partial Windows player test; Settings UX follow-ups deferred. Not release or overall parity.
+See [branch routing and preserved checkpoints](PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26).

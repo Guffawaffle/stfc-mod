@@ -5,6 +5,11 @@ the accepted `migrate-play-feature` procedure. Implementation remains in the
 existing `feature/migrate-play-feature-pilots-20261026` worktree. This does not
 resume the entire parity sprint or authorize branch promotion.
 
+Subsequent operator direction promotes this accepted development checkpoint to
+`play-dev-ripper`, by renaming the active branch in that same checkout. Preserve
+the distinction: launch accepted, player testing partial, Settings improvements
+still deferred. See [active branch routing](PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26).
+
 ## Exact inputs and catalog
 
 - Source: `frozen/play-dev-20261026` = `1baa55fedf1758b19f843cc59707b8901a0b4998`.
@@ -205,3 +210,22 @@ explicitly deferred; no UI work or additional cycle is requested now.
 
 These follow-ups do not block continuing feature migration and do not change the
 current analytical, Settings or gameplay contracts.
+
+## Search-row correction before branch consolidation
+
+The operator explicitly requested removing the redundant root "Search settings"
+action because the native header already contains the search field. Only that
+permanent row is removed. The header's automatic page-visit/frame creation,
+typing/capture lifecycle, query/result routing, contextual Back and Clear remain
+their existing owners.
+
+A narrow read-only review identified that the removed action also presented
+search startup errors. Preserve that feedback as a conditional "Search unavailable"
+row only when an error exists; Dismiss clears it and refreshes even with an already
+empty query. This is not a replacement always-visible Search control. The revised
+`maintenance_pages_test` checks the absent redundant action, unchanged metadata
+search/result navigation/Clear, visible failure feedback and dismissal. Correction
+review reported no residual defect. No new hook, input service or settings write.
+
+The earlier accepted DLL remains identified above; it does not include this
+later correction. This delta needs its own source-bound build and native trial.

@@ -69,6 +69,9 @@ def render(data):
                                                  evidence.get("path", "not assessed")])) + " |")
     lines += ["", "The JSON remains the sole machine-readable inventory. This document adds no",
               "independent migration status or execution authority.", ""]
+    if active := data.get("activeMigration"):
+        lines += ["## Active migration", "", "Branch: `" + active["branch"] + "`. " + active["status"],
+                  "See [branch routing and preserved checkpoints](PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26).", ""]
     return "\n".join(lines)
 
 
