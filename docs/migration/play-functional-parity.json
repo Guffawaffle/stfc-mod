@@ -362,12 +362,16 @@
       "verificationProcedure": "Both screens/directions, locked/tied officers, repeated initialization and failed optional comparers.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished."
+        ],
+        "exactCandidateRuntime": "Cohort e979f692 main ordinary client273 PID50172/filetime134375473141348824; exact installed disk hash/module path, FrameTick ready, four TOML files unchanged. One contained GetComponent exception during interactive trial; caller not established. Further testing held.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "See current cohort numbered source contract, retained target safety differences, focused automated checks and pending native/macOS qualification.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "e979f69248c581ce1b26267966da3da32bfdb533"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-OFFICER-SORT.md",
       "userEntryPoint": "Officer roster and assignment sort menus",
@@ -380,7 +384,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "Windows": "212/212 test/build steps and 37/37 DLL build; native boot. Pin interaction partially accepted, visual issue and unattributed contained GetComponent exception retained; remaining tests held.",
         "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
       },
       "branchObservations": [
@@ -463,6 +467,22 @@
             }
           ],
           "differences": "Existing typed implementation; restore source construction custody/preflight without changing comparator meaning."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "e979f69248c581ce1b26267966da3da32bfdb533",
+          "presence": "present",
+          "evidenceKind": "source-bound cohort qualification; not full runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/officers.cc",
+              "symbol": "InitializeOfficerSorters / InitializeAssignmentSorters"
+            }
+          ],
+          "differences": "Preset native integration remains absent. Other selected implementations retained with explicit source-preserving custody/field/bind-episode/viewport corrections; see contract."
         }
       ],
       "migrationWorkflow": {
@@ -470,10 +490,57 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "single full source workflow scan complete; target qualification in progress",
+        "state": "source scan and bounded corrections qualified offline; partial native trial; further testing on hold",
         "recordedImmediately": true
       },
-      "catalogStatus": "Source scan complete; current implementation qualification in progress"
+      "catalogStatus": "Native BDA reported available; compatibility module retained; testing held",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+            "implementationCommit": "e979f69248c581ce1b26267966da3da32bfdb533"
+          },
+          "contract": "docs/migration/features/PLAY-OFFICER-SORT.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "One full source workflow scan per capability; supporting ownership/callers/tests and target adaptations traced.",
+            "automated": "212/212 Windows test-mod/test-il2cpp build/run steps; seven explicit fixture executions; 1,152 comparator oracle cases. Not a native preset adapter qualification.",
+            "nativeBuild": "37/37 Windows DLL steps; x86_64/16 exports/static CRT/full source marker.",
+            "nativeRuntime": "Cohort e979f692 main ordinary client273 PID50172/filetime134375473141348824; exact installed disk hash/module path, FrameTick ready, four TOML files unchanged. One contained GetComponent exception during interactive trial; caller not established. Further testing held.",
+            "macOS": "Not compiled locally; CI and Mcohall runtime qualification pending."
+          },
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json",
+          "artifactReceiptSha256": "26ba01c9db8fbfe535110b3d152f4d6d27134c5b224e2eea926b4070d4068662",
+          "artifactSha256": "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a",
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-02.md",
+          "remaining": [
+            "Native BDA is user-reported; exact native keys and mod-specific comparer/menu behavior not established by that observation",
+            "Native construction/lifecycle edge cases and macOS unqualified",
+            "Further testing held"
+          ]
+        }
+      ],
+      "nativeClientObservation": {
+        "reporter": "Guff",
+        "date": "2026-10-26",
+        "observation": "Scopely restored native Below Deck Ability option; no independent key/comparer inspection in this feedback. Seeing this option does not prove mod-specific sorting."
+      },
+      "followUps": [
+        {
+          "id": "OFFICER-CUSTOM-SORTS",
+          "status": "deferred future idea",
+          "kind": "user preference; not an existing source capability",
+          "description": "Player-defined sort precedence or custom sorts; retain compatibility module for now.",
+          "reference": "docs/migration/FEATURE-COHORT-20261026-02.md#operator-feedback-and-hold--2026-10-26"
+        }
+      ]
     },
     {
       "id": "PLAY-OFFICER-PRESETS",
@@ -492,8 +559,10 @@
       "verificationProcedure": "Modifier move, quiet/fixed empty rows, large SlotId, nested save during old/new projection adoption, disable/release, restart. Parked draft is unsafe and inactive.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished."
+        ],
+        "exactCandidateRuntime": "No native preset adapter activated; pure fixture success is not product runtime.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Actual native adapter absent. Pointer-only source handoff disproved by retained Windows273 evidence: native save also uses independent receiver map. Need checked canonical source/renderer readiness, replacement synchronization, reentry/release and recoverable failure qualification before activation. Pure policy/handoff tests do not establish restored gameplay.",
@@ -510,7 +579,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "Windows": "Pure policy/handoff fixtures only. Product native adapter remains absent/inactive; full DLL build/boot does not qualify missing integration.",
         "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
       },
       "branchObservations": [
@@ -593,6 +662,22 @@
             }
           ],
           "differences": "Native feature absent; typed policy/config and inactive handoff experiment are not a product adapter."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "e979f69248c581ce1b26267966da3da32bfdb533",
+          "presence": "absent",
+          "evidenceKind": "source-bound cohort qualification; not full runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/officers.cc",
+              "symbol": "InstallOfficerPresetReorderHooks / canonical save and display order"
+            }
+          ],
+          "differences": "Preset native integration remains absent. Other selected implementations retained with explicit source-preserving custody/field/bind-episode/viewport corrections; see contract."
         }
       ],
       "migrationWorkflow": {
@@ -600,10 +685,41 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "single full source workflow scan complete; target qualification in progress",
+        "state": "source scan complete; native adapter still absent/unqualified; no activation",
         "recordedImmediately": true
       },
-      "catalogStatus": "Source-qualified; native feature still missing: save/renderer adapter unqualified"
+      "catalogStatus": "Missing native adapter; source/pure-policy qualified only",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+            "implementationCommit": "e979f69248c581ce1b26267966da3da32bfdb533"
+          },
+          "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
+          "migrationStatus": "Missing",
+          "verification": {
+            "sourceComparison": "One full source workflow scan per capability; supporting ownership/callers/tests and target adaptations traced.",
+            "automated": "212/212 Windows test-mod/test-il2cpp build/run steps; seven explicit fixture executions; 1,152 comparator oracle cases. Not a native preset adapter qualification.",
+            "nativeBuild": "37/37 Windows DLL steps; x86_64/16 exports/static CRT/full source marker.",
+            "nativeRuntime": "No native preset adapter activated; pure fixture success is not product runtime.",
+            "macOS": "Not compiled locally; CI and Mcohall runtime qualification pending."
+          },
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json",
+          "artifactReceiptSha256": "26ba01c9db8fbfe535110b3d152f4d6d27134c5b224e2eea926b4070d4068662",
+          "artifactSha256": "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a",
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-02.md",
+          "remaining": [
+            "Native preset save/source/receiver adapter remains missing; no activation"
+          ]
+        }
+      ]
     },
     {
       "id": "PLAY-PINS-ORDER",
@@ -622,12 +738,25 @@
       "verificationProcedure": "Same hull/level ties, large IDs, ambiguous legacy names, failed write/rollback, receipt publication and restart.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished."
+        ],
+        "exactCandidateRuntime": "Cohort e979f692 main ordinary client273 PID50172/filetime134375473141348824; exact installed disk hash/module path, FrameTick ready, four TOML files unchanged. One contained GetComponent exception during interactive trial; caller not established. Further testing held.",
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "candidateArtifacts": [
+            "b473daca7ba055ae77ca1dd7e3faa68c2e67aed3637b61f661623e1ee7fa6ba3",
+            "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a"
+          ],
+          "scope": "Pinning feels different but cleaner and accepted during cohort trial. Exact session for each observation not independently established; not itemized proof of all gestures, ordering or persistence. Group boundary visual issue reported; rest of testing held."
+        }
       },
       "dependenciesAndLimitations": "See current cohort numbered source contract, retained target safety differences, focused automated checks and pending native/macOS qualification.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "e979f69248c581ce1b26267966da3da32bfdb533"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-PINS-ORDER.md",
       "userEntryPoint": "Swap Ship pin order",
@@ -640,7 +769,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "Windows": "212/212 test/build steps and 37/37 DLL build; native boot. Pin interaction partially accepted, visual issue and unattributed contained GetComponent exception retained; remaining tests held.",
         "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
       },
       "branchObservations": [
@@ -723,6 +852,22 @@
             }
           ],
           "differences": "Target retains checked native writes and rooted snapshots; upstream has legacy name sorting only."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "e979f69248c581ce1b26267966da3da32bfdb533",
+          "presence": "present",
+          "evidenceKind": "source-bound cohort qualification; not full runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/dock.cc",
+              "symbol": "ReorderPinnedShips / durable receipt publication"
+            }
+          ],
+          "differences": "Preset native integration remains absent. Other selected implementations retained with explicit source-preserving custody/field/bind-episode/viewport corrections; see contract."
         }
       ],
       "migrationWorkflow": {
@@ -730,18 +875,50 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "single full source workflow scan complete; target qualification in progress",
+        "state": "source scan and bounded corrections qualified offline; partial native trial; further testing on hold",
         "recordedImmediately": true
       },
-      "catalogStatus": "Source scan complete; current implementation qualification in progress",
+      "catalogStatus": "Source-preserved; partial pin trial; further testing held",
       "parsedOnlySettings": [
         "patches.pinnedshipclicktoggle; source and target actual owner is pinnedshiphooks"
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+            "implementationCommit": "e979f69248c581ce1b26267966da3da32bfdb533"
+          },
+          "contract": "docs/migration/features/PLAY-PINS-ORDER.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "One full source workflow scan per capability; supporting ownership/callers/tests and target adaptations traced.",
+            "automated": "212/212 Windows test-mod/test-il2cpp build/run steps; seven explicit fixture executions; 1,152 comparator oracle cases. Not a native preset adapter qualification.",
+            "nativeBuild": "37/37 Windows DLL steps; x86_64/16 exports/static CRT/full source marker.",
+            "nativeRuntime": "Cohort e979f692 main ordinary client273 PID50172/filetime134375473141348824; exact installed disk hash/module path, FrameTick ready, four TOML files unchanged. One contained GetComponent exception during interactive trial; caller not established. Further testing held.",
+            "macOS": "Not compiled locally; CI and Mcohall runtime qualification pending."
+          },
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json",
+          "artifactReceiptSha256": "26ba01c9db8fbfe535110b3d152f4d6d27134c5b224e2eea926b4070d4068662",
+          "artifactSha256": "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a",
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-02.md",
+          "remaining": [
+            "Durable ordering/reopen/restart, ambiguous legacy and stale/failure receipt native workflows not itemized in user acceptance",
+            "macOS unqualified; further testing held"
+          ]
+        }
       ]
     },
     {
       "id": "PLAY-PINS-INPUT",
       "name": "Badge double-click and hold-drag pin gestures",
-      "classification": "Implemented, unverified",
+      "classification": "Partial",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
         "path": "mods/src/patches/swap_ship_pin_input.cc",
@@ -755,12 +932,25 @@
       "verificationProcedure": "Drop inside/outside group/viewport, recycled tile, focus loss, missing end-drag, native scrolling, failed persistence and rapid edits.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "localAutomatedEvidence": [
+          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished."
+        ],
+        "exactCandidateRuntime": "Cohort e979f692 main ordinary client273 PID50172/filetime134375473141348824; exact installed disk hash/module path, FrameTick ready, four TOML files unchanged. One contained GetComponent exception during interactive trial; caller not established. Further testing held.",
+        "playerVerifiedFinalCandidate": false,
+        "playerConfirmation": {
+          "reporter": "Guff",
+          "date": "2026-10-26",
+          "candidateArtifacts": [
+            "b473daca7ba055ae77ca1dd7e3faa68c2e67aed3637b61f661623e1ee7fa6ba3",
+            "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a"
+          ],
+          "scope": "Pinning feels different but cleaner and accepted during cohort trial. Exact session for each observation not independently established; not itemized proof of all gestures, ordering or persistence. Group boundary visual issue reported; rest of testing held."
+        }
       },
       "dependenciesAndLimitations": "See current cohort numbered source contract, retained target safety differences, focused automated checks and pending native/macOS qualification.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "e979f69248c581ce1b26267966da3da32bfdb533"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-PINS-INPUT.md",
       "userEntryPoint": "Swap Ship badge double-click and held drag",
@@ -772,7 +962,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "Current cohort qualification pending; earlier evidence stays bound to its artifact.",
+        "Windows": "212/212 test/build steps and 37/37 DLL build; native boot. Pin interaction partially accepted, visual issue and unattributed contained GetComponent exception retained; remaining tests held.",
         "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
       },
       "branchObservations": [
@@ -855,6 +1045,22 @@
             }
           ],
           "differences": "Target already has pointer policy/decorations; parsed-only pinnedshipclicktoggle is not the actual owner."
+        },
+        {
+          "date": "2026-10-26",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "e979f69248c581ce1b26267966da3da32bfdb533",
+          "presence": "present",
+          "evidenceKind": "source-bound cohort qualification; not full runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/features/ship_pin_input.cc",
+              "symbol": "Install / HandleTileClick / held ScrollRect drag"
+            }
+          ],
+          "differences": "Preset native integration remains absent. Other selected implementations retained with explicit source-preserving custody/field/bind-episode/viewport corrections; see contract."
         }
       ],
       "migrationWorkflow": {
@@ -862,12 +1068,58 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "single full source workflow scan complete; target qualification in progress",
+        "state": "source scan and bounded corrections qualified offline; partial native trial; further testing on hold",
         "recordedImmediately": true
       },
-      "catalogStatus": "Source scan complete; current implementation qualification in progress",
+      "catalogStatus": "Partial player acceptance; pinned-group visual issue open; testing held",
       "parsedOnlySettings": [
         "patches.pinnedshipclicktoggle; source and target actual owner is pinnedshiphooks"
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-26",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "f4f64180543a9231234cd2b3d3f547dfa580476b",
+            "implementationCommit": "e979f69248c581ce1b26267966da3da32bfdb533"
+          },
+          "contract": "docs/migration/features/PLAY-PINS-INPUT.md",
+          "migrationStatus": "Partial",
+          "verification": {
+            "sourceComparison": "One full source workflow scan per capability; supporting ownership/callers/tests and target adaptations traced.",
+            "automated": "212/212 Windows test-mod/test-il2cpp build/run steps; seven explicit fixture executions; 1,152 comparator oracle cases. Not a native preset adapter qualification.",
+            "nativeBuild": "37/37 Windows DLL steps; x86_64/16 exports/static CRT/full source marker.",
+            "nativeRuntime": "Cohort e979f692 main ordinary client273 PID50172/filetime134375473141348824; exact installed disk hash/module path, FrameTick ready, four TOML files unchanged. One contained GetComponent exception during interactive trial; caller not established. Further testing held.",
+            "macOS": "Not compiled locally; CI and Mcohall runtime qualification pending."
+          },
+          "artifactReceipt": "D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json",
+          "artifactReceiptSha256": "26ba01c9db8fbfe535110b3d152f4d6d27134c5b224e2eea926b4070d4068662",
+          "artifactSha256": "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a",
+          "evidence": "docs/migration/FEATURE-COHORT-20261026-02.md",
+          "remaining": [
+            "Pinned-group visual spill needs bounded correction after hold",
+            "Contained GetComponent exception caller/cause unresolved; occurrence count unknown",
+            "Remaining geometry/dispatch/rebind/focus failure paths and macOS unqualified; further testing held"
+          ]
+        }
+      ],
+      "knownIssues": [
+        {
+          "id": "PIN-GROUP-VISUAL",
+          "status": "open; correction held during current player testing",
+          "evidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-02/pinned-group-feedback.png",
+          "description": "Group rectangle unclear and spills beyond cards; screenshot is actual usability evidence."
+        },
+        {
+          "id": "PIN-COMPONENT-EXCEPTION",
+          "status": "observed; caller/cause unresolved; investigate after hold",
+          "description": "GameObject.GetComponent NullReferenceException in trial log, contained by binding; later reports suppressed, occurrence count unknown."
+        }
       ]
     },
     {
@@ -4473,8 +4725,8 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d",
-    "artifactSha256": "ef8fd85143bf58875a263113b8c9192315bbb756c30b16d1757b4910579937c7",
-    "qualification": "Prior cohort basic acceptance retained; later Search-row correction tests/build/main Windows boot passed; native search interaction and macOS pending."
+    "currentSourceCommit": "e979f69248c581ce1b26267966da3da32bfdb533",
+    "artifactSha256": "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a",
+    "qualification": "Cohort02 tests/build/boot qualified; pin interaction partial acceptance; group visual issue and unattributed contained UI exception open; native preset adapter missing; further testing/cycles held by operator. Later notes/source comment only, no new build."
   }
 }

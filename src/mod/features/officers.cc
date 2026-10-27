@@ -1,5 +1,6 @@
-// [ui] officer_sort: brings back the "Below Deck Ability" sort option that client m93.1 removed from the officer
-// roster and the officer assignment screen, by appending it to the sort menus after the game builds them.
+// [ui] officer_sort: optional Below Deck Ability compatibility for roster and assignment menus. Native clients
+// have reportedly restored this option (operator, 2026-10-26); preserve native entries and the duplicate-key check.
+// Future idea: player-defined sort precedence or custom sorts. This compatibility switch does not implement that.
 
 #include "config.h"
 #include "features/features.h"

@@ -83,6 +83,10 @@ qualify the current installed process. No player crew/preset data is changed.
   custody rather than allocating another handle for an unchanged context. This
   strengthens source behavior and closes the target's incomplete episode guard;
   a refreshed native row cannot complete an earlier gesture.
+- **Viewport fallback:** restore the source's ScrollRect-self rectangle when its
+  explicit viewport is successfully observed null. Both preview cue and drop use
+  the same qualified helper. Missing/failed getter or transform observations still
+  refuse the interaction; this does not turn an unknown bound into a permissive hit.
 - **Pin ordering:** the pure ordering functions and pending receipt helper retain
   source semantics. The target's rooted all-row acquisition, in-place verified
   writes/rollback and matching-context delayed redraw are safety improvements to
@@ -109,3 +113,81 @@ Final source-bound build, scoped reviews, receipts and native trial are appended
 after completion. macOS qualification remains CI builds and Mcohall runtime testing.
 Existing AAI/Kit and Settings behavior remain outside this cohort's changes. Do not
 reuse the first cohort's artifact or test result to qualify this later candidate.
+
+## Final source and native checkpoint
+
+Production source: `e979f69248c581ce1b26267966da3da32bfdb533`. Initial changes are
+`6659fec1`, constructor-test proof correction `7fd4cbf9`, raw C string custody
+conversion fix `c5578a7e`, and viewport fallback `e979f692`. The first native build
+failed two C string/GC-handle conversions; it is retained as failed evidence, not
+relabeled as a qualified binary. Final Windows tests passed **212/212 build/run
+steps**, and the complete DLL build passed **37/37**. Seven relevant current fixture
+executables were explicitly re-executed; their hashes and outputs are in the receipt.
+
+Final DLL: `zig-out/feature-cohort-02-e979f692/bin/version.dll`, SHA-256
+`ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a`.
+x86_64, 16 proxy exports, static CRT and the complete embedded identity were
+verified (source/base e979f692, build feature-cohort-20261026-02, release/study).
+Receipt: `D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json`, SHA-256
+`26ba01c9db8fbfe535110b3d152f4d6d27134c5b224e2eea926b4070d4068662`.
+
+Two independent read-only delta reviews found no production defect. Both found
+the same test gap: an assertion inside the fake constructor could throw and be
+caught by production, masking an unintended constructor invocation. A counter
+before that assertion now proves noninvocation on allocation/root failure. The
+correction and later viewport delta were reviewed with no residual findings.
+These reviews are not a three-lane publication gate or Runner orchestration.
+
+The authorized final ordinary-main cycle used the existing AX lease/helpers,
+after the build completed: PID 50476 to 50172, new process file time
+`134375473141348824`, client 273,
+`C:/Games/Star Trek Fleet Command/default/game`. Window responding, FrameTick ready,
+local DLL module path observed and installed disk hash matched. This does not
+independently hash in-memory module bytes. All four installation TOML files
+remained unchanged. Preset ordering stayed inactive; no crew/preset store migration.
+Final receipts/log:
+`D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-02/final-runtime/`.
+An earlier c5578a7e trial is separately retained under `main-runtime/`.
+
+## Operator feedback and hold — 2026-10-26
+
+Guff reports that native Below Deck Ability sorting is available again. This is
+an operator observation, not independent proof of which native keys/comparers were
+used. Do not count seeing the option as a mod-specific success. Preserve the
+optional compatibility module; its code comment now records the future idea of
+player-controlled sort precedence/custom sorts. No custom-sort implementation.
+
+Pin interactions were described as different but cleaner and acceptable. This is
+partial player acceptance, not itemized proof of all pin order, persistence,
+viewport, rebind, focus-loss or callback-failure cases.
+
+- **PIN-GROUP-VISUAL:** The group rectangle is unclear and visibly spills beyond
+  the cards. Keep this open for a bounded visual correction; do not treat accepted
+  gestures as acceptance of the group decoration. Retained screenshot:
+  `D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-02/pinned-group-feedback.png`,
+  SHA-256 `401ca67af5b1cb228a614f1ecfe4b29c9eed089c376b5c55d04b7893e2ab30bb`.
+  After the hold, compare the source's own-card rectangle corner calculation with
+  the target's `CalculateRelativeRectTransformBounds` call in `PinRefreshBand`.
+  Descendant geometry, padding and clipping are hypotheses to measure, not an
+  established cause or a reason to change the decoration during this trial.
+- **OFFICER-CUSTOM-SORTS:** Deferred future idea: allow players to define sort order
+  or custom sorts. Not an implemented source capability and not a missing migration
+  requirement. Reassess native options before designing this.
+- **PIN-COMPONENT-EXCEPTION:** Retained interactive log contains a reported
+  `UnityEngine.GameObject.GetComponent` NullReferenceException at 23:02:21 local.
+  Typed binding contains it; its originating caller is not established. Reporting
+  is suppressed after the first exception from this method, so one log line does
+  not prove one occurrence. Correlate later without attributing it to the pin box
+  or new ownership changes without evidence.
+
+The operator asked to stand by on further testing of the remaining behavior.
+Do not start another test/trial or cycle until that hold is released. Only notes
+and the requested future-facing source comment were added afterward; the installed
+binary and its qualification remain attached to e979f692. No new build, UI change,
+source filtering, preset activation, push or release follows from this feedback.
+
+Disposition: four source contracts/scans completed; sorter/pointer construction
+and bind/viewport corrections qualified offline; existing pin ordering retained.
+Native interactions are only partially accepted, the pinned-group visual issue
+is open, and preset ordering remains missing. Finish the held UI qualification
+before treating this cohort as accepted or starting another batch.
