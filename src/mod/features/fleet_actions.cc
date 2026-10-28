@@ -1351,12 +1351,16 @@ void RecoverAbilityButtons()
   }
 }
 
-void AbilityButtonsFrame()
+void FleetActionMaintenanceFrame()
 {
   RetireFleetReplay(); // Also runs in capture/native-hotkey/disabled modes which skip ordinary shortcut dispatch.
   RetireTargetCargo();
   DiscoveryTowFrame(); // Runs in every input mode so disable/capture can retire pending native work.
   RetireFleetSelection();
+}
+
+void AbilityButtonsFrame()
+{
   static Throttle throttle(std::chrono::milliseconds(250));
   if (throttle.Due())
     RecoverAbilityButtons();
@@ -1510,5 +1514,8 @@ void InstallFleetActions()
 }
 
 const Feature kQueueSwitch{"QueueSwitch", &Config::Patches::testpatches, InstallQueueSwitch};
-// Frame work only, installed with the hotkeys it was introduced with.
-const Feature kAbilityButtons{"AbilityButtons", &Config::Patches::hotkeyhooks, nullptr, AbilityButtonsFrame};
+// Keep housekeeping under its original startup gate and frame position, independently of optional hook success.
+const Feature kFleetActionMaintenance{"FleetActionMaintenance", &Config::Patches::hotkeyhooks, nullptr,
+                                      FleetActionMaintenanceFrame};
+const Feature kAbilityButtons{"AbilityButtons", &Config::Patches::abilitybuttonrecoveryhooks, nullptr,
+                              AbilityButtonsFrame};

@@ -403,6 +403,28 @@ void FleetSelectionAbilityCases(std::string_view mode)
     Require(warp_roots.size() == roots, "unavailable ability contracts release all acquired sources");
     return;
   }
+  if (mode == "fleet-ability-gates") {
+    Require(kAbilityButtons.group == &Config::Patches::abilitybuttonrecoveryhooks
+                && kFleetActionMaintenance.group == &Config::Patches::hotkeyhooks,
+            "registered recovery and housekeeping descriptors have independent startup owners");
+    const auto registered_frame = [&](const Feature& feature) {
+      // Model only the shared host's startup gate; invoke the actual selected consumer callback.
+      if (config.patches.*feature.group)
+        feature.frame();
+    };
+    config.patches.hotkeyhooks                = true;
+    config.patches.abilitybuttonrecoveryhooks = false;
+    registered_frame(kAbilityButtons);
+    Require(fleet_sa_enables == 0 && fleet_sa_remaining_reads == 0,
+            "a disabled recovery descriptor schedules no cooldown queries or button mutation");
+    config.patches.hotkeyhooks                = false;
+    config.patches.abilitybuttonrecoveryhooks = true;
+    registered_frame(kAbilityButtons);
+    Require(button_context.interactable && fleet_sa_enables == 1,
+            "actual recovery frame remains usable independently of the hotkey patch group");
+    Require(warp_roots.size() == roots, "independent recovery retains no native sources");
+    return;
+  }
   Require(mode == "fleet-ability-native", "unknown selection/ability fixture mode");
   RecoverAbilityButtons();
   Require(button_context.interactable && fleet_sa_enables == 1 && fleet_sa_seen_ability == ids.items[0]

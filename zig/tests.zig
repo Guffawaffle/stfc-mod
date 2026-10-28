@@ -494,6 +494,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             navigation_case.addArg(mode);
             test_il2cpp.dependOn(&navigation_case.step);
         }
+        inline for (.{ "fleet-ability-gates", "discovery-tow-maintenance" }) |mode| {
+            const recovery_gate = b.addRunArtifact(exe);
+            recovery_gate.addArg(mode);
+            test_il2cpp.dependOn(&recovery_gate.step);
+        }
         if (ctx.isWindows()) inline for (.{ "cargo-native", "cargo-context-pointer", "cargo-snap-invalid", "cargo-inherited-hook", "cargo-format-signature" }) |mode| {
             const cargo_case = b.addRunArtifact(exe);
             cargo_case.addArg(mode);

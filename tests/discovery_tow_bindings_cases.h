@@ -474,7 +474,7 @@ void DiscoveryTowNativeCases(std::string_view mode)
       method->invoker_method                     = &WarpInvokerSentinel;
     }
     tow_runtime_invoke_override = &TowNativeSharedInvoke;
-  } else if (mode != "discovery-tow-native") {
+  } else if (mode != "discovery-tow-native" && mode != "discovery-tow-maintenance") {
     if (mode == "discovery-tow-reject-arity")
       const_cast<MethodInfo*>(tow_native_plan_method)->parameters_count = 6;
     else if (mode == "discovery-tow-reject-unsigned")
@@ -545,6 +545,23 @@ void DiscoveryTowNativeCases(std::string_view mode)
           "actual acquisition scans the complete typed fleet array and selects the lowest Discovery native index");
   Require(binding::State(reinterpret_cast<binding::Routine*>(&tow_native_iterator)).value == 1,
           "only the controlled native scheduler advances the iterator to its first yielded state");
+  if (mode == "discovery-tow-maintenance") {
+    auto& patches                      = Config::Get().patches;
+    patches.abilitybuttonrecoveryhooks = false;
+    patches.hotkeyhooks                = true;
+    Require(kFleetActionMaintenance.group == &Config::Patches::hotkeyhooks
+                && kAbilityButtons.group == &Config::Patches::abilitybuttonrecoveryhooks,
+            "central descriptors preserve housekeeping ownership when button repair is disabled");
+    fleet_native_capture = true;
+    if (patches.*kFleetActionMaintenance.group)
+      kFleetActionMaintenance.frame();
+    fleet_native_capture = false;
+    Require(!DiscoveryTowing().run && tow_native_stops == 1 && tow_native_submits == 0 && warp_roots.size() == roots,
+            "actual housekeeping still retires pending native towing and custody with recovery disabled");
+    tow_object_new_override        = nullptr;
+    tow_static_field_read_override = nullptr;
+    return;
+  }
   TowNativePoll(1);
   TowNativePoll(2);
   Require(DiscoveryTowing().run && tow_native_submits == 0, "yield states wait without advancing or submitting");

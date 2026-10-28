@@ -152,6 +152,7 @@ int main(int argc, char** argv)
       # SYNTHETIC primary settings: startup output must not rewrite this text.
       [patches]
       uiscalehooks = false
+      abilitybuttonrecoveryhooks = false
       [shortcuts]
       quit = "F1"
       [sync]
@@ -170,7 +171,9 @@ int main(int argc, char** argv)
     };
     const auto primary_before = read_primary();
     fail_vars                 = fail_startup_output;
-    Check(!Config::Get().patches.uiscalehooks && Shortcut::Describe(Action::kQuit) == "F1", "startup activation");
+    Check(!Config::Get().patches.uiscalehooks && !Config::Get().patches.abilitybuttonrecoveryhooks
+              && Shortcut::Describe(Action::kQuit) == "F1",
+          "startup activation");
     fail_vars = false;
     Check(read_primary() == primary_before, "startup rewrote existing primary settings, unknown keys or comments");
     if (fail_startup_output) {
@@ -213,7 +216,8 @@ int main(int argc, char** argv)
     reader.join();
     Check(reloads_ok, "reloads replace snapshots and reclaim unreferenced settings");
     Check(reader_retained && reader_ok && retired.expired(), "an old snapshot lives exactly as long as its reader");
-    Check(!Config::Get().patches.uiscalehooks && Shortcut::Describe(Action::kQuit) == "F2",
+    Check(!Config::Get().patches.uiscalehooks && !Config::Get().patches.abilitybuttonrecoveryhooks
+              && Shortcut::Describe(Action::kQuit) == "F2",
           "reload activates bindings but preserves startup hook groups");
     const auto current  = Config::Sync::Get();
     const auto ui_scale = Config::Get().graphics.ui_scale;

@@ -135,6 +135,7 @@ extern const Feature kDockSelection;
 
 // fleet_actions.cc
 extern const Feature kQueueSwitch;
+extern const Feature kFleetActionMaintenance;
 extern const Feature kAbilityButtons;
 // The pre-scan cargo hooks; installed with the hotkeys.
 void InstallFleetActions();

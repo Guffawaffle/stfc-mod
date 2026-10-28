@@ -16,7 +16,8 @@ full, frame caller/early returns, fleet/bar/panel bindings, GenericButtonContext
 GenericButtonWidget, Widget, Canvas and ability-manager helpers. Source tests were
 searched; no focused ability-repair fixture was found. Existing target was already
 `src/mod/features/fleet_actions.cc::AbilityButtonsFrame`, delivered through the
-single frame owner as `kAbilityButtons` under `[patches].hotkeyhooks`.
+single frame owner as `kAbilityButtons` under `[patches].hotkeyhooks` at that
+historical checkpoint. The dedicated switch below supersedes that shared gate.
 
 | Inspected branch | Exact revision | Source observation |
 | --- | --- | --- |
@@ -25,9 +26,30 @@ single frame owner as `kAbilityButtons` under `[patches].hotkeyhooks`.
 | frozen play-dev | `1baa55fedf1758b19f843cc59707b8901a0b4998` | Complete workflow (521/747), including capture exclusion and native/disabled-hotkey independence. |
 | refactor | `557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8` | Existing typed 250 ms repair; this pass qualifies unknown values, arrays and stale sources. |
 
-No separate player setting or persistence. This repairs a stuck disabled control;
-it never invokes an activated ability, spends resources, reconstructs combat
-mechanics, or replaces native eligibility.
+## Current configuration
+
+```toml
+[patches]
+abilitybuttonrecoveryhooks = true
+```
+
+This startup switch defaults **on**, including when absent from an existing
+configuration. Changing it requires a game restart. Set it to `false` to disable
+only expired ability-button recovery. It is independent of `[patches].hotkeyhooks`
+and `[control].hotkeys_enabled`; ordinary hotkey mode switches still leave repair
+available. There is no separate live/in-game toggle. Object tracking and the
+shared frame tick must be available for recovery to observe and update a panel.
+
+`FleetActionMaintenance` retains the original `hotkeyhooks` gate and frame
+position for fleet replay, cargo, tow and repeat-selection cleanup. Its null
+installer preserves registration even if a later optional Hotkeys installation
+fails. `AbilityButtons` follows with its dedicated gate and unchanged 250 ms
+throttle/capture exclusion. The registry now has 72 feature descriptors; this
+adds no native detour or second frame owner.
+
+This repairs a stuck disabled control; it never invokes an activated ability,
+spends resources, reconstructs combat mechanics, or replaces native eligibility.
+The switch adds no store migration and does not rewrite existing TOML files.
 
 ## Behavioral obligations
 
@@ -75,9 +97,34 @@ Coordinator owns executed results/builds.
 In-game: after a naturally expired cooldown, check a previously disabled button
 becomes usable only when native eligibility permits. Switch ships, hide/reopen
 the panel, use native/mod-off input modes, and open a shortcut editor. No forced
-activation or resource expenditure needed. Ordinary play may not reproduce the
-rare stuck-button bug; its absence does not prove recovery fired. Exact-client
+activation or resource expenditure needed. Ordinary play may not reproduce a
+stuck-button bug; its absence does not prove recovery fired. Exact-client
 frame delivery, macOS builds and runtime testing remain separate qualifications.
 
 Disposition: bounded source-preserving implementation/fixtures authored;
 test/build/runtime acceptance belongs to the exact final cohort candidate.
+
+## Dedicated-switch verification — 2026-10-27
+
+The follow-up changes only the startup gate and separates existing frame
+housekeeping from the repair callback. The Windows suite passed **384/384**
+build/run/install steps with AAI enabled at its unchanged pinned revision.
+`tests/mod_logic.cc` exercises the real parser's default-on behavior, effective
+output and all four combinations with `hotkeyhooks`. `tests/config_reload.cc`
+confirms reload cannot change the startup decision.
+
+The controlled-runtime `fleet-ability-gates` case models the central host's
+startup mask and invokes the actual recovery callback: disabled repair makes
+no cooldown query or mutation; enabled repair works with the hotkey group off.
+`discovery-tow-maintenance` invokes the actual housekeeping callback with repair
+disabled and confirms pending native tow cancellation and root release. These
+cases do not execute the real game's feature installer or establish rendered
+button recovery. Existing availability, stale-source and lifecycle cases passed.
+
+Evidence: `D:/dev/stfc-workspace/.ax/ability-recovery-switch-20261027/tests.log`
+(SHA256 `6d9fcbdaa55b5c55d37345e01e0e25a89715b4804359488093d74a7139cfecde`);
+controlled-runtime executable SHA256
+`ea464a075d7452fd70ec5f5332d91ed34150d531c7f57b61fc184d42a5e9107a`.
+Default-on native boot qualification will be recorded against the exact build;
+disabled-switch native execution, a naturally stuck button and macOS remain
+unverified. No runtime TOML edit is required for the default-on trial.

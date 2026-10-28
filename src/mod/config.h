@@ -128,6 +128,7 @@ public:
   // Hook groups, one per [patches] key in alphabetical order. Users switch one off when another mod (such as a
   // BepInEx plugin) hooks the same methods, or a game update breaks it. Read once: hooks install at startup.
   struct Patches {
+    bool abilitybuttonrecoveryhooks = true;
     bool actionqueuerecoveryhooks   = true;
     bool artifactexchangehooks      = true;
     bool audioeventhooks            = true;

@@ -196,6 +196,23 @@ void DefaultBindings()
   }
 }
 
+void AbilityRecoveryPatch()
+{
+  toml::table effective;
+  const auto  defaults = Config::Parse({}, effective, false);
+  Check(defaults->patches.abilitybuttonrecoveryhooks, "ability-button recovery defaults on without a new file key");
+  for (bool hotkeys : {false, true})
+    for (bool recovery : {false, true}) {
+      toml::table input;
+      input.insert("patches", toml::table{{"hotkeyhooks", hotkeys}, {"abilitybuttonrecoveryhooks", recovery}});
+      const auto parsed = Config::Parse(input, effective, false);
+      Check(parsed->patches.hotkeyhooks == hotkeys && parsed->patches.abilitybuttonrecoveryhooks == recovery,
+            "recovery and hotkey startup groups parse independently in all four combinations");
+      Check(effective["patches"]["abilitybuttonrecoveryhooks"].value<bool>() == recovery,
+            "effective settings retain the independent recovery patch request");
+    }
+}
+
 void Loading()
 {
   auto parsed = Load(R"(
@@ -661,6 +678,7 @@ int main()
   KeyRanges();
   DefaultBindings();
   Loading();
+  AbilityRecoveryPatch();
   ExampleSettings();
   NotificationAudio();
   DailyFactionSettings();

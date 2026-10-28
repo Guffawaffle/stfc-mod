@@ -320,6 +320,11 @@ nativesettingshooks = true
 # Subgroup: Leave Well Alone
 # --------------------------
 
+# Re-enable stuck ship-ability buttons after cooldown when the game confirms eligibility.
+# Independent of hotkeyhooks and control.hotkeys_enabled; never activates an ability.
+# Restart required after changing any [patches] switch.
+abilitybuttonrecoveryhooks = true
+
 # Enable recovery of interrupted action queues.
 actionqueuerecoveryhooks = true
 artifactexchangehooks = true
