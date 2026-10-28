@@ -532,3 +532,15 @@ and receipt references are in the cohort record.
 Execution was direct collaboration/local tooling; Runner's native execution
 layer is held while its helper is developed separately. No overall parity,
 promotion, release or upstream-alignment claim follows from this batch.
+
+## Fleet and navigation reconciliation
+
+[Cohort 04](FEATURE-COHORT-20261027-04.md) preserves and qualifies fleet
+selection/repeat-location, expired ability-button recovery, screen navigation
+and Discovery towing. Complete frozen-source contracts distinguish existing
+consumers from lifecycle/availability corrections. The combined Windows
+controlled-runtime suite passed 382/382 build/run/install steps with assertions
+enabled. Real UI transitions, native tow acceptance/resource behavior and macOS
+remain separate; current candidate/build/player evidence belongs in that cohort.
+Runner's native execution stayed held; three workers and integration used direct
+collaboration. No overall parity or release claim is made.

@@ -489,6 +489,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             map_case.addArg(mode);
             test_il2cpp.dependOn(&map_case.step);
         }
+        inline for (.{ "fleet-selection-native", "fleet-ability-native", "fleet-ability-id-field", "fleet-ability-timer-type", "screen-actions-buttons", "screen-actions-pending", "screen-actions-routing", "screen-actions-stepping", "hotkey-screen-order", "discovery-tow-native", "discovery-tow-reject-arity", "discovery-tow-reject-unsigned", "discovery-tow-reject-generic", "discovery-tow-reject-vector", "discovery-tow-virtual-equals", "discovery-tow-shared", "discovery-tow-reject-null-plan", "discovery-tow-reject-null-start", "discovery-tow-reject-null-instance", "discovery-tow-reject-null-tow", "discovery-tow-reject-null-ctor", "discovery-tow-reject-null-support", "discovery-tow-reject-byref-void", "discovery-tow-reject-shared-invoker" }) |mode| {
+            const navigation_case = b.addRunArtifact(exe);
+            navigation_case.addArg(mode);
+            test_il2cpp.dependOn(&navigation_case.step);
+        }
         if (ctx.isWindows()) inline for (.{ "cargo-native", "cargo-context-pointer", "cargo-snap-invalid", "cargo-inherited-hook", "cargo-format-signature" }) |mode| {
             const cargo_case = b.addRunArtifact(exe);
             cargo_case.addArg(mode);

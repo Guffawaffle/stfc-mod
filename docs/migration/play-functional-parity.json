@@ -25,13 +25,68 @@
       "verificationProcedure": "Choose occupied/empty slots, repeat inside/outside timer, replace bar, focus text.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
+        ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "pendingCandidateRuntime": "Fleet/navigation candidate not deployed; existing runtime entries remain historical."
       },
-      "dependenciesAndLimitations": "Choose occupied/empty slots, repeat inside/outside timer, replace bar, focus text.",
+      "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-SELECT.md",
+      "catalogStatus": "Source/adapter qualified:382/382 Windows steps; current native trial pending; macOS separate",
+      "userEntryPoint": "Configured ship-selection keys and SelectCurrent; existing Controls/Preview preferences",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-SELECT.md: complete consumer/source comparison, not current native qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc; mods/src/patches/discovery_tow.cc for towing"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_actions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-SELECT.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "382/382 Windows steps with Debug fixture assertions; exact fixture layers and native/platform limits in contract/cohort.",
+          "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Choose occupied/empty slots, repeat inside/outside timer, replace bar, focus text."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-FLEET-TOW",
@@ -55,14 +110,68 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
+          "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
         ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "pendingCandidateRuntime": "Fleet/navigation candidate not deployed; existing runtime entries remain historical."
       },
-      "dependenciesAndLimitations": "Native scheduled Shift+configured-ship towing; seven-argument PlanCourse, immutable destination, real callbacks, fresh-course checks. Windows source/fixture qualification only; actual tow trial pending.",
+      "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-TOW.md",
+      "catalogStatus": "Source/adapter qualified:382/382 Windows steps; current native trial pending; macOS separate",
+      "userEntryPoint": "Shift + configured ship shortcut with Discovery and native tow eligibility; operator-chosen trial only",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present; legacy towing implementation",
+          "evidence": "docs/migration/features/PLAY-FLEET-TOW.md: complete consumer/source comparison, not current native qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present; legacy towing implementation",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc; mods/src/patches/discovery_tow.cc for towing"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_actions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-TOW.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "382/382 Windows steps with Debug fixture assertions; exact fixture layers and native/platform limits in contract/cohort.",
+          "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Native scheduled Shift+configured-ship towing; seven-argument PlanCourse, immutable destination, real callbacks, fresh-course checks. Windows source/fixture qualification only; actual tow trial pending."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-FLEET-ACTIONS",
@@ -273,13 +382,68 @@
       "verificationProcedure": "Cooldown expires with panel open; switch fleet; unavailable timers/CanUseAbility; mismatched arrays.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
+        ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "pendingCandidateRuntime": "Fleet/navigation candidate not deployed; existing runtime entries remain historical."
       },
-      "dependenciesAndLimitations": "Cooldown expires with panel open; switch fleet; unavailable timers/CanUseAbility; mismatched arrays.",
+      "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-ABILITY-RECOVERY.md",
+      "catalogStatus": "Source/adapter qualified:382/382 Windows steps; current native trial pending; macOS separate",
+      "userEntryPoint": "Existing fleet ability panel after native cooldown expiry; repairs button availability, never auto-activates",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-ABILITY-RECOVERY.md: complete consumer/source comparison, not current native qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc; mods/src/patches/discovery_tow.cc for towing"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_actions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-ABILITY-RECOVERY.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "382/382 Windows steps with Debug fixture assertions; exact fixture layers and native/platform limits in contract/cohort.",
+          "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Cooldown expires with panel open; switch fleet; unavailable timers/CanUseAbility; mismatched arrays."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-QUEUE-SWITCH",
@@ -2009,13 +2173,68 @@
       "verificationProcedure": "Slow screen creation, cancellation/timeout, hidden pooled screen and text focus.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
+        ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "pendingCandidateRuntime": "Fleet/navigation candidate not deployed; existing runtime entries remain historical."
       },
-      "dependenciesAndLimitations": "Slow screen creation, cancellation/timeout, hidden pooled screen and text focus.",
+      "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-SCREEN-ACTIONS.md",
+      "catalogStatus": "Source/adapter qualified:382/382 Windows steps; current native trial pending; macOS separate",
+      "userEntryPoint": "Configured screen, Ship Swap, Officer Swap, Presets and arrow/search shortcuts",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-SCREEN-ACTIONS.md: complete consumer/source comparison, not current native qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc; mods/src/patches/discovery_tow.cc for towing"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8",
+          "presence": "present",
+          "evidence": "src/mod/features/screens.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8"
+          },
+          "contract": "docs/migration/features/PLAY-SCREEN-ACTIONS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "382/382 Windows steps with Debug fixture assertions; exact fixture layers and native/platform limits in contract/cohort.",
+          "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Slow screen creation, cancellation/timeout, hidden pooled screen and text focus."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-FOCUS-SEARCH",
@@ -6421,6 +6640,16 @@
       "pidAtQualification": 57292,
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
       "receipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
+    },
+    "pendingCohort": {
+      "document": "docs/migration/FEATURE-COHORT-20261027-04.md",
+      "capabilities": [
+        "PLAY-FLEET-ABILITY-RECOVERY",
+        "PLAY-FLEET-SELECT",
+        "PLAY-FLEET-TOW",
+        "PLAY-SCREEN-ACTIONS"
+      ],
+      "status": "Source/adapter qualified; native construction/trial pending. Accepted runtime remains MAP8 8c306f89."
     }
   }
 }

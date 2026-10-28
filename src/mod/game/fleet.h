@@ -331,6 +331,16 @@ enum class ActionBehaviour : int32_t {
 struct TimerDataContext : il2cpp::Object {
   unity::TimeSpan RemainingTime()
   { return Get<"RemainingTime", unity::TimeSpan>(); }
+  il2cpp::CallResult<unity::TimeSpan> TryRemainingTime()
+  {
+    auto* getter   = il2cpp::detail::Lookup<TimerDataContext>(*this, [](Il2CppClass* klass) {
+      return il2cpp::detail::MethodCall<unity::TimeSpan()>::Resolve(klass, "get_RemainingTime", false);
+    });
+    using TimeSpan = il2cpp::Class<"mscorlib", "System", "TimeSpan">;
+    if (!getter || !il2cpp::detail::ValueClassMatches(getter->return_type, TimeSpan::Raw(), sizeof(unity::TimeSpan)))
+      return {};
+    return il2cpp::detail::TryInvoke<unity::TimeSpan>(getter, this);
+  }
 };
 
 struct ShipActionPanelLocalViewController : il2cpp::Object {
@@ -338,10 +348,44 @@ struct ShipActionPanelLocalViewController : il2cpp::Object {
 
   il2cpp::Array<int64_t>* abilityIDs()
   { return Field<"_abilityIDs", il2cpp::Array<int64_t>*>(); }
+  il2cpp::CallResult<il2cpp::Array<int64_t>*> TryAbilityIds()
+  {
+    static auto* field = il2cpp::detail::ResolveField(Class::Raw(), "_abilityIDs",
+                                                      il2cpp::detail::SlotOf<il2cpp::ArrayObject*>(), false);
+    if (!field || !field->type || field->type->byref || field->type->type != IL2CPP_TYPE_SZARRAY
+        || !il2cpp::detail::ExactScalarMatches(field->type->data.type, IL2CPP_TYPE_I8))
+      return {};
+    auto* value = il2cpp::detail::ReadField<il2cpp::ArrayObject*>(field, this);
+    if (!value)
+      return {true, nullptr};
+    const auto* type = value->klass ? il2cpp_class_get_type(value->klass) : nullptr;
+    if (!type || type->byref || type->type != IL2CPP_TYPE_SZARRAY
+        || !il2cpp::detail::ExactScalarMatches(type->data.type, IL2CPP_TYPE_I8))
+      return {};
+    return {true, reinterpret_cast<il2cpp::Array<int64_t>*>(value)};
+  }
   il2cpp::Array<GenericButtonWidget*>* buttons()
   { return Field<"_buttons", il2cpp::Array<GenericButtonWidget*>*>(); }
+  il2cpp::CallResult<il2cpp::Array<GenericButtonWidget*>*> TryButtons()
+  {
+    static auto* field =
+        il2cpp::detail::ResolveField(Class::Raw(), "_buttons", il2cpp::detail::SlotOf<il2cpp::ArrayObject*>(), false);
+    if (!field)
+      return {};
+    return il2cpp::TryReferenceArray<GenericButtonWidget*>(
+        il2cpp::detail::ReadField<il2cpp::ArrayObject*>(field, this));
+  }
   TimerDataContext* GetRemainingCooldown(int64_t abilityId)
   { return Call<"GetRemainingCooldown", TimerDataContext*>(abilityId); }
+  il2cpp::CallResult<TimerDataContext*> TryRemainingCooldown(int64_t ability_id)
+  {
+    static const auto* method =
+        il2cpp::detail::MethodCall<TimerDataContext*(int64_t)>::Resolve(Class::Raw(), "GetRemainingCooldown", false);
+    const auto* type = method ? method->return_type : nullptr;
+    if (!type || type->byref || (type->type != IL2CPP_TYPE_CLASS && type->type != IL2CPP_TYPE_GENERICINST))
+      return {};
+    return il2cpp::detail::TryInvoke<TimerDataContext*>(method, this, ability_id);
+  }
   bool HasShipAnActiveAbilityWithActiveEffect()
   { return Call<"HasShipAnActiveAbilityWithActiveEffect", bool>(); }
 };
@@ -351,6 +395,14 @@ struct FleetLocalViewController : il2cpp::Object {
 
   ShipActionPanelLocalViewController* shipActionPanelLocalViewController()
   { return Field<"_shipActionPanelLocalViewController", ShipActionPanelLocalViewController*>(); }
+  il2cpp::CallResult<ShipActionPanelLocalViewController*> TryActionPanel()
+  {
+    static const bool available =
+        Class::HasField<"_shipActionPanelLocalViewController", ShipActionPanelLocalViewController*>();
+    return available
+               ? il2cpp::CallResult<ShipActionPanelLocalViewController*>{true, shipActionPanelLocalViewController()}
+               : il2cpp::CallResult<ShipActionPanelLocalViewController*>{};
+  }
   FleetPlayerData* fleet()
   { return Get<"fleet", FleetPlayerData*>(); }
   void CancelButtonClicked()
@@ -375,6 +427,12 @@ struct FleetBarViewController : il2cpp::Object {
 
   FleetLocalViewController* fleetPanelController()
   { return Field<"_fleetPanelController", FleetLocalViewController*>(); }
+  il2cpp::CallResult<FleetLocalViewController*> TryPanel()
+  {
+    static const bool available = Class::HasField<"_fleetPanelController", FleetLocalViewController*>();
+    return available ? il2cpp::CallResult<FleetLocalViewController*>{true, fleetPanelController()}
+                     : il2cpp::CallResult<FleetLocalViewController*>{};
+  }
   FleetBarContext* CanvasContext()
   { return Get<"CanvasContext", FleetBarContext*>(); }
 
@@ -562,6 +620,22 @@ inline bool ClosedInt32(const Il2CppType* type, Il2CppClass* definition)
          && il2cpp::detail::ExactScalarMatches(args->type_argv[0], IL2CPP_TYPE_I4)
          && il2cpp_class_from_type(args->type_argv[0]) == il2cpp::PrimitiveClass<int32_t>();
 }
+// Signature lookup alone establishes metadata, not executable availability. All
+// tow calls are instance calls without ref/out parameters. Keep the shared
+// invocation path (including virtual Equals and fully shared generic ctors), but
+// refuse a missing entry before native work or callback construction begins.
+inline bool Callable(const MethodInfo* method)
+{
+  if (!method || !method->klass || !method->return_type || method->return_type->byref || method->is_generic
+      || (method->flags & (METHOD_ATTRIBUTE_STATIC | METHOD_ATTRIBUTE_ABSTRACT)) || !method->methodPointer
+      || (method->parameters_count && !method->parameters))
+    return false;
+  for (uint8_t i = 0; i < method->parameters_count; ++i)
+    if (!method->parameters[i] || method->parameters[i]->byref)
+      return false;
+  return method->has_full_generic_sharing_signature ? method->invoker_method != nullptr
+                                                    : method->virtualMethodPointer != nullptr;
+}
 struct Api {
   il2cpp::Method    plan, start, stop, stop_iterator, tow, success, error;
   const MethodInfo* constructor = nullptr;
@@ -573,25 +647,34 @@ inline const Api& Native()
 {
   static const Api api = [] {
     Api result;
-    result.plan =
-        DeploymentManager::Class::Method<Routine*(FleetPlayerData*, NodeAddress*, unity::Vector3, FleetDeployedData*,
-                                                  Starbase*, AllianceStarbase*, Outpost*)>("PlanCourse");
-    result.start         = Mono::Class::Method<Coroutine*(Routine*)>("StartCoroutine");
-    result.stop          = Mono::Class::Method<void(Coroutine*)>("StopCoroutine");
-    result.stop_iterator = Mono::Class::Method<void(Routine*)>("StopCoroutine");
-    result.tow           = DeploymentManager::Class::Method<void(int64_t, int64_t, Reference*)>("SetTowRequest");
-    result.success       = RecallCallbacks::Class::Method<void(int32_t)>("<OnShipRecallAction>b__91_0");
-    result.error         = RecallCallbacks::Class::Method<void(Error*)>("<OnShipRecallAction>b__91_1");
-    result.state         = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "<>1__state",
-                                                        il2cpp::detail::SlotOf<int32_t>(), false);
-    result.fleet         = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "fleet",
-                                                        il2cpp::detail::SlotOf<FleetPlayerData*>(), false);
-    result.destination   = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "targetAddress",
-                                                        il2cpp::detail::SlotOf<NodeAddress*>(), false);
+    // These methods are invoked, never detoured. Class::Method<F> is a hook
+    // lookup and deliberately rejects fully shared generic code; the ordinary
+    // typed call resolver preserves its qualified runtime-invoker route.
+    result.plan  = il2cpp::Method{il2cpp::detail::MethodCall<Routine*(
+        FleetPlayerData*, NodeAddress*, unity::Vector3, FleetDeployedData*, Starbase*, AllianceStarbase*,
+        Outpost*)>::Resolve(DeploymentManager::Class::Raw(), "PlanCourse", false)};
+    result.start = il2cpp::Method{
+        il2cpp::detail::MethodCall<Coroutine*(Routine*)>::Resolve(Mono::Class::Raw(), "StartCoroutine", false)};
+    result.stop = il2cpp::Method{
+        il2cpp::detail::MethodCall<void(Coroutine*)>::Resolve(Mono::Class::Raw(), "StopCoroutine", false)};
+    result.stop_iterator =
+        il2cpp::Method{il2cpp::detail::MethodCall<void(Routine*)>::Resolve(Mono::Class::Raw(), "StopCoroutine", false)};
+    result.tow         = il2cpp::Method{il2cpp::detail::MethodCall<void(int64_t, int64_t, Reference*)>::Resolve(
+        DeploymentManager::Class::Raw(), "SetTowRequest", false)};
+    result.success     = il2cpp::Method{il2cpp::detail::MethodCall<void(int32_t)>::Resolve(
+        RecallCallbacks::Class::Raw(), "<OnShipRecallAction>b__91_0", false)};
+    result.error       = il2cpp::Method{il2cpp::detail::MethodCall<void(Error*)>::Resolve(
+        RecallCallbacks::Class::Raw(), "<OnShipRecallAction>b__91_1", false)};
+    result.state       = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "<>1__state",
+                                                      il2cpp::detail::SlotOf<int32_t>(), false);
+    result.fleet       = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "fleet",
+                                                      il2cpp::detail::SlotOf<FleetPlayerData*>(), false);
+    result.destination = il2cpp::detail::ResolveField(PlanIterator::Class::Raw(), "targetAddress",
+                                                      il2cpp::detail::SlotOf<NodeAddress*>(), false);
     using Definition = il2cpp::Class<"Digit.Engine.Utilities.Runtime", "Digit.Networking.Core", "CallbackContainer`1">;
     using Success    = il2cpp::Class<"Digit.Engine.Utilities.Runtime", "Digit.Networking.Core", "OnSuccess`1">;
     const auto* tow  = result.tow.Info();
-    if (tow && il2cpp::detail::ExactScalarMatches(tow->parameters[0], IL2CPP_TYPE_I8)
+    if (Callable(tow) && il2cpp::detail::ExactScalarMatches(tow->parameters[0], IL2CPP_TYPE_I8)
         && il2cpp::detail::ExactScalarMatches(tow->parameters[1], IL2CPP_TYPE_I8)
         && ClosedInt32(tow->parameters[2], Definition::Raw())) {
       result.callbacks = il2cpp_class_from_type(tow->parameters[2]);
@@ -599,20 +682,33 @@ inline const Api& Native()
           il2cpp::detail::MethodCall<void(Reference*, ErrorDelegate*, int32_t, RetryDelegate*)>::Resolve(
               result.callbacks, ".ctor", false);
     }
+    const auto* clone = il2cpp::detail::MethodCall<NodeAddress*()>::Resolve(NodeAddress::Class::Raw(), "Clone", false);
+    const auto* equals =
+        il2cpp::detail::MethodCall<bool(NodeAddress*)>::Resolve(NodeAddress::Class::Raw(), "Equals", false);
+    const auto* valid =
+        il2cpp::detail::MethodCall<bool()>::Resolve(PathFinderResultData::Class::Raw(), "get_Valid", false);
+    const auto* can_tow =
+        il2cpp::detail::MethodCall<bool(FleetPlayerData*)>::Resolve(DeploymentManager::Class::Raw(), "CanTow", false);
+    const auto* can_be_towed = il2cpp::detail::MethodCall<bool(FleetPlayerData*, FleetPlayerData*)>::Resolve(
+        DeploymentManager::Class::Raw(), "CanBeTowed", false);
+    const auto* success_read =
+        result.callbacks ? il2cpp::detail::MethodCall<Reference*()>::Resolve(result.callbacks, "get_OnSuccess", false)
+                         : nullptr;
+    const auto* error_read =
+        result.callbacks ? il2cpp::detail::MethodCall<ErrorDelegate*()>::Resolve(result.callbacks, "get_OnError", false)
+                         : nullptr;
     const auto* ctor = result.constructor;
-    result.ready = result.plan && result.start && result.stop && result.stop_iterator && result.tow && result.success
-                   && result.error && result.state && result.fleet && result.destination
-                   && il2cpp::detail::ExactScalarMatches(result.state->type, IL2CPP_TYPE_I4) && ctor
-                   && il2cpp::detail::ValueClassMatches(result.plan.Info()->parameters[2], unity::Vector3Class(),
-                                                        sizeof(unity::Vector3))
-                   && ClosedInt32(ctor->parameters[0], Success::Raw())
-                   && il2cpp::detail::ResolveField(RecallCallbacks::Class::Raw(), "<>9",
-                                                   il2cpp::detail::SlotOf<RecallCallbacks*>(), true)
-                   && NodeAddress::Class::Method<NodeAddress*()>("Clone")
-                   && NodeAddress::Class::Method<bool(NodeAddress*)>("Equals")
-                   && PathFinderResultData::Class::Method<bool()>("get_Valid")
-                   && DeploymentManager::Class::Method<bool(FleetPlayerData*)>("CanTow")
-                   && DeploymentManager::Class::Method<bool(FleetPlayerData*, FleetPlayerData*)>("CanBeTowed");
+    result.ready     = Callable(result.plan.Info()) && Callable(result.start.Info()) && Callable(result.stop.Info())
+                       && Callable(result.stop_iterator.Info()) && Callable(tow) && Callable(result.success.Info())
+                       && Callable(result.error.Info()) && result.state && result.fleet && result.destination
+                       && il2cpp::detail::ExactScalarMatches(result.state->type, IL2CPP_TYPE_I4) && Callable(ctor)
+                       && il2cpp::detail::ValueClassMatches(result.plan.Info()->parameters[2], unity::Vector3Class(),
+                                                            sizeof(unity::Vector3))
+                       && ClosedInt32(ctor->parameters[0], Success::Raw())
+                       && il2cpp::detail::ResolveField(RecallCallbacks::Class::Raw(), "<>9",
+                                                       il2cpp::detail::SlotOf<RecallCallbacks*>(), true)
+                       && Callable(clone) && Callable(equals) && Callable(valid) && Callable(can_tow)
+                       && Callable(can_be_towed) && Callable(success_read) && Callable(error_read);
     return result;
   }();
   return api;

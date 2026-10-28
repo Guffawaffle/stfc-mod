@@ -83,14 +83,15 @@ constexpr SettingShortcut kSettingShortcuts[] = {
     {Action::kReloadSettings, [] { Config::Reload(); }},
 };
 
-void SettingShortcuts()
+bool SettingShortcuts()
 {
   for (const auto& setting : kSettingShortcuts) {
     if (setting.held ? Shortcut::IsPressed(setting.shortcut) : Shortcut::IsDown(setting.shortcut)) {
       setting.run();
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 // --- Escape exit ---
@@ -153,11 +154,9 @@ bool HandleShortcuts()
   }
   if (!hotkeys_installed)
     return false;
-  auto& config = Config::Get();
-
   if (Shortcut::IsDown(Action::kDisableHotKeys)) {
     HideKeybindBadges();
-    gameplay_settings::SetBoolean(config.control.hotkeys_enabled, false, gameplay_settings::Boolean::Hotkeys,
+    gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, false, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
                                     runtime_config::SaveSetting(key.section, key.name, value, key.delay);
                                   });
@@ -165,7 +164,7 @@ bool HandleShortcuts()
     return true;
   }
   if (Shortcut::IsDown(Action::kEnableHotKeys)) {
-    gameplay_settings::SetBoolean(config.control.hotkeys_enabled, true, gameplay_settings::Boolean::Hotkeys,
+    gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, true, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
                                     runtime_config::SaveSetting(key.section, key.name, value, key.delay);
                                   });
@@ -179,7 +178,8 @@ bool HandleShortcuts()
   // Switched off, or with Scopely's (the game's own) hotkeys, the mod leaves the keys to the game. Returning true
   // here would skip the game's ScreenManager.Update, which also runs the back button, orientation and the rest of
   // the UI's per-frame work.
-  if (!config.control.hotkeys_enabled || config.control.use_scopely_hotkeys)
+  // Awaited native button callbacks can reload (and replace) Config.
+  if (!Config::Get().control.hotkeys_enabled || Config::Get().control.use_scopely_hotkeys)
     return false;
 
   // Keys typed into a text field (chat, search) are text, not shortcuts.
@@ -224,7 +224,10 @@ bool HandleShortcuts()
     OpenChatShortcut();
     if (ScreenShortcuts())
       return true;
-    SettingShortcuts();
+    // Frozen PLAY puts Manage Ships after the entire settings else-if chain.
+    // Both keep native Update; a shared chord must still execute only the first.
+    if (!SettingShortcuts())
+      LateScreenShortcut();
   }
 
   return FleetActionShortcuts() || SwallowEscape();

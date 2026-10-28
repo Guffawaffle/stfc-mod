@@ -49,6 +49,12 @@ float             camera_delta_time   = 0.25f;
 unity::Vector3    camera_mouse{40, 50, 0}, camera_world{4, 5, 6};
 bool              camera_world_failure  = false;
 Il2CppObject*     camera_expected_scene = nullptr;
+// Optional managed-runtime bodies for the Discovery adapter fixture. Unhandled
+// calls retain every existing fixture path; these are not production hooks.
+Il2CppObject* (*tow_object_new_override)(const Il2CppClass*, bool& handled) = nullptr;
+Il2CppObject* (*tow_runtime_invoke_override)(const MethodInfo*, void*, void**, Il2CppException**,
+                                             bool& handled)                 = nullptr;
+bool (*tow_static_field_read_override)(FieldInfo*, void*)                   = nullptr;
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held_keys{}, down_keys{};
 
 void KeyboardSnapshot()
@@ -883,11 +889,21 @@ API(Il2CppClass*, il2cpp_class_get_element_class, (Il2CppClass * klass))
 END_API
 API(Il2CppClass*, il2cpp_class_from_type, (const Il2CppType* type))
 {
+  if (!type)
+    return nullptr;
   // A vector's type union points to its element type rather than its own class.
   // Preserve that actual SDK relationship in the controlled runtime too.
   for (auto& owner : classes)
     if (type == &owner.klass.byval_arg || type == &owner.byref)
       return &owner.klass;
+  // Field metadata owns copied descriptors. SZARRAY's union points to the
+  // element type, so treating data.dummy as a class would reject valid fields.
+  if (type->type == IL2CPP_TYPE_SZARRAY) {
+    for (auto& owner : classes)
+      if (owner.klass.byval_arg.type == IL2CPP_TYPE_SZARRAY && owner.klass.byval_arg.data.type == type->data.type)
+        return &owner.klass;
+    return nullptr;
+  }
   return static_cast<Il2CppClass*>(type->data.dummy);
 }
 END_API
@@ -993,8 +1009,15 @@ API(void*, il2cpp_object_unbox, (Il2CppObject * object))
   return object->klass == &long_class.klass ? static_cast<void*>(&queue_boxed_target) : &shared_result;
 }
 END_API
-API(Il2CppObject*, il2cpp_runtime_invoke, (const MethodInfo* method, void*, void** args, Il2CppException** exception))
+API(Il2CppObject*, il2cpp_runtime_invoke,
+    (const MethodInfo* method, void* target, void** args, Il2CppException** exception))
 {
+  if (tow_runtime_invoke_override) {
+    bool  handled = false;
+    auto* result  = tow_runtime_invoke_override(method, target, args, exception, handled);
+    if (handled)
+      return result;
+  }
   if (method == camera_world_method && camera_world_method) {
     Require(args && args[0] == camera_expected_scene && args[1], "camera world point uses the exact scene and mouse");
     const auto point = *static_cast<const unity::Vector3*>(args[1]);
@@ -1061,6 +1084,12 @@ API(void, il2cpp_format_exception, (const Il2CppException*, char* message, int s
 END_API
 API(Il2CppObject*, il2cpp_object_new, (const Il2CppClass* klass))
 {
+  if (tow_object_new_override) {
+    bool  handled = false;
+    auto* result  = tow_object_new_override(klass, handled);
+    if (handled)
+      return result;
+  }
   if (klass == &action_class.klass) {
     if (delegate_allocation_fails)
       return nullptr;
@@ -1103,6 +1132,8 @@ API(Il2CppClass*, il2cpp_object_get_class, (Il2CppObject * object))
 END_API
 API(void, il2cpp_field_static_get_value, (FieldInfo * field, void* value))
 {
+  if (tow_static_field_read_override && tow_static_field_read_override(field, value))
+    return;
   if (std::string_view(field->name) == "s_initialized")
     std::memcpy(value, &settings_singleton_initialized, sizeof(settings_singleton_initialized));
   else if (std::string_view(field->name) == "s_instance")
@@ -1778,6 +1809,10 @@ void PlannedWarpBindingObservations()
 #include "officer_presets_native_cases.h"
 #include "action_queue_bindings_cases.h"
 #include "fleet_actions_bindings_cases.h"
+#include "fleet_selection_ability_bindings_cases.h"
+#include "discovery_tow_bindings_cases.h"
+#include "screen_actions_bindings_cases.h"
+#include "hotkey_order_bindings_cases.h"
 #include "course_preview_bindings_cases.h"
 #include "instant_warp_bindings_cases.h"
 #include "camera_bindings_cases.h"
@@ -1793,6 +1828,24 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2
+      && (std::string_view(argv[1]).starts_with("fleet-selection-")
+          || std::string_view(argv[1]).starts_with("fleet-ability-"))) {
+    FleetSelectionAbilityCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("discovery-tow-")) {
+    DiscoveryTowNativeCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "hotkey-screen-order") {
+    HotkeyOrderNativeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("screen-actions-")) {
+    ScreenActionsNativeCases(argv[1]);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("camera-")) {
     CameraNativeCases(argv[1]);
     return 0;

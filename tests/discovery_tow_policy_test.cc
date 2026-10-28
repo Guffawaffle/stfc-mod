@@ -76,6 +76,7 @@ void WaitingAndCompletion()
   }
   evidence = Completed();
   evidence.iterator_state.reset();
+  Check(SourceMatches(request, evidence)); // Pre-plan ownership can qualify before any iterator exists.
   Check(Evaluate(request, evidence) == Decision::Cancel);
   evidence        = Completed();
   evidence.course = request.baseline;

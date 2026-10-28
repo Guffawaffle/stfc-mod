@@ -338,22 +338,23 @@ struct DiscoveryTowObservation {
   discovery_tow::Evidence evidence;
   il2cpp::GcHandle        course;
 };
-DiscoveryTowObservation ObserveDiscoveryTow(const std::shared_ptr<DiscoveryTowRun>& run)
+discovery_tow::Evidence ObserveDiscoveryTowSource(const std::shared_ptr<DiscoveryTowRun>& run)
 {
-  DiscoveryTowObservation result;
-  auto&                   e = result.evidence;
-  e.generation              = DiscoveryTowing().generation;
-  e.now_ms                  = TowMilliseconds();
-  e.input_mode              = TowInputMode();
-  auto* owner               = run->owner.Get<DeploymentManager>();
-  e.owner_alive             = TowOwnerAlive(owner);
+  discovery_tow::Evidence e;
+  e.generation  = DiscoveryTowing().generation;
+  e.now_ms      = TowMilliseconds();
+  e.input_mode  = TowInputMode();
+  auto* owner   = run->owner.Get<DeploymentManager>();
+  e.owner_alive = TowOwnerAlive(owner);
+  if (!e.owner_alive)
+    return e;
   auto current_owner =
       WarpRoot(planned_warp_binding::StaticReference<"get_Instance", DeploymentManager, DeploymentManager>());
   auto fleets   = WarpRoot(planned_warp_binding::StaticReference<"get_Instance", FleetsManager, FleetsManager>());
   auto sections = WarpRoot(
       planned_warp_binding::StaticReference<"get_Instance", NavigationSectionManager, NavigationSectionManager>());
   if (!current_owner || !fleets || !sections)
-    return result;
+    return e;
   e.owner            = WarpIdentity(current_owner);
   const auto section = sections.Get<NavigationSectionManager>()->TryCall<"get_CurrentSection", SectionID>();
   if (section)
@@ -363,7 +364,7 @@ DiscoveryTowObservation ObserveDiscoveryTow(const std::shared_ptr<DiscoveryTowRu
   auto discovery = WarpRoot(fleets.Get<FleetsManager>()->TryCall<"GetFleetPlayerData", FleetPlayerData*(int32_t)>(
       run->request.discovery_index));
   if (!selected || !discovery || current_owner.Get() != run->owner.Get())
-    return result;
+    return e;
   e.selected_object  = WarpIdentity(selected);
   e.discovery_object = WarpIdentity(discovery);
   e.selected         = WarpObservation(selected.Get<FleetPlayerData>()->TryId());
@@ -375,6 +376,22 @@ DiscoveryTowObservation ObserveDiscoveryTow(const std::shared_ptr<DiscoveryTowRu
   e.can_tow      = WarpObservation(owner->TryCall<"CanTow", bool(FleetPlayerData*)>(discovery.Get<FleetPlayerData>()));
   e.can_be_towed = WarpObservation(owner->TryCall<"CanBeTowed", bool(FleetPlayerData*, FleetPlayerData*)>(
       selected.Get<FleetPlayerData>(), discovery.Get<FleetPlayerData>()));
+  e.generation   = DiscoveryTowing().generation;
+  e.input_mode   = TowInputMode();
+  e.now_ms       = TowMilliseconds();
+  return e;
+}
+DiscoveryTowObservation ObserveDiscoveryTow(const std::shared_ptr<DiscoveryTowRun>& run,
+                                            const discovery_tow::Request&           expected)
+{
+  DiscoveryTowObservation result;
+  auto&                   e = result.evidence;
+  e                         = ObserveDiscoveryTowSource(run);
+  auto* owner               = run->owner.Get<DeploymentManager>();
+  // The final recheck passes its new retirement ticket explicitly. Do not query
+  // a course on an unavailable/replaced source merely to reject it afterward.
+  if (!owner || !discovery_tow::SourceMatches(expected, e))
+    return result;
   const auto state = tow_native::State(run->iterator.Get<tow_native::Routine>());
   e.iterator_state = WarpObservation(state);
   if (!state || state.value != -1)
@@ -403,6 +420,8 @@ DiscoveryTowObservation ObserveDiscoveryTow(const std::shared_ptr<DiscoveryTowRu
   e.generation = DiscoveryTowing().generation; // Every managed call above can reenter cancellation.
   return result;
 }
+DiscoveryTowObservation ObserveDiscoveryTow(const std::shared_ptr<DiscoveryTowRun>& run)
+{ return ObserveDiscoveryTow(run, run->request); }
 void DiscoveryTowFrame()
 {
   auto&      state = DiscoveryTowing();
@@ -445,10 +464,15 @@ void DiscoveryTowFrame()
     return;
   auto completed       = run->request;
   completed.generation = ticket;
-  const auto current   = ObserveDiscoveryTow(run);
+  const auto current   = ObserveDiscoveryTow(run, completed);
   if (state.generation != ticket || state.run || !TowInputMode() || !TowOwnerAlive(run->owner.Get<DeploymentManager>())
       || current.course.Get() != observed.course.Get()
       || discovery_tow::Evaluate(completed, current.evidence) != discovery_tow::Decision::Submit)
+    return;
+  // Course getters above can synchronously change section/input/source without
+  // cancelling the request. Refresh those identities at the command boundary.
+  const auto source = ObserveDiscoveryTowSource(run);
+  if (state.generation != ticket || state.run || !discovery_tow::SourceMatches(completed, source))
     return;
   const auto submitted = tow_native::Submit(run->owner.Get<DeploymentManager>(), completed.selected,
                                             completed.discovery, run->callbacks.Get<tow_native::Reference>());
@@ -540,7 +564,13 @@ bool BeginDiscoveryTow(FleetBarViewController* bar, int32_t index)
                       .deadline_ms      = TowMilliseconds() + 30'000};
   if (state.generation != ticket)
     return false;
-  state.run     = run;
+  state.run              = run;
+  const auto before_plan = ObserveDiscoveryTowSource(run);
+  if (!TowCurrent(run) || !discovery_tow::SourceMatches(run->request, before_plan)) {
+    if (TowCurrent(run))
+      CancelDiscoveryTow();
+    return false;
+  }
   run->iterator = WarpRoot(tow_native::Plan(run->owner.Get<DeploymentManager>(), run->selected.Get<FleetPlayerData>(),
                                             run->destination.Get<NodeAddress>()));
   if (!TowCurrent(run))
@@ -549,6 +579,12 @@ bool BeginDiscoveryTow(FleetBarViewController* bar, int32_t index)
       || !tow_native::FreshIterator(run->iterator.Get<tow_native::Routine>(), run->selected.Get<FleetPlayerData>(),
                                     run->destination.Get<NodeAddress>())) {
     CancelDiscoveryTow();
+    return false;
+  }
+  const auto before_start = ObserveDiscoveryTowSource(run);
+  if (!TowCurrent(run) || !discovery_tow::SourceMatches(run->request, before_start)) {
+    if (TowCurrent(run))
+      CancelDiscoveryTow();
     return false;
   }
   const auto started = tow_native::Start(run->owner.Get<DeploymentManager>(), run->iterator.Get<tow_native::Routine>());
@@ -848,13 +884,6 @@ void ActOnSelectedFleet(const FleetPress& pressed, const DeferredFleetPress* rep
     RequestFleetAction(panel, fleet, ActionType::Repair, kRepairable, FleetState::Repairing);
 }
 
-void ViewSelectedFleet(FleetPlayerData* fleet)
-{
-  NavigationSectionManager::HideInteraction();
-  if (auto* fleets = FleetsManager::Instance())
-    fleets->RequestViewFleet(fleet, true);
-}
-
 // --- Target cargo ---
 
 // A delayed cargo request belongs to the exact visible card, rewards widget and target context. The original
@@ -1090,36 +1119,247 @@ bool ActionQueueManager_IsQueueUnlocked_Hook(auto original, ActionQueueManager* 
 
 // --- Ability buttons ---
 
+using FleetSelectionClock = std::chrono::steady_clock;
+
+struct FleetSelectionSource {
+  il2cpp::GcHandle bar, context, slots, fleet;
+  int32_t          index = -1;
+  int64_t          id    = 0;
+};
+struct FleetSelectionRepeat {
+  il2cpp::GcHandle                bar, context, slots, fleet;
+  FleetSelectionClock::time_point when{};
+  int32_t                         index = -1;
+  int64_t                         id    = 0;
+};
+// Only weak identities cross frames. A replaced bar, context, array, or fleet must receive an ordinary selection
+// before another press can locate it. Process-lifetime storage avoids managed cleanup after runtime shutdown.
+auto& fleet_selection_repeat = *new std::optional<FleetSelectionRepeat>;
+
+bool FleetSelectionInputAvailable()
+{
+  return Config::Get().control.hotkeys_enabled && !Config::Get().control.use_scopely_hotkeys
+         && !Shortcut::CaptureBlocksShortcuts() && !unity::Key::IsInputFocused();
+}
+
+std::optional<FleetSelectionSource> ObserveFleetSelection(FleetBarViewController* bar, int32_t index)
+{
+  FleetSelectionSource result;
+  result.bar = WarpRoot(bar);
+  if (!result.bar || bar != unity::Newest<FleetBarViewController>() || index < 0)
+    return {};
+  result.context = WarpRoot(bar->TryCall<"get_CanvasContext", FleetBarContext*>());
+  if (!result.context)
+    return {};
+  const auto observed = result.context.Get<FleetBarContext>()->TryCall<"get_FleetData", il2cpp::ArrayObject*>();
+  result.slots        = observed ? il2cpp::GcHandle::Strong(observed.value) : il2cpp::GcHandle{};
+  const auto slots    = result.slots ? il2cpp::TryReferenceArray<FleetPlayerData*>(result.slots.Get())
+                                     : il2cpp::CallResult<il2cpp::Array<FleetPlayerData*>*>{};
+  if (!slots || !slots.value || static_cast<size_t>(index) >= slots.value->size())
+    return {};
+  result.fleet  = WarpRoot((*slots.value)[index]);
+  const auto id = result.fleet ? result.fleet.Get<FleetPlayerData>()->TryId() : il2cpp::CallResult<int64_t>{};
+  const auto current_context = bar->TryCall<"get_CanvasContext", FleetBarContext*>();
+  if (!id || id.value <= 0 || bar != unity::Newest<FleetBarViewController>() || !current_context
+      || current_context.value != result.context.Get<FleetBarContext>()
+      || (*slots.value)[index] != result.fleet.Get<FleetPlayerData>())
+    return {};
+  result.index = index;
+  result.id    = id.value;
+  return result;
+}
+
+bool SameFleetSelection(const FleetSelectionSource& expected, const FleetSelectionSource& current)
+{
+  return expected.bar.Get() == current.bar.Get() && expected.context.Get() == current.context.Get()
+         && expected.slots.Get() == current.slots.Get() && expected.fleet.Get() == current.fleet.Get()
+         && expected.index == current.index && expected.id == current.id;
+}
+
+bool RepeatedFleetSelection(const FleetSelectionSource& current, FleetSelectionClock::time_point now)
+{
+  if (!fleet_selection_repeat || now < fleet_selection_repeat->when
+      || now - fleet_selection_repeat->when >= std::chrono::milliseconds(Config::Get().control.select_timer))
+    return false;
+  const auto& previous = *fleet_selection_repeat;
+  return previous.index == current.index && previous.id == current.id && previous.bar.Get() == current.bar.Get()
+         && previous.context.Get() == current.context.Get() && previous.slots.Get() == current.slots.Get()
+         && previous.fleet.Get() == current.fleet.Get();
+}
+
+void RememberFleetSelection(const FleetSelectionSource& source, FleetSelectionClock::time_point now)
+{
+  FleetSelectionRepeat next{il2cpp::GcHandle::Weak(source.bar.Get()),
+                            il2cpp::GcHandle::Weak(source.context.Get()),
+                            il2cpp::GcHandle::Weak(source.slots.Get()),
+                            il2cpp::GcHandle::Weak(source.fleet.Get()),
+                            now,
+                            source.index,
+                            source.id};
+  fleet_selection_repeat.reset();
+  if (next.bar && next.context && next.slots && next.fleet)
+    fleet_selection_repeat = std::move(next);
+}
+
+void RetireFleetSelection()
+{
+  if (!fleet_selection_repeat)
+    return;
+  const auto& source  = *fleet_selection_repeat;
+  const auto  now     = FleetSelectionClock::now();
+  const bool  expired = now < source.when
+                        || now - source.when >= std::chrono::milliseconds(Config::Get().control.select_timer)
+                        || !source.bar.Get() || !source.context.Get() || !source.slots.Get() || !source.fleet.Get();
+  if (expired || !FleetSelectionInputAvailable())
+    fleet_selection_repeat.reset();
+}
+
+bool LocateFleetSelection(FleetBarViewController* bar, const FleetSelectionSource* slot = nullptr)
+{
+  auto       bar_root = WarpRoot(bar);
+  auto       panel    = bar_root ? WarpRoot(bar->TryPanel()) : il2cpp::GcHandle{};
+  auto       fleet = panel ? WarpRoot(panel.Get<FleetLocalViewController>()->TryCall<"get_fleet", FleetPlayerData*>())
+                           : il2cpp::GcHandle{};
+  const auto id    = fleet ? fleet.Get<FleetPlayerData>()->TryId() : il2cpp::CallResult<int64_t>{};
+  if (!id || id.value <= 0 || (slot && (slot->fleet.Get() != fleet.Get() || slot->id != id.value)))
+    return false;
+  auto manager = WarpRoot(FleetsManager::Instance());
+  if (!manager)
+    return false;
+  NavigationSectionManager::HideInteraction();
+  // Hiding a target card and obtaining the manager may synchronously replace the fleet bar or selected fleet.
+  auto current_panel = WarpRoot(bar->TryPanel());
+  auto current_fleet =
+      current_panel ? WarpRoot(current_panel.Get<FleetLocalViewController>()->TryCall<"get_fleet", FleetPlayerData*>())
+                    : il2cpp::GcHandle{};
+  const auto current_id = current_fleet ? current_fleet.Get<FleetPlayerData>()->TryId() : il2cpp::CallResult<int64_t>{};
+  if (bar != unity::Newest<FleetBarViewController>() || current_panel.Get() != panel.Get()
+      || current_fleet.Get() != fleet.Get() || !current_id || current_id.value != id.value
+      || !FleetSelectionInputAvailable())
+    return false;
+  if (slot) {
+    const auto current_slot = ObserveFleetSelection(bar, slot->index);
+    if (!current_slot || !SameFleetSelection(*slot, *current_slot))
+      return false;
+  }
+  return manager.Get<FleetsManager>()
+      ->TryCall<"RequestViewFleet", void(FleetPlayerData*, bool)>(fleet.Get<FleetPlayerData>(), true)
+      .succeeded;
+}
+
 // The game can leave an ability's button disabled after its cooldown ends; this enables it again once the ability is
 // usable. Four checks a second are plenty for a button.
+void RecoverAbilityButtons()
+{
+  if (Shortcut::CaptureBlocksShortcuts())
+    return;
+  auto bar        = WarpRoot(unity::Newest<FleetBarViewController>());
+  auto controller = bar ? WarpRoot(bar.Get<FleetBarViewController>()->TryPanel()) : il2cpp::GcHandle{};
+  auto fleet      = controller
+                        ? WarpRoot(controller.Get<FleetLocalViewController>()->TryCall<"get_fleet", FleetPlayerData*>())
+                        : il2cpp::GcHandle{};
+  const auto id   = fleet ? fleet.Get<FleetPlayerData>()->TryId() : il2cpp::CallResult<int64_t>{};
+  const auto state = fleet ? fleet.Get<FleetPlayerData>()->TryCall<"get_CurrentState", FleetState>()
+                           : il2cpp::CallResult<FleetState>{};
+  if (!id || id.value <= 0 || !state
+      || (std::to_underlying(state.value) & std::to_underlying(FleetState::CanActivateAbility)) == 0)
+    return;
+  auto manager = WarpRoot(ActivatedAbilityManager::Instance());
+  auto panel   = WarpRoot(controller.Get<FleetLocalViewController>()->TryActionPanel());
+  auto canvas =
+      panel ? WarpRoot(
+                  panel.Get<ShipActionPanelLocalViewController>()->TryCall<"GetComponentInParent", CanvasController*>(
+                      CanvasController::Class::TypeObject()))
+            : il2cpp::GcHandle{};
+  const auto visible =
+      canvas ? canvas.Get<CanvasController>()->TryCall<"get_Visible", bool>() : il2cpp::CallResult<bool>{};
+  const auto effect =
+      panel ? panel.Get<ShipActionPanelLocalViewController>()->TryCall<"HasShipAnActiveAbilityWithActiveEffect", bool>()
+            : il2cpp::CallResult<bool>{};
+  if (!manager || !visible || !visible.value || !effect || effect.value)
+    return;
+  // The panel's ability ids and buttons are parallel arrays.
+  const auto ids          = panel.Get<ShipActionPanelLocalViewController>()->TryAbilityIds();
+  const auto buttons      = panel.Get<ShipActionPanelLocalViewController>()->TryButtons();
+  auto       ids_root     = ids ? il2cpp::GcHandle::Strong(ids.value) : il2cpp::GcHandle{};
+  auto       buttons_root = buttons ? il2cpp::GcHandle::Strong(buttons.value) : il2cpp::GcHandle{};
+  if (!ids_root || !buttons_root)
+    return;
+  for (size_t index = 0; index < std::min(ids.value->size(), buttons.value->size()); ++index) {
+    const auto ability_id = (*ids.value)[index];
+    auto       button     = WarpRoot((*buttons.value)[index]);
+    auto context = button ? WarpRoot(button.Get<GenericButtonWidget>()->TryCall<"get_Context", GenericButtonContext*>())
+                          : il2cpp::GcHandle{};
+    const auto active = button ? button.Get<GenericButtonWidget>()->TryCall<"get_isActiveAndEnabled", bool>()
+                               : il2cpp::CallResult<bool>{};
+    const auto interactable =
+        context ? context.Get<GenericButtonContext>()->TryCall<"get_Interactable", bool>() : il2cpp::CallResult<bool>{};
+    if (!context || !active || !active.value || !interactable || interactable.value)
+      continue;
+    const auto observed_timer = panel.Get<ShipActionPanelLocalViewController>()->TryRemainingCooldown(ability_id);
+    auto       timer          = observed_timer ? il2cpp::GcHandle::Strong(observed_timer.value) : il2cpp::GcHandle{};
+    const auto remaining =
+        timer ? timer.Get<TimerDataContext>()->TryRemainingTime() : il2cpp::CallResult<unity::TimeSpan>{};
+    // TimeSpan is an eight-byte value in 100 ns ticks. Repair at -1 second or below.
+    if (!remaining || remaining.value.ticks > -10'000'000)
+      continue;
+    const auto ready =
+        manager.Get<ActivatedAbilityManager>()->TryCall<"CanUseAbility", bool(FleetPlayerData*, int64_t)>(
+            fleet.Get<FleetPlayerData>(), ability_id);
+    if (!ready || !ready.value)
+      continue;
+    // No action is authorized by the old panel after native availability/cooldown calls rebind it or change its data.
+    const auto observed_current_timer =
+        panel.Get<ShipActionPanelLocalViewController>()->TryRemainingCooldown(ability_id);
+    auto current_timer =
+        observed_current_timer ? il2cpp::GcHandle::Strong(observed_current_timer.value) : il2cpp::GcHandle{};
+    const auto current_remaining = current_timer ? current_timer.Get<TimerDataContext>()->TryRemainingTime()
+                                                 : il2cpp::CallResult<unity::TimeSpan>{};
+    const auto current_effect =
+        panel.Get<ShipActionPanelLocalViewController>()->TryCall<"HasShipAnActiveAbilityWithActiveEffect", bool>();
+    const auto current_visible      = canvas.Get<CanvasController>()->TryCall<"get_Visible", bool>();
+    const auto current_active       = button.Get<GenericButtonWidget>()->TryCall<"get_isActiveAndEnabled", bool>();
+    const auto current_interactable = context.Get<GenericButtonContext>()->TryCall<"get_Interactable", bool>();
+    auto       current_controller   = WarpRoot(bar.Get<FleetBarViewController>()->TryPanel());
+    auto       current_fleet =
+        current_controller
+            ? WarpRoot(current_controller.Get<FleetLocalViewController>()->TryCall<"get_fleet", FleetPlayerData*>())
+            : il2cpp::GcHandle{};
+    const auto current_id =
+        current_fleet ? current_fleet.Get<FleetPlayerData>()->TryId() : il2cpp::CallResult<int64_t>{};
+    const auto current_state   = current_fleet
+                                     ? current_fleet.Get<FleetPlayerData>()->TryCall<"get_CurrentState", FleetState>()
+                                     : il2cpp::CallResult<FleetState>{};
+    auto       current_panel   = current_controller
+                                     ? WarpRoot(current_controller.Get<FleetLocalViewController>()->TryActionPanel())
+                                     : il2cpp::GcHandle{};
+    const auto current_ids     = panel.Get<ShipActionPanelLocalViewController>()->TryAbilityIds();
+    const auto current_buttons = panel.Get<ShipActionPanelLocalViewController>()->TryButtons();
+    const auto current_context = button.Get<GenericButtonWidget>()->TryCall<"get_Context", GenericButtonContext*>();
+    if (!current_remaining || current_remaining.value.ticks > -10'000'000 || !current_effect || current_effect.value
+        || !current_visible || !current_visible.value || !current_active || !current_active.value
+        || !current_interactable || current_interactable.value || Shortcut::CaptureBlocksShortcuts()
+        || bar.Get() != unity::Newest<FleetBarViewController>() || current_controller.Get() != controller.Get()
+        || current_fleet.Get() != fleet.Get() || !current_id || current_id.value != id.value || !current_state
+        || (std::to_underlying(current_state.value) & std::to_underlying(FleetState::CanActivateAbility)) == 0
+        || current_panel.Get() != panel.Get() || !current_ids || current_ids.value != ids.value || !current_buttons
+        || current_buttons.value != buttons.value || (*ids.value)[index] != ability_id
+        || (*buttons.value)[index] != button.Get<GenericButtonWidget>() || !current_context
+        || current_context.value != context.Get<GenericButtonContext>())
+      continue;
+    (void)context.Get<GenericButtonContext>()->TryCall<"set_Interactable", void(bool)>(true);
+  }
+}
+
 void AbilityButtonsFrame()
 {
   RetireFleetReplay(); // Also runs in capture/native-hotkey/disabled modes which skip ordinary shortcut dispatch.
   RetireTargetCargo();
   DiscoveryTowFrame(); // Runs in every input mode so disable/capture can retire pending native work.
+  RetireFleetSelection();
   static Throttle throttle(std::chrono::milliseconds(250));
-  if (!throttle.Due())
-    return;
-  auto* controller = FleetBarViewController::NewestPanel();
-  auto* fleet      = controller ? controller->fleet() : nullptr;
-  if (!fleet || (std::to_underlying(fleet->CurrentState()) & std::to_underlying(FleetState::CanActivateAbility)) == 0)
-    return;
-  auto* manager = ActivatedAbilityManager::Instance();
-  auto* panel   = controller->shipActionPanelLocalViewController();
-  if (!manager || !panel || !CanvasController::Shows(panel) || panel->HasShipAnActiveAbilityWithActiveEffect())
-    return;
-  // The panel's ability ids and buttons are parallel arrays.
-  auto* ids     = panel->abilityIDs();
-  auto* buttons = panel->buttons();
-  for (const auto [ability_id, button] : std::views::zip(il2cpp::Items(ids), il2cpp::Items(buttons))) {
-    auto* context = button ? button->Context() : nullptr;
-    if (!context || !button->isActiveAndEnabled() || context->Interactable())
-      continue;
-    auto* timer = panel->GetRemainingCooldown(ability_id);
-    // TimeSpan is an eight-byte value in 100 ns ticks. Repair at -1 second or below.
-    if (timer && timer->RemainingTime().ticks <= -10'000'000 && manager->CanUseAbility(fleet, ability_id))
-      context->SetInteractable(true);
-  }
+  if (throttle.Due())
+    RecoverAbilityButtons();
 }
 
 bool InstallQueueSwitch()
@@ -1133,18 +1373,16 @@ bool InstallQueueSwitch()
 bool TargetViewerShown()
 { return TargetViewers::AnyShown(); }
 
-bool SelectShipShortcuts()
+bool SelectShipShortcutsAt(FleetSelectionClock::time_point now)
 {
-  if (unity::Key::IsInputFocused())
+  if (!FleetSelectionInputAvailable()) {
+    fleet_selection_repeat.reset();
     return false;
-  using Clock = std::chrono::steady_clock;
+  }
   // The number keys select a ship in the fleet bar; pressing the same one again within select_timer flies the
   // camera to it. With disable_preview_locate, the second press only selects while a target card is open.
   constexpr std::array kShips{Action::kSelectShip1, Action::kSelectShip2, Action::kSelectShip3, Action::kSelectShip4,
                               Action::kSelectShip5, Action::kSelectShip6, Action::kSelectShip7, Action::kSelectShip8};
-  static auto          last_press = Clock::now();
-  static int32_t       last_index = -1;
-
   const bool tow  = unity::Key::Pressed(unity::KeyCode::LeftShift) || unity::Key::Pressed(unity::KeyCode::RightShift);
   const auto ship = std::ranges::find_if(
       kShips, [tow](Action action) { return tow ? Shortcut::IsDownWithShift(action) : Shortcut::IsDown(action); });
@@ -1152,42 +1390,53 @@ bool SelectShipShortcuts()
     return false;
   const auto index = static_cast<int32_t>(ship - kShips.begin());
 
-  auto* fleet_bar = unity::Newest<FleetBarViewController>();
+  auto fleet_bar = WarpRoot(unity::Newest<FleetBarViewController>());
   if (!fleet_bar) {
+    fleet_selection_repeat.reset();
     CancelDiscoveryTow();
     return false;
   }
 
   if (tow) {
-    (void)BeginDiscoveryTow(fleet_bar, index);
+    fleet_selection_repeat.reset();
+    (void)BeginDiscoveryTow(fleet_bar.Get<FleetBarViewController>(), index);
     return true; // Shift+ship is the tow request, including an unavailable native contract.
   }
   CancelDiscoveryTow(); // Ordinary ship selection must not leave a previous tow pending.
 
-  const auto now        = Clock::now();
   const bool can_locate = !Config::Get().ui.disable_preview_locate || !TargetViewerShown();
-  if (can_locate && index == last_index && fleet_bar->IsIndexSelected(index)
-      && now - last_press < std::chrono::milliseconds(Config::Get().control.select_timer)) {
-    auto* fleet = fleet_bar->SelectedFleet();
-    if (!fleet)
-      return true;
-    ViewSelectedFleet(fleet);
+  auto       source     = ObserveFleetSelection(fleet_bar.Get<FleetBarViewController>(), index);
+  const auto selected = can_locate && source && RepeatedFleetSelection(*source, now)
+                            ? fleet_bar.Get<FleetBarViewController>()->TryCall<"IsIndexSelected", bool(int32_t)>(index)
+                            : il2cpp::CallResult<bool>{};
+  if (selected && selected.value) {
+    if (!LocateFleetSelection(fleet_bar.Get<FleetBarViewController>(), &*source)) {
+      fleet_selection_repeat.reset();
+      return true; // Consume this locate without redirecting it to a replacement source.
+    }
   } else {
-    fleet_bar->RequestSelect(index);
+    if (fleet_bar.Get() != unity::Newest<FleetBarViewController>()
+        || !fleet_bar.Get<FleetBarViewController>()->TryCall<"RequestSelect", void(int32_t, bool)>(index, false)) {
+      fleet_selection_repeat.reset();
+      return true;
+    }
   }
-  last_index = index;
-  last_press = now;
+  source = ObserveFleetSelection(fleet_bar.Get<FleetBarViewController>(), index);
+  if (source)
+    RememberFleetSelection(*source, now);
+  else
+    fleet_selection_repeat.reset();
   return true;
 }
 
+bool SelectShipShortcuts()
+{ return SelectShipShortcutsAt(FleetSelectionClock::now()); }
+
 bool FleetShortcuts()
 {
-  if (Shortcut::IsDown(Action::kSelectCurrent)) {
-    auto* panel = FleetBarViewController::NewestPanel();
-    if (auto* fleet = panel ? panel->fleet() : nullptr) {
-      ViewSelectedFleet(fleet);
+  if (Shortcut::IsDown(Action::kSelectCurrent) && FleetSelectionInputAvailable()) {
+    if (LocateFleetSelection(unity::Newest<FleetBarViewController>()))
       return true;
-    }
   }
   if (Shortcut::IsDown(Action::kToggleQueue)) {
     auto& queue_enabled = Config::Get().control.queue_enabled;

@@ -239,6 +239,7 @@ bool PressAwaitedButton();
 void CancelAwaitedButton();
 // The shortcuts that open, step through, or search game screens. True when the key must not reach the game.
 bool ScreenShortcuts();
+void LateScreenShortcut();
 
 // shop.cc
 extern const Feature kGiftsAutoOpen;

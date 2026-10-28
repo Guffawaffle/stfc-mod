@@ -18,6 +18,7 @@
 #include <unity/tracker.h>
 
 #include <algorithm>
+#include <memory>
 #include <optional>
 
 namespace
@@ -66,17 +67,6 @@ void ShowCoordinateSearch()
   }
 }
 
-// Opens Manage Ships for the fleet selected in the fleet bar. False when none is selected.
-bool OpenManageShips()
-{
-  auto* panel = FleetBarViewController::NewestPanel();
-  auto* fleet = panel ? panel->fleet() : nullptr;
-  if (!fleet)
-    return false;
-  panel->RequestAction(fleet, ActionType::Manage, 0, ActionBehaviour::Default);
-  return true;
-}
-
 // --- Swap and preset buttons ---
 
 // Ship Swap and Officer Swap live on the Manage Ships screen, and Officer Presets on the officer assignment screen
@@ -88,48 +78,177 @@ constexpr int kButtonWaitFrames = 300;
 enum class ButtonStage { kShipSwap, kOfficerSwap, kOfficerAssignment, kOfficerPresets };
 
 struct ButtonWait {
-  ButtonStage stage;
-  int         frames = kButtonWaitFrames;
+  ButtonStage      stage;
+  int              frames              = kButtonWaitFrames;
+  SectionID        origin              = SectionID::AppInit;
+  bool             entered_destination = false, entered_assignment = false;
+  int64_t          fleet_id = 0;
+  uint64_t         revision = 0;
+  il2cpp::GcHandle sections, bar, panel, fleet;
 };
-std::optional<ButtonWait> pending_button;
+// Reset explicitly on the game thread. A local shared request survives synchronous native cancellation/replacement;
+// process teardown must not invoke GC APIs after IL2CPP has stopped.
+auto&    pending_button          = *new std::shared_ptr<ButtonWait>;
+uint64_t button_request_revision = 0;
+
+bool ScreenActionInputAvailable()
+{
+  const auto& control = Config::Get().control;
+  return control.hotkeys_enabled && !control.use_scopely_hotkeys && !Shortcut::CaptureBlocksShortcuts()
+         && !unity::Key::IsInputFocused() && !unity::Key::Pressed(unity::KeyCode::Escape);
+}
+
+bool AwaitedSourceCurrent(const std::shared_ptr<ButtonWait>& request)
+{
+  if (!request || pending_button != request || request->revision != button_request_revision
+      || !ScreenActionInputAvailable())
+    return false;
+  const auto sections = Hub::Class::TryCall<"get_SectionManager", SectionManager*>();
+  if (!sections || sections.value != request->sections.Get())
+    return false;
+  const auto current = sections.value->TryCall<"get_CurrentSection", SectionID>();
+  if (!current)
+    return false;
+  const bool assignment =
+      current.value == SectionID::Officer_Assignment
+      && (request->stage == ButtonStage::kOfficerAssignment || request->stage == ButtonStage::kOfficerPresets);
+  const bool management = current.value == SectionID::ShipManagement_Details && !request->entered_assignment;
+  if (assignment)
+    request->entered_assignment = true;
+  if (assignment || management)
+    request->entered_destination = true;
+  else if (request->entered_destination || current.value != request->origin)
+    return false;
+  if (request->bar) {
+    auto* bar = unity::Newest<FleetBarViewController>();
+    if (bar != request->bar.Get()
+        || !FleetBarViewController::Class::HasField<"_fleetPanelController", FleetLocalViewController*>()
+        || bar->fleetPanelController() != request->panel.Get())
+      return false;
+    const auto fleet = request->panel.Get<FleetLocalViewController>()->TryCall<"get_fleet", FleetPlayerData*>();
+    if (!fleet || fleet.value != request->fleet.Get())
+      return false;
+    const auto id = fleet.value->TryId();
+    if (!id || id.value != request->fleet_id)
+      return false;
+  }
+  // All managed observations may synchronously cancel or replace this request.
+  return pending_button == request && request->revision == button_request_revision && ScreenActionInputAvailable();
+}
+
+std::shared_ptr<ButtonWait> AwaitButton(ButtonStage stage)
+{
+  const auto revision = button_request_revision;
+  const auto sections = Hub::Class::TryCall<"get_SectionManager", SectionManager*>();
+  auto       root     = sections ? il2cpp::GcHandle::Strong(sections.value) : il2cpp::GcHandle{};
+  const auto current =
+      root ? root.Get<SectionManager>()->TryCall<"get_CurrentSection", SectionID>() : il2cpp::CallResult<SectionID>{};
+  if (!current || revision != button_request_revision || !ScreenActionInputAvailable())
+    return {};
+  auto request      = std::make_shared<ButtonWait>();
+  request->stage    = stage;
+  request->origin   = current.value;
+  request->sections = std::move(root);
+  request->revision = ++button_request_revision;
+  pending_button    = request;
+  return request;
+}
+
+void CompleteAwaitedButton(const std::shared_ptr<ButtonWait>& request)
+{
+  if (pending_button == request) {
+    pending_button.reset();
+    ++button_request_revision;
+  }
+}
+
+// Opens Manage Ships for the selected fleet. A deferred request owns the exact bar/panel/fleet before the native
+// request, so a later selection or pooled replacement cannot redirect its delayed button press.
+bool OpenManageShips(const std::shared_ptr<ButtonWait>& request = {})
+{
+  auto bar = il2cpp::GcHandle::Strong(unity::Newest<FleetBarViewController>());
+  if (!bar || !FleetBarViewController::Class::HasField<"_fleetPanelController", FleetLocalViewController*>())
+    return false;
+  auto       panel = il2cpp::GcHandle::Strong(bar.Get<FleetBarViewController>()->fleetPanelController());
+  const auto read  = panel ? panel.Get<FleetLocalViewController>()->TryCall<"get_fleet", FleetPlayerData*>()
+                           : il2cpp::CallResult<FleetPlayerData*>{};
+  auto       fleet = read ? il2cpp::GcHandle::Strong(read.value) : il2cpp::GcHandle{};
+  if (!fleet)
+    return false;
+  if (request) {
+    const auto id = fleet.Get<FleetPlayerData>()->TryId();
+    if (!id || id.value <= 0 || pending_button != request)
+      return false;
+    request->fleet_id = id.value;
+    request->bar      = std::move(bar);
+    request->panel    = std::move(panel);
+    request->fleet    = std::move(fleet);
+    if (!AwaitedSourceCurrent(request))
+      return false;
+  }
+  auto*      owner  = request ? request->panel.Get<FleetLocalViewController>() : panel.Get<FleetLocalViewController>();
+  auto*      target = request ? request->fleet.Get<FleetPlayerData>() : fleet.Get<FleetPlayerData>();
+  const auto accepted =
+      owner->TryCall<"RequestAction", bool(il2cpp::Object*, ActionType, int64_t, ActionBehaviour, void*)>(
+          target, ActionType::Manage, 0, ActionBehaviour::Default, nullptr);
+  return accepted && accepted.value;
+}
 
 // Presses the button `pick` returns on the first visible, active Controller.
-template <typename Controller> bool PressButton(unity::Button* (*pick)(Controller*))
+template <typename Controller>
+bool PressButton(unity::Button* (*pick)(Controller*), const std::shared_ptr<ButtonWait>& request = {})
 {
+  const auto revision = button_request_revision;
   for (auto* controller : unity::Instances<Controller>()) {
-    if (auto* button = CanvasController::OnScreen(controller) ? pick(controller) : nullptr) {
-      button->Press();
-      return true;
-    }
+    if (revision != button_request_revision)
+      return false;
+    auto       owner = il2cpp::GcHandle::Strong(controller);
+    const bool shown = owner && CanvasController::OnScreen(controller);
+    if (revision != button_request_revision)
+      return false;
+    if (!shown)
+      continue;
+    auto       button  = il2cpp::GcHandle::Strong(pick(controller));
+    const bool current = button && CanvasController::OnScreen(controller) && pick(controller) == button.Get()
+                         && ScreenActionInputAvailable() && (!request || AwaitedSourceCurrent(request));
+    // Immediate callers have no request yet, but native visibility/getter callbacks can still create or cancel a
+    // newer one. Stop this whole source episode instead of continuing into another pooled screen or old fallback.
+    if (revision != button_request_revision)
+      return false;
+    if (!current)
+      continue;
+    // Success means the actual native Press invocation completed, not merely that the field was nonnull.
+    return button.template Get<unity::Button>()->template TryCall<"Press", void()>().succeeded;
   }
   return false;
 }
 
-bool PressShipSwapButton()
+bool PressShipSwapButton(const std::shared_ptr<ButtonWait>& request = {})
 {
   return PressButton<ShipManagementScreenStateViewController>(
-      [](ShipManagementScreenStateViewController* controller) { return controller->swapShipButton(); });
+      [](ShipManagementScreenStateViewController* controller) { return controller->swapShipButton(); }, request);
 }
 
-bool PressOfficerSwapButton()
+bool PressOfficerSwapButton(const std::shared_ptr<ButtonWait>& request = {})
 {
   return PressButton<ShipManagementScreenStateViewController>(
-      [](ShipManagementScreenStateViewController* controller) { return controller->officerIconButton(); });
+      [](ShipManagementScreenStateViewController* controller) { return controller->officerIconButton(); }, request);
 }
 
-bool PressOfficerPresetsButton()
+bool PressOfficerPresetsButton(const std::shared_ptr<ButtonWait>& request = {})
 {
   return PressButton<OfficerAssignmentViewController>(
       [](OfficerAssignmentViewController* controller) -> unity::Button* {
         auto* widget = controller->officerPresetsButton();
         return widget ? widget->UnityButton() : nullptr;
-      });
+      },
+      request);
 }
 
 // Opens Manage Ships for a button that only it has. False, with a warning, when no fleet is selected.
-bool OpenManageShipsFor(const char* what)
+bool OpenManageShipsFor(const char* what, const std::shared_ptr<ButtonWait>& request)
 {
-  if (OpenManageShips())
+  if (OpenManageShips(request))
     return true;
   spdlog::warn("[Hotkeys] no fleet is selected, so Manage Ships cannot open for {}", what);
   return false;
@@ -137,24 +256,35 @@ bool OpenManageShipsFor(const char* what)
 
 void ShowShipSwap()
 {
-  if (!PressShipSwapButton() && OpenManageShipsFor("Ship Swap"))
-    pending_button = ButtonWait{ButtonStage::kShipSwap};
+  const auto revision = button_request_revision;
+  if (PressShipSwapButton() || revision != button_request_revision)
+    return;
+  if (auto request = AwaitButton(ButtonStage::kShipSwap); request && !OpenManageShipsFor("Ship Swap", request))
+    CompleteAwaitedButton(request);
 }
 
 void ShowOfficerSwap()
 {
-  if (!PressOfficerSwapButton() && OpenManageShipsFor("Officer Swap"))
-    pending_button = ButtonWait{ButtonStage::kOfficerSwap};
+  const auto revision = button_request_revision;
+  if (PressOfficerSwapButton() || revision != button_request_revision)
+    return;
+  if (auto request = AwaitButton(ButtonStage::kOfficerSwap); request && !OpenManageShipsFor("Officer Swap", request))
+    CompleteAwaitedButton(request);
 }
 
 void ShowOfficerPresets()
 {
-  if (PressOfficerPresetsButton())
+  const auto revision = button_request_revision;
+  if (PressOfficerPresetsButton() || revision != button_request_revision)
     return;
-  if (PressOfficerSwapButton())
-    pending_button = ButtonWait{ButtonStage::kOfficerPresets};
-  else if (OpenManageShipsFor("Officer Presets"))
-    pending_button = ButtonWait{ButtonStage::kOfficerAssignment};
+  auto request = AwaitButton(ButtonStage::kOfficerAssignment);
+  if (!request)
+    return;
+  if (PressOfficerSwapButton(request)) {
+    if (pending_button == request)
+      request->stage = ButtonStage::kOfficerPresets;
+  } else if (pending_button == request && !OpenManageShipsFor("Officer Presets", request))
+    CompleteAwaitedButton(request);
 }
 
 // --- Shortcut table ---
@@ -162,8 +292,6 @@ void ShowOfficerPresets()
 struct ScreenShortcut {
   Action shortcut;
   void (*run)();
-  // Opening Manage Ships lets the game see the key too.
-  bool consumes = true;
 };
 
 // Checked in order; the first pressed one runs.
@@ -203,7 +331,6 @@ constexpr ScreenShortcut kScreens[] = {
     {Action::kShowAllianceHelp, Goto<SectionID::Alliance_Help>},
     {Action::kShowAllianceArmada, Goto<SectionID::Alliance_Armadas>},
     {Action::kShowSettings, Goto<SectionID::GameSettings>},
-    {Action::kShowShips, [] { OpenManageShips(); }, false},
 };
 
 // --- Arrow keys and search ---
@@ -213,30 +340,44 @@ constexpr ScreenShortcut kScreens[] = {
 
 bool StepShipDetails(ShipManagementViewController* controller, int32_t step)
 {
-  auto* context = CanvasController::OnScreen(controller) ? controller->Context() : nullptr;
+  auto owner   = il2cpp::GcHandle::Strong(controller);
+  auto context = owner && CanvasController::OnScreen(controller) ? il2cpp::GcHandle::Strong(controller->Context())
+                                                                 : il2cpp::GcHandle{};
   if (!context)
     return false;
-  const int32_t count   = context->ListCount();
-  const int32_t current = context->CurrentIndex();
-  const int32_t next    = current + step;
-  if (count <= 1 || current < 0 || next < 0 || next >= count)
+  auto*         value   = context.Get<ShipManagementViewContext>();
+  const auto    count   = value->TryCall<"get_ListCount", int32_t>();
+  const auto    current = value->TryCall<"get_CurrentIndex", int32_t>();
+  const int64_t next    = current ? static_cast<int64_t>(current.value) + step : -1;
+  if (!count || !current || count.value <= 1 || current.value < 0 || current.value >= count.value || next < 0
+      || next >= count.value || controller->Context() != value)
     return false;
-  context->SetLastMovementWasToIncrement(step > 0);
-  context->SetCurrentIndex(next);
-  return true;
+  if (!value->TryCall<"set_LastMovementWasToIncrement", void(bool)>(step > 0) || controller->Context() != value)
+    return false;
+  return value->TryCall<"set_CurrentIndex", void(int32_t)>(static_cast<int32_t>(next)).succeeded;
 }
 
 // Skips empty dock slots.
 bool StepDock(AssignShipsWidget* widget, int32_t step)
 {
-  auto* list = CanvasController::OnScreen(widget) ? widget->selectableList() : nullptr;
+  auto  owner = il2cpp::GcHandle::Strong(widget);
+  auto* list  = owner && CanvasController::OnScreen(widget) ? widget->selectableList() : nullptr;
   if (!list)
     return false;
-  const int32_t count = list->Count();
-  for (int32_t index = list->SelectedIndex() + step; index >= 0 && index < count; index += step) {
-    if (auto* fleet = static_cast<FleetPlayerData*>(list->DataItem(index)); fleet && fleet->HasShip()) {
-      list->RequestSelect(index);
-      return true;
+  auto list_root = il2cpp::GcHandle::Strong(list);
+  if (!list_root)
+    return false;
+  const auto count          = list->TryCall<"get_Count", int32_t>();
+  const auto selected_index = list->TryCall<"get_SelectedIndex", int32_t>();
+  if (!count || !selected_index || count.value <= 0 || selected_index.value < -1 || selected_index.value >= count.value)
+    return false;
+  for (int64_t index = static_cast<int64_t>(selected_index.value) + step; index >= 0 && index < count.value;
+       index += step) {
+    auto       fleet = il2cpp::GcHandle::Strong(list->DataItem(static_cast<int32_t>(index)));
+    const auto has_ship =
+        fleet ? fleet.Get<FleetPlayerData>()->TryCall<"get_HasShip", bool>() : il2cpp::CallResult<bool>{};
+    if (has_ship && has_ship.value && widget->selectableList() == list) {
+      return list->TryCall<"RequestSelect", void(int32_t, bool)>(static_cast<int32_t>(index), false).succeeded;
     }
   }
   return false;
@@ -297,44 +438,59 @@ bool FocusSearchBox()
 } // namespace
 
 void CancelAwaitedButton()
-{ pending_button.reset(); }
+{
+  ++button_request_revision;
+  pending_button.reset();
+}
 
 bool PressAwaitedButton()
 {
   const auto& control = Config::Get().control;
   if (!control.hotkeys_enabled || control.use_scopely_hotkeys) {
-    pending_button.reset();
+    CancelAwaitedButton();
     return false;
   }
   if (!pending_button)
     return false;
+  const auto request = pending_button;
+  if (Shortcut::IsDown(Action::kShowShips)
+      || std::ranges::any_of(kScreens, [](const auto& screen) { return Shortcut::IsDown(screen.shortcut); })) {
+    CompleteAwaitedButton(request);
+    return false; // Let the new screen request win before an old deferred button can fire on this frame.
+  }
+  if (!AwaitedSourceCurrent(request)) {
+    CompleteAwaitedButton(request);
+    return false;
+  }
 
   bool        pressed = false;
   const char* name    = "Officer Presets";
-  switch (pending_button->stage) {
+  switch (request->stage) {
     case ButtonStage::kShipSwap:
       name    = "Ship Swap";
-      pressed = PressShipSwapButton();
+      pressed = PressShipSwapButton(request);
       break;
     case ButtonStage::kOfficerSwap:
       name    = "Officer Swap";
-      pressed = PressOfficerSwapButton();
+      pressed = PressOfficerSwapButton(request);
       break;
     case ButtonStage::kOfficerAssignment:
-      pressed = PressOfficerPresetsButton();
-      if (!pressed && PressOfficerSwapButton())
-        pending_button->stage = ButtonStage::kOfficerPresets;
+      pressed = PressOfficerPresetsButton(request);
+      if (!pressed && pending_button == request && PressOfficerSwapButton(request) && pending_button == request)
+        request->stage = ButtonStage::kOfficerPresets;
       break;
     case ButtonStage::kOfficerPresets:
-      pressed = PressOfficerPresetsButton();
+      pressed = PressOfficerPresetsButton(request);
       break;
   }
   if (pressed) {
-    pending_button.reset();
+    CompleteAwaitedButton(request);
     return true;
   }
-  if (--pending_button->frames == 0) {
-    pending_button.reset();
+  if (pending_button != request)
+    return false;
+  if (--request->frames == 0) {
+    CompleteAwaitedButton(request);
     spdlog::warn("[Hotkeys] timed out waiting for the {} button", name);
   }
   return false;
@@ -351,10 +507,20 @@ bool ScreenShortcuts()
   for (const auto& screen : kScreens) {
     if (Shortcut::IsDown(screen.shortcut)) {
       // A new screen request replaces any button still waiting on the previous screen.
-      pending_button.reset();
+      CancelAwaitedButton();
       screen.run();
-      return screen.consumes;
+      return true;
     }
   }
   return false;
+}
+
+// The source places Manage Ships after the setting-shortcut else-if chain and lets native Update continue.
+// HandleShortcuts invokes this only if no setting shortcut matched; keep that precedence without a second table.
+void LateScreenShortcut()
+{
+  if (Shortcut::IsDown(Action::kShowShips)) {
+    CancelAwaitedButton();
+    (void)OpenManageShips();
+  }
 }

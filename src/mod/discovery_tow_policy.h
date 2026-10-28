@@ -28,7 +28,9 @@ struct Evidence {
 };
 enum class Decision { Cancel, Wait, Submit };
 
-inline Decision Evaluate(const Request& request, const Evidence& observed) noexcept
+// Planning and scheduling need the same identity/input fence as submission, but
+// do not yet have an iterator. Keep that qualification independent of its state.
+inline bool SourceMatches(const Request& request, const Evidence& observed) noexcept
 {
   if (!request.generation || request.generation != observed.generation || request.selected <= 0
       || request.discovery <= 0 || request.selected == request.discovery || request.selected_index < 0
@@ -38,7 +40,14 @@ inline Decision Evaluate(const Request& request, const Evidence& observed) noexc
       || observed.section != request.section || observed.owner != request.owner || observed.selected != request.selected
       || observed.discovery != request.discovery || observed.selected_object != request.selected_object
       || observed.discovery_object != request.discovery_object || observed.destination_matches != true
-      || observed.can_tow != true || observed.can_be_towed != true || !observed.iterator_state)
+      || observed.can_tow != true || observed.can_be_towed != true)
+    return false;
+  return true;
+}
+
+inline Decision Evaluate(const Request& request, const Evidence& observed) noexcept
+{
+  if (!SourceMatches(request, observed) || !observed.iterator_state)
     return Decision::Cancel;
   // Retained client273's exact PlanCourse player-fleet iterator yields in states
   // 1/2 and completes at -1. Never run MoveNext here, including while state=0.
