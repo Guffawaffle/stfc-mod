@@ -36,6 +36,7 @@ namespace
 constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"abilitybuttonrecoveryhooks", &Config::Patches::abilitybuttonrecoveryhooks},
     {"actionqueuerecoveryhooks", &Config::Patches::actionqueuerecoveryhooks},
+    {"alliancegamesstorehooks", &Config::Patches::alliancegamesstorehooks},
     {"artifactexchangehooks", &Config::Patches::artifactexchangehooks},
     {"audioeventhooks", &Config::Patches::audioeventhooks},
     {"basecardhooks", &Config::Patches::basecardhooks},

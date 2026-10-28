@@ -130,6 +130,7 @@ public:
   struct Patches {
     bool abilitybuttonrecoveryhooks = true;
     bool actionqueuerecoveryhooks   = true;
+    bool alliancegamesstorehooks    = true;
     bool artifactexchangehooks      = true;
     bool audioeventhooks            = true;
     bool basecardhooks              = true;

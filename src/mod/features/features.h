@@ -250,6 +250,8 @@ extern const Feature kDonationLimit;
 #endif
 extern const Feature kSkipRevealSequence;
 extern const Feature kArtifactExchange;
+// alliance_store.cc
+extern const Feature kAllianceGamesStore;
 
 // toasts.cc
 extern const Feature kToasts;

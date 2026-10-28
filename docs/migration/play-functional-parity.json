@@ -2155,7 +2155,7 @@
           "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
-      "userEntryPoint": "Swap Ship; Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Officers & Ships",
+      "userEntryPoint": "Swap Ship; Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Officers & Ships",
       "configurationKeys": [
         "ui.double_click_to_assign_ship"
       ],
@@ -4787,7 +4787,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-AUDIO-PICKER.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Audio Alerts ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ alert page",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Audio Alerts ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ alert page",
       "configurationKeys": [
         "audio.coalescing",
         "audio.alert_*",
@@ -5026,7 +5026,7 @@
           "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Loading Screens",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Loading Screens",
       "configurationKeys": [
         "graphics.loader_image"
       ],
@@ -5719,7 +5719,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-WARP-FILTERS.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Map & Travel ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Ship route filters",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Map & Travel ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Ship route filters",
       "configurationKeys": [
         "ui.instant_warp_auto_jump",
         "ui.instant_warp_auto_warp",
@@ -5937,7 +5937,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-DAILY-FACTIONS.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Claims & Confirmations",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Claims & Confirmations",
       "configurationKeys": [
         "ui.daily_bulk_claim_factions"
       ],
@@ -6143,7 +6143,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-BANNER-FILTERS.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Notifications",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Notifications",
       "configurationKeys": [
         "ui.disabled_banner_types",
         "ui.notify_banner_types"
@@ -6465,6 +6465,156 @@
       "restorationCommits": [],
       "contract": "docs/migration/features/PLAY-REPAIR-INTERLOCK.md",
       "activationAndDependencies": "Historical three native hooks and patch switch; current-client need, ownership and reason for omission remain to investigate."
+    },
+    {
+      "id": "AT-STORE-RESEARCH",
+      "name": "Alliance Games store native Research Lookup",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "a815944d26047c6a7d768a7ade1b52b57d06d6ab",
+        "path": "mods/src/dev/tournament_store_study.cc",
+        "symbolOrWorkflow": "UpgradeStoreResearch / Execute"
+      },
+      "migration": {
+        "path": "src/mod/features/alliance_store.cc",
+        "symbolOrWorkflow": "ReconcileStoreTooltip / AllianceStoreFrame"
+      },
+      "expectedBehavior": "Native research eligibility and VIEW RESEARCH navigation for eligible store material tooltips; restore ordinary tooltip behavior across pooled-card reuse.",
+      "verificationProcedure": "Focused main-game Alliance Games store trial; user performs any chosen purchase. See shared feature contract.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate."
+        ],
+        "exactCandidateRuntime": "Not yet ported; historical v7 study is separate",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Study implemented and Windows player-qualified; typed production port pending; study is explicitly outside frozen play-dev. No purchase automation.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
+      "contract": "docs/migration/features/AT-STORE.md",
+      "catalogStatus": "Typed research port + new data-ready native currency refresh offline-qualified; runtime pending",
+      "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        }
+      ]
+    },
+    {
+      "id": "AT-STORE-CURRENCY",
+      "name": "Alliance Games store currency refresh",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "a815944d26047c6a7d768a7ade1b52b57d06d6ab",
+        "path": "mods/src/dev/tournament_store_study.cc",
+        "symbolOrWorkflow": "UpgradeStoreResearch / Execute"
+      },
+      "migration": {
+        "path": "src/mod/features/alliance_store.cc",
+        "symbolOrWorkflow": "ReconcileStoreTooltip / AllianceStoreFrame"
+      },
+      "expectedBehavior": "Refresh native store-derived currencies after bundle data arrives; preserve native IDs, ownership amounts and header notification.",
+      "verificationProcedure": "Focused main-game Alliance Games store trial; user performs any chosen purchase. See shared feature contract.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate."
+        ],
+        "exactCandidateRuntime": "Not yet ported; historical v7 study is separate",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Manual native refresh demonstrated; permanent correction not implemented; study is explicitly outside frozen play-dev. No purchase automation.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
+      "contract": "docs/migration/features/AT-STORE.md",
+      "catalogStatus": "Typed research port + new data-ready native currency refresh offline-qualified; runtime pending",
+      "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        }
+      ]
+    },
+    {
+      "id": "AT-STORE-ROWS",
+      "name": "Alliance Games purchase refresh visibility",
+      "classification": "Unresolved",
+      "baseline": {
+        "revision": "a815944d26047c6a7d768a7ade1b52b57d06d6ab",
+        "path": "mods/src/dev/tournament_store_study.cc",
+        "symbolOrWorkflow": "UpgradeStoreResearch / Execute"
+      },
+      "migration": {
+        "path": "src/mod/features/alliance_store.cc",
+        "symbolOrWorkflow": "native regeneration/settled diagnostics only"
+      },
+      "expectedBehavior": "Preserve scroll position and fully display native visible rows after an operator-chosen purchase.",
+      "verificationProcedure": "Focused main-game Alliance Games store trial; user performs any chosen purchase. See shared feature contract.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate."
+        ],
+        "exactCandidateRuntime": "Not yet ported; historical v7 study is separate",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Unreproduced in clean study; no repair implemented or qualified; study is explicitly outside frozen play-dev. No purchase automation.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
+      "contract": "docs/migration/features/AT-STORE.md",
+      "catalogStatus": "No repair; awaiting actual purchase reproduction, native diagnostics added",
+      "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "absent",
+          "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        }
+      ]
     }
   ],
   "sourceCoverage": {

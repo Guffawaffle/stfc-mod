@@ -235,6 +235,7 @@ constexpr const Feature* kFeatures[] = {
     &kNativeSettingsSearch,
     // shop.cc
     &kGiftsAutoOpen,
+    &kAllianceGamesStore,
     &kShopLimits,
 #if _WIN32
     &kDonationLimit,

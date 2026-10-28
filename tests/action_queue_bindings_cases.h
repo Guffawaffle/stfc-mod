@@ -408,7 +408,7 @@ void QueueNativeCases(std::string_view mode)
 } // namespace
 
 API(Il2CppGCHandle, il2cpp_gchandle_new_weakref, (Il2CppObject * object, bool))
-{ return il2cpp_gchandle_new(object, false); }
+{ return weak_root_refusal && weak_root_refusal(object) ? nullptr : il2cpp_gchandle_new(object, false); }
 END_API
 
 API(const Il2CppType*, il2cpp_class_enum_basetype, (Il2CppClass * type))

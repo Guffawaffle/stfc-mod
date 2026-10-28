@@ -499,6 +499,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             recovery_gate.addArg(mode);
             test_il2cpp.dependOn(&recovery_gate.step);
         }
+        inline for (.{ "store-research-native", "store-research-bad-id", "store-fields-mismatch" }) |mode| {
+            const store_case = b.addRunArtifact(exe);
+            store_case.addArg(mode);
+            test_il2cpp.dependOn(&store_case.step);
+        }
         if (ctx.isWindows()) inline for (.{ "cargo-native", "cargo-context-pointer", "cargo-snap-invalid", "cargo-inherited-hook", "cargo-format-signature" }) |mode| {
             const cargo_case = b.addRunArtifact(exe);
             cargo_case.addArg(mode);

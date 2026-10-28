@@ -325,6 +325,10 @@ nativesettingshooks = true
 # Restart required after changing any [patches] switch.
 abilitybuttonrecoveryhooks = true
 
+# Native Research Lookup tooltips and data-ready currency refresh in Alliance Games Store.
+# Restart required; preserves the game's eligibility, currency IDs and purchase behavior.
+alliancegamesstorehooks = true
+
 # Enable recovery of interrupted action queues.
 actionqueuerecoveryhooks = true
 artifactexchangehooks = true

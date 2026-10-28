@@ -242,10 +242,11 @@ const MethodInfo* warp_world_method           = nullptr;
 const MethodInfo* warp_system_method          = nullptr;
 const MethodInfo* warp_galaxy_method          = nullptr;
 bool              nullable_definition_missing = false, vector_class_missing = false;
-bool    warp_validator_value = true, warp_move_failure = false, warp_vector_failure = false, warp_vector_null = false;
-bool    warp_vector_wrong_type = false, warp_root_failure = false;
-int     warp_move_calls = 0, warp_vector_calls = 0, warp_validator_calls = 0;
-int64_t warp_seen_fleet = 0, warp_seen_node = 0;
+bool warp_validator_value = true, warp_move_failure = false, warp_vector_failure = false, warp_vector_null = false;
+bool warp_vector_wrong_type = false, warp_root_failure = false;
+bool (*weak_root_refusal)(Il2CppObject*)                          = nullptr;
+int                                               warp_move_calls = 0, warp_vector_calls = 0, warp_validator_calls = 0;
+int64_t                                           warp_seen_fleet = 0, warp_seen_node = 0;
 unity::Vector3                                    warp_seen_position{};
 std::unordered_map<Il2CppGCHandle, Il2CppObject*> warp_roots;
 uintptr_t                                         warp_next_root = 1;
@@ -1819,6 +1820,7 @@ void PlannedWarpBindingObservations()
 #include "galaxy_presentation_bindings_cases.h"
 #include "galaxy_selection_bindings_cases.h"
 #include "map_fixture_stubs.h"
+#include "alliance_store_bindings_cases.h"
 #if _WIN32
 #include "cargo_bindings_cases.h"
 #endif
@@ -1828,6 +1830,10 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("store-")) {
+    AllianceStoreNativeCases(argv[1]);
+    return 0;
+  }
   if (argc == 2
       && (std::string_view(argv[1]).starts_with("fleet-selection-")
           || std::string_view(argv[1]).starts_with("fleet-ability-"))) {
