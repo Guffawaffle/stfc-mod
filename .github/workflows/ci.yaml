@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, review/ripper-play-migration-checkpoint-20261025]
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, play]
 
 permissions:
   actions: read
