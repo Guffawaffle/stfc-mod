@@ -5,7 +5,8 @@
 [Cohort 20261027-02](FEATURE-COHORT-20261027-02.md) reassesses eight travel/cargo
 workflows against frozen play-dev using three bounded workers and shared
 integration. The current Windows suite passed 347/347 build/run/install steps;
-native trial and macOS remain separate. Full source comparison distinguishes
+native startup and basic Windows trial passed; macOS and extended edge cases
+remain separate. Full source comparison distinguishes
 existing retained-course behavior from actual cargo polling/restoration
 omissions and inherited delayed-preview defects. LexRunner provided dependency
 ordering; worker execution remains direct collaboration because governed native

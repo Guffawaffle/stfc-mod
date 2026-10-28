@@ -545,14 +545,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. All target categories, delayed widgets, replacement/expiry, native/mod hotkey changes.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CARGO-PREVIEW.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -575,7 +586,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/fleet_actions.cc"
         }
@@ -590,12 +601,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-CARGO-PREVIEW.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -619,14 +634,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Occupied/vacant/change occupant, cargo options, node reuse, scene change and timeout.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-MINING-CYCLE.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -650,7 +676,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/mining_preview.cc"
         }
@@ -665,12 +691,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-MINING-CYCLE.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -694,14 +724,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Cargo vs unrelated labels, precision below/above range and reload.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CARGO-FORMAT.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -724,7 +765,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/cargo.cc"
         }
@@ -739,12 +780,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-CARGO-FORMAT.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -768,14 +813,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Reused/noncargo context and original snap true/false; Windows only in both sources.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CARGO-INSTANT.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Windows basic cargo workflow accepted; counter remains Windows-only; extended native edges unqualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -798,7 +854,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/cargo.cc"
         }
@@ -813,12 +869,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-CARGO-INSTANT.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -2004,14 +2064,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Overlapping filters, default, localized hull keys, no valid fleet/course and failed native action.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-WARP-AUTO.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -2034,7 +2105,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/instant_warp.cc"
         }
@@ -2049,12 +2120,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-WARP-AUTO.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -2078,14 +2153,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Wrong fleet/node/popup, delayed popup, one-use intent, invalid identity, held/released mouse and both platforms.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-WARP-MODIFIER.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -2108,7 +2194,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/instant_warp.cc"
         }
@@ -2123,12 +2209,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-WARP-MODIFIER.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -2152,14 +2242,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Fleet/filter/modifier changes, external text owner, toll/wormhole, recycled label; no action/cost mutation.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-WARP-LABEL.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -2182,7 +2283,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/instant_warp.cc"
         }
@@ -2197,12 +2298,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-WARP-LABEL.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -2226,14 +2331,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
         ],
-        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+            "installedSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+            "platform": "Windows client 273 ordinary main",
+            "behavior": "Ctrl-click Warp/Jump choice and WARP/JUMP label; V occupied-node -> occupant -> cargo -> node; cargo totals and reopening target cards. No forced paid/resource test.",
+            "result": "Guff: all work. Basic combined workflow acceptance, not exhaustive source-obligation/native race qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Replace selected fleet/course/path during getter; reject toll/recall/used/wormhole/action course.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-WARP-COURSE.md",
-      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
         {
@@ -2257,7 +2373,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "revision": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
           "presence": "present",
           "evidence": "src/mod/features/fleet_actions.cc"
         }
@@ -2272,12 +2388,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+            "implementationCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd"
           },
           "contract": "docs/migration/features/PLAY-WARP-COURSE.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+          "verification": "347/347 Windows steps;41/41 native steps;3 Runner gates passed with complete 9-reference artifact readback; exact-candidate startup and basic Windows player acceptance. Extended native edges/macOS separate.",
+          "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
+          "historicalRestorationNotes": []
         }
       ]
     },
@@ -5736,7 +5856,7 @@
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
     "status": "Development integration: launch accepted; partial Windows player test; Settings UX follow-ups deferred. Not release or overall parity.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
-    "acceptedCheckpoint": "94f4b3e07417430b0bf3f4683e692ec15239e366",
+    "acceptedCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
     "obsoleteLocalPointer": {
       "ref": "integration/ripper-foundation-m1b-20261025",
       "revision": "9a2018affa88915cfbf45803945637a64b95068f",
@@ -5747,18 +5867,18 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "94f4b3e07417430b0bf3f4683e692ec15239e366",
-    "artifactSha256": "ed89a38e1bdd425dc752bbcc53e0e795829897f2567a1cb05729381463a6b5c5",
-    "qualification": "Fleet/queue cohort94f4b3e0 startup and basic Windows player workflows accepted; all71 groups/frame ready. One unattributed contained/rate-limited GetComponent exception logged. Natural recovery races/Mac remain unqualified. Prior AAI/preset UI acceptance stays source-bound; no overall parity claim.",
+    "currentSourceCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+    "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
+    "qualification": "Travel/cargo eight-feature cohort: basic Windows player acceptance (all work), all71 groups/frame ready, five stores unchanged. One contained/rate-limited GetComponent exception remains unattributed. Extended native edges and Mac separately unqualified; no overall parity claim.",
     "currentRuntime": {
-      "sourceCommit": "94f4b3e07417430b0bf3f4683e692ec15239e366",
+      "sourceCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 3352,
+      "pidAtQualification": 14228,
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/fleet-queue-cohort-20261027/runtime-qualification.json"
+      "receipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json"
     }
   }
 }
