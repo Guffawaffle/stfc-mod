@@ -36,11 +36,15 @@ struct StoreFixtureSource {
 };
 struct StoreFixtureSmart {
   Il2CppObject                     header;
-  il2cpp::List<unity::Transform*>* pool = nullptr;
+  il2cpp::List<unity::Transform*>* pool         = nullptr;
+  bool                             regenerating = false;
+  il2cpp::Object*                  spawning     = nullptr;
+  il2cpp::Object*                  initializing = nullptr;
 };
 struct StoreFixtureBundle {
-  Il2CppObject           header;
-  StoreInventoryTooltip* tooltip = nullptr;
+  Il2CppObject                    header;
+  StoreInventoryTooltip*          tooltip = nullptr;
+  ShopListScrollerViewController* owner   = nullptr;
 };
 
 StoreFixtureTrigger store_test_plain{}, store_test_action{};
@@ -56,6 +60,30 @@ int     store_test_adds = 0, store_test_setups = 0, store_test_currency = 0, sto
 int64_t store_test_seen_resource = 0;
 std::function<void()> store_test_on_setup, store_test_on_eligibility, store_test_on_enable;
 int                   store_test_context_reads = 0, store_test_release_at_context = 0;
+int                   store_test_notifications           = 0;
+bool                  store_test_release_on_notification = false;
+const MethodInfo*     store_test_position_method         = nullptr;
+const MethodInfo*     store_test_notify_method           = nullptr;
+struct StorePositionBox {
+  Il2CppObject   header;
+  unity::Vector2 value{0.0f, 0.4f};
+} store_test_position_box;
+Il2CppObject* StoreTestInvoke(const MethodInfo* method, void*, void** args, Il2CppException**, bool& handled)
+{
+  handled = method == store_test_position_method || method == store_test_notify_method;
+  if (!handled)
+    return nullptr;
+  if (method == store_test_position_method)
+    return &store_test_position_box.header;
+  Require(args && args[0], "same-position notification receives an owned Vector2 argument");
+  const auto position = *static_cast<const unity::Vector2*>(args[0]);
+  Require(position.x == 0.0f && position.y == 0.4f, "notification preserves native normalized position exactly");
+  ++store_test_notifications;
+  if (std::exchange(store_test_release_on_notification, false))
+    AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook(
+        [](AllianceStoreScroller*) {}, reinterpret_cast<AllianceStoreScroller*>(&store_test_source));
+  return nullptr;
+}
 
 InventoryItem* StoreTestContext(StoreFixtureWidget* self, const MethodInfo*)
 { return self->item; }
@@ -115,8 +143,8 @@ void StoreTestSetup(StoreInventoryTooltip*, const MethodInfo*)
 AllianceStoreContext* StoreTestStoreContext(AllianceStoreScroller*, const MethodInfo*)
 {
   if (++store_test_context_reads == store_test_release_at_context)
-    AllianceStoreReleased_Hook([](AllianceStoreScroller*) {},
-                               reinterpret_cast<AllianceStoreScroller*>(&store_test_source));
+    AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook(
+        [](AllianceStoreScroller*) {}, reinterpret_cast<AllianceStoreScroller*>(&store_test_source));
   return reinterpret_cast<AllianceStoreContext*>(&store_test_context);
 }
 bool StoreTestShopActive(AllianceStoreContext*, const MethodInfo*)
@@ -133,6 +161,9 @@ il2cpp::List<il2cpp::Object*>* StoreTestSoft(AllianceStoreCurrencies*, const Met
 { return reinterpret_cast<il2cpp::List<il2cpp::Object*>*>(&store_test_soft); }
 int32_t StoreTestVisible(StoreSmartScroller*, const MethodInfo*)
 { return 4; }
+unity::Vector2 StoreTestNormalized(StoreSmartScroller*, const MethodInfo*)
+{ return {0.0f, 0.4f}; }
+void  StoreTestNotify(StoreSmartScroller*, unity::Vector2, const MethodInfo*) {}
 float StoreTestPosition(StoreSmartScroller*, const MethodInfo*)
 { return 0.4f; }
 void StoreTestCurrency(AllianceStoreContext*, const MethodInfo*)
@@ -187,6 +218,10 @@ void AllianceStoreNativeCases(std::string_view mode)
   AddField(shop, "_smartScroller", smart, offsetof(StoreFixtureSource, smart));
   AddField(smart, "_spawnedItems", list, offsetof(StoreFixtureSmart, pool));
   AddField(bundle, "_invTooltip", widget, offsetof(StoreFixtureBundle, tooltip));
+  AddField(bundle, "_scrollerController", shop, offsetof(StoreFixtureBundle, owner));
+  AddField(smart, "_regeneratingContent", bool_class, offsetof(StoreFixtureSmart, regenerating));
+  AddField(smart, "_spawnerCoroutine", object_class, offsetof(StoreFixtureSmart, spawning));
+  AddField(smart, "_dataHeldWhilstInitializing", object_class, offsetof(StoreFixtureSmart, initializing));
   Require(store_game::Members().Resolve() == (mode != "store-fields-mismatch"),
           "actual store schema rejects a same-sized foreign override struct");
   if (mode == "store-fields-mismatch")
@@ -250,6 +285,16 @@ void AllianceStoreNativeCases(std::string_view mode)
   AddMethod(context, "get_StoreCurrency", reinterpret_cast<void*>(&StoreTestCurrencies), T(currencies), {});
   AddMethod(currencies, "get_SoftResources", reinterpret_cast<void*>(&StoreTestSoft), T(list), {});
   AddMethod(smart, "get_VisibleItemsCount", reinterpret_cast<void*>(&StoreTestVisible), T(int_class), {});
+  store_test_position_box.header.klass = &vector.klass;
+  extra_value_box                      = &store_test_position_box.header;
+  extra_value_payload                  = &store_test_position_box.value;
+  store_test_position_method =
+      &AddMethod(smart, "get_NormalizedPosition", reinterpret_cast<void*>(&StoreTestNormalized), T(vector), {});
+  store_test_notify_method = &AddMethod(smart, "OnValueChangedCallback", reinterpret_cast<void*>(&StoreTestNotify),
+                                        T(void_class), {T(vector)});
+  const_cast<MethodInfo*>(store_test_position_method)->invoker_method = &WarpInvokerSentinel;
+  const_cast<MethodInfo*>(store_test_notify_method)->invoker_method   = &WarpInvokerSentinel;
+  tow_runtime_invoke_override                                         = &StoreTestInvoke;
   AddMethod(smart, "get_ScrollPosition", reinterpret_cast<void*>(&StoreTestPosition), T(float_class), {});
   AddMethod(list, "get_Count", reinterpret_cast<void*>(&StoreTestPoolCount), T(int_class), {});
 
@@ -277,7 +322,7 @@ void AllianceStoreNativeCases(std::string_view mode)
   weak_root_refusal = nullptr;
   auto expired      = std::make_shared<OwnedStoreTooltip>();
   alliance_store_tooltips.insert(alliance_store_tooltips.begin(), expired);
-  store_test_on_setup = [&] { AllianceStoreBound_Hook([](AllianceStoreScroller*) {}, view); };
+  store_test_on_setup = [&] { AllianceStoreScroller_OnDidBindCanvasContext_Hook([](AllianceStoreScroller*) {}, view); };
   const auto first    = ReconcileStoreTooltip(tooltip, donor, roots);
   if (first != ResearchUpdate::Upgraded) {
     std::cerr << "store first=" << static_cast<int>(first) << " adds=" << store_test_adds
@@ -313,17 +358,23 @@ void AllianceStoreNativeCases(std::string_view mode)
   store_test_widget.item = reinterpret_cast<InventoryItem*>(&store_test_item);
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Upgraded,
           "rebinding recovers after rollback");
-  store_test_on_eligibility = [&] { AllianceStoreReleased_Hook([](AllianceStoreScroller*) {}, view); };
+  store_test_on_eligibility = [&] {
+    AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook([](AllianceStoreScroller*) {}, view);
+  };
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable && !store_test_widget.action
               && store_test_plain.enabled,
           "store release during eligibility cancels the old operation and restores the native tooltip");
   QueueStore(view, true);
-  store_test_on_setup = [&] { AllianceStoreReleased_Hook([](AllianceStoreScroller*) {}, view); };
+  store_test_on_setup = [&] {
+    AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook([](AllianceStoreScroller*) {}, view);
+  };
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Failed && !store_test_widget.action
               && !store_test_action.enabled && store_test_plain.enabled,
           "store release during setup cannot publish stale action state");
   QueueStore(view, true);
-  store_test_on_enable = [&] { AllianceStoreReleased_Hook([](AllianceStoreScroller*) {}, view); };
+  store_test_on_enable = [&] {
+    AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook([](AllianceStoreScroller*) {}, view);
+  };
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Failed && !store_test_widget.action
               && !store_test_action.enabled && store_test_plain.enabled,
           "store release during final enable revokes publication even for the same item");
@@ -346,17 +397,43 @@ void AllianceStoreNativeCases(std::string_view mode)
   StoreFixtureBundle card{};
   card.header.klass = &bundle.klass;
   card.tooltip      = tooltip;
-  StoreBundleReleased_Hook([](BundleDataWidget*) { ++store_test_original_releases; },
-                           reinterpret_cast<BundleDataWidget*>(&card));
+  card.owner        = reinterpret_cast<ShopListScrollerViewController*>(view);
+  BundleDataWidget_OnAboutToReleaseContext_Hook([](BundleDataWidget*) { ++store_test_original_releases; },
+                                                reinterpret_cast<BundleDataWidget*>(&card));
   Require(store_test_original_releases == 1 && !store_test_widget.action && store_test_plain.enabled,
           "actual card release restores native behavior before forwarding exactly once");
 
-  alliance_store_work.due = Clock::time_point{};
+  // Late native card bind after an earlier store pass must schedule a fresh
+  // reconciliation, with the owner observed only after original bind returns.
+  alliance_store_work.pending = false;
+  card.owner                  = nullptr;
+  BundleDataWidget_OnDidBindContext_Hook(
+      [&](BundleDataWidget*) { card.owner = reinterpret_cast<ShopListScrollerViewController*>(view); },
+      reinterpret_cast<BundleDataWidget*>(&card));
+  Require(alliance_store_work.pending, "actual post-bind hook schedules late/recycled store cards");
+  store_test_position_box.header.klass = &vec3_class.klass;
+  Require(!store_game::NormalizedPosition(reinterpret_cast<StoreSmartScroller*>(&store_test_smart)),
+          "foreign position box is unavailable, never a guessed scroll coordinate");
+  store_test_position_box.header.klass = &vector.klass;
+  store_test_smart.spawning            = reinterpret_cast<il2cpp::Object*>(&store_test_context);
+  alliance_store_work.due              = Clock::time_point{};
   AllianceStoreFrame();
+  Require(!store_test_notifications && !store_test_currency && alliance_store_work.pending,
+          "live native spawner postpones all settled layout and currency work");
+  store_test_smart.spawning = nullptr;
+  alliance_store_work.due   = Clock::time_point{};
+  AllianceStoreFrame();
+  Require(store_test_notifications == 1, "actual settled frame delivers exactly one same-position native notification");
   Require(store_test_currency == 1 && !alliance_store_work.pending,
           "actual frame calls native currency discovery once after bundle readiness");
   AllianceStoreFrame();
   Require(store_test_currency == 1, "idle frame makes no repeated currency or scene calls");
+  QueueStore(view, true);
+  store_test_release_on_notification = true;
+  alliance_store_work.due            = Clock::time_point{};
+  AllianceStoreFrame();
+  Require(!alliance_store_work.source && store_test_currency == 1,
+          "source release inside scroll notification prevents subsequent stale binding/currency work");
   QueueStore(view, true);
   store_test_release_at_context = store_test_context_reads + 2;
   alliance_store_work.due       = Clock::time_point{};
@@ -370,11 +447,14 @@ void AllianceStoreNativeCases(std::string_view mode)
   AllianceStoreFrame();
   Require(store_test_currency == 1, "loading bundle data cannot authorize premature currency replacement");
   QueueStore(view, true);
-  AllianceStoreReleased_Hook([](AllianceStoreScroller*) {}, view);
+  AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook([](AllianceStoreScroller*) {}, view);
   alliance_store_work.due = Clock::time_point{};
   AllianceStoreFrame();
   Require(store_test_currency == 1 && !alliance_store_work.source,
           "actual source release cancels pending work before native release");
+  tow_runtime_invoke_override = nullptr;
+  extra_value_box             = nullptr;
+  extra_value_payload         = nullptr;
   owned.reset();
   alliance_store_tooltips.clear();
   roots.values.clear();

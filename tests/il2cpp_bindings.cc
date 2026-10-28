@@ -244,7 +244,9 @@ const MethodInfo* warp_galaxy_method          = nullptr;
 bool              nullable_definition_missing = false, vector_class_missing = false;
 bool warp_validator_value = true, warp_move_failure = false, warp_vector_failure = false, warp_vector_null = false;
 bool warp_vector_wrong_type = false, warp_root_failure = false;
-bool (*weak_root_refusal)(Il2CppObject*)                          = nullptr;
+bool (*weak_root_refusal)(Il2CppObject*)                              = nullptr;
+Il2CppObject*                                     extra_value_box     = nullptr;
+void*                                             extra_value_payload = nullptr;
 int                                               warp_move_calls = 0, warp_vector_calls = 0, warp_validator_calls = 0;
 int64_t                                           warp_seen_fleet = 0, warp_seen_node = 0;
 unity::Vector3                                    warp_seen_position{};
@@ -1005,6 +1007,8 @@ API(const MethodInfo*, il2cpp_object_get_virtual_method, (Il2CppObject * object,
 END_API
 API(void*, il2cpp_object_unbox, (Il2CppObject * object))
 {
+  if (extra_value_box && object == extra_value_box)
+    return extra_value_payload;
   if (object == &warp_vector_box.header)
     return &warp_vector_box.value;
   return object->klass == &long_class.klass ? static_cast<void*>(&queue_boxed_target) : &shared_result;

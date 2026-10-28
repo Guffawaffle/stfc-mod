@@ -6484,16 +6484,17 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate."
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate.",
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-9.log:387/387; purchase delta includes native post-bind scheduling, spawner wait, exact same-position Vector2 marshaling and source cancellation."
         ],
-        "exactCandidateRuntime": "Not yet ported; historical v7 study is separate",
+        "exactCandidateRuntime": "First candidate99bb6719:Windows273,73 feature rows/frame ready,five stores unchanged. User confirmed initial native Research and currency1->2 recovery. Actual purchase reproduced row loss and missing Research. New late-bind/same-position correction is offline-qualified; next runtime pending.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Study implemented and Windows player-qualified; typed production port pending; study is explicitly outside frozen play-dev. No purchase automation.",
       "restorationCommits": [],
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
-      "catalogStatus": "Typed research port + new data-ready native currency refresh offline-qualified; runtime pending",
+      "catalogStatus": "Late-bind restoration candidate offline-qualified; purchase retry pending",
       "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
@@ -6513,6 +6514,21 @@
           "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
           "presence": "absent",
           "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "target": {
+            "branch": "play-dev-ripper",
+            "implementationCommit": "99bb6719b06a8b45281943ee390dd3b68694098e"
+          },
+          "contract": "docs/migration/features/AT-STORE.md",
+          "verification": "387/387 offline;41/41 native;73 feature rows. User initial Research/currencies accepted; actual purchase row loss and Research restoration failure reproduced. Correction delta pending separate runtime.",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification.json",
+          "artifactSha256": "89042b7faba9e4274620c6e890ae1ec47a09db5fb1ee5fb47322c305fef7dab7",
+          "playerEvidence": "User saw initial1->2currency recovery and workingViewResearch, then purchase-row loss untilscroll and lostResearch."
         }
       ]
     },
@@ -6534,16 +6550,17 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate."
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate.",
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-9.log:387/387; purchase delta includes native post-bind scheduling, spawner wait, exact same-position Vector2 marshaling and source cancellation."
         ],
-        "exactCandidateRuntime": "Not yet ported; historical v7 study is separate",
+        "exactCandidateRuntime": "First candidate99bb6719:Windows273,73 feature rows/frame ready,five stores unchanged. User confirmed initial native Research and currency1->2 recovery. Actual purchase reproduced row loss and missing Research. New late-bind/same-position correction is offline-qualified; next runtime pending.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Manual native refresh demonstrated; permanent correction not implemented; study is explicitly outside frozen play-dev. No purchase automation.",
       "restorationCommits": [],
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
-      "catalogStatus": "Typed research port + new data-ready native currency refresh offline-qualified; runtime pending",
+      "catalogStatus": "Initial currency recovery accepted; purchase lifecycle correction candidate pending trial",
       "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
@@ -6564,12 +6581,27 @@
           "presence": "absent",
           "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
         }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "target": {
+            "branch": "play-dev-ripper",
+            "implementationCommit": "99bb6719b06a8b45281943ee390dd3b68694098e"
+          },
+          "contract": "docs/migration/features/AT-STORE.md",
+          "verification": "387/387 offline;41/41 native;73 feature rows. User initial Research/currencies accepted; actual purchase row loss and Research restoration failure reproduced. Correction delta pending separate runtime.",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification.json",
+          "artifactSha256": "89042b7faba9e4274620c6e890ae1ec47a09db5fb1ee5fb47322c305fef7dab7",
+          "playerEvidence": "User saw initial1->2currency recovery and workingViewResearch, then purchase-row loss untilscroll and lostResearch."
+        }
       ]
     },
     {
       "id": "AT-STORE-ROWS",
       "name": "Alliance Games purchase refresh visibility",
-      "classification": "Unresolved",
+      "classification": "Implemented, unverified",
       "baseline": {
         "revision": "a815944d26047c6a7d768a7ade1b52b57d06d6ab",
         "path": "mods/src/dev/tournament_store_study.cc",
@@ -6577,23 +6609,24 @@
       },
       "migration": {
         "path": "src/mod/features/alliance_store.cc",
-        "symbolOrWorkflow": "native regeneration/settled diagnostics only"
+        "symbolOrWorkflow": "AllianceStoreFrame / NormalizedPosition / NotifyPosition"
       },
       "expectedBehavior": "Preserve scroll position and fully display native visible rows after an operator-chosen purchase.",
       "verificationProcedure": "Focused main-game Alliance Games store trial; user performs any chosen purchase. See shared feature contract.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate."
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate.",
+          "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-9.log:387/387; purchase delta includes native post-bind scheduling, spawner wait, exact same-position Vector2 marshaling and source cancellation."
         ],
-        "exactCandidateRuntime": "Not yet ported; historical v7 study is separate",
+        "exactCandidateRuntime": "First candidate99bb6719:Windows273,73 feature rows/frame ready,five stores unchanged. User confirmed initial native Research and currency1->2 recovery. Actual purchase reproduced row loss and missing Research. New late-bind/same-position correction is offline-qualified; next runtime pending.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Unreproduced in clean study; no repair implemented or qualified; study is explicitly outside frozen play-dev. No purchase automation.",
       "restorationCommits": [],
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
-      "catalogStatus": "No repair; awaiting actual purchase reproduction, native diagnostics added",
+      "catalogStatus": "Actual purchase bug reproduced; same-position native notification candidate offline-qualified, visual trial pending",
       "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
@@ -6613,6 +6646,21 @@
           "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
           "presence": "absent",
           "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "target": {
+            "branch": "play-dev-ripper",
+            "implementationCommit": "99bb6719b06a8b45281943ee390dd3b68694098e"
+          },
+          "contract": "docs/migration/features/AT-STORE.md",
+          "verification": "387/387 offline;41/41 native;73 feature rows. User initial Research/currencies accepted; actual purchase row loss and Research restoration failure reproduced. Correction delta pending separate runtime.",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification.json",
+          "artifactSha256": "89042b7faba9e4274620c6e890ae1ec47a09db5fb1ee5fb47322c305fef7dab7",
+          "playerEvidence": "User saw initial1->2currency recovery and workingViewResearch, then purchase-row loss untilscroll and lostResearch."
         }
       ]
     }

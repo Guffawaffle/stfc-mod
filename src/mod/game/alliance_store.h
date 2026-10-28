@@ -108,6 +108,9 @@ struct Fields {
   Field<StoreSmartScroller*>              scroller;
   Field<il2cpp::List<unity::Transform*>*> spawned;
   Field<StoreInventoryTooltip*>           bundle_tooltip;
+  Field<ShopListScrollerViewController*>  bundle_owner;
+  Field<bool>                             regenerating;
+  Field<il2cpp::Object*>                  spawning, initializing;
 
   bool Resolve()
   {
@@ -138,6 +141,10 @@ struct Fields {
     ok &= scroller.Resolve(ShopListScrollerViewController::Class::Raw(), "_smartScroller");
     ok &= spawned.Resolve(StoreSmartScroller::Class::Raw(), "_spawnedItems");
     ok &= bundle_tooltip.Resolve(BundleDataWidget::Class::Raw(), "_invTooltip");
+    ok &= bundle_owner.Resolve(BundleDataWidget::Class::Raw(), "_scrollerController");
+    ok &= regenerating.Resolve(StoreSmartScroller::Class::Raw(), "_regeneratingContent");
+    ok &= spawning.Resolve(StoreSmartScroller::Class::Raw(), "_spawnerCoroutine");
+    ok &= initializing.Resolve(StoreSmartScroller::Class::Raw(), "_dataHeldWhilstInitializing");
     return ok;
   }
 };
@@ -152,6 +159,31 @@ inline bool IsStore(Il2CppObject* object)
 {
   auto* type = AllianceStoreScroller::Class::Raw();
   return object && type && il2cpp_class_is_assignable_from(type, object->klass);
+}
+
+// Runtime invokers own Vector2 marshaling. Read/notify only: no position setter.
+inline il2cpp::CallResult<unity::Vector2> NormalizedPosition(StoreSmartScroller* smart)
+{
+  static const auto* method   = StoreSmartScroller::Class::Method<unity::Vector2()>("get_NormalizedPosition").Info();
+  auto*              expected = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw();
+  if (!smart || !method || !method->invoker_method
+      || !il2cpp::detail::ValueClassMatches(method->return_type, expected, sizeof(unity::Vector2)))
+    return {};
+  const auto observed = il2cpp::detail::TryInvokeBoxed(method, smart, nullptr);
+  auto       box      = observed ? il2cpp::GcHandle::Strong(observed.value) : il2cpp::GcHandle{};
+  if (!box || !box.Get() || box.Get()->klass != expected)
+    return {};
+  return {true, il2cpp::detail::FromBoxed<unity::Vector2>(box.Get())};
+}
+inline bool NotifyPosition(StoreSmartScroller* smart, unity::Vector2 position)
+{
+  static const auto* method = StoreSmartScroller::Class::Method<void(unity::Vector2)>("OnValueChangedCallback").Info();
+  auto*              expected = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw();
+  if (!smart || !method || !method->invoker_method || method->parameters_count != 1
+      || !il2cpp::detail::ValueClassMatches(method->parameters[0], expected, sizeof(position)))
+    return false;
+  void* args[]{&position};
+  return il2cpp::detail::TryInvokeBoxed(method, smart, args).succeeded;
 }
 
 inline il2cpp::CallResult<bool> Eligible(InventoryItem* item)

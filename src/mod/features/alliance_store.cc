@@ -19,7 +19,7 @@ using Clock          = std::chrono::steady_clock;
 struct AllianceStoreWork {
   il2cpp::GcHandle  source;
   uint64_t          epoch   = 0;
-  bool              pending = false, currency = false, refreshing_currency = false;
+  bool              pending = false, currency = false, refreshing_currency = false, layout = false;
   Clock::time_point due{};
 } alliance_store_work;
 
@@ -237,25 +237,26 @@ void QueueStore(AllianceStoreScroller* source, bool currency)
   }
   if (!work.source)
     return;
-  if (!work.pending)
-    work.due = Clock::now() + std::chrono::milliseconds(250);
+  // Debounce through separate-frame native card spawning.
+  work.due     = Clock::now() + std::chrono::milliseconds(250);
   work.pending = true;
   work.currency |= currency && !work.refreshing_currency;
+  work.layout |= currency && !work.refreshing_currency;
 }
 
-void AllianceStoreBound_Hook(auto original, AllianceStoreScroller* self)
+void AllianceStoreScroller_OnDidBindCanvasContext_Hook(auto original, AllianceStoreScroller* self)
 {
   original(self);
   std::erase_if(alliance_store_tooltips, [](auto& entry) { return !entry->widget.Get(); });
   QueueStore(self, true);
 }
 
-void AllianceStoreReleased_Hook(auto original, AllianceStoreScroller* self)
+void AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook(auto original, AllianceStoreScroller* self)
 {
   auto& work = alliance_store_work;
   if (work.source.Get() == self) {
     work.source.Reset();
-    work.pending = work.currency = false;
+    work.pending = work.currency = work.layout = false;
     ++work.epoch;
   }
   // Native restoration can reenter bind/pruning. Keep stable entry custody and
@@ -267,14 +268,15 @@ void AllianceStoreReleased_Hook(auto original, AllianceStoreScroller* self)
   original(self);
 }
 
-void StoreRegenerated_Hook(auto original, ShopListScrollerViewController* self, bool instant)
+void ShopListScrollerViewController_RegenerateSortedBundles_Hook(auto original, ShopListScrollerViewController* self,
+                                                                 bool instant)
 {
   original(self, instant);
   if (store_game::IsStore(self) && !alliance_store_work.refreshing_currency)
     QueueStore(reinterpret_cast<AllianceStoreScroller*>(self), true);
 }
 
-void StoreBundleReleased_Hook(auto original, BundleDataWidget* self)
+void BundleDataWidget_OnAboutToReleaseContext_Hook(auto original, BundleDataWidget* self)
 {
   auto* tooltip = store_game::Members().bundle_tooltip.Read(self);
   if (auto entry = OwnedTooltip(tooltip))
@@ -282,24 +284,23 @@ void StoreBundleReleased_Hook(auto original, BundleDataWidget* self)
   original(self);
 }
 
-void StoreBundleRefreshed_Hook(auto original, BundleDataWidget* self, Bundle* bundle)
+void QueueStoreCard(BundleDataWidget* self)
+{
+  // Native OnDidBindContext sets this AFTER SetupTooltip. Never use the
+  // RefreshBundle argument or a pre-bind owner as current-card identity.
+  auto* owner = store_game::Members().bundle_owner.Read(self);
+  if (owner && alliance_store_work.source.Get() == owner)
+    QueueStore(reinterpret_cast<AllianceStoreScroller*>(owner), false);
+}
+void BundleDataWidget_RefreshBundle_Hook(auto original, BundleDataWidget* self, Bundle* bundle)
 {
   original(self, bundle);
-  // No scene enumeration when ordinary shop cards refresh. A weak store owner
-  // is established only by the Alliance Games lifecycle/regeneration hooks.
-  store_game::Roots roots;
-  auto*             source = roots.Keep(alliance_store_work.source.Get<AllianceStoreScroller>());
-  const auto        live   = unity::TryAlive(source);
-  if (!source || !live || !live.value)
-    return;
-  const auto parent    = source->TryCall<"get_transform", unity::Transform*>();
-  const auto child     = self->TryCall<"get_transform", unity::Transform*>();
-  auto*      ancestor  = parent ? roots.Keep(parent.value) : nullptr;
-  auto*      transform = child ? roots.Keep(child.value) : nullptr;
-  const auto belongs   = transform && ancestor ? transform->TryCall<"IsChildOf", bool(unity::Transform*)>(ancestor)
-                                               : il2cpp::CallResult<bool>{};
-  if (belongs && belongs.value)
-    QueueStore(source, false);
+  QueueStoreCard(self);
+}
+void BundleDataWidget_OnDidBindContext_Hook(auto original, BundleDataWidget* self)
+{
+  original(self);
+  QueueStoreCard(self);
 }
 
 void AllianceStoreFrame()
@@ -308,6 +309,7 @@ void AllianceStoreFrame()
   if (!work.pending || Clock::now() < work.due)
     return;
   const bool currency     = std::exchange(work.currency, false);
+  const bool layout       = std::exchange(work.layout, false);
   work.pending            = false;
   const auto        epoch = work.epoch;
   store_game::Roots roots;
@@ -320,10 +322,30 @@ void AllianceStoreFrame()
   const auto        active   = context ? context->TryCall<"get_IsShopViewActive", bool>() : il2cpp::CallResult<bool>{};
   if (!context || !active || !active.value)
     return;
-  auto&      fields = store_game::Members();
-  auto*      smart  = roots.Keep(fields.scroller.Read(source));
-  auto*      pool   = smart ? roots.Keep(fields.spawned.Read(smart)) : nullptr;
-  const auto count  = pool ? pool->TryCall<"get_Count", int32_t>() : il2cpp::CallResult<int32_t>{};
+  if (work.epoch != epoch || work.source.Get() != source)
+    return;
+  auto& fields = store_game::Members();
+  auto* smart  = roots.Keep(fields.scroller.Read(source));
+  if (smart && (fields.regenerating.Read(smart) || fields.spawning.Read(smart) || fields.initializing.Read(smart))) {
+    work.pending = true;
+    work.currency |= currency;
+    work.layout |= layout;
+    work.due = Clock::now() + std::chrono::milliseconds(250);
+    return;
+  }
+  bool position_notified = false;
+  if (layout && smart) {
+    const auto position   = store_game::NormalizedPosition(smart);
+    const auto live_smart = unity::TryAlive(smart);
+    if (position && live_smart && live_smart.value && work.epoch == epoch && work.source.Get() == source
+        && fields.scroller.Read(source) == smart) {
+      position_notified = store_game::NotifyPosition(smart, position.value);
+    }
+  }
+  if (work.epoch != epoch || work.source.Get() != source || fields.scroller.Read(source) != smart)
+    return;
+  auto*      pool  = smart ? roots.Keep(fields.spawned.Read(smart)) : nullptr;
+  const auto count = pool ? pool->TryCall<"get_Count", int32_t>() : il2cpp::CallResult<int32_t>{};
   if (!count || count.value < 0)
     return;
   int                    upgraded = 0, restored = 0, unavailable = 0, failed = 0;
@@ -381,6 +403,8 @@ void AllianceStoreFrame()
       currency_after = store_game::CurrencyCount(context, roots);
     }
   }
+  if (layout)
+    spdlog::info("[AllianceGamesStore] settled layout notification={} (position unchanged)", position_notified);
   const auto visible  = smart->TryCall<"get_VisibleItemsCount", int32_t>();
   const auto position = smart->TryCall<"get_ScrollPosition", float>();
   spdlog::info("[AllianceGamesStore] pool={} upgraded={} restored={} unavailable={} failed={} currency_refresh={} "
@@ -397,13 +421,18 @@ bool InstallAllianceGamesStore()
   if (!store_game::Members().Resolve())
     return false;
   il2cpp::HookSet hooks("AllianceGamesStore");
-  IL2CPP_STAGE(hooks, AllianceStoreScroller::Class::Method<void()>("OnDidBindCanvasContext"), AllianceStoreBound_Hook);
+  IL2CPP_STAGE(hooks, AllianceStoreScroller::Class::Method<void()>("OnDidBindCanvasContext"),
+               AllianceStoreScroller_OnDidBindCanvasContext_Hook);
   IL2CPP_STAGE(hooks, AllianceStoreScroller::Class::Method<void()>("OnAboutToReleaseCanvasContext"),
-               AllianceStoreReleased_Hook);
+               AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook);
   IL2CPP_STAGE(hooks, ShopListScrollerViewController::Class::Method<void(bool)>("RegenerateSortedBundles"),
-               StoreRegenerated_Hook);
-  IL2CPP_STAGE(hooks, BundleDataWidget::Class::Method<void(Bundle*)>("RefreshBundle"), StoreBundleRefreshed_Hook);
-  IL2CPP_STAGE(hooks, BundleDataWidget::Class::Method<void()>("OnAboutToReleaseContext"), StoreBundleReleased_Hook);
+               ShopListScrollerViewController_RegenerateSortedBundles_Hook);
+  IL2CPP_STAGE(hooks, BundleDataWidget::Class::Method<void(Bundle*)>("RefreshBundle"),
+               BundleDataWidget_RefreshBundle_Hook);
+  IL2CPP_STAGE(hooks, BundleDataWidget::Class::Method<void()>("OnAboutToReleaseContext"),
+               BundleDataWidget_OnAboutToReleaseContext_Hook);
+  IL2CPP_STAGE(hooks, BundleDataWidget::Class::Method<void()>("OnDidBindContext"),
+               BundleDataWidget_OnDidBindContext_Hook);
   return hooks.Commit();
 }
 } // namespace

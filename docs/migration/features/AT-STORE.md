@@ -49,7 +49,7 @@ qualified lifetime and component mutations reversible on failure.
 No AAI changes, store migrations, new persistence owner, purchases, release or
 whole-mod rewrite are part of this feature.
 
-## Implemented candidate — 2026-10-28
+## First typed candidate — 99bb6719, 2026-10-28
 
 Files: `src/mod/features/alliance_store.cc` and
 `src/mod/game/alliance_store.h`; independent default-on startup gate
@@ -112,3 +112,59 @@ check both currency types/owned amounts on first load and after returning;
 inspect a non-research card; close/reopen. If already planning a purchase, user
 chooses it and checks rows/position immediately before any corrective scrolling.
 The agent must not make a purchase. Record exact candidate/hash and each result.
+
+## First native trial and purchase reproduction
+
+Candidate `99bb6719b06a8b45281943ee390dd3b68694098e` built41/41 native
+steps and booted all73 feature rows plus FrameTick in Windows client273 main
+ordinary PID66284, creation FILETIME134376717336578974. DLL SHA256
+`89042b7faba9e4274620c6e890ae1ec47a09db5fb1ee5fb47322c305fef7dab7`.
+Five tracked stores were unchanged after AX's build-before-stop cycle.
+
+Player confirmed both currencies, visibly recovering from one to two, and
+VIEW RESEARCH navigation. Native diagnostics independently recorded17 upgrades,
+zero setup failures and currency context1→2.46 unavailable items were retained
+as unavailable rather than treated as confirmed ineligible. After an actual
+user-chosen purchase, the final row disappeared until scrolling, and Research
+actions did not restore. This qualifies initial navigation/currency correction;
+it does **not** qualify the purchase lifecycle. The prior contained/rate-limited
+GetComponent diagnostic recurred before the store trial; caller/cause unknown.
+
+Receipt: `D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification.json`
+SHA256 `7b275b6d05ecbfc4536d9f55711bcf28f90c411269b177605d9f81190ac27811`. Exact DLL and source/test/build/store/log evidence are retained.
+
+## Purchase-refresh correction candidate
+
+The native bind body runs SetupTooltip before SetScrollerReference. Native
+regeneration may then spawn/rebind pooled cards on separate frames. A one-off
+store pass plus a RefreshBundle hook does not cover every subsequent bind.
+The correction adds post-`BundleDataWidget.OnDidBindContext` scheduling, reads
+its checked current scroller owner after original returns, and debounces to the
+latest bind. It waits for native regeneration, held-initialization data and the
+spawner coroutine to finish. Release/cancellation ownership remains unchanged.
+
+The same-position candidate invokes the native SmartScrollerBase scrolling
+notification with its exact current normalized Vector2 through runtime marshaling.
+It does not call a position setter, synthesize input or rebuild data. Virtual
+native behavior handles the actual SmartScrollerGrid. Native visibility checks
+alone only inspect existing cards and can report impressions; they do not create
+missing cards or restore Research. No hard-coded non-Grid implementation is used.
+This is a candidate based on the real reproduction, not a proven row fix.
+
+Qualification must repeat the user-chosen purchase/return workflow and inspect
+rows/Research before scrolling. No agent purchase is authorized or performed.
+
+Correction-delta verification: `tests-9.log` under the same evidence directory
+passed387/387 Windows build/run/install steps after the late-bind and native
+same-position changes. SHA256
+`3cde0b3d7aaa84258da600ebfe743d75cba138813de052dacb3052b92b60291c`;
+test executable `617fc62318970f0ceff62e6b616aa4b7c503f7cc9ae9314cdddedac1312f4cac`.
+Additional actual-consumer checks cover post-original card owner assignment,
+late-bind scheduling, foreign position boxes, native spawner wait, exact Vector2
+notification and source cancellation during notification. The test host provides
+managed box storage; this is not game rendering or a real purchase.
+
+Read-only correction review independently checked native base callback dispatch
+and spawner completion clearing. The revision adds a sixth hook (card bind),
+not a new feature owner, global scan or frame dispatcher. Source hashes and exact
+native qualification belong to the subsequent candidate, not the first trial.
