@@ -398,7 +398,27 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         libs.spud.linkInto(module);
         module.addIncludePath(b.path("src/mod"));
         module.addCSourceFiles(.{ .files = &.{ "tests/aai_detour_test.cc", "src/libs/il2cpp/src/hook.cc" }, .flags = flags });
-        addFixture(ctx, build_tests, test_il2cpp, "aai-detour-tests", module);
+        if (!ctx.isMacos()) module.addCSourceFile(.{ .file = b.path("tests/aai_detour_target.cc"), .flags = flags });
+        const exe = ctx.executable("aai-detour-tests", module);
+        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        if (ctx.isMacos() and builtin.os.tag == .macos) {
+            // The production fit check requires LC_FUNCTION_STARTS. Zig 0.16's
+            // linker emits an empty table, so Apple ld owns only this test target.
+            const target = b.addSystemCommand(&.{ "xcrun", "clang++", "-dynamiclib", "-std=c++23", "-O0", "-g" });
+            target.addArgs(&.{ "-arch", if (ctx.isAarch64()) "arm64" else "x86_64" });
+            target.addArgs(&.{ "-isysroot", ctx.sysroot.macos_sdk.?, "-mmacosx-version-min=" ++ @import("ctx.zig").macos_min });
+            target.addArg("-Wl,-function_starts");
+            const order = b.addWriteFiles().add("aai-detour-target.order", "_AaiDetourTarget\n_AaiDetourTargetEnd\n");
+            target.addPrefixedFileArg("-Wl,-order_file,", order);
+            target.addFileArg(b.path("tests/aai_detour_target.cc"));
+            target.addArg("-o");
+            const image = target.addOutputFileArg("libaai-detour-target.dylib");
+            run.addFileArg(image);
+            build_tests.dependOn(&b.addInstallFile(image, "lib/libaai-detour-target.dylib").step);
+        }
+        test_il2cpp.dependOn(&run.step);
+        b.step("test-aai-detour", "Run the real native AAI host detour fixture").dependOn(&run.step);
     }
 
     // HookSet policy over SPUD's public generic installable-hook seam. Unsafe modes each need a fresh process:

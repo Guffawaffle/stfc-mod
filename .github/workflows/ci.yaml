@@ -124,7 +124,9 @@ jobs:
         uses: actions/upload-artifact@v7.0.1
         with:
           name: macos-detour-fixture-${{ matrix.arch }}
-          path: .zig-cache/o/**/aai-detour-tests
+          path: |
+            .zig-cache/o/**/aai-detour-tests
+            .zig-cache/o/**/libaai-detour-target.dylib
           include-hidden-files: true
           retention-days: 3
           if-no-files-found: warn
