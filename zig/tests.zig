@@ -455,6 +455,9 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         deps.nlohmannJson(ctx).includeInto(module);
         module.addIncludePath(b.path("src/mod"));
         module.addIncludePath(b.path("src/libs/unity/include"));
+        // The production Galaxy fixture consumes the same generated housing
+        // bytes/header as the mod, rather than a second fixture catalog.
+        @import("mod.zig").embedImages(ctx, module);
         module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
         const exe = ctx.executable("il2cpp-bindings-tests", module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
@@ -480,6 +483,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             const preview_case = b.addRunArtifact(exe);
             preview_case.addArg(mode);
             test_il2cpp.dependOn(&preview_case.step);
+        }
+        inline for (.{ "camera-native", "camera-missing-minimum", "galaxy-presentation-lifecycle", "galaxy-presentation-overlays", "galaxy-presentation-profiles", "galaxy-presentation-alias", "galaxy-selection-native", "galaxy-selection-alias", "galaxy-selection-fallback-alias", "galaxy-selection-resolved-alias" }) |mode| {
+            const map_case = b.addRunArtifact(exe);
+            map_case.addArg(mode);
+            test_il2cpp.dependOn(&map_case.step);
         }
         if (ctx.isWindows()) inline for (.{ "cargo-native", "cargo-context-pointer", "cargo-snap-invalid", "cargo-inherited-hook", "cargo-format-signature" }) |mode| {
             const cargo_case = b.addRunArtifact(exe);

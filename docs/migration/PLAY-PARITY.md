@@ -513,3 +513,19 @@ at equal zoom/falloff, hotkey modes, focus/modal/tracking states and representat
 before deciding the implementation. Track under `PLAY-CAMERA-PAN` / P08. No runtime or settings
 changes were made for this backlog addition. Guff confirmed Galaxy label visibility works as intended;
 do not resume the earlier proposed label-control restoration on the basis of that withdrawn report.
+
+## Current map and camera reconciliation
+
+[Cohort 03](FEATURE-COHORT-20261027-03.md) scans the complete pinned source for
+eight camera/Galaxy workflows and preserves their current typed consumers.
+The contracts and machine inventory record the narrow availability, ownership,
+cleanup-retry and entry-alias corrections. Existing Galaxy Settings controls are
+present; M8's earlier missing-control descriptions above are historical.
+
+The integrated Windows controlled-runtime suite passed 358/358 build/run/install
+steps with Debug fixture assertions, including previous Settings, preset, queue,
+travel/cargo and AAI-host regressions. Native/player/macOS qualification remains
+separate and is updated only with exact-candidate evidence in the cohort record.
+Execution was direct collaboration/local tooling; Runner's native execution
+layer is held while its helper is developed separately. No overall parity,
+promotion, release or upstream-alignment claim follows from this batch.

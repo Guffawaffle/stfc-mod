@@ -41,9 +41,14 @@ void Require(bool condition, const char* what)
     throw std::runtime_error(what);
 }
 
-int  input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
-bool any_held = false, any_down = false;
-bool instant_mouse_held = false, instant_mouse_released = false;
+int               input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
+bool              any_held = false, any_down = false;
+bool              instant_mouse_held = false, instant_mouse_released = false;
+const MethodInfo* camera_world_method = nullptr;
+float             camera_delta_time   = 0.25f;
+unity::Vector3    camera_mouse{40, 50, 0}, camera_world{4, 5, 6};
+bool              camera_world_failure  = false;
+Il2CppObject*     camera_expected_scene = nullptr;
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held_keys{}, down_keys{};
 
 void KeyboardSnapshot()
@@ -906,17 +911,23 @@ API(Il2CppMethodPointer, il2cpp_resolve_icall, (const char* name))
     ++down_reads;
     return down_keys[std::to_underlying(key)];
   };
-  static constexpr auto mouse_held                               = +[](int32_t) { return instant_mouse_held; };
-  static constexpr auto mouse_released                           = +[](int32_t) { return instant_mouse_released; };
+  static constexpr auto mouse_held     = +[](int32_t) { return instant_mouse_held; };
+  static constexpr auto mouse_released = +[](int32_t) { return instant_mouse_released; };
+  static constexpr auto delta_time     = +[]() { return camera_delta_time; };
+  static constexpr auto mouse_position = +[](unity::Vector3* value) { *value = camera_mouse; };
   const std::pair<std::string_view, Il2CppMethodPointer> calls[] = {
       {"Test::Answer()", reinterpret_cast<Il2CppMethodPointer>(answer)},
       {"UnityEngine.Time::get_frameCount()", reinterpret_cast<Il2CppMethodPointer>(frame)},
+      {"UnityEngine.Time::get_deltaTime()", reinterpret_cast<Il2CppMethodPointer>(delta_time)},
       {"UnityEngine.Input::get_anyKey()", reinterpret_cast<Il2CppMethodPointer>(held)},
       {"UnityEngine.Input::get_anyKeyDown()", reinterpret_cast<Il2CppMethodPointer>(down)},
       {"UnityEngine.Input::GetKeyInt(UnityEngine.KeyCode)", reinterpret_cast<Il2CppMethodPointer>(key)},
       {"UnityEngine.Input::GetKeyDownInt(UnityEngine.KeyCode)", reinterpret_cast<Il2CppMethodPointer>(key_down)},
       {"UnityEngine.Input::GetMouseButton(System.Int32)", reinterpret_cast<Il2CppMethodPointer>(mouse_held)},
       {"UnityEngine.Input::GetMouseButtonUp(System.Int32)", reinterpret_cast<Il2CppMethodPointer>(mouse_released)},
+      {"UnityEngine.Input::GetMouseButtonDown(System.Int32)", reinterpret_cast<Il2CppMethodPointer>(mouse_released)},
+      {"UnityEngine.Input::get_mousePosition_Injected(UnityEngine.Vector3&)",
+       reinterpret_cast<Il2CppMethodPointer>(mouse_position)},
   };
   const auto* call = std::ranges::find(calls, name, &std::pair<std::string_view, Il2CppMethodPointer>::first);
   return call == std::end(calls) ? nullptr : call->second;
@@ -984,6 +995,18 @@ API(void*, il2cpp_object_unbox, (Il2CppObject * object))
 END_API
 API(Il2CppObject*, il2cpp_runtime_invoke, (const MethodInfo* method, void*, void** args, Il2CppException** exception))
 {
+  if (method == camera_world_method && camera_world_method) {
+    Require(args && args[0] == camera_expected_scene && args[1], "camera world point uses the exact scene and mouse");
+    const auto point = *static_cast<const unity::Vector3*>(args[1]);
+    Require(point.x == camera_mouse.x && point.y == camera_mouse.y && point.z == camera_mouse.z,
+            "camera world point preserves pointer position");
+    if (camera_world_failure) {
+      *exception = &thrown;
+      return nullptr;
+    }
+    warp_vector_box.value = camera_world;
+    return &warp_vector_box.header;
+  }
   if (method == warp_move_method) {
     ++warp_move_calls;
     const auto* position = static_cast<const il2cpp::Nullable<unity::Vector3>*>(args[0]);
@@ -1757,6 +1780,10 @@ void PlannedWarpBindingObservations()
 #include "fleet_actions_bindings_cases.h"
 #include "course_preview_bindings_cases.h"
 #include "instant_warp_bindings_cases.h"
+#include "camera_bindings_cases.h"
+#include "galaxy_presentation_bindings_cases.h"
+#include "galaxy_selection_bindings_cases.h"
+#include "map_fixture_stubs.h"
 #if _WIN32
 #include "cargo_bindings_cases.h"
 #endif
@@ -1766,6 +1793,18 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("camera-")) {
+    CameraNativeCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("galaxy-presentation-")) {
+    GalaxyPresentationCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("galaxy-selection-")) {
+    GalaxySelectionNativeCases(argv[1]);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("preview-cargo")) {
     CargoPreviewNativeCases(argv[1]);
     return 0;

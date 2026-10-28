@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <spdlog/spdlog.h>
 #include <thread>
 #include <unity/ui.h>
@@ -40,7 +41,9 @@ struct GalaxyStarBinding {
   bool                                      rendering = false, restoring = false, releasing = false;
 };
 struct GalaxyState {
-  bool                       installed = false, refreshing = false, zoom_known = false, refresh = true;
+  bool                       installed = false, refreshing = false, maintaining = false, zoom_known = false, refresh = true;
+  bool                       last_multi = false, last_housing = false;
+  bool                       pending_layout_cleanup = false, pending_housing_cleanup = false;
   std::thread::id            thread;
   uint64_t                   generation = 0, mode_revision = 0;
   il2cpp::GcHandle           camera;
@@ -132,8 +135,31 @@ bool GalaxyRestore(const std::shared_ptr<GalaxyStarBinding>& binding)
     ~Done()
     { value = false; }
   } done{binding->restoring};
+  // A collected moved child does not imply its surviving layout group/element disappeared. Restore those
+  // snapshots first, just as the frozen implementation did, and retain the journal on unavailable custody.
+  const auto restore_component = [](const il2cpp::GcHandle& weak, auto restore) {
+    auto* observed = weak.Get();
+    if (!observed)
+      return true;
+    auto keep = il2cpp::GcHandle::Strong(observed);
+    if (!keep)
+      return false;
+    const auto alive = unity::TryAlive(keep.Get());
+    return alive && (!alive.value || restore(keep.Get()));
+  };
   while (!binding->shifts.empty()) {
-    auto  shift    = binding->shifts.back(); // Never hold a vector element/iterator across a native callback.
+    auto shift = binding->shifts.back(); // Native callbacks may mutate other records; retain this snapshot itself.
+    if (!restore_component(shift->element, [&](Il2CppObject* object) {
+          auto* element = reinterpret_cast<unity::LayoutElement*>(object);
+          return element->TryCall<"set_minWidth", void(float)>(shift->min_width)
+                 && element->TryCall<"set_preferredWidth", void(float)>(shift->preferred_width)
+                 && element->TryCall<"set_ignoreLayout", void(bool)>(shift->ignore_layout);
+        })
+        || !restore_component(shift->group, [&](Il2CppObject* object) {
+             return reinterpret_cast<unity::HorizontalLayoutGroup*>(object)
+                 ->TryCall<"set_spacing", void(float)>(shift->spacing).succeeded;
+           }))
+      return false;
     auto* observed = shift->target.Get();
     if (!observed) {
       binding->shifts.pop_back();
@@ -142,29 +168,19 @@ bool GalaxyRestore(const std::shared_ptr<GalaxyStarBinding>& binding)
     auto root = il2cpp::GcHandle::Strong(observed);
     if (!root)
       return false;
-    auto*      target = root.Get<unity::RectTransform>();
-    const auto alive  = unity::TryAlive(target);
+    auto* target = root.Get<unity::RectTransform>();
+    const auto alive = unity::TryAlive(target);
     if (!alive)
       return false;
     if (!alive.value) {
       binding->shifts.pop_back();
       continue;
     }
-    if (auto* element = shift->element.Get<unity::LayoutElement>()) {
-      auto keep = il2cpp::GcHandle::Strong(element);
-      if (!element->TryCall<"set_minWidth", void(float)>(shift->min_width)
-          || !element->TryCall<"set_preferredWidth", void(float)>(shift->preferred_width)
-          || !element->TryCall<"set_ignoreLayout", void(bool)>(shift->ignore_layout))
-        return false;
-    }
-    if (auto* group = shift->group.Get<unity::HorizontalLayoutGroup>()) {
-      auto keep = il2cpp::GcHandle::Strong(group);
-      if (!group->TryCall<"set_spacing", void(float)>(shift->spacing))
-        return false;
-    }
-    auto  parent_root = il2cpp::GcHandle::Strong(shift->parent.Get());
-    auto* parent      = parent_root.Get<unity::Transform>();
-    if (!parent || !unity::Alive(parent) || !target->TryCall<"SetParent", void(unity::Transform*, bool)>(parent, false)
+    auto parent_root = il2cpp::GcHandle::Strong(shift->parent.Get());
+    auto* parent = parent_root.Get<unity::Transform>();
+    const auto parent_alive = parent ? unity::TryAlive(parent) : il2cpp::CallResult<bool>{};
+    if (!parent_alive || !parent_alive.value
+        || !target->TryCall<"SetParent", void(unity::Transform*, bool)>(parent, false)
         || !target->TryCall<"set_anchorMin", void(unity::Vector2)>(shift->anchor_min)
         || !target->TryCall<"set_anchorMax", void(unity::Vector2)>(shift->anchor_max)
         || !target->TryCall<"set_sizeDelta", void(unity::Vector2)>(shift->size)
@@ -180,11 +196,17 @@ std::shared_ptr<GalaxyStarBinding> GalaxyTrack(gb::Star* star)
 {
   if (!star->Bound())
     return {};
-  auto existing = GalaxyBinding(star);
+  const auto previous = Galaxy().stars.find(star);
+  auto existing = previous == Galaxy().stars.end() ? nullptr : previous->second;
   if (existing && SameGalaxyBinding(star, existing))
     return existing;
+  // An expired/replaced weak owner at the same address still owns its old cleanup journal. Do not overwrite it.
+
   if (existing && (!GalaxyRestore(existing) || !GalaxyRemoveHousing(*existing)))
     return {};
+  const auto after_cleanup = Galaxy().stars.find(star);
+  if (existing && (after_cleanup == Galaxy().stars.end() || after_cleanup->second != existing))
+    return {}; // A reentrant bind/release owns its replacement record.
   auto next   = std::make_shared<GalaxyStarBinding>();
   next->owner = il2cpp::GcHandle::Weak(star);
   if (!next->owner)
@@ -228,7 +250,7 @@ std::shared_ptr<GalaxyShift> GalaxyCaptureShift(const std::shared_ptr<GalaxyStar
     if (old->target.Get() == transform)
       return {};
   auto  root = il2cpp::GcHandle::Strong(transform);
-  auto* rect = transform->As<unity::RectTransform>();
+  auto* rect = root ? root.Get<unity::Transform>()->As<unity::RectTransform>() : nullptr;
   if (!rect)
     return {};
   auto shift          = std::make_shared<GalaxyShift>();
@@ -670,6 +692,15 @@ void NavigationZoomEventHandler_OnZoomChanged_Hook(auto original, gb::ZoomHandle
   Galaxy().handlers.insert_or_assign(handler, il2cpp::GcHandle::Weak(handler));
   original(handler, GalaxyEffective(star, level));
 }
+// This family uses different receiver and argument contracts. Native entry aliasing must not chain a star
+// lifecycle callback into a HUD/filter callback, even on platforms where the generic HookSet allows chains.
+bool GalaxyTargetsDistinct(std::span<void* const> entries)
+{
+  for (size_t i = 0; i < entries.size(); ++i)
+    if (entries[i] && std::ranges::contains(entries.first(i), entries[i]))
+      return false;
+  return true;
+}
 bool InstallGalaxyLabels()
 {
   if (!gb::Star::LayoutReady() || !gb::World::MinorMethod() || !gb::Director::ModeField()
@@ -682,33 +713,134 @@ bool InstallGalaxyLabels()
   for (const char* key :
        {"galaxy_overlay_default", "galaxy_overlay_mining", "galaxy_overlay_hostiles", "galaxy_overlay_hazards"})
     (void)runtime_config::RegisterSetting("graphics", key);
+  const std::array entries{
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void(ZoomLevels)>("UpdateStarData")),
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void(bool, bool, bool, bool)>("UpdateStarName")),
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnDidBindContext")),
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnAboutToReleaseContext")),
+      il2cpp::CheckedEntry(gb::Hud::Method<void(int32_t)>("ChangeGalaxyViewInfo")),
+      il2cpp::CheckedEntry(gb::ToggleHandler::Method<void(bool, bool, bool, bool)>("UpdateSelectedAnimation")),
+      il2cpp::CheckedEntry(gb::ZoomHandler::Class::Method<void(ZoomLevels)>("OnZoomChanged")),
+      il2cpp::CheckedEntry(gb::Filter::Class::Method<void()>("RebuildCullingGroup"))};
+  if (!GalaxyTargetsDistinct(entries)) {
+    spdlog::warn("[GalaxyLabels] incompatible callbacks share a native entry; leaving native labels unchanged");
+    return false;
+  }
   il2cpp::HookSet hooks("GalaxyLabels");
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(gb::Star::Class::Method<void(ZoomLevels)>("UpdateStarData")),
-                  NavigationStarEntityWidget_UpdateStarData_Hook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(gb::Star::Class::Method<void(bool, bool, bool, bool)>("UpdateStarName")),
-                  NavigationStarEntityWidget_UpdateStarName_Hook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnDidBindContext")),
-                  NavigationStarEntityWidget_OnDidBindContext_Hook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnAboutToReleaseContext")),
-                  NavigationStarEntityWidget_OnAboutToReleaseContext_Hook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(gb::Hud::Method<void(int32_t)>("ChangeGalaxyViewInfo")),
-                  HudNavigationViewController_ChangeGalaxyViewInfo_Hook);
-  IL2CPP_STAGE_AT(
-      hooks, il2cpp::CheckedEntry(gb::ToggleHandler::Method<void(bool, bool, bool, bool)>("UpdateSelectedAnimation")),
-      GalaxyToggleHandler_UpdateSelectedAnimation_Hook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(gb::ZoomHandler::Class::Method<void(ZoomLevels)>("OnZoomChanged")),
-                  NavigationZoomEventHandler_OnZoomChanged_Hook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(gb::Filter::Class::Method<void()>("RebuildCullingGroup")),
-                  GalaxyDataFilterSystem_RebuildCullingGroup_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[0], NavigationStarEntityWidget_UpdateStarData_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[1], NavigationStarEntityWidget_UpdateStarName_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[2], NavigationStarEntityWidget_OnDidBindContext_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[3], NavigationStarEntityWidget_OnAboutToReleaseContext_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[4], HudNavigationViewController_ChangeGalaxyViewInfo_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[5], GalaxyToggleHandler_UpdateSelectedAnimation_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[6], NavigationZoomEventHandler_OnZoomChanged_Hook);
+  IL2CPP_STAGE_AT(hooks, entries[7], GalaxyDataFilterSystem_RebuildCullingGroup_Hook);
   if (!hooks.Commit())
     return false;
   auto& state     = Galaxy();
   state.thread    = std::this_thread::get_id();
   state.installed = true;
+  state.last_multi = Config::Get().graphics.galaxy_multi_select;
+  state.last_housing = Config::Get().graphics.galaxy_station_housing;
   state.housing   = HousingData::Parse(g_embeddedStationHousing, g_embeddedStationHousing_SIZE);
   if (!state.housing)
     spdlog::warn("[GalaxyLabels] housing dataset unavailable; native labels and overlays remain available");
   return true;
+}
+// Shared by the three refresh registries. A failed new strong handle is not proof that a weak target expired.
+// Snapshot custody before invoking callbacks, which can synchronously release or replace registry entries.
+template <class Registry, class Action> void GalaxyRefreshRegistered(Registry& registry, Action action)
+{
+  std::vector<il2cpp::GcHandle> roots;
+  for (auto it = registry.begin(); it != registry.end();) {
+    auto* observed = it->second.Get();
+    if (!observed) {
+      it = registry.erase(it);
+      continue;
+    }
+    auto root = il2cpp::GcHandle::Strong(observed);
+    if (root)
+      roots.push_back(std::move(root));
+    ++it;
+  }
+  for (auto& root : roots)
+    action(root.Get());
+}
+
+void GalaxyRefreshStars(ZoomLevels level)
+{
+  auto& state = Galaxy();
+  std::vector<std::pair<gb::Star*, std::shared_ptr<GalaxyStarBinding>>> stars;
+  for (const auto& entry : state.stars)
+    stars.push_back(entry);
+  for (const auto& [star, binding] : stars) {
+    auto* observed = binding->owner.Get();
+    auto root = il2cpp::GcHandle::Strong(observed);
+    if (observed && !root)
+      continue;
+    const auto alive = root ? unity::TryAlive(root.Get()) : il2cpp::CallResult<bool>{true, false};
+    if (!alive)
+      continue;
+    if (!alive.value) {
+      const auto current = state.stars.find(star);
+      if (current != state.stars.end() && current->second == binding && GalaxyRestore(binding)
+          && GalaxyRemoveHousing(*binding)) {
+        const auto after_cleanup = state.stars.find(star);
+        if (after_cleanup != state.stars.end() && after_cleanup->second == binding)
+          state.stars.erase(after_cleanup);
+      }
+      continue;
+    }
+    if (SameGalaxyBinding(star, binding) && unity::ActiveAndEnabled(star))
+      star->Update(level);
+  }
+}
+// Settings disable/reload must undo pooled inactive widgets too; they may not receive another Data callback.
+// Reuse the existing refresh/zoom owner. A failed transition remains pending until its retained journals/assets
+// are discharged; observing the disabled setting once must not consume the only opportunity to clean them up.
+void GalaxyRefreshDisabledPresentation()
+{
+  auto& state = Galaxy();
+  if (state.maintaining)
+    return;
+  const bool multi = Config::Get().graphics.galaxy_multi_select;
+  const bool housing = Config::Get().graphics.galaxy_station_housing;
+  state.pending_layout_cleanup = !multi && (state.pending_layout_cleanup || state.last_multi);
+  state.pending_housing_cleanup = !housing && (state.pending_housing_cleanup || state.last_housing);
+  state.last_multi = multi;
+  state.last_housing = housing;
+  const bool restore_layouts = state.pending_layout_cleanup;
+  const bool remove_housing = state.pending_housing_cleanup;
+  if (!restore_layouts && !remove_housing)
+    return;
+  state.maintaining = true;
+  struct Done {
+    bool& active;
+    ~Done() { active = false; }
+  } done{state.maintaining};
+  std::vector<std::pair<gb::Star*, std::shared_ptr<GalaxyStarBinding>>> records;
+  for (const auto& record : state.stars)
+    records.push_back(record);
+  for (const auto& [star, binding] : records) {
+    const auto current = state.stars.find(star);
+    if (current == state.stars.end() || current->second != binding)
+      continue;
+    if (restore_layouts && !Config::Get().graphics.galaxy_multi_select)
+      (void)GalaxyRestore(binding);
+    if (remove_housing && !Config::Get().graphics.galaxy_station_housing)
+      (void)GalaxyRemoveHousing(*binding);
+  }
+  // Native callbacks can replace records or re-enable presentation. Inspect current ownership rather than
+  // clearing a latch based only on a stale snapshot or a setter's return value. Re-enabling cancels disabled-only
+  // work; the ordinary Data/bind/release paths still restore old journals before reusing their layout/assets.
+  state.pending_layout_cleanup = restore_layouts && !Config::Get().graphics.galaxy_multi_select
+                                 && std::ranges::any_of(state.stars, [](const auto& entry) {
+                                      return !entry.second->shifts.empty();
+                                    });
+  state.pending_housing_cleanup = remove_housing && !Config::Get().graphics.galaxy_station_housing
+                                  && std::ranges::any_of(state.stars, [](const auto& entry) {
+                                       return bool(entry.second->housing);
+                                     });
 }
 } // namespace
 
@@ -717,7 +849,11 @@ bool galaxy_controls::LabelsAvailable()
 bool galaxy_controls::HousingAvailable()
 { return Galaxy().installed && Galaxy().housing.has_value(); }
 void galaxy_controls::Refresh()
-{ Galaxy().refresh = true; }
+{
+  Galaxy().refresh = true;
+  if (GalaxyThread() && !Galaxy().refreshing)
+    GalaxyRefreshDisabledPresentation();
+}
 void galaxy_controls::SetOverlay(int32_t mode, bool enabled)
 {
   if (!GalaxyThread() || mode < 0 || mode > 3)
@@ -754,19 +890,28 @@ void galaxy_controls::AfterZoom(NavigationZoom* zoom)
   auto& state = Galaxy();
   if (!GalaxyThread() || state.refreshing)
     return;
-  if (zoom->depth() != NodeDepth::Galaxy) {
+  GalaxyRefreshDisabledPresentation(); // Also runs before leaving the Galaxy scope.
+  const auto depth = zoom ? zoom->TryDepth() : il2cpp::CallResult<NodeDepth>{};
+  if (!depth) {
+    state.zoom_known = false;
+    return;
+  }
+  if (depth.value != NodeDepth::Galaxy) {
     if (state.camera.Get() == zoom) {
       state.camera.Reset();
       state.zoom_known = false;
     }
     return;
   }
-  const auto normalized = zoom->NormalizedZoom();
-  const auto level      = zoom->zoomLevel();
-  if (!std::isfinite(normalized) || level < ZoomLevels::Near || level > ZoomLevels::Far) {
+  const auto normalized_observation = zoom->TryNormalizedZoom();
+  const auto level_observation = zoom->TryZoomLevel();
+  if (!normalized_observation || !level_observation || !std::isfinite(normalized_observation.value)
+      || level_observation.value < ZoomLevels::Near || level_observation.value > ZoomLevels::Far) {
     state.zoom_known = false;
     return;
   }
+  const auto normalized = normalized_observation.value;
+  const auto level = level_observation.value;
   const auto&      config = Config::Get();
   const std::array profiles{config.graphics.galaxy_label_major, config.graphics.galaxy_label_minor};
   bool             changed = !state.zoom_known || state.camera.Get() != zoom || state.level != level || state.refresh
@@ -795,46 +940,20 @@ void galaxy_controls::AfterZoom(NavigationZoom* zoom)
     ~Done()
     { flag = false; }
   } done{state.refreshing};
-  // Every list is copied before invoking native code, which can synchronously release/rebind any entry.
-  const auto visit = [](auto& registry, auto action) {
-    std::vector<il2cpp::GcHandle> roots;
-    for (auto it = registry.begin(); it != registry.end();) {
-      auto root = il2cpp::GcHandle::Strong(it->second.Get());
-      if (!root)
-        it = registry.erase(it);
-      else {
-        roots.push_back(std::move(root));
-        ++it;
-      }
-    }
-    for (auto& root : roots)
-      action(root.Get());
-  };
-  visit(state.filters, [](Il2CppObject* object) { reinterpret_cast<gb::Filter*>(object)->Dirty(); });
-  visit(state.lods, [level](Il2CppObject* object) {
+  // Every refresh takes operation-local custody before invoking reentrant native callbacks.
+  GalaxyRefreshRegistered(state.filters, [](Il2CppObject* object) { reinterpret_cast<gb::Filter*>(object)->Dirty(); });
+  GalaxyRefreshRegistered(state.lods, [level](Il2CppObject* object) {
     auto* lod = reinterpret_cast<NavigationLOD*>(object);
     if (unity::Alive(lod) && gb::StarFor(lod)) {
       lod->SetTargetLevel(level);
       lod->UpdateLOD(level);
     }
   });
-  visit(state.handlers, [level](Il2CppObject* object) {
+  GalaxyRefreshRegistered(state.handlers, [level](Il2CppObject* object) {
     auto* handler = reinterpret_cast<gb::ZoomHandler*>(object);
     if (unity::ActiveAndEnabled(handler))
       handler->Call<"OnZoomChanged">(level);
   });
-  std::vector<std::pair<gb::Star*, std::shared_ptr<GalaxyStarBinding>>> stars;
-  for (const auto& entry : state.stars)
-    stars.push_back(entry);
-  for (const auto& [star, binding] : stars) {
-    auto root = il2cpp::GcHandle::Strong(binding->owner.Get());
-    if (!root || !unity::Alive(root.Get())) {
-      if (GalaxyBinding(star) == binding && GalaxyRestore(binding) && GalaxyRemoveHousing(*binding))
-        state.stars.erase(star);
-      continue;
-    }
-    if (SameGalaxyBinding(star, binding) && unity::ActiveAndEnabled(star))
-      star->Update(level);
-  }
+  GalaxyRefreshStars(level);
 }
 const Feature kGalaxyLabels{"GalaxyLabels", &Config::Patches::zoomhooks, InstallGalaxyLabels};

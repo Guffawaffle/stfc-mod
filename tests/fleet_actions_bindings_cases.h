@@ -12,8 +12,12 @@ std::vector<Action>                                fleet_native_keys;
 std::map<Il2CppClass*, std::vector<Il2CppObject*>> fleet_native_widgets;
 std::string                                        fleet_native_saved_section, fleet_native_saved_key;
 bool                                               fleet_native_saved_value = true;
-int64_t                                            fleet_native_target      = 100;
-int                                                fleet_native_mines       = 0;
+config_edit::Value                                 fleet_native_saved_any{true}, fleet_native_session_any{true};
+int                                                fleet_native_save_calls = 0, fleet_native_session_calls = 0;
+std::string                                        fleet_native_session_section, fleet_native_session_key;
+bool                                               fleet_native_capture = false;
+int64_t                                            fleet_native_target  = 100;
+int                                                fleet_native_mines   = 0;
 struct FleetNativeVisibility {
   Il2CppObject    header;
   VisibilityState state = VisibilityState::Visible;
@@ -154,11 +158,13 @@ bool KeepOpenForRecall(int64_t)
 namespace Shortcut
 {
 bool IsDown(Action action)
-{ return std::ranges::contains(fleet_native_keys, action); }
+{ return !fleet_native_capture && std::ranges::contains(fleet_native_keys, action); }
+bool IsPressed(Action action)
+{ return IsDown(action); }
 bool IsDownWithShift(Action action)
 { return IsDown(action); }
 bool CaptureBlocksShortcuts() noexcept
-{ return false; }
+{ return fleet_native_capture; }
 } // namespace Shortcut
 
 namespace unity::detail
@@ -186,6 +192,16 @@ void SaveSetting(const char* section, const char* key, config_edit::Value value,
 {
   fleet_native_saved_section = section;
   fleet_native_saved_key     = key;
-  fleet_native_saved_value   = std::get<bool>(value);
+  fleet_native_saved_any     = value;
+  ++fleet_native_save_calls;
+  if (const auto* boolean = std::get_if<bool>(&value))
+    fleet_native_saved_value = *boolean;
+}
+void RetainSessionIntent(const char* section, const char* key, config_edit::Value value) noexcept
+{
+  fleet_native_session_section = section;
+  fleet_native_session_key     = key;
+  fleet_native_session_any     = std::move(value);
+  ++fleet_native_session_calls;
 }
 } // namespace runtime_config

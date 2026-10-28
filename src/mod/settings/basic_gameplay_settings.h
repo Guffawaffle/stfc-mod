@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
+#include <optional>
 #include <string>
 
 namespace gameplay_settings
@@ -91,6 +93,27 @@ inline constexpr const Key&                                             Identity
 { return zooms.at(static_cast<std::size_t>(option)); }
 inline float CurrentZoom(float distance, float minimum, float maximum, float configured_maximum)
 { return (distance - minimum) / (maximum - minimum) * configured_maximum; }
+
+inline bool ValidZoomRange(float minimum, float maximum, float configured_maximum)
+{
+  const auto span = maximum - minimum;
+  return std::isfinite(minimum) && std::isfinite(maximum) && std::isfinite(span) && span > 0.0f
+         && std::isfinite(configured_maximum) && configured_maximum > 0.0f;
+}
+inline std::optional<float> QualifiedCurrentZoom(float distance, float minimum, float maximum, float configured_maximum)
+{
+  if (!std::isfinite(distance) || !ValidZoomRange(minimum, maximum, configured_maximum))
+    return std::nullopt;
+  const auto value = CurrentZoom(distance, minimum, maximum, configured_maximum);
+  return std::isfinite(value) ? std::optional{value} : std::nullopt;
+}
+inline std::optional<float> QualifiedZoomDistance(float value, float minimum, float maximum, float configured_maximum)
+{
+  if (!std::isfinite(value) || !ValidZoomRange(minimum, maximum, configured_maximum))
+    return std::nullopt;
+  const auto distance = minimum + (maximum - minimum) * (value / configured_maximum);
+  return std::isfinite(distance) ? std::optional{distance} : std::nullopt;
+}
 template <class Submit> void StoreZoom(float& value, float observed, Zoom option, Submit&& submit)
 {
   value = observed;

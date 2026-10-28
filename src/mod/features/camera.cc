@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <optional>
 #include <unordered_map>
 #include <utility>
 
@@ -35,8 +36,29 @@ namespace
 // --- Zoom ---
 bool camera_zoom_installed = false;
 
-// Entering a system jumps to default_system_zoom on the next camera update.
-bool zoom_to_default = false;
+// One pending system-entry default belongs to that camera. Other native camera
+// instances must not consume it. Never release a GC handle after IL2CPP teardown.
+il2cpp::GcHandle& PendingDefaultZoom()
+{
+  static auto* owner = new il2cpp::GcHandle;
+  return *owner;
+}
+uint64_t zoom_default_generation = 0;
+
+bool TakeDefaultZoom(NavigationZoom* zoom)
+{
+  auto& owner   = PendingDefaultZoom();
+  auto* pending = owner.Get<NavigationZoom>();
+  if (!pending) {
+    owner.Reset();
+    return false;
+  }
+  if (pending != zoom)
+    return false;
+  owner.Reset();
+  const auto depth = zoom->TryDepth();
+  return depth && depth.value == NodeDepth::SolarSystem;
+}
 
 // Native camera wheel consumption is scoped separately from mod keyboard zoom.
 // UI ownership leaves the UI's wheel action intact and never blocks a touch pinch.
@@ -91,20 +113,35 @@ float MouseScrollAsPinchRecognizer_ReadInput_Hook(auto original, il2cpp::Object*
 
 // Presets and default_system_zoom are in zoom units: the camera distance's place in [minimum, maximum] mapped onto
 // [0, graphics.zoom], so they keep their meaning when the game moves the range. ZoomAtMouse(absolute) is the inverse.
-float CurrentZoom(NavigationZoom* zoom)
+std::optional<float> CurrentZoom(NavigationZoom* zoom)
 {
-  return gameplay_settings::CurrentZoom(zoom->Distance(), zoom->minimum(), zoom->maximum(),
-                                        Config::Get().graphics.zoom);
+  auto owner = il2cpp::GcHandle::Strong(zoom);
+  if (!owner)
+    return {};
+  const auto distance = zoom->TryDistance();
+  const auto minimum  = zoom->TryMinimum();
+  const auto maximum  = zoom->TryMaximum();
+  if (!distance || !minimum || !maximum)
+    return {};
+  return gameplay_settings::QualifiedCurrentZoom(distance.value, minimum.value, maximum.value,
+                                                 Config::Get().graphics.zoom);
 }
 
-void StorePreset(const char* label, float& preset, NavigationZoom* zoom, gameplay_settings::Zoom identity)
+bool StorePreset(const char* label, float Config::Graphics::* member, NavigationZoom* zoom,
+                 gameplay_settings::Zoom identity)
 {
-  const auto old = preset;
-  gameplay_settings::StoreZoom(preset, CurrentZoom(zoom), identity,
-                               [](const gameplay_settings::Key& key, double value) {
-                                 runtime_config::SaveSetting(key.section, key.name, value, key.delay);
-                               });
+  const auto observed = CurrentZoom(zoom);
+  if (!observed)
+    return false;
+  // Managed measurement can reenter configuration activation. Resolve the
+  // destination only afterward, rather than retaining a Config member reference.
+  auto&      preset = Config::Get().graphics.*member;
+  const auto old    = preset;
+  gameplay_settings::StoreZoom(preset, *observed, identity, [](const gameplay_settings::Key& key, double value) {
+    runtime_config::SaveSetting(key.section, key.name, value, key.delay);
+  });
   spdlog::info("[Zoom] {} set from {} to {}", label, old, preset);
+  return true;
 }
 
 struct ZoomPreset {
@@ -130,23 +167,40 @@ constexpr ZoomPreset kZoomPresets[] = {
 
 // Widens the system view's zoom range to the configured maximum and pushes the far clip plane out with it. A radius of
 // 0 leaves the far ratios alone and only reapplies the camera settings.
-void ApplyZoomRange(NavigationZoom* zoom, float radius)
+bool ApplyZoomRange(NavigationZoom* zoom, float radius)
 {
+  auto owner = il2cpp::GcHandle::Strong(zoom);
+  if (!owner)
+    return false;
   const auto max_zoom = Config::Get().graphics.zoom;
+  const auto clip     = max_zoom * 3.75f;
+  if (!zoom->RangeFieldsAvailable() || !std::isfinite(max_zoom) || max_zoom <= 0.0f || !std::isfinite(clip)
+      || !std::isfinite(radius) || radius < 0.0f)
+    return false;
+  const auto scene_camera = zoom->TrySceneCamera();
+  if (!scene_camera)
+    return false;
+  auto camera = scene_camera.value ? il2cpp::GcHandle::Strong(scene_camera.value) : il2cpp::GcHandle{};
+  if (scene_camera.value && !camera)
+    return false;
   // The far ratios are multiples of the system's view radius, so max_zoom / radius puts the extended stop at max_zoom.
   // The normal stop at 0.55 of that is carried over from the original mod.
   if (radius > 0.0f) {
+    const auto ratio = max_zoom / radius;
+    if (!std::isfinite(ratio))
+      return false;
     zoom->SetFarRatioSystemNormal(0.55f * max_zoom / radius);
-    zoom->SetFarRatioSystemExtended(max_zoom / radius);
+    zoom->SetFarRatioSystemExtended(ratio);
   }
   // At max_zoom the camera still has to reach the far side of the system and its backdrop, hence the 3.75x clip.
   // Clearing to black instead of the skybox hides the void past the backdrop's edge.
-  if (auto* camera = zoom->sceneCamera()) {
-    camera->SetFarClipPlane(max_zoom * 3.75f);
-    camera->SetClearFlags(unity::Camera::ClearFlags::SolidColor);
-    camera->SetBackgroundColor({0, 0, 0, 0});
+  if (camera) {
+    camera.Get<unity::Camera>()->SetFarClipPlane(clip);
+    camera.Get<unity::Camera>()->SetClearFlags(unity::Camera::ClearFlags::SolidColor);
+    camera.Get<unity::Camera>()->SetBackgroundColor({0, 0, 0, 0});
   }
   navigation_orbit::ApplyDrawDistance(zoom);
+  return true;
 }
 
 // The game resets the range now and then; reapply it around every update. _zoomtotal caches maximum - minimum and
@@ -154,29 +208,82 @@ void ApplyZoomRange(NavigationZoom* zoom, float radius)
 void KeepZoomRange(NavigationZoom* zoom)
 {
   const auto max_zoom = Config::Get().graphics.zoom;
-  if (zoom->depth() != NodeDepth::SolarSystem || max_zoom <= 0.0f)
+  const auto depth    = zoom->TryDepth();
+  const auto radius   = zoom->TryViewRadius();
+  const auto minimum  = zoom->TryMinimum();
+  const auto maximum  = zoom->TryMaximum();
+  if (!depth || depth.value != NodeDepth::SolarSystem || !radius || !minimum || !maximum
+      || !zoom->RangeFieldsAvailable() || !std::isfinite(radius.value) || radius.value < 0.0f
+      || !std::isfinite(max_zoom * 3.75f)
+      || !gameplay_settings::QualifiedZoomDistance(0.0f, minimum.value, maximum.value, max_zoom))
     return;
-  ApplyZoomRange(zoom, zoom->viewRadius());
-  if (zoom->maximum() < max_zoom)
+  const auto widened = std::max(maximum.value, max_zoom);
+  const auto total   = widened - minimum.value;
+  if (!std::isfinite(total) || total <= 0.0f)
+    return;
+  if (!ApplyZoomRange(zoom, radius.value))
+    return;
+  const auto current_depth   = zoom->TryDepth();
+  const auto current_minimum = zoom->TryMinimum();
+  const auto current_maximum = zoom->TryMaximum();
+  if (!current_depth || current_depth.value != depth.value || !current_minimum || !current_maximum
+      || current_minimum.value != minimum.value || current_maximum.value != maximum.value
+      || Config::Get().graphics.zoom != max_zoom)
+    return;
+  if (maximum.value < max_zoom)
     zoom->SetMaximum(max_zoom);
-  if (const auto total = zoom->maximum() - zoom->minimum(); total > 0.0f)
-    zoom->SetZoomtotal(total);
+  zoom->SetZoomtotal(total);
 }
 
 // Zooms around the mouse pointer, either by a step of `value` or, with `absolute`, to `value` in zoom units.
-void ZoomAtMouse(NavigationZoom* zoom, float value, bool absolute)
+bool ZoomAtMouse(NavigationZoom* zoom, float value, bool absolute)
 {
-  const auto mouse = unity::Input::mousePosition();
-  zoom->SetZoomLocation({mouse.x, mouse.y});
+  auto owner = il2cpp::GcHandle::Strong(zoom);
+  if (!owner || !zoom->ZoomInputFieldsAvailable() || !std::isfinite(value))
+    return false;
+  const auto mouse           = unity::Input::TryMousePosition();
+  const auto observed_camera = zoom->TrySceneCamera();
+  auto       camera =
+      observed_camera && observed_camera.value ? il2cpp::GcHandle::Strong(observed_camera.value) : il2cpp::GcHandle{};
+  if (!mouse || !std::isfinite(mouse.value.x) || !std::isfinite(mouse.value.y) || !std::isfinite(mouse.value.z)
+      || !camera)
+    return false;
+  const auto minimum    = zoom->TryMinimum();
+  const auto maximum    = zoom->TryMaximum();
+  const auto configured = Config::Get().graphics.zoom;
+  const auto distance = minimum && maximum
+                            ? gameplay_settings::QualifiedZoomDistance(value, minimum.value, maximum.value, configured)
+                            : std::optional<float>{};
+  if (absolute && !distance)
+    return false;
+  const auto world          = MathUtils::TryGetMouseWorldPos(camera.Get<unity::Camera>(), mouse.value);
+  const auto current_camera = zoom->TrySceneCamera();
+  if (!world || !current_camera || current_camera.value != camera.Get<unity::Camera>())
+    return false;
   if (absolute) {
-    zoom->SetDistance(zoom->minimum() + (zoom->maximum() - zoom->minimum()) * (value / Config::Get().graphics.zoom));
-  } else {
+    const auto current_minimum = zoom->TryMinimum();
+    const auto current_maximum = zoom->TryMaximum();
+    if (!current_minimum || !current_maximum || current_minimum.value != minimum.value
+        || current_maximum.value != maximum.value || Config::Get().graphics.zoom != configured
+        || !zoom->TrySetDistance(*distance))
+      return false;
+    // The native setter can synchronously replace its scene/range or reload configuration.
+    // Its success does not authorize publishing pointer data acquired for the previous inputs.
+    const auto applied_camera  = zoom->TrySceneCamera();
+    const auto applied_minimum = zoom->TryMinimum();
+    const auto applied_maximum = zoom->TryMaximum();
+    if (!applied_camera || applied_camera.value != camera.Get<unity::Camera>() || !applied_minimum || !applied_maximum
+        || applied_minimum.value != minimum.value || applied_maximum.value != maximum.value
+        || Config::Get().graphics.zoom != configured)
+      return false;
+  }
+  zoom->SetZoomLocation({mouse.value.x, mouse.value.y});
+  if (!absolute) {
     zoom->SetZoomDelta(value);
     zoom->SetLastZoomDelta(value);
   }
-  auto* camera = zoom->sceneCamera();
-  zoom->SetWorldPoint(camera ? MathUtils::GetMouseWorldPos(camera, mouse) : unity::Vector3{});
-  zoom->ZoomCameraAtWorldPoint();
+  zoom->SetWorldPoint(world.value);
+  return zoom->TryCall<"ZoomCameraAtWorldPoint", void>().succeeded;
 }
 
 // Keyboard zoom: Q/E zoom by keyboard_zoom_speed per second, presets jump, SHIFT-F1.. store the current zoom.
@@ -184,50 +291,54 @@ void ZoomAtMouse(NavigationZoom* zoom, float value, bool absolute)
 // skips the game's update for that frame.
 bool KeyboardZoom(NavigationZoom* zoom)
 {
-  auto& config = Config::Get();
-  if (!config.control.hotkeys_enabled || config.control.use_scopely_hotkeys)
+  if (!Config::Get().control.hotkeys_enabled || Config::Get().control.use_scopely_hotkeys)
     return true;
 
   for (const auto& preset : kZoomPresets)
     if (Shortcut::IsDown(preset.store)) {
-      StorePreset(preset.label, config.graphics.*preset.value, zoom, preset.identity);
-      return false;
+      return !StorePreset(preset.label, preset.value, zoom, preset.identity);
     }
   if (Shortcut::IsDown(Action::kSetZoomDefault)) {
-    StorePreset("System Default", config.graphics.default_system_zoom, zoom, gameplay_settings::Zoom::Default);
-    return false;
+    return !StorePreset("System Default", &Config::Graphics::default_system_zoom, zoom,
+                        gameplay_settings::Zoom::Default);
   }
 
   // An extended shortcut held with a preset wins the jump, but the preset still counts for use_presets_as_default.
   const auto* preset = std::ranges::find_if(kZoomPresets, [](const ZoomPreset& p) { return Shortcut::IsDown(p.go); });
   const bool  from_preset = preset != std::ranges::end(kZoomPresets);
-  float       target      = from_preset ? config.graphics.*preset->value : 0.0f;
-  if (config.control.hotkeys_extended) {
+  float       target      = from_preset ? Config::Get().graphics.*preset->value : 0.0f;
+  if (Config::Get().control.hotkeys_extended) {
     if (Shortcut::IsDown(Action::kZoomReset))
-      target = config.graphics.default_system_zoom;
+      target = Config::Get().graphics.default_system_zoom;
     else if (Shortcut::IsDown(Action::kZoomMin))
-      target = config.graphics.zoom;
+      target = Config::Get().graphics.zoom;
     else if (Shortcut::IsDown(Action::kZoomMax))
       target = 100.0f;
   }
 
-  const float step = config.graphics.keyboard_zoom_speed * unity::Time::deltaTime();
+  const float dt      = unity::Time::deltaTime();
+  const float step    = Config::Get().graphics.keyboard_zoom_speed * dt;
+  bool        applied = false;
   if (target != 0.0f)
-    ZoomAtMouse(zoom, target, true);
-  else if (Shortcut::IsPressed(Action::kZoomIn))
-    ZoomAtMouse(zoom, step, false);
-  else if (Shortcut::IsPressed(Action::kZoomOut))
-    ZoomAtMouse(zoom, -step, false);
+    applied = ZoomAtMouse(zoom, target, true);
+  else if (std::isfinite(dt) && dt > 0.0f && std::isfinite(step) && step != 0.0f
+           && Shortcut::IsPressed(Action::kZoomIn))
+    applied = ZoomAtMouse(zoom, step, false);
+  else if (std::isfinite(dt) && dt > 0.0f && std::isfinite(step) && step != 0.0f
+           && Shortcut::IsPressed(Action::kZoomOut))
+    applied = ZoomAtMouse(zoom, -step, false);
 
   // With use_presets_as_default, jumping to a preset also makes it the zoom used on entering a system.
-  if (from_preset && target > 0.0f && config.graphics.use_presets_as_default) {
-    const auto previous = config.graphics.default_system_zoom;
-    gameplay_settings::UsePresetAsDefault(config.graphics.default_system_zoom, CurrentZoom(zoom),
-                                          [](const gameplay_settings::Key& key, double value) {
-                                            runtime_config::RetainSessionIntent(key.section, key.name, value);
-                                          });
-    spdlog::info("[Zoom] System Preset Default from Preset set from {} to {}", previous,
-                 config.graphics.default_system_zoom);
+  const auto observed = applied && from_preset && target > 0.0f && Config::Get().graphics.use_presets_as_default
+                            ? CurrentZoom(zoom)
+                            : std::optional<float>{};
+  if (observed && Config::Get().graphics.use_presets_as_default) {
+    auto&      default_zoom = Config::Get().graphics.default_system_zoom;
+    const auto previous     = default_zoom;
+    gameplay_settings::UsePresetAsDefault(default_zoom, *observed, [](const gameplay_settings::Key& key, double value) {
+      runtime_config::RetainSessionIntent(key.section, key.name, value);
+    });
+    spdlog::info("[Zoom] System Preset Default from Preset set from {} to {}", previous, default_zoom);
   }
   return true;
 }
@@ -235,6 +346,12 @@ bool KeyboardZoom(NavigationZoom* zoom)
 void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
 {
   unity::Key::Poll();
+  auto owner = il2cpp::GcHandle::Strong(_this);
+  if (!owner) {
+    NativeZoomUpdateScope native_update(_this);
+    original(_this);
+    return;
+  }
   FleetLabelsFollowDepth(_this, _this->depth());
   if (!camera_zoom_installed) {
     NativeZoomUpdateScope native_update(_this);
@@ -247,7 +364,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
 
   // The jump on entering a system is not keyboard input, so it happens even while a text field has focus.
   bool run_game_update = true;
-  if (std::exchange(zoom_to_default, false))
+  if (TakeDefaultZoom(_this))
     ZoomAtMouse(_this, Config::Get().graphics.default_system_zoom, true);
   else if (!unity::Key::IsInputFocused())
     run_game_update = KeyboardZoom(_this);
@@ -267,20 +384,31 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
 template <typename Original, typename... Args>
 void EnterDepth(Original original, NavigationZoom* zoom, NodeDepth depth, float radius, Args... args)
 {
-  FleetLabelsFollowDepth(zoom, depth);
-  if (depth != NodeDepth::SolarSystem)
+  const auto generation = ++zoom_default_generation;
+  auto       owner      = il2cpp::GcHandle::Strong(zoom);
+  if (!owner)
     return original(zoom, args...);
+  FleetLabelsFollowDepth(zoom, depth);
+  if (depth != NodeDepth::SolarSystem) {
+    if (PendingDefaultZoom().Get<NavigationZoom>() == zoom)
+      PendingDefaultZoom().Reset();
+    return original(zoom, args...);
+  }
   ApplyZoomRange(zoom, radius);
   original(zoom, args...);
   ApplyZoomRange(zoom, 0.0f);
-  zoom_to_default = true;
+  if (generation == zoom_default_generation)
+    PendingDefaultZoom() = il2cpp::GcHandle::Weak(zoom);
 }
 
 void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom* _this, float radius, NodeDepth depth)
 { EnterDepth(original, _this, depth, radius, radius, depth); }
 
 void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom* _this, NodeDepth depth)
-{ EnterDepth(original, _this, depth, _this->viewRadius(), depth); }
+{
+  const auto radius = _this->TryViewRadius();
+  EnterDepth(original, _this, depth, radius ? radius.value : 0.0f, depth);
+}
 
 // Planet flat renderables (the 2D planet sprites) are scaled by fr_scale. The game reuses them and asks for them on
 // every zoom, so each transform remembers the size it was scaled to and is left alone while it still has it.
@@ -511,15 +639,16 @@ bool InstallZoom()
                PlanetViewUtils::Class::Method("CreateBackdrop", {"Digit.PrimeServer.Models.ITreeNode",
                                                                  "SystemVariationConfigCollection", "System.Boolean"}),
                PlanetViewUtils_CreateBackdrop_Hook);
-  IL2CPP_STAGE(hooks, PlanetViewUtils::Class::Method("CameraZoomedEventHandler"),
+  IL2CPP_STAGE(hooks, PlanetViewUtils::Class::Method<void(float, float)>("CameraZoomedEventHandler"),
                PlanetViewUtils_CameraZoomedEventHandler_Hook);
   IL2CPP_STAGE(hooks, PlanetViewUtils::Class::Method("get_FlatRenderable"), PlanetViewUtils_get_FlatRenderable_Hook);
   // TODO: SetDepth has only ever been detoured on Windows and the reason was not recorded; check its prologue
   // against SPUD's overwrite size before enabling it on macOS.
 #if _WIN32
-  IL2CPP_STAGE(hooks, NavigationZoom::Class::Method("SetDepth"), NavigationZoom_SetDepth_Hook);
+  IL2CPP_STAGE(hooks, NavigationZoom::Class::Method<void(NodeDepth)>("SetDepth"), NavigationZoom_SetDepth_Hook);
 #endif
-  IL2CPP_STAGE(hooks, NavigationZoom::Class::Method("SetViewParameters"), NavigationZoom_SetViewParameters_Hook);
+  IL2CPP_STAGE(hooks, NavigationZoom::Class::Method<void(float, NodeDepth)>("SetViewParameters"),
+               NavigationZoom_SetViewParameters_Hook);
   camera_zoom_installed = hooks.Commit();
   return camera_zoom_installed;
 }

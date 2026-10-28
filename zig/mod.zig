@@ -176,7 +176,7 @@ fn addBuildIdentity(ctx: *const Ctx, module: *std.Build.Module) []const []const 
 }
 
 /// Generate one header per image, holding the PNG bytes the mod draws at run time.
-fn embedImages(ctx: *const Ctx, module: *std.Build.Module) void {
+pub fn embedImages(ctx: *const Ctx, module: *std.Build.Module) void {
     const b = ctx.b;
     const images = b.addWriteFiles();
     // Header, symbol, and source image. Built-in images resolve from the repository, so the build runs from any

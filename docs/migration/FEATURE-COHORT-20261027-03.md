@@ -1,8 +1,15 @@
-# Proposed map and camera cohort — 2026-10-27
+# Map and camera cohort — 2026-10-27
 
-**Preparation only.** No feature implementation, tests, builds, deployment or
-game cycle were performed for this proposal. The accepted travel/cargo build
-remains running. This is a scoped next batch, not an update to migration status.
+**Offline implementation qualified; native trial pending.** The initial proposal was documentation-only at
+`c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce`. Guff then authorized continuing
+without Runner's native execution layer. Three directly coordinated workers
+own the lanes below, and the coordinator owns shared integration and builds.
+The accepted travel/cargo build remains the runtime baseline until this batch
+passes its own checks. No governed Attempt or Runner-managed worker execution
+is claimed; helper implementation remains another agent's task.
+
+The implementation base is `c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce`;
+the older planning base below is retained as provenance, not the built candidate.
 
 ## Inputs and selection
 
@@ -76,7 +83,14 @@ No demonstrated implementation blocker was found in this scoping pass. Native
 hit testing, pooled object lifetimes and platform qualification remain work to
 perform, not reasons to declare a feature missing.
 
-## Execution sequence after the Runner helper is ready
+## Original execution sequence and current adjustment
+
+The following was the proposed governed path. The current authorization removes
+helper readiness as an implementation dependency: use direct workers and the
+existing local build/verification workflow. Supported planning or evidence
+interfaces may still be used, but do not probe or modify the native helper to
+force execution. Candidate binding, tests, source preservation and lifecycle
+requirements below are unchanged.
 
 1. Verify the actual installed Runner/helper versions and rerun containment
    preflight for this repository and authorized existing worktree. Presence of a
@@ -146,3 +160,88 @@ Historical repair protection, the contained/unattributed GetComponent exception,
 Settings visual rework, toolkit expansion and persistence remain separate work.
 No source behavior, installed artifact, user settings or player store changed
 while preparing this proposal.
+
+## Implemented source reconciliation
+
+All eight complete frozen-source contracts now exist under
+[`features/`](features/). Existing consumers were preserved; this pass did not
+rebuild them from feature descriptions. Three directly coordinated workers
+owned camera, Galaxy presentation and selection respectively. The coordinator
+adapted shared checked bindings and integrated the existing controlled-runtime
+fixture host. Cross-lane source reviews were independent collaboration, not
+Runner-governed execution. Runner's native layer was not invoked or modified.
+
+Camera conversions now require available finite observations and a positive
+range. Valid formulas, explicit preset save keys, session-only automatic defaults
+and shortcut precedence remain intact. A weak camera-bound pending default
+replaces the process-wide flag; older reentrant completion cannot consume a newer
+camera's request. A managed getter cannot leave a preset write targeting the
+previous Config owner. After a successful distance setter, current scene/range/
+configuration are rechecked before pointer/world data and the remaining native
+zoom command are published. The setter's own effect is not rolled back.
+
+Galaxy restoration retains layout/marker custody through weak-owner replacement,
+failed strong rooting and unknown Unity liveness. Surviving layout objects are
+restored even if their moved child was collected. Disabled presentation cleanup
+retries through the existing Refresh/AfterZoom paths, including outside Galaxy;
+separate latches retire only completed work. Re-enable cancels disabled-only
+cleanup. Unknown zoom observations no longer appear as measured zoom zero.
+
+Selection now distinguishes failed native POI lookup from observed null, keeps
+click-local source custody, rechecks replaced scene/animator/configuration and
+blocks the outer fallback after unconfirmed proxy cleanup. Complete source-array
+enumeration, immutable proxy identities, bounded candidate/pool policy and
+native hit testing remain with their existing owners. Raw and resolved checked
+entries must be distinct across recognizer, process and direct fallback; the
+same checked snapshot is staged. Presentation's eight mixed callback entries
+also reject aliases before staging. These checks decline incompatible layouts;
+they do not assert that a live client currently aliases them.
+
+Current Settings already exposes the Galaxy controls. Historical M8 missing-page
+claims are retained only as historical evidence. No setting keys, defaults,
+store paths, hook groups or independent camera/frame owners were added. System
+orbit remains excluded. Pan/momentum, fleet labels, backdrop and Haven are
+adjacent preserved behavior rather than newly completed scans.
+
+## Executed offline qualification
+
+The combined Windows suite passed **358/358 build/run/install steps**, not 358
+independent tests. Command: `zig build test-mod test-il2cpp test-aai-host
+build-tests -Daai-host=true -Daai-source=D:/dev/stfc-mod/third_party/stfc-aai
+-Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug -j4
+--summary all`, with Zig 0.16.0 and the existing MSVC environment.
+
+Evidence: `D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log`,
+SHA256 `7ce08b06d7f927124b933500ae3f61716a79dab4212d6bf92718cd7c257faa91`.
+Controlled fixture executable: `zig-out/bin/il2cpp-bindings-tests.exe`, SHA256
+`c7f89722eedf445d01446dd14113d42740d9cf685e2c4c72cf95a46ede677585`.
+AAI remains pinned at `4bece2e5f1afa7c7343f009e83398742a0f86114`.
+
+Ten added fresh-process fixture modes cover camera/range/input, Galaxy layout/
+marker cleanup, all 15 nonempty overlay combinations and save/highlight
+composition, independent major/minor profiles, candidate/dispatch/pool behavior
+and raw/resolved entry aliases. Separate fixture processes preserve realistic
+metadata cache initialization for missing-member cases. Existing pure policy,
+housing dataset, input, Settings persistence, preset, queue, travel/cargo and
+production AAI-host regressions passed in the same suite.
+
+Fixtures include the actual consumer source but substitute managed method bodies,
+current scene/Config owners and selected service boundaries. Camera UI ownership
+and pinch observations use a named facade; these tests do not run real raycast
+sorting. Pan shortcut ownership, adjacent orbit/fleet-label notifications and
+navigation LOD installation are named host substitutes. The Config replacement
+case exercises replacement in the controlled Config owner, not actual in-game
+reload delivery. Housing uses the existing production dataset generator.
+Ordinary typed value-field checks still use the binding library's size/kind
+qualification; this is not exhaustive wrong-value-class metadata proof.
+
+The first three attempts exposed fixture integration errors (generator pointer
+argument, inaccessible fixture Config construction, missing adjacent shortcut
+stub). They were corrected without weakening production assertions; logs
+`tests-1.log` through `tests-3.log` remain failed evidence. Review corrections
+were applied before the passing fourth candidate, then independently read back.
+No source edits followed that suite; later edits record the results/catalog.
+
+Windows native construction/installation, real Unity layout/raycast/hit testing,
+touch pinch, real pooled view behavior and both macOS builds/native trials are
+separate qualifications. No current player acceptance is inferred from the suite.

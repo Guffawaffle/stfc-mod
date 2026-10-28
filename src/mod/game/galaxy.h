@@ -18,6 +18,14 @@ struct Reference : il2cpp::Object {
 };
 struct OptimisedGalaxy : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "OptimisedGalaxy">;
+  il2cpp::CallResult<int32_t> TryNodesCount()
+  { return TryCall<"get_NodesCount", int32_t>(); }
+  il2cpp::CallResult<Reference*> TryNodeIds()
+  { return TryCall<"get_NodeIds", Reference*>(); }
+  il2cpp::CallResult<Reference*> TryXCoords()
+  { return TryCall<"get_XCoords", Reference*>(); }
+  il2cpp::CallResult<Reference*> TryYCoords()
+  { return TryCall<"get_YCoords", Reference*>(); }
 };
 struct Node {
   OptimisedGalaxy* galaxy = nullptr;
@@ -66,6 +74,8 @@ struct World : MonoSingleton<World> {
   { return il2cpp::detail::TryInvoke<bool>(MinorMethod().Info(), this, std::ref(node)); }
   OptimisedGalaxy* Viewing()
   { return Get<"ViewingGalaxy", OptimisedGalaxy*>(); }
+  il2cpp::CallResult<OptimisedGalaxy*> TryViewing()
+  { return TryCall<"get_ViewingGalaxy", OptimisedGalaxy*>(); }
 };
 inline std::optional<int64_t> NodeId(Node node)
 {
@@ -196,8 +206,12 @@ struct NavigationCamera : unity::Behaviour {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationCamera">;
   NavigationZoom* Zoom()
   { return Get<"NavZoomCamera", NavigationZoom*>(); }
+  il2cpp::CallResult<NavigationZoom*> TryZoom()
+  { return TryCall<"get_NavZoomCamera", NavigationZoom*>(); }
   unity::Camera* Scene()
   { return Get<"SceneCamera", unity::Camera*>(); }
+  il2cpp::CallResult<unity::Camera*> TryScene()
+  { return TryCall<"get_SceneCamera", unity::Camera*>(); }
 };
 struct Tap : il2cpp::Object {
   using Class = il2cpp::Class<"TouchKit", "", "TKTapRecognizer">;
@@ -229,6 +243,8 @@ struct Poi : unity::Behaviour {
   { return Get<"ID", int64_t>(); }
   static Poi* Existing(int64_t id)
   { return Class::Call<"GetOfType", Poi*>(id, Interactable::Star); }
+  static il2cpp::CallResult<Poi*> TryExisting(int64_t id)
+  { return Class::TryCall<"GetOfType", Poi*(int64_t, Interactable)>(id, Interactable::Star); }
   bool Initialize(int64_t id)
   {
     if (!TryCall<"set_ID", void(int64_t)>(id)
@@ -241,6 +257,21 @@ struct Poi : unity::Behaviour {
 };
 inline NavigationCamera* Camera(NavigationManager* manager)
 { return manager->Get<"NavigationCamera", NavigationCamera*>(); }
+inline il2cpp::CallResult<NavigationCamera*> TryCamera(NavigationManager* manager)
+{
+  return manager ? manager->TryCall<"get_NavigationCamera", NavigationCamera*>()
+                 : il2cpp::CallResult<NavigationCamera*>{};
+}
+inline il2cpp::Method SingleTapMethod()
+{
+  const auto candidate = NavigationManager::Class::Method<void(unity::Vector2, Poi*)>("OnSingleTap");
+  return candidate
+                 && il2cpp::detail::ValueClassMatches(
+                     candidate.Info()->parameters[0],
+                     il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw(), sizeof(unity::Vector2))
+             ? candidate
+             : il2cpp::Method{};
+}
 inline il2cpp::Method ProcessTapMethod()
 {
   const auto candidate =
@@ -287,19 +318,7 @@ inline il2cpp::CallResult<unity::Vector3> TransformPoint(NavigationTransitionAni
   return observed && Finite(observed.value) ? observed : il2cpp::CallResult<unity::Vector3>{};
 }
 inline il2cpp::CallResult<unity::Vector3> MousePoint(unity::Camera* camera, unity::Vector3 screen)
-{
-  const auto method =
-      MathUtils::Class::StaticMethod<unity::Vector3(unity::Camera*, unity::Vector3)>("GetMouseWorldPos");
-  if (!method || !il2cpp::detail::ValueClassMatches(method.Info()->parameters[1], unity::Vector3Class(), sizeof(screen))
-      || !il2cpp::detail::ValueClassMatches(method.Info()->return_type, unity::Vector3Class(), sizeof(screen)))
-    return {};
-  void*      args[]{camera, &screen};
-  const auto box = il2cpp::detail::TryInvokeBoxed(method.Info(), nullptr, args);
-  if (!box || !box.value || box.value->klass != unity::Vector3Class())
-    return {};
-  const auto value = il2cpp::detail::FromBoxed<unity::Vector3>(box.value);
-  return Finite(value) ? il2cpp::CallResult<unity::Vector3>{true, value} : il2cpp::CallResult<unity::Vector3>{};
-}
+{ return MathUtils::TryGetMouseWorldPos(camera, screen); }
 
 // Read protobuf backing arrays without per-node boxing. Retain both container and actual array during the scan.
 template <class T> struct Values {

@@ -34,6 +34,7 @@ struct TapWatch {
   const void* manager;
   float       x, y;
   bool        dispatched = false;
+  bool        blocked    = false; // Unconfirmed proxy cleanup cannot authorize a fallback dispatch.
   bool        Matches(const void* other, float px, float py) const
   { return manager == other && x == px && y == py; }
 };

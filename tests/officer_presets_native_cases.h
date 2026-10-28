@@ -373,10 +373,25 @@ void OfficerPresetNativeObservations()
 }
 } // namespace
 
+namespace
+{
+Config*                 bindings_config_override = nullptr;
+bool                    bindings_replace_config  = false;
+std::unique_ptr<Config> bindings_replacement_config;
+} // namespace
 Config& Config::Get()
 {
   static Config config;
-  return config;
+  if (bindings_replace_config) {
+    bindings_replace_config     = false;
+    auto        next            = std::unique_ptr<Config>(new Config);
+    const auto& current         = bindings_config_override ? *bindings_config_override : config;
+    next->graphics              = current.graphics;
+    next->control               = current.control;
+    bindings_replacement_config = std::move(next);
+    bindings_config_override    = bindings_replacement_config.get();
+  }
+  return bindings_config_override ? *bindings_config_override : config;
 }
 namespace mod_state
 {

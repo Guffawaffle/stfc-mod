@@ -10,6 +10,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <set>
 #include <thread>
@@ -102,6 +103,29 @@ int main()
   float      zoom     = 0.0f;
   const auto observed = gameplay_settings::CurrentZoom(30.0f, 10.0f, 110.0f, 5000.0f);
   assert(observed == 1000.0f);
+  assert(gameplay_settings::QualifiedCurrentZoom(30.0f, 10.0f, 110.0f, 5000.0f) == observed);
+  assert(gameplay_settings::QualifiedCurrentZoom(10.0f, 10.0f, 110.0f, 5000.0f) == 0.0f);
+  assert(gameplay_settings::QualifiedZoomDistance(1000.0f, 10.0f, 110.0f, 5000.0f) == 30.0f);
+  assert(gameplay_settings::QualifiedZoomDistance(0.0f, 10.0f, 110.0f, 5000.0f) == 10.0f);
+  // Qualification preserves finite observations above the reference maximum;
+  // it neither invents a zero nor silently clamps an explicitly supplied value.
+  assert(gameplay_settings::QualifiedCurrentZoom(210.0f, 10.0f, 110.0f, 5000.0f) == 10000.0f);
+  assert(gameplay_settings::QualifiedZoomDistance(10000.0f, 10.0f, 110.0f, 5000.0f) == 210.0f);
+  const auto infinity = std::numeric_limits<float>::infinity();
+  const auto nan      = std::numeric_limits<float>::quiet_NaN();
+  for (const auto maximum : {10.0f, 9.0f, infinity, nan}) {
+    assert(!gameplay_settings::QualifiedCurrentZoom(30.0f, 10.0f, maximum, 5000.0f));
+    assert(!gameplay_settings::QualifiedZoomDistance(1000.0f, 10.0f, maximum, 5000.0f));
+  }
+  for (const auto configured : {0.0f, -1.0f, infinity, nan}) {
+    assert(!gameplay_settings::QualifiedCurrentZoom(30.0f, 10.0f, 110.0f, configured));
+    assert(!gameplay_settings::QualifiedZoomDistance(1000.0f, 10.0f, 110.0f, configured));
+  }
+  assert(!gameplay_settings::QualifiedCurrentZoom(infinity, 10.0f, 110.0f, 5000.0f));
+  assert(!gameplay_settings::QualifiedZoomDistance(nan, 10.0f, 110.0f, 5000.0f));
+  const auto largest = std::numeric_limits<float>::max();
+  assert(!gameplay_settings::QualifiedCurrentZoom(0.0f, -largest, largest, 5000.0f));
+  assert(!gameplay_settings::QualifiedZoomDistance(largest, 0.0f, largest, 1.0f));
   for (std::size_t i = 0; i < gameplay_settings::zooms.size(); ++i)
     gameplay_settings::StoreZoom(zoom, observed + static_cast<float>(i), static_cast<gameplay_settings::Zoom>(i),
                                  submit);

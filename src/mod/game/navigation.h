@@ -8,6 +8,7 @@
 
 #include <il2cpp/il2cpp.h>
 
+#include <cmath>
 #include <cstdint>
 
 enum class ZoomLevels : int32_t {
@@ -69,6 +70,22 @@ struct MathUtils {
   // The world point under the screen position `mouse`, as seen by `camera`.
   static unity::Vector3 GetMouseWorldPos(unity::Camera* camera, unity::Vector3 mouse)
   { return Class::Call<"GetMouseWorldPos", unity::Vector3>(camera, mouse); }
+  static il2cpp::CallResult<unity::Vector3> TryGetMouseWorldPos(unity::Camera* camera, unity::Vector3 screen)
+  {
+    const auto method = Class::StaticMethod<unity::Vector3(unity::Camera*, unity::Vector3)>("GetMouseWorldPos");
+    if (!method
+        || !il2cpp::detail::ValueClassMatches(method.Info()->parameters[1], unity::Vector3Class(), sizeof(screen))
+        || !il2cpp::detail::ValueClassMatches(method.Info()->return_type, unity::Vector3Class(), sizeof(screen)))
+      return {};
+    void*      args[]{camera, &screen};
+    const auto box = il2cpp::detail::TryInvokeBoxed(method.Info(), nullptr, args);
+    if (!box || !box.value || box.value->klass != unity::Vector3Class())
+      return {};
+    const auto value = il2cpp::detail::FromBoxed<unity::Vector3>(box.value);
+    return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z)
+               ? il2cpp::CallResult<unity::Vector3>{true, value}
+               : il2cpp::CallResult<unity::Vector3>{};
+  }
 };
 
 struct NavigationZoom : il2cpp::Object {
@@ -76,30 +93,66 @@ struct NavigationZoom : il2cpp::Object {
 
   float Distance()
   { return Get<"Distance", float>(); }
+  il2cpp::CallResult<float> TryDistance()
+  { return TryCall<"get_Distance", float>(); }
   void SetDistance(float value)
   { Set<"Distance">(value); }
+  il2cpp::CallResult<void> TrySetDistance(float value)
+  { return TryCall<"set_Distance", void(float)>(value); }
   float NormalizedZoom()
   { return Get<"NormalizedZoom", float>(); }
+  il2cpp::CallResult<float> TryNormalizedZoom()
+  { return TryCall<"get_NormalizedZoom", float>(); }
 
   NodeDepth depth()
   { return Field<"_depth", NodeDepth>(); }
+  il2cpp::CallResult<NodeDepth> TryDepth()
+  {
+    static const bool available = Class::HasField<"_depth", NodeDepth>();
+    return available ? il2cpp::CallResult<NodeDepth>{true, depth()} : il2cpp::CallResult<NodeDepth>{};
+  }
   ZoomLevels zoomLevel()
   { return Field<"_zoomLevel", ZoomLevels>(); }
+  il2cpp::CallResult<ZoomLevels> TryZoomLevel()
+  {
+    static const bool available = Class::HasField<"_zoomLevel", ZoomLevels>();
+    return available ? il2cpp::CallResult<ZoomLevels>{true, zoomLevel()} : il2cpp::CallResult<ZoomLevels>{};
+  }
   unity::Camera* sceneCamera()
   { return Field<"_sceneCamera", unity::Camera*>(); }
+  il2cpp::CallResult<unity::Camera*> TrySceneCamera()
+  {
+    static const bool available = Class::HasField<"_sceneCamera", unity::Camera*>();
+    return available ? il2cpp::CallResult<unity::Camera*>{true, sceneCamera()} : il2cpp::CallResult<unity::Camera*>{};
+  }
 
   void SetZoomtotal(float value)
   { SetField<"_zoomtotal">(value); }
   float minimum()
   { return Field<"_minimum", float>(); }
+  il2cpp::CallResult<float> TryMinimum()
+  {
+    static const bool available = Class::HasField<"_minimum", float>();
+    return available ? il2cpp::CallResult<float>{true, minimum()} : il2cpp::CallResult<float>{};
+  }
   float maximum()
   { return Field<"_maximum", float>(); }
+  il2cpp::CallResult<float> TryMaximum()
+  {
+    static const bool available = Class::HasField<"_maximum", float>();
+    return available ? il2cpp::CallResult<float>{true, maximum()} : il2cpp::CallResult<float>{};
+  }
   void SetMaximum(float value)
   { SetField<"_maximum">(value); }
   void SetZoomDelta(float value)
   { SetField<"_zoomDelta">(value); }
   float viewRadius()
   { return Field<"_viewRadius", float>(); }
+  il2cpp::CallResult<float> TryViewRadius()
+  {
+    static const bool available = Class::HasField<"_viewRadius", float>();
+    return available ? il2cpp::CallResult<float>{true, viewRadius()} : il2cpp::CallResult<float>{};
+  }
   void SetLastZoomDelta(float value)
   { SetField<"_lastZoomDelta">(value); }
   void SetZoomLocation(unity::Vector2 value)
@@ -113,6 +166,20 @@ struct NavigationZoom : il2cpp::Object {
 
   void ZoomCameraAtWorldPoint()
   { Call<"ZoomCameraAtWorldPoint">(); }
+  static bool ZoomInputFieldsAvailable()
+  {
+    static const bool available =
+        Class::HasField<"_zoomLocation", unity::Vector2>() && Class::HasField<"_zoomDelta", float>()
+        && Class::HasField<"_lastZoomDelta", float>() && Class::HasField<"_worldPoint", unity::Vector3>();
+    return available;
+  }
+  static bool RangeFieldsAvailable()
+  {
+    static const bool available = Class::HasField<"_farRatioSystemNormal", float>()
+                                  && Class::HasField<"_farRatioSystemExtended", float>()
+                                  && Class::HasField<"_maximum", float>() && Class::HasField<"_zoomtotal", float>();
+    return available;
+  }
 };
 
 struct NavigationFleetWidget : Widget<FleetDeployedData> {
