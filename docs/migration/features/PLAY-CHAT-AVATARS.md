@@ -61,3 +61,13 @@ pressure and macOS remain separate. Existing patch gate is the ordinary rollback
 Disposition: existing implementation retained; source contract complete;
 production callback qualification added, with exact execution/native results
 pending. No overall migration parity claim.
+
+## Coordinator qualification checkpoint — 2026-10-28
+
+Implementation `d61b383d9e3b83d5c8ea4852c8c495e35d1a9084` passed the combined Windows assertion suite
+(399/399 build/run/install steps), native AAI-enabled build (41/41), and
+main-game startup with all 73 groups and frame delivery ready. See
+[the cohort receipt](../FEATURE-COHORT-20261028-01.md#native-qualification) for
+exact artifact, store differences and diagnostic limits. This supersedes earlier
+execution-pending notes above only for the exercised fixture and startup layers.
+Current player workflow and macOS acceptance remain pending.

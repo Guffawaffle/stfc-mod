@@ -189,3 +189,43 @@ gate. No Runner execution or orchestration is claimed.
 
 Native build, startup, preserved-store comparison, player trial and macOS remain
 separate from these offline results and are recorded below when performed.
+
+## Native qualification
+
+Implementation checkpoint: `d61b383d9e3b83d5c8ea4852c8c495e35d1a9084`.
+The normal canonical Downstream AX cycle explicitly selected this existing
+worktree through `--zig -ZigSourceRoot`. It built while STFC remained running,
+then replaced only the selected main ordinary session and relaunched it.
+The generic runtime-context comparison points to the canonical checkout's
+historical Xmake output; that was not the selected build. The Zig receipt and
+embedded installed identity establish the actual source below.
+
+- Build `ax-zig-20261028T223200-0516de1e`: **41/41 native build steps**, source
+  stable and clean across the build, pinned AAI `4bece2e` and UI Lab enabled.
+- Installed DLL SHA256:
+  `66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670`.
+- Windows client273 GameAssembly SHA256:
+  `a9ab2edbc143cfba3aff35665e129006f73853070dbff206884fda04a235ab94`.
+- Main installation `C:/Games/Star Trek Fleet Command/default/game`, ordinary
+  launch, PID39876 / creation FILETIME134377004856206877. This identifies the
+  tested session, not a permanent runtime selector or authenticated account.
+- All **73 feature registrations** installed; shared frame delivery ready.
+  Chat, portraits, titles, ship tech, labels, badges, OPC and AAI were included.
+  Registration count is not a count of detours or player-verified features.
+- Four of five compared stores, including the state file, were byte-identical.
+  The main TOML changed after launch and logged a reload. The agent made no
+  TOML edits and did not restore/overwrite the change; operator attribution was
+  requested. Do not report all five stores as unchanged.
+- At17:35:58.983 the contained, rate-limited GameObject.GetComponent NullReference
+  diagnostic recurred. The caller and cause remain unqualified. Its method-level
+  wording resembles the older recorded diagnostic, but that does not establish
+  identical cause or excuse a newly reported symptom. No error-free claim.
+
+`qualification.json` beside the source manifest binds tests, executable hash,
+native build, cycle, filtered startup log and before/after store hashes. The
+earlier boot helper stopped after two feature rows; the coordinator separately
+verified all 73 and frame readiness from the fresh log.
+
+The focused player trial has been requested. No current gameplay acceptance,
+macOS build/runtime result for this changed candidate, AAI analytics migration,
+Profiles deployment, push, PR update or release is claimed.

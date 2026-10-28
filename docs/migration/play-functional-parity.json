@@ -2689,17 +2689,20 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false,
         "historicalPlayerEvidence": "Older basic Windows acceptance retained in CHAT-AVATAR-RETENTION.md or PLAY-RESTORATION-PLAN.md; not a new current-candidate trial."
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-SHIP-TECH-ART.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "Swap Ship tiles; existing ship technology and backing controls",
       "branchObservations": [
         {
@@ -2722,7 +2725,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-SHIP-TECH-ART.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -2738,17 +2741,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-SHIP-TECH-ART.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Neither/each/both techs, same-hull distinct ships, missing donors, pooling and pin coexistence."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -2770,17 +2776,20 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false,
         "historicalPlayerEvidence": "Older basic Windows acceptance retained in CHAT-AVATAR-RETENTION.md or PLAY-RESTORATION-PLAN.md; not a new current-candidate trial."
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-FLEET-BADGES.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "Own system-fleet labels; Fleet Labels shortcut badge control",
       "branchObservations": [
         {
@@ -2803,7 +2812,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-FLEET-BADGES.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -2819,17 +2828,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-FLEET-BADGES.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "User confirmed own vs foreign labels in prior build; still exercise pooled rebind, dock reorder, remap and native mode on final artifact."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -2851,18 +2863,20 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [
-        "working candidate after 5c921b65; not yet committed or deployed"
+        "working candidate after 5c921b65; not yet committed or deployed",
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-FLEET-LABELS.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "System fleet labels and existing detail/threshold controls",
       "branchObservations": [
         {
@@ -2885,7 +2899,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-FLEET-LABELS.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -2901,17 +2915,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-FLEET-LABELS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Live Settings writes queue owner refresh; current-camera profile comparisons catch TOML reloads. Qualified Native profiles reset targets before/after original with weak-owner generations. Actual live switch/Native restoration trial pending."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -2933,16 +2950,19 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-FLEET-OPC.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "Fleet panel/card SAFE, OPC and mining ETA; two independent existing controls",
       "branchObservations": [
         {
@@ -2965,7 +2985,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-FLEET-OPC.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -2981,17 +3001,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-FLEET-OPC.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Known/unknown cargo/rate, protected threshold crossing, depletion, fleet replacement, independent toggles and pooling."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -4018,16 +4041,19 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CHAT-CHANNELS.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
       "branchObservations": [
         {
@@ -4050,7 +4076,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-CHAT-CHANNELS.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -4066,17 +4092,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-CHAT-CHANNELS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Cadet/Veil availability combinations, swipe, messages and live disable. Preview redirection difference needs final disposition."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -4098,17 +4127,20 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false,
         "historicalPlayerEvidence": "Older basic Windows acceptance retained in CHAT-AVATAR-RETENTION.md or PLAY-RESTORATION-PLAN.md; not a new current-candidate trial."
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CHAT-AVATARS.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
       "branchObservations": [
         {
@@ -4131,7 +4163,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-CHAT-AVATARS.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -4147,17 +4179,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-CHAT-AVATARS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Prior user confirmed scroll/reopen portraits; final artifact admin/regular, absent switch and async reload pending."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -4179,18 +4214,20 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [
-        "working candidate after 5c921b65; not yet committed or deployed"
+        "working candidate after 5c921b65; not yet committed or deployed",
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CHAT-TITLES.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
       "branchObservations": [
         {
@@ -4213,7 +4250,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-CHAT-TITLES.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -4229,17 +4266,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-CHAT-TITLES.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Substantive bind/update/clear and nonchat profiles; exact native extent remains platform/client qualification."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -4261,16 +4301,19 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json",
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json: exact native source/artifact, startup and store comparison; no new player acceptance"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified. Sourced61b383d, DLL66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670, main ordinary PID39876.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CHAT-NAVIGATION.md",
-      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "catalogStatus": "Frozen-source reconciled;Windows suite/build/boot qualified;current player trial and macOS separate",
       "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
       "branchObservations": [
         {
@@ -4293,7 +4336,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "revision": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
           "presence": "present",
           "evidence": "docs/migration/features/PLAY-CHAT-NAVIGATION.md: pinned source comparison; source presence is not runtime qualification"
         }
@@ -4309,17 +4352,20 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
-            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+            "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
           },
           "contract": "docs/migration/features/PLAY-CHAT-NAVIGATION.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "verification": "399/399 Windows assertion suite,41/41 native steps,73 feature groups/frame ready. Current player trial requested; macOS and extended edges unqualified. Four stores unchanged; main TOML changed/reloaded after launch, no agent config edits. Contained GetComponent diagnostic caller remains unqualified.",
           "execution": "Direct source-preserving collaboration, no Runner execution.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Closed/open side/full states, existing-input focus, channel shortcuts and disabled-tab interplay."
-          }
+          },
+          "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
         }
       ]
     },
@@ -7395,7 +7441,7 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Fleet presentation/chat source reassessment implemented and399/399 Windows steps passed; native build/trial pending. No full parity or release claim.",
+    "status": "Fleet presentation/chat source-reconciled;399/399 Windows suite,41/41 native build,73 feature groups/frame ready. Main game cycled to d61b383d; current player trial and macOS remain separate. No full parity or release claim.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
     "obsoleteLocalPointer": {
@@ -7408,19 +7454,21 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
-    "artifactSha256": "c1de2877a4604805e9f39974a124dc76c59c64f68c2cbaff20f5c166e6095ff0",
-    "qualification": "Historical source4f9a6f3b:387/387 offline,41/41 native,73 feature rows/frame ready,five stores unchanged. User purchase rows/Research/currency accepted; no newly built/deployed d5582702 AAI-enabled Windows artifact. Extended cases and macOS remain separate.",
+    "currentSourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
+    "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
+    "qualification": "399/399 Windows build/run/install steps with Debug fixture assertions;41/41 Windows native build steps;73 groups/frame ready. Four of five stores unchanged; main TOML changed/reloaded after startup without agent config edits, operator attribution pending. Contained GetComponent diagnostic remains. No current player acceptance.",
     "currentRuntime": {
-      "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+      "sourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
+      "buildId": "ax-zig-20261028T223200-0516de1e",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 54228,
+      "pidAtQualification": 39876,
+      "startedFileTime": "134377004856206877",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
-      "status": "Basic Windows purchase/Research/currency trial accepted; historical session identity only"
+      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json",
+      "status": "Windows startup qualified;current player trial requested. Session identity is historical after any later restart."
     },
     "pendingCohort": {
       "document": "docs/migration/features/AT-STORE.md",
@@ -7432,12 +7480,15 @@
       "status": "Basic Windows accepted; historical account-switch pause ended. Extended lifecycle and macOS checks remain separate."
     },
     "previousRuntime": {
-      "sourceCommit": "99bb6719b06a8b45281943ee390dd3b68694098e",
+      "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+      "buildMode": "releasedbg",
       "client": 273,
-      "profile": "ordinary",
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
-      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification.json",
-      "status": "Initial navigation/currency accepted; purchase failures reproduced and superseded by4f9a6f3b"
+      "profile": "ordinary",
+      "pidAtQualification": 54228,
+      "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
+      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
+      "status": "Basic Windows purchase/Research/currency trial accepted; historical session identity only"
     },
     "previousAcceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
     "integratedCiCheckpoint": {
@@ -7462,10 +7513,12 @@
         "PLAY-CHAT-TITLES",
         "PLAY-CHAT-NAVIGATION"
       ],
-      "status": "Implemented offline; source-inputs.json binds changed compiled inputs; native build and current player trial pending",
-      "inputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+      "status": "Source reconciliation/offline suite/native build/startup complete; current player trial and macOS pending",
+      "inputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
+      "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
+      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
     },
-    "artifactSourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+    "artifactSourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
   },
   "completionPlanningAssessment": {
     "date": "2026-10-28",
