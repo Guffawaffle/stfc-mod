@@ -4839,7 +4839,16 @@
           "runtimeEvidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-01/main-runtime/"
         }
       ],
-      "parentCapability": "PLAY-AUDIO-CUES"
+      "parentCapability": "PLAY-AUDIO-CUES",
+      "followUps": [
+        {
+          "id": "SET-FILE-SELECTION-CLEAR",
+          "status": "deferred future UX work",
+          "kind": "operator request2026-10-28; no implementation authorized in this pause",
+          "description": "Add a clearly labeled Clear action for loading-image and sound file selections. Confirmation remains an open UX decision; preserve consumer-specific fallback/save/async ownership semantics.",
+          "reference": "docs/migration/features/SET-IMAGE-PICKER.md#deferred-file-selector-clear-action"
+        }
+      ]
     },
     {
       "id": "SET-IMAGE-PICKER",
@@ -5038,7 +5047,16 @@
         "Windows": "see exact candidate/workflow evidence",
         "macOS": "CI builds and Mcohall runtime testing; not qualified for current candidate"
       },
-      "catalogStatus": "Windows basic workflow confirmed; edge/custody limits retained"
+      "catalogStatus": "Windows basic workflow confirmed; edge/custody limits retained",
+      "followUps": [
+        {
+          "id": "SET-FILE-SELECTION-CLEAR",
+          "status": "deferred future UX work",
+          "kind": "operator request2026-10-28; no implementation authorized in this pause",
+          "description": "Add a clearly labeled Clear action for loading-image and sound file selections. Confirmation remains an open UX decision; preserve consumer-specific fallback/save/async ownership semantics.",
+          "reference": "docs/migration/features/SET-IMAGE-PICKER.md#deferred-file-selector-clear-action"
+        }
+      ]
     },
     {
       "id": "CFG-LOAD-RELOAD",
@@ -6487,14 +6505,16 @@
           "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate.",
           "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-9.log:387/387; purchase delta includes native post-bind scheduling, spawner wait, exact same-position Vector2 marshaling and source cancellation."
         ],
-        "exactCandidateRuntime": "First candidate99bb6719:Windows273,73 feature rows/frame ready,five stores unchanged. User confirmed initial native Research and currency1->2 recovery. Actual purchase reproduced row loss and missing Research. New late-bind/same-position correction is offline-qualified; next runtime pending.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "4f9a6f3b Windows273 main ordinary PID54228:41/41 build,73 feature rows/frame ready,five stores unchanged. Guff:both worked!! on purchase rows/Research, then currency worked too. Native same-position notifications and20 re-upgrades/zero failures observed. macOS/extended cases unverified.",
+        "playerVerifiedFinalCandidate": true
       },
-      "dependenciesAndLimitations": "Study implemented and Windows player-qualified; typed production port pending; study is explicitly outside frozen play-dev. No purchase automation.",
-      "restorationCommits": [],
+      "dependenciesAndLimitations": "Explicit addition from pinned Alliance store study, not frozen play-dev parity. Basic Windows trial accepted; complete platform/lifecycle equivalence not established. No agent purchases or store/config format changes.",
+      "restorationCommits": [
+        "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+      ],
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
-      "catalogStatus": "Late-bind restoration candidate offline-qualified; purchase retry pending",
+      "catalogStatus": "Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified",
       "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
@@ -6514,6 +6534,12 @@
           "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
           "presence": "absent",
           "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "refactor",
+          "revision": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+          "presence": "present",
+          "evidence": "src/mod/features/alliance_store.cc; AT-STORE.md source contract and exact native trial evidence"
         }
       ],
       "assessments": [
@@ -6529,6 +6555,20 @@
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification.json",
           "artifactSha256": "89042b7faba9e4274620c6e890ae1ec47a09db5fb1ee5fb47322c305fef7dab7",
           "playerEvidence": "User saw initial1->2currency recovery and workingViewResearch, then purchase-row loss untilscroll and lostResearch."
+        },
+        {
+          "version": 2,
+          "date": "2026-10-28",
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "99bb6719b06a8b45281943ee390dd3b68694098e",
+            "implementationCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+          },
+          "contract": "docs/migration/features/AT-STORE.md",
+          "verification": "387/387 Windows suite,41/41 native; user accepted requested purchase rows/Research and currencies. Native evidence and exact limitations in contract.",
+          "artifactSha256": "c1de2877a4604805e9f39974a124dc76c59c64f68c2cbaff20f5c166e6095ff0",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
+          "execution": "Direct workflow, independent read-only review and AX cycle; no Runner native execution"
         }
       ]
     },
@@ -6553,14 +6593,16 @@
           "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate.",
           "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-9.log:387/387; purchase delta includes native post-bind scheduling, spawner wait, exact same-position Vector2 marshaling and source cancellation."
         ],
-        "exactCandidateRuntime": "First candidate99bb6719:Windows273,73 feature rows/frame ready,five stores unchanged. User confirmed initial native Research and currency1->2 recovery. Actual purchase reproduced row loss and missing Research. New late-bind/same-position correction is offline-qualified; next runtime pending.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "4f9a6f3b Windows273 main ordinary PID54228:41/41 build,73 feature rows/frame ready,five stores unchanged. Guff:both worked!! on purchase rows/Research, then currency worked too. Native same-position notifications and20 re-upgrades/zero failures observed. macOS/extended cases unverified.",
+        "playerVerifiedFinalCandidate": true
       },
-      "dependenciesAndLimitations": "Manual native refresh demonstrated; permanent correction not implemented; study is explicitly outside frozen play-dev. No purchase automation.",
-      "restorationCommits": [],
+      "dependenciesAndLimitations": "Explicit addition from pinned Alliance store study, not frozen play-dev parity. Basic Windows trial accepted; complete platform/lifecycle equivalence not established. No agent purchases or store/config format changes.",
+      "restorationCommits": [
+        "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+      ],
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
-      "catalogStatus": "Initial currency recovery accepted; purchase lifecycle correction candidate pending trial",
+      "catalogStatus": "Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified",
       "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
@@ -6580,6 +6622,12 @@
           "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
           "presence": "absent",
           "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "refactor",
+          "revision": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+          "presence": "present",
+          "evidence": "src/mod/features/alliance_store.cc; AT-STORE.md source contract and exact native trial evidence"
         }
       ],
       "assessments": [
@@ -6595,6 +6643,20 @@
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification.json",
           "artifactSha256": "89042b7faba9e4274620c6e890ae1ec47a09db5fb1ee5fb47322c305fef7dab7",
           "playerEvidence": "User saw initial1->2currency recovery and workingViewResearch, then purchase-row loss untilscroll and lostResearch."
+        },
+        {
+          "version": 2,
+          "date": "2026-10-28",
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "99bb6719b06a8b45281943ee390dd3b68694098e",
+            "implementationCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+          },
+          "contract": "docs/migration/features/AT-STORE.md",
+          "verification": "387/387 Windows suite,41/41 native; user accepted requested purchase rows/Research and currencies. Native evidence and exact limitations in contract.",
+          "artifactSha256": "c1de2877a4604805e9f39974a124dc76c59c64f68c2cbaff20f5c166e6095ff0",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
+          "execution": "Direct workflow, independent read-only review and AX cycle; no Runner native execution"
         }
       ]
     },
@@ -6619,14 +6681,16 @@
           "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-7.log:387/387 Windows steps. Actual production consumer under controlled native host; rendered UI/real GC/currencies/purchase remain separate.",
           "D:/dev/stfc-workspace/.ax/alliance-store-port-20261028/tests-9.log:387/387; purchase delta includes native post-bind scheduling, spawner wait, exact same-position Vector2 marshaling and source cancellation."
         ],
-        "exactCandidateRuntime": "First candidate99bb6719:Windows273,73 feature rows/frame ready,five stores unchanged. User confirmed initial native Research and currency1->2 recovery. Actual purchase reproduced row loss and missing Research. New late-bind/same-position correction is offline-qualified; next runtime pending.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "4f9a6f3b Windows273 main ordinary PID54228:41/41 build,73 feature rows/frame ready,five stores unchanged. Guff:both worked!! on purchase rows/Research, then currency worked too. Native same-position notifications and20 re-upgrades/zero failures observed. macOS/extended cases unverified.",
+        "playerVerifiedFinalCandidate": true
       },
-      "dependenciesAndLimitations": "Unreproduced in clean study; no repair implemented or qualified; study is explicitly outside frozen play-dev. No purchase automation.",
-      "restorationCommits": [],
+      "dependenciesAndLimitations": "Explicit addition from pinned Alliance store study, not frozen play-dev parity. Basic Windows trial accepted; complete platform/lifecycle equivalence not established. No agent purchases or store/config format changes.",
+      "restorationCommits": [
+        "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+      ],
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
-      "catalogStatus": "Actual purchase bug reproduced; same-position native notification candidate offline-qualified, visual trial pending",
+      "catalogStatus": "Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified",
       "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
@@ -6646,6 +6710,12 @@
           "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
           "presence": "absent",
           "evidence": "No AllianceGamesStore/ScheduleTournamentStoreResearch consumer in pinned source; complete selected study is a later addition."
+        },
+        {
+          "refRole": "refactor",
+          "revision": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+          "presence": "present",
+          "evidence": "src/mod/features/alliance_store.cc; AT-STORE.md source contract and exact native trial evidence"
         }
       ],
       "assessments": [
@@ -6661,6 +6731,20 @@
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification.json",
           "artifactSha256": "89042b7faba9e4274620c6e890ae1ec47a09db5fb1ee5fb47322c305fef7dab7",
           "playerEvidence": "User saw initial1->2currency recovery and workingViewResearch, then purchase-row loss untilscroll and lostResearch."
+        },
+        {
+          "version": 2,
+          "date": "2026-10-28",
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "99bb6719b06a8b45281943ee390dd3b68694098e",
+            "implementationCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+          },
+          "contract": "docs/migration/features/AT-STORE.md",
+          "verification": "387/387 Windows suite,41/41 native; user accepted requested purchase rows/Research and currencies. Native evidence and exact limitations in contract.",
+          "artifactSha256": "c1de2877a4604805e9f39974a124dc76c59c64f68c2cbaff20f5c166e6095ff0",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
+          "execution": "Direct workflow, independent read-only review and AX cycle; no Runner native execution"
         }
       ]
     }
@@ -6864,9 +6948,9 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Development integration: source/adapter/native build qualified; basic Windows selection/screen trial accepted. Live tow, rare recovery and Mac remain open. Not release or overall parity.",
+    "status": "Paused after accepted basic Windows Alliance Games purchase/Research/currency trial. No overall product/platform parity or release claim.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
-    "acceptedCheckpoint": "b36d28377318953e532597fb1191a47f114ee92c",
+    "acceptedCheckpoint": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
     "obsoleteLocalPointer": {
       "ref": "integration/ripper-foundation-m1b-20261025",
       "revision": "9a2018affa88915cfbf45803945637a64b95068f",
@@ -6877,39 +6961,36 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "b36d28377318953e532597fb1191a47f114ee92c",
-    "artifactSha256": "ff4ebe50268e98bf230c10e693fe1e6dd9ba12dfeaac6ae1046f7371bf391612",
-    "qualification": "Cohort04:382/382 offline,41/41 native,71 groups/frame ready, five stores unchanged. Guff:looks good to me on ordinary selection/screen trial. Same previously observed GetComponent exception recurred, contained and rate-limited; caller/cause unknown. Live tow/rare recovery/macOS separate.",
+    "currentSourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+    "artifactSha256": "c1de2877a4604805e9f39974a124dc76c59c64f68c2cbaff20f5c166e6095ff0",
+    "qualification": "387/387 offline,41/41 native,73 feature rows/frame ready,five stores unchanged. User purchase rows/Research/currency accepted; extended cases and macOS remain separate.",
     "currentRuntime": {
-      "sourceCommit": "b36d28377318953e532597fb1191a47f114ee92c",
+      "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 48004,
+      "pidAtQualification": 54228,
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/fleet-navigation-cohort-20261027/qualification.json",
-      "status": "Native build/boot and basic selection/screen player trial accepted; live tow and rare recovery not confirmed"
+      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
+      "status": "Basic Windows purchase/Research/currency trial accepted; historical session identity only"
     },
     "pendingCohort": {
-      "document": "docs/migration/FEATURE-COHORT-20261027-04.md",
+      "document": "docs/migration/features/AT-STORE.md",
       "capabilities": [
-        "PLAY-FLEET-ABILITY-RECOVERY",
-        "PLAY-FLEET-SELECT",
-        "PLAY-FLEET-TOW",
-        "PLAY-SCREEN-ACTIONS"
+        "AT-STORE-RESEARCH",
+        "AT-STORE-CURRENCY",
+        "AT-STORE-ROWS"
       ],
-      "status": "b36d2837 basic Windows selection/screen trial accepted; remaining operator qualification is live tow/rare cooldown recovery and extended native/platform edges."
+      "status": "Basic Windows accepted; paused for account switch, macOS/extended lifecycle cases remain open"
     },
     "previousRuntime": {
-      "sourceCommit": "8c306f892627c2f6304d57eec70f98c4581a5366",
-      "buildMode": "releasedbg",
+      "sourceCommit": "99bb6719b06a8b45281943ee390dd3b68694098e",
       "client": 273,
-      "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 57292,
-      "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
+      "installation": "C:/Games/Star Trek Fleet Command/default/game",
+      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification.json",
+      "status": "Initial navigation/currency accepted; purchase failures reproduced and superseded by4f9a6f3b"
     },
     "previousAcceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366"
   }

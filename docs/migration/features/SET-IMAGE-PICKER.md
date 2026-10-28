@@ -83,3 +83,11 @@ Checkpoints, candidate-bound commands/artifacts, native trial and remaining gaps
 Guff subsequently confirmed both pilot workflows worked on Windows using the
 installed pilot artifact. That basic acceptance does not establish every pending
 reset, malformed-file, fallback or native-dialog case. See the linked pilot record.
+
+## Deferred file-selector Clear action
+
+Operator idea2026-10-28: loading-image and sound file selectors should expose a
+clearly labeled **Clear** action. Whether it needs confirmation remains an open
+UX question. This is deferred, not a change to existing picker behavior. Preserve
+each consumer's fallback, save outcome and pending-selection cancellation rules
+when designing it. Shared inventory follow-up: `SET-FILE-SELECTION-CLEAR`.

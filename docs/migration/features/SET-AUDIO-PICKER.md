@@ -47,3 +47,11 @@ Validation/checkpoints: [cohort record](../FEATURE-COHORT-20261026-01.md).
 Model/adapter fixtures cannot prove native dialogs, audible playback, device
 availability or per-platform host behavior. macOS builds belong in CI, runtime
 qualification with Mcohall. No CI work is part of this cohort.
+
+## Deferred file-selector Clear action
+
+Operator idea2026-10-28: loading-image and sound file selectors should expose a
+clearly labeled **Clear** action. Whether it needs confirmation remains an open
+UX question. This is deferred, not a change to existing picker behavior. Preserve
+each consumer's fallback, save outcome and pending-selection cancellation rules
+when designing it. Shared inventory follow-up: `SET-FILE-SELECTION-CLEAR`.

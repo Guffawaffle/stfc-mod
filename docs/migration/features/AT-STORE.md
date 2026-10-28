@@ -168,3 +168,24 @@ Read-only correction review independently checked native base callback dispatch
 and spawner completion clearing. The revision adds a sixth hook (card bind),
 not a new feature owner, global scan or frame dispatcher. Source hashes and exact
 native qualification belong to the subsequent candidate, not the first trial.
+
+## Accepted Windows purchase trial and pause — 2026-10-28
+
+Correction `4f9a6f3b4102e7a6aba6299d932e960284dd5246` built41/41 native steps and booted73 feature
+rows plus FrameTick. DLL SHA256 `c1de2877a4604805e9f39974a124dc76c59c64f68c2cbaff20f5c166e6095ff0`;
+main ordinary client273, PID54228 at qualification, FILETIME134376736362962870.
+Five tracked stores were unchanged; no agent configuration or purchase action.
+
+Guff answered **"both worked!!"** to the requested purchase-row/Research
+restoration trial, then **"and the currency worked too"**. Native logs record
+successful same-position notifications,17 initial and20 later upgrades with
+zero setup failures, currency1→2 then2→2, and retained position2525.960205.
+This accepts the combined basic Windows workflow on this exact candidate.
+macOS, exhaustive store/resource cases and future clients remain unverified.
+Earlier99bb6719 purchase failures remain recorded as the independent baseline.
+
+Receipt: `D:/dev/stfc-workspace/artifacts/alliance-store-port-20261028/qualification-2.json`
+SHA256 `bd6a92b5f29e29aaea2ebad587317e5952f5a1d4f2bb2da41be9c709d3f71bf2`. Eight evidence hashes and the exact DLL are retained.
+The operator paused work to switch accounts. Do not restart, deploy or continue
+implementation on the strength of an old PID; resolve target intent on resume.
+No push, merge, PLAY/play-dev promotion or Runner execution occurred.
