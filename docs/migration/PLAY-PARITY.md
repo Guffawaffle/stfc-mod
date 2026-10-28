@@ -540,7 +540,9 @@ selection/repeat-location, expired ability-button recovery, screen navigation
 and Discovery towing. Complete frozen-source contracts distinguish existing
 consumers from lifecycle/availability corrections. The combined Windows
 controlled-runtime suite passed 382/382 build/run/install steps with assertions
-enabled. Real UI transitions, native tow acceptance/resource behavior and macOS
-remain separate; current candidate/build/player evidence belongs in that cohort.
+enabled. Candidate `b36d2837` passed 41/41 native build steps and the normal
+main-game cycle with all71 groups/frame ready and five stores unchanged. Player
+checks are requested/pending; real UI transitions, native tow acceptance/resource
+behavior and macOS remain separate. Exact evidence belongs in that cohort.
 Runner's native execution stayed held; three workers and integration used direct
 collaboration. No overall parity or release claim is made.

@@ -1,5 +1,9 @@
 # PLAY-FLEET-SELECT — ship selection and selected-fleet location
 
+Qualification update: the 382-step Windows suite and native build/boot passed at
+`b36d2837`; the focused player trial remains pending. Exact evidence and limits:
+[cohort 04](../FEATURE-COHORT-20261027-04.md).
+
 Contract v1; source scan 2026-10-27. Frozen source is
 `1baa55fedf1758b19f843cc59707b8901a0b4998`; target `play-dev-ripper` starts at
 `557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8`. Cohort 04 owns final candidate,

@@ -1,6 +1,7 @@
 # Fleet and navigation cohort - 2026-10-27
 
-Offline implementation qualified; native trial pending. Guff authorized continuing after the accepted map/
+Implementation, offline suite and Windows native boot qualified; player trial pending.
+Guff authorized continuing after the accepted map/
 camera batch. The existing worktree is `play-dev-ripper` at
 `557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8`. Frozen play-dev remains
 `1baa55fedf1758b19f843cc59707b8901a0b4998`; do not advance that source ref.
@@ -161,3 +162,60 @@ closed the failed-immediate-Press replacement gap and native callable-entry
 admission before the passing fourth run. Later source edits need their own
 appropriate verification; documentation-only qualification does not change the
 compiled candidate.
+
+## Windows deployment qualification
+
+Implementation: `b36d28377318953e532597fb1191a47f114ee92c`, tree
+`d4d56234963b931b89390a4091b137e0279fa273`. The normal AX Zig cycle built the
+clean/stable existing worktree before stopping main ordinary PID53260. Native
+construction passed **41/41 steps**; binary verification confirmed x86_64,
+16 proxy exports, static CRT and the expected embedded marker. AAI's pinned
+source and UI Lab remain enabled. No second native build was invoked.
+
+Installed/copy-verified DLL SHA256:
+`ff4ebe50268e98bf230c10e693fe1e6dd9ba12dfeaac6ae1046f7371bf391612`.
+Build: `ax-zig-20261028T041356-29052797`, mode `releasedbg`. Main ordinary
+client273 reopened as PID48004, creation FILETIME `134376347152882556`.
+The explicit source/build/embedded marker agree on b36d2837; canonical checkout
+metadata in the nested deploy receipt is not this Zig worktree's source.
+Disk/module-path observations do not independently hash in-memory instructions
+or establish authenticated-account identity.
+
+The fresh complete log confirms all **71 groups**, followed by FrameTick ready;
+the initial generic boot parser's earlier partial count was not used as complete
+proof. The retained startup snapshot has zero error lines. Five tracked TOML/
+state files were byte-identical immediately after the cycle. No agent config/
+store edits or migrations occurred; later operator changes remain independent.
+The previous contained GetComponent issue remains a separate unresolved follow-up,
+even if absent in this snapshot.
+
+Player checks were requested for number selection/repeat locate, Ship Swap,
+Officer Swap, Presets and Back/Escape. No reply was available at this checkpoint.
+Naturally expired ability recovery and a deliberate operator-chosen live tow
+are separately pending; no resource expenditure was requested merely to pass a
+trial. Boot success is not those workflows' acceptance or server delivery.
+macOS builds and Mcohall's native testing remain open.
+
+Qualification receipt:
+`D:/dev/stfc-workspace/artifacts/fleet-navigation-cohort-20261027/qualification.json`,
+SHA256 `b6d59f9ab9bb6d65c327ac56235150abb2796b6aee0eaa12f1120c63a461d84b`.
+The exact DLL is retained beside it as `b36d2837-version.dll`. Nine source/
+executable/build/cycle/runtime/store evidence files and their hashes are recorded
+there; logs and receipts live under
+`D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/`.
+
+## Recovery
+
+Scoped Downstream offline frame: `db6c87f8-c791-48c9-b421-43ad7caa3a74`, explicit
+reference `play-dev-ripper@b36d2837`. AXF uses the existing canonical Downstream
+memory scope; its unrelated branch metadata is not the source selector for this
+worktree. This was not a Runner-created frame or governed execution.
+
+The inventory/catalog preserve historical assessments and distinguish the
+currently deployed source from the previous player-accepted MAP8 checkpoint.
+The next step is finishing these focused player checks, then choosing another
+source-grounded cohort from the inventory. Keep native tow/index ordering,
+rare ability recovery, macOS, historical repair protection, pan momentum,
+Settings visuals and the GetComponent diagnostic explicit rather than folding
+them into an overall parity claim. No push, merge, PLAY replacement, release,
+new checkout or Runner native execution occurred.

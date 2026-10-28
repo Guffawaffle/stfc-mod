@@ -1,9 +1,10 @@
 # PLAY-FLEET-TOW — Discovery Shift+ship towing
 
-Contract version 1, 2026-10-27. Status: source discovery complete; production-adapter
-qualification implemented in a controlled host, execution and exact-client trial
-pending. This record does not claim player-verified towing from earlier fleet or
-queue trials.
+Contract version 1, 2026-10-27. Source and controlled-adapter qualification,
+Windows native construction and boot passed at `b36d2837`; a deliberate live tow
+remains pending. See [cohort 04](../FEATURE-COHORT-20261027-04.md) for the exact
+382-step suite, binary and runtime evidence. Earlier fleet/queue trials do not
+establish player-verified towing.
 
 ## Inputs and scope
 
