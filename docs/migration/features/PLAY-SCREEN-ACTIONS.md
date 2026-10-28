@@ -1,7 +1,7 @@
 # PLAY-SCREEN-ACTIONS — native screen shortcuts and deferred ship/officer buttons
 
 Qualification update: the 382-step Windows suite and native build/boot passed at
-`b36d2837`; the focused player trial remains pending. Exact evidence and limits:
+`b36d2837`; the ordinary Windows trial was accepted ("looks good to me"). Evidence and limits:
 [cohort 04](../FEATURE-COHORT-20261027-04.md).
 
 Contract v1, source-preserving scan 2026-10-27. Frozen play-dev is

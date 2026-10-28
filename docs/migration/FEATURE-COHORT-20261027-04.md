@@ -1,6 +1,6 @@
 # Fleet and navigation cohort - 2026-10-27
 
-Implementation, offline suite and Windows native boot qualified; player trial pending.
+Implementation, offline suite, Windows native boot and basic selection/screen trial qualified.
 Guff authorized continuing after the accepted map/
 camera batch. The existing worktree is `play-dev-ripper` at
 `557a6bd2e31b5a4ea6f8c5f8ae50665bd0ca66f8`. Frozen play-dev remains
@@ -183,23 +183,26 @@ or establish authenticated-account identity.
 
 The fresh complete log confirms all **71 groups**, followed by FrameTick ready;
 the initial generic boot parser's earlier partial count was not used as complete
-proof. The retained startup snapshot has zero error lines. Five tracked TOML/
+proof. The initial startup snapshot had zero error lines. Five tracked TOML/
 state files were byte-identical immediately after the cycle. No agent config/
 store edits or migrations occurred; later operator changes remain independent.
-The previous contained GetComponent issue remains a separate unresolved follow-up,
-even if absent in this snapshot.
+The post-trial snapshot includes one contained/rate-limited GameObject.GetComponent
+NullReference at local23:22:35, the same reported method/symptom seen before this
+cohort. Caller and cause remain unknown; this is not proof of identical causation
+or an error-free runtime. Keep the existing diagnostic follow-up separate.
 
 Player checks were requested for number selection/repeat locate, Ship Swap,
-Officer Swap, Presets and Back/Escape. No reply was available at this checkpoint.
-Naturally expired ability recovery and a deliberate operator-chosen live tow
-are separately pending; no resource expenditure was requested merely to pass a
-trial. Boot success is not those workflows' acceptance or server delivery.
+Officer Swap, Presets and Back/Escape. Guff answered **"looks good to me"**.
+That accepts the ordinary combined Windows workflow. Naturally expired ability
+recovery and a deliberate operator-chosen live tow were not specifically
+confirmed; no resource expenditure was requested merely to pass a trial.
+Boot/basic shortcut success is not rare recovery or server delivery proof.
 macOS builds and Mcohall's native testing remain open.
 
 Qualification receipt:
 `D:/dev/stfc-workspace/artifacts/fleet-navigation-cohort-20261027/qualification.json`,
-SHA256 `b6d59f9ab9bb6d65c327ac56235150abb2796b6aee0eaa12f1120c63a461d84b`.
-The exact DLL is retained beside it as `b36d2837-version.dll`. Nine source/
+SHA256 `bdec1bc7dd4e1c0c2a4875f35050c080d20f06ad6ab9db9602058011050decc0`.
+The exact DLL is retained beside it as `b36d2837-version.dll`. Ten source/player/
 executable/build/cycle/runtime/store evidence files and their hashes are recorded
 there; logs and receipts live under
 `D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/`.
@@ -211,10 +214,10 @@ reference `play-dev-ripper@b36d2837`. AXF uses the existing canonical Downstream
 memory scope; its unrelated branch metadata is not the source selector for this
 worktree. This was not a Runner-created frame or governed execution.
 
-The inventory/catalog preserve historical assessments and distinguish the
-currently deployed source from the previous player-accepted MAP8 checkpoint.
-The next step is finishing these focused player checks, then choosing another
-source-grounded cohort from the inventory. Keep native tow/index ordering,
+The inventory/catalog preserve historical assessments and distinguish current
+basic selection/screen acceptance from still-unqualified native cases. The next
+step is choosing another source-grounded cohort while retaining focused native
+checks when their situations occur naturally. Keep native tow/index ordering,
 rare ability recovery, macOS, historical repair protection, pan momentum,
 Settings visuals and the GetComponent diagnostic explicit rather than folding
 them into an overall parity claim. No push, merge, PLAY replacement, release,

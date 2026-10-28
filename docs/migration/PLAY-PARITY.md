@@ -541,8 +541,10 @@ and Discovery towing. Complete frozen-source contracts distinguish existing
 consumers from lifecycle/availability corrections. The combined Windows
 controlled-runtime suite passed 382/382 build/run/install steps with assertions
 enabled. Candidate `b36d2837` passed 41/41 native build steps and the normal
-main-game cycle with all71 groups/frame ready and five stores unchanged. Player
-checks are requested/pending; real UI transitions, native tow acceptance/resource
-behavior and macOS remain separate. Exact evidence belongs in that cohort.
+main-game cycle with all71 groups/frame ready and five stores unchanged. The
+ordinary selection/screen trial was accepted ("looks good to me"). Live tow,
+rare cooldown recovery and macOS remain separate. The contained GetComponent
+diagnostic recurred during the trial and remains an explicit unresolved follow-up.
+Exact evidence belongs in that cohort.
 Runner's native execution stayed held; three workers and integration used direct
 collaboration. No overall parity or release claim is made.

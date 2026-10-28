@@ -28,8 +28,17 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
         ],
-        "exactCandidateRuntime": "b36d2837 Windows client273 main ordinary PID48004:41/41 native build steps; all71 groups/frame ready; zero errors in startup snapshot; five stores unchanged after cycle. Player workflow requested/pending; live tow and rare recovery not claimed.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "b36d2837 Windows273 main ordinary PID48004:41/41 native steps,71 groups/frame ready, five stores unchanged. Guff ordinary selection/screen trial:looks good to me. Post-trial contained/rate-limited GetComponent NullReference recurred; caller/cause unqualified. Live tow/rare recovery/macOS not confirmed.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "b36d28377318953e532597fb1191a47f114ee92c",
+            "installedSha256": "ff4ebe50268e98bf230c10e693fe1e6dd9ba12dfeaac6ae1046f7371bf391612",
+            "platform": "Windows client273 main ordinary",
+            "behavior": "Number selection/repeat-locate, Ship Swap/Officer Swap/Presets shortcuts and Back/Escape",
+            "result": "Guff:looks good to me. Basic combined acceptance; optional live tow/rare recovery not specifically confirmed."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
       "restorationCommits": [
@@ -37,7 +46,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-FLEET-SELECT.md",
-      "catalogStatus": "382/382 Windows steps and native boot qualified; player workflow and macOS checks pending",
+      "catalogStatus": "Basic Windows selection/screen workflow accepted; extended native/platform edges separate",
       "userEntryPoint": "Configured ship-selection keys and SelectCurrent; existing Controls/Preview preferences",
       "branchObservations": [
         {
@@ -81,7 +90,7 @@
           "contract": "docs/migration/features/PLAY-FLEET-SELECT.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "382/382 local Windows steps;41/41 native build steps;71 groups/frame ready and five stores unchanged after cycle. Player checks requested/pending; live tow/rare ability recovery/macOS remain unqualified.",
+          "verification": "382/382 Windows suite,41/41 native steps,71 groups/frame ready, five stores unchanged; ordinary selection/screen player trial accepted. One contained GetComponent diagnostic remains separate. Live tow/rare recovery/macOS unconfirmed.",
           "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
@@ -117,7 +126,7 @@
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
           "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
         ],
-        "exactCandidateRuntime": "b36d2837 Windows client273 main ordinary PID48004:41/41 native build steps; all71 groups/frame ready; zero errors in startup snapshot; five stores unchanged after cycle. Player workflow requested/pending; live tow and rare recovery not claimed.",
+        "exactCandidateRuntime": "b36d2837 Windows273 main ordinary PID48004:41/41 native steps,71 groups/frame ready, five stores unchanged. Guff ordinary selection/screen trial:looks good to me. Post-trial contained/rate-limited GetComponent NullReference recurred; caller/cause unqualified. Live tow/rare recovery/macOS not confirmed.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
@@ -126,7 +135,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-FLEET-TOW.md",
-      "catalogStatus": "382/382 Windows steps and native boot qualified; player workflow and macOS checks pending",
+      "catalogStatus": "Windows source/adapter/build/boot qualified; live tow or rare cooldown recovery unconfirmed",
       "userEntryPoint": "Shift + configured ship shortcut with Discovery and native tow eligibility; operator-chosen trial only",
       "branchObservations": [
         {
@@ -170,7 +179,7 @@
           "contract": "docs/migration/features/PLAY-FLEET-TOW.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "382/382 local Windows steps;41/41 native build steps;71 groups/frame ready and five stores unchanged after cycle. Player checks requested/pending; live tow/rare ability recovery/macOS remain unqualified.",
+          "verification": "382/382 Windows suite,41/41 native steps,71 groups/frame ready, five stores unchanged; ordinary selection/screen player trial accepted. One contained GetComponent diagnostic remains separate. Live tow/rare recovery/macOS unconfirmed.",
           "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
@@ -393,7 +402,7 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
         ],
-        "exactCandidateRuntime": "b36d2837 Windows client273 main ordinary PID48004:41/41 native build steps; all71 groups/frame ready; zero errors in startup snapshot; five stores unchanged after cycle. Player workflow requested/pending; live tow and rare recovery not claimed.",
+        "exactCandidateRuntime": "b36d2837 Windows273 main ordinary PID48004:41/41 native steps,71 groups/frame ready, five stores unchanged. Guff ordinary selection/screen trial:looks good to me. Post-trial contained/rate-limited GetComponent NullReference recurred; caller/cause unqualified. Live tow/rare recovery/macOS not confirmed.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
@@ -402,7 +411,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-FLEET-ABILITY-RECOVERY.md",
-      "catalogStatus": "382/382 Windows steps and native boot qualified; player workflow and macOS checks pending",
+      "catalogStatus": "Windows source/adapter/build/boot qualified; live tow or rare cooldown recovery unconfirmed",
       "userEntryPoint": "Existing fleet ability panel after native cooldown expiry; repairs button availability, never auto-activates",
       "branchObservations": [
         {
@@ -446,7 +455,7 @@
           "contract": "docs/migration/features/PLAY-FLEET-ABILITY-RECOVERY.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "382/382 local Windows steps;41/41 native build steps;71 groups/frame ready and five stores unchanged after cycle. Player checks requested/pending; live tow/rare ability recovery/macOS remain unqualified.",
+          "verification": "382/382 Windows suite,41/41 native steps,71 groups/frame ready, five stores unchanged; ordinary selection/screen player trial accepted. One contained GetComponent diagnostic remains separate. Live tow/rare recovery/macOS unconfirmed.",
           "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
@@ -2188,8 +2197,17 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
         ],
-        "exactCandidateRuntime": "b36d2837 Windows client273 main ordinary PID48004:41/41 native build steps; all71 groups/frame ready; zero errors in startup snapshot; five stores unchanged after cycle. Player workflow requested/pending; live tow and rare recovery not claimed.",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "b36d2837 Windows273 main ordinary PID48004:41/41 native steps,71 groups/frame ready, five stores unchanged. Guff ordinary selection/screen trial:looks good to me. Post-trial contained/rate-limited GetComponent NullReference recurred; caller/cause unqualified. Live tow/rare recovery/macOS not confirmed.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "b36d28377318953e532597fb1191a47f114ee92c",
+            "installedSha256": "ff4ebe50268e98bf230c10e693fe1e6dd9ba12dfeaac6ae1046f7371bf391612",
+            "platform": "Windows client273 main ordinary",
+            "behavior": "Number selection/repeat-locate, Ship Swap/Officer Swap/Presets shortcuts and Back/Escape",
+            "result": "Guff:looks good to me. Basic combined acceptance; optional live tow/rare recovery not specifically confirmed."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
       "restorationCommits": [
@@ -2197,7 +2215,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-SCREEN-ACTIONS.md",
-      "catalogStatus": "382/382 Windows steps and native boot qualified; player workflow and macOS checks pending",
+      "catalogStatus": "Basic Windows selection/screen workflow accepted; extended native/platform edges separate",
       "userEntryPoint": "Configured screen, Ship Swap, Officer Swap, Presets and arrow/search shortcuts",
       "branchObservations": [
         {
@@ -2241,7 +2259,7 @@
           "contract": "docs/migration/features/PLAY-SCREEN-ACTIONS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-04.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "382/382 local Windows steps;41/41 native build steps;71 groups/frame ready and five stores unchanged after cycle. Player checks requested/pending; live tow/rare ability recovery/macOS remain unqualified.",
+          "verification": "382/382 Windows suite,41/41 native steps,71 groups/frame ready, five stores unchanged; ordinary selection/screen player trial accepted. One contained GetComponent diagnostic remains separate. Live tow/rare recovery/macOS unconfirmed.",
           "execution": "Direct three-worker collaboration and local tooling; Runner native execution remains held.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
@@ -6631,9 +6649,9 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Development integration: fleet/navigation source, local suite and native boot qualified. Player workflow pending; acceptedCheckpoint retains previous MAP8 player acceptance. Not release or overall parity.",
+    "status": "Development integration: source/adapter/native build qualified; basic Windows selection/screen trial accepted. Live tow, rare recovery and Mac remain open. Not release or overall parity.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
-    "acceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+    "acceptedCheckpoint": "b36d28377318953e532597fb1191a47f114ee92c",
     "obsoleteLocalPointer": {
       "ref": "integration/ripper-foundation-m1b-20261025",
       "revision": "9a2018affa88915cfbf45803945637a64b95068f",
@@ -6646,7 +6664,7 @@
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
     "currentSourceCommit": "b36d28377318953e532597fb1191a47f114ee92c",
     "artifactSha256": "ff4ebe50268e98bf230c10e693fe1e6dd9ba12dfeaac6ae1046f7371bf391612",
-    "qualification": "Cohort04:382/382 offline steps,41/41 native steps,71 groups/frame ready, five stores unchanged. Ordinary player trial requested; live tow/server/resource behavior, rare cooldown repair and macOS remain separately unqualified.",
+    "qualification": "Cohort04:382/382 offline,41/41 native,71 groups/frame ready, five stores unchanged. Guff:looks good to me on ordinary selection/screen trial. Same previously observed GetComponent exception recurred, contained and rate-limited; caller/cause unknown. Live tow/rare recovery/macOS separate.",
     "currentRuntime": {
       "sourceCommit": "b36d28377318953e532597fb1191a47f114ee92c",
       "buildMode": "releasedbg",
@@ -6656,7 +6674,7 @@
       "pidAtQualification": 48004,
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
       "receipt": "D:/dev/stfc-workspace/artifacts/fleet-navigation-cohort-20261027/qualification.json",
-      "status": "Native build/boot qualified; player workflow pending"
+      "status": "Native build/boot and basic selection/screen player trial accepted; live tow and rare recovery not confirmed"
     },
     "pendingCohort": {
       "document": "docs/migration/FEATURE-COHORT-20261027-04.md",
@@ -6666,7 +6684,7 @@
         "PLAY-FLEET-TOW",
         "PLAY-SCREEN-ACTIONS"
       ],
-      "status": "b36d2837 deployed and boot-qualified; player trial requested. Preserve previous accepted MAP8 checkpoint until feedback."
+      "status": "b36d2837 basic Windows selection/screen trial accepted; remaining operator qualification is live tow/rare cooldown recovery and extended native/platform edges."
     },
     "previousRuntime": {
       "sourceCommit": "8c306f892627c2f6304d57eec70f98c4581a5366",
@@ -6677,6 +6695,7 @@
       "pidAtQualification": 57292,
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
       "receipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
-    }
+    },
+    "previousAcceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366"
   }
 }
