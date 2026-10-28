@@ -2688,13 +2688,69 @@
       "verificationProcedure": "Neither/each/both techs, same-hull distinct ships, missing donors, pooling and pin coexistence.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "historicalPlayerEvidence": "Older basic Windows acceptance retained in CHAT-AVATAR-RETENTION.md or PLAY-RESTORATION-PLAN.md; not a new current-candidate trial."
       },
-      "dependenciesAndLimitations": "Neither/each/both techs, same-hull distinct ships, missing donors, pooling and pin coexistence.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-SHIP-TECH-ART.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "Swap Ship tiles; existing ship technology and backing controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "not assessed",
+          "evidence": "docs/migration/features/PLAY-SHIP-TECH-ART.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-SHIP-TECH-ART.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-SHIP-TECH-ART.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-SHIP-TECH-ART.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-SHIP-TECH-ART.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Neither/each/both techs, same-hull distinct ships, missing donors, pooling and pin coexistence."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-FLEET-BADGES",
@@ -2713,13 +2769,69 @@
       "verificationProcedure": "User confirmed own vs foreign labels in prior build; still exercise pooled rebind, dock reorder, remap and native mode on final artifact.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "historicalPlayerEvidence": "Older basic Windows acceptance retained in CHAT-AVATAR-RETENTION.md or PLAY-RESTORATION-PLAN.md; not a new current-candidate trial."
       },
-      "dependenciesAndLimitations": "User confirmed own vs foreign labels in prior build; still exercise pooled rebind, dock reorder, remap and native mode on final artifact.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-BADGES.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "Own system-fleet labels; Fleet Labels shortcut badge control",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "docs/migration/features/PLAY-FLEET-BADGES.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-BADGES.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-BADGES.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-BADGES.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-BADGES.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "User confirmed own vs foreign labels in prior build; still exercise pooled rebind, dock reorder, remap and native mode on final artifact."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-FLEET-LABELS",
@@ -2738,15 +2850,70 @@
       "verificationProcedure": "All profiles/kinds, live threshold and native restoration; release/rebind from native LOD callbacks; exact-generation custody.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Live Settings writes queue owner refresh; current-camera profile comparisons catch TOML reloads. Qualified Native profiles reset targets before/after original with weak-owner generations. Actual live switch/Native restoration trial pending.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-LABELS.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "System fleet labels and existing detail/threshold controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-LABELS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-LABELS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-LABELS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-LABELS.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-LABELS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Live Settings writes queue owner refresh; current-camera profile comparisons catch TOML reloads. Qualified Native profiles reset targets before/after original with weak-owner generations. Actual live switch/Native restoration trial pending."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-FLEET-OPC",
@@ -2765,13 +2932,68 @@
       "verificationProcedure": "Known/unknown cargo/rate, protected threshold crossing, depletion, fleet replacement, independent toggles and pooling.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Known/unknown cargo/rate, protected threshold crossing, depletion, fleet replacement, independent toggles and pooling.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FLEET-OPC.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "Fleet panel/card SAFE, OPC and mining ETA; two independent existing controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-OPC.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-OPC.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-OPC.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-FLEET-OPC.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-OPC.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Known/unknown cargo/rate, protected threshold crossing, depletion, fleet replacement, independent toggles and pooling."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-CAMERA-ZOOM",
@@ -3795,13 +4017,68 @@
       "verificationProcedure": "Cadet/Veil availability combinations, swipe, messages and live disable. Preview redirection difference needs final disposition.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Cadet/Veil availability combinations, swipe, messages and live disable. Preview redirection difference needs final disposition.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CHAT-CHANNELS.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-CHANNELS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-CHANNELS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-CHANNELS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-CHANNELS.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-CHAT-CHANNELS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Cadet/Veil availability combinations, swipe, messages and live disable. Preview redirection difference needs final disposition."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-CHAT-AVATARS",
@@ -3820,13 +4097,69 @@
       "verificationProcedure": "Prior user confirmed scroll/reopen portraits; final artifact admin/regular, absent switch and async reload pending.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "historicalPlayerEvidence": "Older basic Windows acceptance retained in CHAT-AVATAR-RETENTION.md or PLAY-RESTORATION-PLAN.md; not a new current-candidate trial."
       },
-      "dependenciesAndLimitations": "Prior user confirmed scroll/reopen portraits; final artifact admin/regular, absent switch and async reload pending.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CHAT-AVATARS.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "docs/migration/features/PLAY-CHAT-AVATARS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-AVATARS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-AVATARS.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-AVATARS.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-CHAT-AVATARS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Prior user confirmed scroll/reopen portraits; final artifact admin/regular, absent switch and async reload pending."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-CHAT-TITLES",
@@ -3845,15 +4178,70 @@
       "verificationProcedure": "Substantive bind/update/clear and nonchat profiles; exact native extent remains platform/client qualification.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Substantive bind/update/clear and nonchat profiles; exact native extent remains platform/client qualification.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CHAT-TITLES.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-TITLES.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-TITLES.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-TITLES.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-TITLES.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-CHAT-TITLES.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Substantive bind/update/clear and nonchat profiles; exact native extent remains platform/client qualification."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-CHAT-NAVIGATION",
@@ -3872,13 +4260,68 @@
       "verificationProcedure": "Closed/open side/full states, existing-input focus, channel shortcuts and disabled-tab interplay.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\tests-6.log:399/399 Windows steps; changed compiled inputs bound by source-inputs.json"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Closed/open side/full states, existing-input focus, channel shortcuts and disabled-tab interplay.",
+      "dependenciesAndLimitations": "Complete frozen-source contract and production-consumer fixture cover the listed source operations. Preserve earlier artifact-specific player feedback; current Unity rendering, real GC/detours, native lifecycle edges and macOS remain separately qualified.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CHAT-NAVIGATION.md",
+      "catalogStatus": "Frozen-source reconciled;399/399 Windows steps; exact-candidate native trial and macOS separate",
+      "userEntryPoint": "Full/side chat, channel/title controls and configured chat shortcuts",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-NAVIGATION.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-NAVIGATION.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-NAVIGATION.md: pinned source comparison; source presence is not runtime qualification"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-CHAT-NAVIGATION.md: pinned source comparison; source presence is not runtime qualification"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5ec09aa0f273cfaa7af2d6d6a81b5404c9aadbc0",
+            "candidateInputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-CHAT-NAVIGATION.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "399/399 Windows build/run/install steps with Debug assertion fixtures,12 new actual-consumer process modes plus existing regressions. Native/art/render/platform behavior separate.",
+          "execution": "Direct source-preserving collaboration, no Runner execution.",
+          "historicalRestorationNotes": {
+            "classification": "Implemented, unverified",
+            "dependenciesAndLimitations": "Closed/open side/full states, existing-input focus, channel shortcuts and disabled-tab interplay."
+          }
+        }
+      ]
     },
     {
       "id": "PLAY-ART-LOGIN",
@@ -6942,13 +7385,17 @@
     {
       "name": "GameObject duplicate SetActive and AddActionToQueue trace",
       "evidence": "PLAY installation blocks commented out; not required active functionality."
+    },
+    {
+      "name": "Chat message-list SendOnFocus",
+      "evidence": "Frozen1baa55fe hotkeys.cc declares/defines ChatMessageListLocalViewController_AboutToShow_Hook and SendOnFocus but has no installer/call site; no extra active chat feature restored in cohort20261028-01."
     }
   ],
   "catalogCoverage": "Incremental inventory: historical PLAY plus explicitly scanned frozen-play-dev capabilities. Branch metadata exists only where inspected; missing means not assessed, not absent.",
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Continued from accepted Windows gameplay checkpoint; fast-forwarded through CI/test-only d5582702. Next fleet presentation/chat sprint planned, not implemented. No overall product/platform parity or release claim.",
+    "status": "Fleet presentation/chat source reassessment implemented and399/399 Windows steps passed; native build/trial pending. No full parity or release claim.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
     "obsoleteLocalPointer": {
@@ -7015,7 +7462,8 @@
         "PLAY-CHAT-TITLES",
         "PLAY-CHAT-NAVIGATION"
       ],
-      "status": "Planned; existing implementations require source-preservation reconciliation and qualification, not assumed missing ports"
+      "status": "Implemented offline; source-inputs.json binds changed compiled inputs; native build and current player trial pending",
+      "inputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json"
     },
     "artifactSourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
   },

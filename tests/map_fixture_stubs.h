@@ -2,8 +2,6 @@
 
 // Boundaries outside the actual camera/Galaxy consumers included by the map
 // fixtures. No real scene, fleet-label registry, setting writer or orbit runs.
-bool EnsureNavigationLodUpdates()
-{ return true; }
 
 // Pan shortcut arbitration is outside this batch; the real implementation is
 // covered by its own input fixtures, not this camera consumer host.
@@ -13,8 +11,6 @@ bool Owns(unity::KeyCode)
 { return false; }
 } // namespace Shortcut
 
-void FleetLabelsFollowDepth(NavigationZoom*, NodeDepth) {}
-void FleetLabelsAfterZoom(NavigationZoom*) {}
 
 namespace navigation_orbit
 {

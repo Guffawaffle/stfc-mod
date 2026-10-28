@@ -16,6 +16,7 @@
 #include <unity/core.h>
 #include <unity/tracker.h>
 
+#include <optional>
 #include <utility>
 
 namespace
@@ -51,14 +52,18 @@ struct ChatTabs {
   int32_t veil     = -1;
   int32_t alliance = 1;
 
-  static ChatTabs Current()
+  static std::optional<ChatTabs> Current()
   {
-    auto* chat = ChatManager::Instance();
+    auto  root = il2cpp::GcHandle::Strong(ChatManager::Instance());
+    auto* chat = root.Get<ChatManager>();
     if (!chat)
-      return {};
-    const int32_t galaxy = chat->CanSeeNewbieChat() ? 1 : 0;
-    const bool    veil   = chat->CanSeeRegionalChat();
-    return {.galaxy = galaxy, .veil = veil ? galaxy + 1 : -1, .alliance = galaxy + (veil ? 2 : 1)};
+      return std::nullopt;
+    const auto cadet = chat->TryCall<"CanSeeNewbieChat", bool()>();
+    const auto veil  = chat->TryCall<"CanSeeRegionalChat", bool()>();
+    if (!cadet || !veil)
+      return std::nullopt; // Unknown availability cannot identify a tab to disable.
+    const int32_t galaxy = cadet.value ? 1 : 0;
+    return ChatTabs{.galaxy = galaxy, .veil = veil.value ? galaxy + 1 : -1, .alliance = galaxy + (veil.value ? 2 : 1)};
   }
 
   // Whether `index` is a tab the settings disable.
@@ -76,27 +81,34 @@ void FullScreenChatViewController_AboutToShow_Hook(auto original, FullScreenChat
   if (!ui.disable_galaxy_chat && !ui.disable_veil_chat)
     return;
 
-  auto*      tab_bar_view = _this->categoriesTabBarViewController();
-  auto*      tab_bar      = tab_bar_view ? tab_bar_view->tabBar() : nullptr;
-  auto*      buttons      = tab_bar ? tab_bar->data() : nullptr;
-  const auto tabs         = ChatTabs::Current();
-  for (const auto index : {tabs.galaxy, tabs.veil})
-    if (auto* button = tabs.Disabled(index) ? il2cpp::At(buttons, index) : nullptr)
-      static_cast<GenericButtonContext*>(button)->SetInteractable(false);
+  const auto tabs = ChatTabs::Current();
+  if (!tabs)
+    return;
+  auto view    = il2cpp::GcHandle::Strong(_this->categoriesTabBarViewController());
+  auto bar     = il2cpp::GcHandle::Strong(view ? view.Get<TabBarViewController>()->tabBar() : nullptr);
+  auto buttons = il2cpp::GcHandle::Strong(bar ? bar.Get<TabBar>()->data() : nullptr);
+  for (const auto index : {tabs->galaxy, tabs->veil}) {
+    auto button = il2cpp::GcHandle::Strong(
+        tabs->Disabled(index) ? il2cpp::At(buttons.Get<il2cpp::List<il2cpp::Object*>>(), index) : nullptr);
+    if (auto* context = button ? button.Get<il2cpp::Object>()->As<GenericButtonContext>() : nullptr)
+      context->SetInteractable(false);
+  }
 }
 
 // Selecting a disabled tab (with the keyboard, say) does nothing.
 void FullScreenChatViewController_OnDidChangeSelectedTab_Hook(auto original, FullScreenChatViewController* _this,
                                                               int32_t index, void* tab)
 {
-  if (!ChatTabs::Current().Disabled(index))
+  const auto tabs = ChatTabs::Current();
+  if (!tabs || !tabs->Disabled(index))
     original(_this, index, tab);
 }
 
 // Lines the preview's scroller up with the alliance panel.
 void FocusAlliance(ChatPreviewController* preview, int32_t alliance)
 {
-  if (auto* scroller = preview->swipeScroller(); scroller && scroller->currentContentIndex() != alliance)
+  auto root = il2cpp::GcHandle::Strong(preview->swipeScroller());
+  if (auto* scroller = root.Get<SwipeScroller>(); scroller && scroller->currentContentIndex() != alliance)
     scroller->FocusOnInstantly(alliance);
 }
 
@@ -104,23 +116,23 @@ void ChatPreviewController_AboutToShow_Hook(auto original, ChatPreviewController
 {
   original(_this);
   // The preview reopens on the last panel; move off it only if that channel is disabled.
-  auto*      scroller = _this->swipeScroller();
-  const auto tabs     = ChatTabs::Current();
-  if (scroller && tabs.Disabled(scroller->currentContentIndex())) {
+  const auto tabs = ChatTabs::Current();
+  auto       root = il2cpp::GcHandle::Strong(tabs ? _this->swipeScroller() : nullptr);
+  if (auto* scroller = root.Get<SwipeScroller>(); scroller && tabs->Disabled(scroller->currentContentIndex())) {
     _this->SetFocusedPanel(ChatChannelCategory::Alliance);
-    FocusAlliance(_this, tabs.alliance);
+    FocusAlliance(_this, tabs->alliance);
   }
 }
 
 void ChatPreviewController_OnPanelFocused_Hook(auto original, ChatPreviewController* _this, int32_t index)
 {
   const auto tabs = ChatTabs::Current();
-  if (!tabs.Disabled(index))
+  if (!tabs || !tabs->Disabled(index))
     return original(_this, index);
   // Swiped onto a disabled channel: focus alliance before the game handles the change, then line the scroller up.
   _this->SetFocusedPanel(ChatChannelCategory::Alliance);
-  original(_this, tabs.alliance);
-  FocusAlliance(_this, tabs.alliance);
+  original(_this, tabs->alliance);
+  FocusAlliance(_this, tabs->alliance);
 }
 
 void ChatPreviewController_OnGlobalMessageReceived_Hook(auto original, ChatPreviewController* _this, void* message)
@@ -141,12 +153,16 @@ void ChatPreviewController_OnRegionalMessageReceived_Hook(auto original, ChatPre
 
 void HideChatTitle(UserProfileWidget* profile)
 {
-  auto* title     = profile ? profile->playerTitleWidget() : nullptr;
-  auto* transform = title ? profile->transform() : nullptr;
-  if (!transform || !transform->FindInParents<ChatMessageWidget>())
+  auto owner = il2cpp::GcHandle::Strong(profile);
+  if (!owner)
     return;
-  if (auto* object = title->gameObject())
-    object->SetActive(false);
+  auto row = il2cpp::GcHandle::Strong(chat_title_binding::Parent<ChatMessageWidget>(profile));
+  if (!row)
+    return;
+  auto title  = il2cpp::GcHandle::Strong(profile->playerTitleWidget());
+  auto object = il2cpp::GcHandle::Strong(title ? title.Get<PlayerTitleWidget>()->gameObject() : nullptr);
+  if (object)
+    object.Get<unity::GameObject>()->SetActive(false);
 }
 
 // The game shows the title again on every update, so it is hidden after each one.
@@ -163,23 +179,24 @@ void PlayerTitleWidget_Bind_Hook(auto original, PlayerTitleWidget* _this)
   original(_this);
   if (Config::Get().ui.show_player_title)
     return;
-  if (auto* transform = _this->transform())
-    HideChatTitle(transform->FindInParents<UserProfileWidget>());
+  auto profile = il2cpp::GcHandle::Strong(chat_title_binding::Parent<UserProfileWidget>(_this));
+  HideChatTitle(profile.Get<UserProfileWidget>());
 }
 
 bool InstallChat()
 {
   il2cpp::HookSet hooks("Chat");
-  IL2CPP_STAGE(hooks, FullScreenChatViewController::Class::Method("AboutToShow"),
+  IL2CPP_STAGE(hooks, FullScreenChatViewController::Class::Method<void()>("AboutToShow"),
                FullScreenChatViewController_AboutToShow_Hook);
-  IL2CPP_STAGE(hooks, FullScreenChatViewController::Class::Method("OnDidChangeSelectedTab"),
+  IL2CPP_STAGE(hooks, FullScreenChatViewController::Class::Method<void(int32_t, void*)>("OnDidChangeSelectedTab"),
                FullScreenChatViewController_OnDidChangeSelectedTab_Hook);
-  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method("AboutToShow"), ChatPreviewController_AboutToShow_Hook);
-  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method("OnPanelFocused"),
+  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method<void()>("AboutToShow"),
+               ChatPreviewController_AboutToShow_Hook);
+  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method<void(int32_t)>("OnPanelFocused"),
                ChatPreviewController_OnPanelFocused_Hook);
-  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method("OnGlobalMessageReceived"),
+  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method<void(void*)>("OnGlobalMessageReceived"),
                ChatPreviewController_OnGlobalMessageReceived_Hook);
-  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method("OnRegionalMessageReceived"),
+  IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method<void(void*)>("OnRegionalMessageReceived"),
                ChatPreviewController_OnRegionalMessageReceived_Hook);
   return hooks.Commit();
 }
@@ -201,8 +218,8 @@ bool InstallChatAvatarRetention()
 
 bool InstallChatTitles()
 {
-  void*           update_entry = il2cpp::CheckedEntry(UserProfileWidget::Class::Method("UpdatePlayerTitle", 0));
-  void*           bind_entry   = il2cpp::CheckedEntry(PlayerTitleWidget::Class::Method("SetIdentifiers", 0));
+  void*           update_entry = il2cpp::CheckedEntry(UserProfileWidget::Class::Method<void()>("UpdatePlayerTitle"));
+  void*           bind_entry   = il2cpp::CheckedEntry(PlayerTitleWidget::Class::Method<void()>("SetIdentifiers"));
   il2cpp::HookSet hooks("ChatTitles");
   IL2CPP_STAGE_AT(hooks, update_entry, UserProfileWidget_UpdatePlayerTitle_Hook);
   if (bind_entry != update_entry)
@@ -216,16 +233,22 @@ void OpenChatShortcut()
   const bool side = Shortcut::IsDown(Action::kShowChatSide1) || Shortcut::IsDown(Action::kShowChatSide2);
   if (!side && !Shortcut::IsDown(Action::kShowChat))
     return;
-  auto* chat = ChatManager::Instance();
+  auto  manager = il2cpp::GcHandle::Strong(ChatManager::Instance());
+  auto* chat    = manager.Get<ChatManager>();
   if (!chat)
     return;
 
   // With side chat already open, the shortcut focuses its input instead.
-  if (chat->IsSideChatOpen()) {
-    auto* view = unity::Newest<FullScreenChatViewController>();
-    auto* list = view ? view->messageList() : nullptr;
-    if (auto* input = list ? list->inputField() : nullptr)
-      input->ActivateInputField();
+  const auto side_open = chat->TryCall<"get_IsSideChatOpen", bool()>();
+  if (!side_open)
+    return;
+  if (side_open.value) {
+    auto view = il2cpp::GcHandle::Strong(unity::Newest<FullScreenChatViewController>());
+    auto list = il2cpp::GcHandle::Strong(view ? view.Get<FullScreenChatViewController>()->messageList() : nullptr);
+    auto input =
+        il2cpp::GcHandle::Strong(list ? list.Get<ChatMessageListLocalViewController>()->inputField() : nullptr);
+    if (input)
+      input.Get<unity::TMP_InputField>()->ActivateInputField();
   } else {
     chat->OpenChannel(ChatChannelCategory::Alliance, side ? ChatViewMode::Side : ChatViewMode::Fullscreen);
   }
@@ -233,7 +256,8 @@ void OpenChatShortcut()
 
 bool ChatChannelShortcuts()
 {
-  auto* chat = ChatManager::Instance();
+  auto  manager = il2cpp::GcHandle::Strong(ChatManager::Instance());
+  auto* chat    = manager.Get<ChatManager>();
   if (!chat)
     return false;
   for (const auto [shortcut, channel] : {std::pair{Action::kSelectChatGlobal, ChatChannelCategory::Global},

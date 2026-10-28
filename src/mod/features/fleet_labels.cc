@@ -61,7 +61,7 @@ public:
       case FleetLabelDetail::kCompact:
         return ZoomLevels::Far;
       case FleetLabelDetail::kThreshold:
-        if (!camera_.zoom_known)
+        if (!camera_.zoom_known || !camera_.normalized_known)
           return native;
         return ExpandedAt(profile->zoom_threshold) ? expanded : ZoomLevels::Far;
       default:
@@ -120,7 +120,7 @@ public:
     if (!installed_)
       return;
     if (depth == NodeDepth::SolarSystem)
-      Follow(zoom);
+      (void)Follow(zoom);
     else if (camera_.zoom == zoom) {
       camera_ = {};
       ++camera_revision_;
@@ -130,30 +130,58 @@ public:
   // After the camera's own update: picks up the zoom level and re-applies labels when they change.
   void OnZoomed(NavigationZoom* zoom)
   {
-    if (!installed_ || zoom->depth() != NodeDepth::SolarSystem)
+    if (!installed_)
       return;
+    auto       owner = il2cpp::GcHandle::Strong(zoom);
+    const auto depth = owner ? zoom->TryDepth() : il2cpp::CallResult<NodeDepth>{};
+    if (!depth || depth.value != NodeDepth::SolarSystem) {
+      if (camera_.zoom == zoom) {
+        camera_ = {};
+        ++camera_revision_;
+      }
+      return;
+    }
     if (refreshing_) {
       // An unchanged nested update needs no second batch. A different camera retires the current one.
       if (camera_.zoom != zoom) {
-        Follow(zoom);
+        (void)Follow(zoom);
         refresh_pending_ = true;
       }
       return;
     }
-    Follow(zoom);
+    if (!Follow(zoom))
+      return;
     // Copy profiles, including values changed by a TOML reload. No Config reference survives native callbacks.
-    const auto profiles  = CurrentProfiles();
-    const bool changed   = !profiles_known_ || !SameProfiles(profiles_, profiles);
-    const bool refresh   = std::exchange(refresh_pending_, false) || changed;
-    profiles_            = profiles;
-    profiles_known_      = true;
-    const bool was_known = camera_.zoom_known;
-    camera_.zoom_level   = zoom->zoomLevel();
-    camera_.zoom_known   = true;
+    const auto profiles        = CurrentProfiles();
+    const bool changed         = !profiles_known_ || !SameProfiles(profiles_, profiles);
+    const bool refresh         = std::exchange(refresh_pending_, false) || changed;
+    profiles_                  = profiles;
+    profiles_known_            = true;
+    const bool was_known       = camera_.zoom_known;
+    const auto camera_revision = camera_revision_;
+    const auto level           = zoom->TryZoomLevel();
+    if (!level || level.value < ZoomLevels::Near || level.value > ZoomLevels::Far) {
+      camera_.zoom_known = camera_.normalized_known = camera_.threshold_known = false;
+      return;
+    }
+    camera_.zoom_level = level.value;
+    camera_.zoom_known = true;
     if (refresh)
       camera_.threshold_known = false;
     if (UsesThreshold()) {
-      camera_.normalized_zoom = zoom->NormalizedZoom();
+      const auto normalized = zoom->TryNormalizedZoom();
+      if (camera_revision_ != camera_revision || !SameProfiles(profiles, CurrentProfiles())) {
+        refresh_pending_ = true;
+        return;
+      }
+      camera_.normalized_known =
+          normalized && std::isfinite(normalized.value) && normalized.value >= 0.f && normalized.value <= 1.f;
+      if (!camera_.normalized_known) {
+        camera_.threshold_known = false;
+        ApplyAll();
+        return;
+      }
+      camera_.normalized_zoom = normalized.value;
       UpdateThreshold();
     } else {
       camera_.threshold_known = false;
@@ -216,12 +244,18 @@ private:
   bool ExpandedAt(float threshold) const
   { return threshold > 0.0f && (threshold >= 1.0f || camera_.normalized_zoom <= threshold); }
 
-  void Follow(NavigationZoom* zoom)
+  bool Follow(NavigationZoom* zoom)
   {
-    if (camera_.zoom != zoom) {
-      camera_ = {.zoom = zoom};
+    if (camera_.zoom != zoom || camera_.owner.Get() != zoom) {
+      auto weak = il2cpp::GcHandle::Weak(zoom);
+      camera_   = {};
       ++camera_revision_;
+      if (!weak)
+        return false;
+      camera_.zoom  = zoom;
+      camera_.owner = std::move(weak);
     }
+    return true;
   }
 
   // UpdateLOD goes through the hook, which picks each label's level.
@@ -289,10 +323,12 @@ private:
 
   // What is known of the system camera's zoom. A new camera starts over.
   struct Camera {
-    NavigationZoom* zoom            = nullptr;
-    bool            zoom_known      = false;
-    ZoomLevels      zoom_level      = ZoomLevels::None;
-    float           normalized_zoom = 0.0f;
+    NavigationZoom*  zoom = nullptr;
+    il2cpp::GcHandle owner;
+    bool             zoom_known       = false;
+    ZoomLevels       zoom_level       = ZoomLevels::None;
+    float            normalized_zoom  = 0.0f;
+    bool             normalized_known = false;
     // Whether player and non-player threshold labels were last expanded, once threshold_known.
     bool threshold_known     = false;
     bool player_expanded     = false;
@@ -319,7 +355,10 @@ void NavigationLOD_UpdateLOD_Hook(auto original, NavigationLOD* _this, ZoomLevel
     const auto galaxy = galaxy_controls::LodLevel(_this, level);
     if (galaxy != level)
       _this->SetTargetLevel(galaxy);
-    return original(_this, galaxy);
+    original(_this, galaxy);
+    if (galaxy != level && !fleet_labels.Revision(_this) && unity::Alive(_this))
+      _this->SetTargetLevel(galaxy);
+    return;
   }
   auto owner = il2cpp::GcHandle::Strong(_this);
   if (!owner || fleet_labels.Revision(_this) != revision)
@@ -341,6 +380,7 @@ void NavigationFleetWidget_OnEnable_Hook(auto original, NavigationFleetWidget* _
 
 void NavigationFleetWidget_OnDidBindContext_Hook(auto original, NavigationFleetWidget* _this)
 {
+  ship_shortcut_badges::Release(_this);
   original(_this);
   fleet_labels.Track(_this);
   ship_shortcut_badges::Bind(_this);
@@ -362,9 +402,8 @@ void NavigationFleetWidget_OnAboutToReleaseContext_Hook(auto original, Navigatio
 
 bool InstallFleetLabels()
 {
-  // Installed whether or not zoom_label_* is set, so labels can be switched at runtime. Missing fields and
-  // properties (_lod, Context, FleetType) read as null or zero, which the hooks treat as native labels. The zoom
-  // reports come from camera.cc's NavigationZoom.Update hook, so that method has to exist too.
+  // Install independently of the current profiles so they can change live. Unqualified fleet/camera observations
+  // retain native detail. Zoom reports come from camera.cc's shared NavigationZoom.Update owner.
   if (!EnsureNavigationZoomUpdates() || !EnsureNavigationFleetLifecycle())
     return false;
   // camera.cc's zoom hooks report here whether or not this installed; they only count once it has.

@@ -526,6 +526,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             store_case.addArg(mode);
             test_il2cpp.dependOn(&store_case.step);
         }
+        inline for (.{ "fleet-presentation-native", "fleet-presentation-missing-index", "fleet-presentation-missing-zoom", "fleet-presentation-missing-level", "chat-native-channels", "chat-native-avatars", "chat-native-titles", "chat-native-navigation", "opc-consumer-lifecycle", "opc-consumer-render", "opc-consumer-sample", "ship-tech-donors" }) |mode| {
+            const presentation_case = b.addRunArtifact(exe);
+            presentation_case.addArg(mode);
+            test_il2cpp.dependOn(&presentation_case.step);
+        }
         if (ctx.isWindows()) inline for (.{ "cargo-native", "cargo-context-pointer", "cargo-snap-invalid", "cargo-inherited-hook", "cargo-format-signature" }) |mode| {
             const cargo_case = b.addRunArtifact(exe);
             cargo_case.addArg(mode);

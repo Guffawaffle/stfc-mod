@@ -55,6 +55,8 @@ Il2CppObject* (*tow_object_new_override)(const Il2CppClass*, bool& handled) = nu
 Il2CppObject* (*tow_runtime_invoke_override)(const MethodInfo*, void*, void**, Il2CppException**,
                                              bool& handled)                 = nullptr;
 bool (*tow_static_field_read_override)(FieldInfo*, void*)                   = nullptr;
+// Optional per-class reflection identity for production UI-consumer fixtures.
+Il2CppObject* (*type_object_override)(const Il2CppType*)                     = nullptr;
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held_keys{}, down_keys{};
 
 void KeyboardSnapshot()
@@ -952,8 +954,8 @@ API(Il2CppMethodPointer, il2cpp_resolve_icall, (const char* name))
   return call == std::end(calls) ? nullptr : call->second;
 }
 END_API
-API(Il2CppObject*, il2cpp_type_get_object, (const Il2CppType*))
-{ return &type_object; }
+API(Il2CppObject*, il2cpp_type_get_object, (const Il2CppType* type))
+{ return type_object_override ? type_object_override(type) : &type_object; }
 END_API
 API(char*, il2cpp_type_get_name, (const Il2CppType* type))
 {
@@ -1012,6 +1014,11 @@ API(void*, il2cpp_object_unbox, (Il2CppObject * object))
   if (object == &warp_vector_box.header)
     return &warp_vector_box.value;
   return object->klass == &long_class.klass ? static_cast<void*>(&queue_boxed_target) : &shared_result;
+}
+END_API
+API(Il2CppObject*, il2cpp_value_box, (Il2CppClass*, void*))
+{
+  throw std::logic_error("this controlled runtime does not simulate native UI value boxing");
 }
 END_API
 API(Il2CppObject*, il2cpp_runtime_invoke,
@@ -1823,8 +1830,12 @@ void PlannedWarpBindingObservations()
 #include "camera_bindings_cases.h"
 #include "galaxy_presentation_bindings_cases.h"
 #include "galaxy_selection_bindings_cases.h"
+#include "fleet_presentation_bindings_cases.h"
 #include "map_fixture_stubs.h"
 #include "alliance_store_bindings_cases.h"
+#include "chat_bindings_cases.h"
+#include "opc_indicators_bindings_cases.h"
+#include "ship_tech_bindings_cases.h"
 #if _WIN32
 #include "cargo_bindings_cases.h"
 #endif
@@ -1834,6 +1845,22 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("fleet-presentation-")) {
+    FleetPresentationCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("chat-native-")) {
+    ChatNativeCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("opc-consumer-")) {
+    OpcIndicatorsConsumerCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "ship-tech-donors") {
+    ShipTechNativeCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("store-")) {
     AllianceStoreNativeCases(argv[1]);
     return 0;

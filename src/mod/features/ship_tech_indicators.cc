@@ -8,10 +8,12 @@
 
 #include <il2cpp/il2cpp.h>
 #include <spdlog/spdlog.h>
+#include <unity/tracker.h>
 #include <unity/ui.h>
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <utility>
 #include <vector>
 
@@ -33,11 +35,14 @@ constexpr uint8_t     kRoundedBackground[]{
     0x02, 0x42, 0x5d, 0x7b, 0xec, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
 };
 struct ShipTechState {
-  bool                          installed = false, binding = false;
-  bool                          shown = true, backgrounds = false;
-  il2cpp::GcHandle              donor;
-  std::vector<il2cpp::GcHandle> tiles;
-  unity::ImageAsset             rounded;
+  bool                                  installed = false, binding = false;
+  bool                                  shown = true, backgrounds = false;
+  il2cpp::GcHandle                      donor;
+  il2cpp::GcHandle                      donor_context;
+  std::chrono::steady_clock::time_point donor_retry{};
+  bool                                  donor_fallback_attempted = false;
+  std::vector<il2cpp::GcHandle>         tiles;
+  unity::ImageAsset                     rounded;
 };
 ShipTechState& ShipTech()
 {
@@ -89,14 +94,45 @@ bool TechSelected(unity::Transform* parent)
   return object && object->activeInHierarchy();
 }
 
-Selector* TechDonor(ShipTileWidget* tile)
+Selector* TechDonor(ShipTileWidget* tile, ShipManagementViewContext* context,
+                    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now())
 {
   auto& state = ShipTech();
   if (auto* donor = state.donor.Get<Selector>(); unity::Alive(donor))
     return donor;
-  if (auto* donor = ship_tech_binding::TokenSource()) {
-    state.donor = il2cpp::GcHandle::Weak(donor);
-    return donor;
+  state.donor.Reset();
+  auto fallback = [&] { return ship_tech_binding::ShipImage(tile); };
+  if (now < state.donor_retry)
+    return fallback();
+  state.donor_retry = now + std::chrono::seconds(5);
+  auto context_root = il2cpp::GcHandle::Strong(context);
+  if (!context_root)
+    return fallback();
+  // Snapshot custody before invoking any owner/slot getters. The existing
+  // tracker owns discovery; this adds no hook or recurring Unity resource scan.
+  std::vector<il2cpp::GcHandle> owners;
+  for (auto* owner : unity::Instances<ShipManagementViewController>()) {
+    auto root = il2cpp::GcHandle::Strong(owner);
+    if (root)
+      owners.push_back(std::move(root));
+  }
+  for (auto it = owners.rbegin(); it != owners.rend(); ++it) {
+    if (auto* donor = ship_tech_binding::OwnedTokenSource(it->Get<ShipManagementViewController>())) {
+      state.donor = il2cpp::GcHandle::Weak(donor);
+      return donor;
+    }
+  }
+  // Preserve the frozen once-per-selection-context global fallback. Failed
+  // weak custody cannot authorize an unbounded stream of fallback scans.
+  if (state.donor_context.Get() != context) {
+    state.donor_context            = il2cpp::GcHandle::Weak(context);
+    state.donor_fallback_attempted = false;
+  }
+  if (state.donor_context && !std::exchange(state.donor_fallback_attempted, true)) {
+    if (auto* donor = ship_tech_binding::TokenSource()) {
+      state.donor = il2cpp::GcHandle::Weak(donor);
+      return donor;
+    }
   }
   // Preserve play's native ship-image fallback when no tech token prefab is loaded.
   return ship_tech_binding::ShipImage(tile);
@@ -110,11 +146,12 @@ bool ExcludeTechLayout(unity::GameObject* object)
   return layout && layout->ExcludeFromLayout();
 }
 
-unity::GameObject* TechIcon(ShipTileWidget* tile, unity::Transform* parent, size_t index)
+unity::GameObject* TechIcon(ShipTileWidget* tile, ShipManagementViewContext* context, unity::Transform* parent,
+                            size_t index)
 {
   if (auto* child = TechChild(parent, kIcons[index]))
     return child->gameObject();
-  auto  source   = il2cpp::GcHandle::Strong(TechDonor(tile));
+  auto  source   = il2cpp::GcHandle::Strong(TechDonor(tile, context));
   auto* donor    = source.Get<Selector>();
   auto* original = donor ? donor->gameObject() : nullptr;
   auto* object   = original ? unity::Instantiate(original, parent, false) : nullptr;
@@ -158,11 +195,12 @@ unity::GameObject* TechBacking(unity::Transform* parent, size_t index)
   return object;
 }
 
-void UpdateTechIndicator(ShipTileWidget* tile, unity::Transform* parent, size_t index, int64_t art)
+void UpdateTechIndicator(ShipTileWidget* tile, ShipManagementViewContext* context, unity::Transform* parent,
+                         size_t index, int64_t art)
 {
   if (art <= 0)
     return;
-  auto* object      = TechIcon(tile, parent, index);
+  auto* object      = TechIcon(tile, context, parent, index);
   auto  object_root = il2cpp::GcHandle::Strong(object);
   auto* selector    = object ? object->GetComponent<Selector>() : nullptr;
   auto* rect        = TechRect(object ? object->transform() : nullptr);
@@ -245,7 +283,8 @@ void Bind(ShipTileWidget* tile)
   if (!parent)
     return;
   HideTech(parent);
-  if (!tile->PinContext())
+  auto selection = il2cpp::GcHandle::Strong(tile->PinContext());
+  if (!selection)
     return;
   std::erase_if(state.tiles, [](const auto& weak) { return !weak.Get(); });
   if (std::ranges::none_of(state.tiles, [tile](const auto& weak) { return weak.Get() == tile; })) {
@@ -264,8 +303,12 @@ void Bind(ShipTileWidget* tile)
   const auto art = ship_tech_binding::EquippedArt(*ship);
   if (!art)
     return;
-  for (size_t index = 0; index < 2; ++index)
-    UpdateTechIndicator(tile, parent, index, art.value[index]);
+  for (size_t index = 0; index < 2; ++index) {
+    const auto current = tile->TryCall<"get_Context", FleetPlayerData*>();
+    if (!current || current.value != fleet || tile->PinContext() != selection.Get())
+      return;
+    UpdateTechIndicator(tile, selection.Get<ShipManagementViewContext>(), parent, index, art.value[index]);
+  }
 }
 } // namespace ship_tech_indicators
 

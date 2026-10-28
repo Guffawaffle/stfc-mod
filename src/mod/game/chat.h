@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 
 enum class ChatChannelCategory : int32_t {
   None            = -1,
@@ -42,8 +43,9 @@ struct ChatManager : MonoSingleton<ChatManager> {
 
   void OpenChannel(ChatChannelCategory category, ChatViewMode viewMode)
   {
-    SetViewMode(viewMode);
-    OpenChannel(category);
+    // An unavailable mode setter must not open a different native chat view.
+    if (TryCall<"set_ViewMode", void(ChatViewMode)>(viewMode))
+      OpenChannel(category);
   }
 };
 
@@ -107,6 +109,34 @@ struct ChatMessageWidget : unity::Component {
   // Null children need no change; false reports a runtime reference that failed qualification.
   bool RetainAvatars();
 };
+
+namespace chat_title_binding
+{
+// Prefer the native scoped lookup, including inactive rows. Older/stripped
+// clients retain the bounded hierarchy walk; no parent cache survives pooling.
+template <class T> T* Parent(unity::Component* component)
+{
+  auto  source    = il2cpp::GcHandle::Strong(component);
+  auto* reflected = T::Class::TypeObject();
+  auto  type      = il2cpp::GcHandle::Strong(reflected ? &reflected->object : nullptr);
+  if (!source || !type)
+    return nullptr;
+  const auto found = component->TryCall<"GetComponentInParent", unity::Component*(Il2CppReflectionType*, bool)>(
+      reinterpret_cast<Il2CppReflectionType*>(type.Get()), true);
+  if (found)
+    return found.value ? found.value->template As<T>() : nullptr;
+  auto transform = il2cpp::GcHandle::Strong(component->transform());
+  for (int32_t depth = 0; transform && depth < 32; ++depth) {
+    auto object = il2cpp::GcHandle::Strong(transform.Get<unity::Transform>()->gameObject());
+    if (auto* owner = object ? object.Get<unity::GameObject>()->template GetComponent<T>() : nullptr)
+      if (auto* qualified = owner->template As<T>())
+        return qualified;
+    auto parent = il2cpp::GcHandle::Strong(transform.Get<unity::Transform>()->parent());
+    transform   = std::move(parent);
+  }
+  return nullptr;
+}
+} // namespace chat_title_binding
 
 namespace chat_avatar_binding
 {

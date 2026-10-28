@@ -1,6 +1,6 @@
 # Fleet presentation and chat — next migration sprint
 
-Planned on 2026-10-28; implementation has not started. The existing
+Planned and implemented offline on 2026-10-28. The existing
 `play-dev-ripper` checkout was fast-forwarded from `4642fdda` to
 `d55827023f98243eda4a5fb7af54a9c5d5bceebc`. No gameplay changes, deployment,
 game cycle, push or change to `play`, `play-dev` or the frozen source occurred.
@@ -133,3 +133,59 @@ completion prerequisites.
 Overall functional parity remains false. This plan advances source-preserving
 closure without erasing earlier acceptance or representing code presence as
 demonstrated equivalence.
+
+## Implementation and offline qualification
+
+The eight complete contracts now live under `features/`. The existing inventory
+has 46 source-bound reassessments, up from 38; all earlier acceptance remains
+attached to its original artifact. No additional reachable capability was found.
+The unused frozen chat message-list focus hook is recorded as dormant rather
+than revived. The frozen source ref remains unchanged.
+
+- Ship technology art again uses existing owned token widgets, the five-second
+  retry and once-per-selection-context global fallback. It keeps exact native
+  equipment/art lookup and native ship-image fallback; no new global scanner.
+- Badges release the actual old text owner before native rebinding, use checked
+  dock indices and rooted collection custody, and reacquire generations after
+  native callbacks. Failed/in-flight writes do not masquerade as applied hints.
+- Fleet labels distinguish unknown zoom from legitimate zero and preserve native
+  detail when measurements are unavailable. Shared LOD callbacks restore owned
+  Galaxy overrides after native work; no new camera or hook owner is introduced.
+- OPC preserves arithmetic, cache and one-second shared refresh. Independent
+  toggles, pooled owner cleanup, changed-fleet/body/timer retry identity, checked
+  setup and stale-display hiding now match the source's complete workflow.
+  A setup failure cannot keep old OPC/ETA text visible through docking or a
+  changed observation merely because a retry deadline has not elapsed.
+- Chat keeps its documented live/selective channel correction, qualified tab
+  availability, original callback order and avatar retention. Native scoped
+  title lookup has a rooted bounded fallback. Unknown side-chat state or failed
+  mode changes do not authorize an unrelated screen action.
+
+Command: Zig 0.16, VS18 x64 SDK environment,
+`build test-mod test-il2cpp test-aai-host build-tests -Daai-host=true
+-Daai-source=D:/dev/stfc-mod/third_party/stfc-aai
+-Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug -j4
+--summary all`. **399/399 build/run/install steps passed**, including 12 new
+consumer modes and the existing Settings, presets, fleet, queue, travel, cargo,
+camera, Galaxy, hook and AAI-host regressions. This is not a count of independent
+tests or proof of real Unity rendering/native gameplay.
+
+The new fragments include actual feature implementations in the existing
+controlled IL2CPP harness. Supplied native methods, tracker contents, serialized
+objects and the explicit hint formatter boundary remain test substitutes.
+`source-inputs.json` binds changed compiled files to the passing executable.
+Evidence is under
+`D:/dev/stfc-workspace/artifacts/fleet-presentation-chat-20261028/`;
+`tests-6.log` is the final passing log. Earlier logs retain the reflection-root
+compile correction, missing fixture value-box export, and donor property's
+declaring-class correction. The missing export prevented the shared executable
+from loading; it was not 110 independent feature regressions. No guard was
+disabled and no game DLL was copied into the harness.
+
+Direct three-worker source ownership and bounded read-only correction reviews
+were used, with one coordinator integrating/building. OPC correction review
+identified stale-display/backoff and unchecked setup omissions before the final
+gate. No Runner execution or orchestration is claimed.
+
+Native build, startup, preserved-store comparison, player trial and macOS remain
+separate from these offline results and are recorded below when performed.

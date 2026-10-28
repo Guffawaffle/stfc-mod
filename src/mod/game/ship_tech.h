@@ -58,6 +58,34 @@ struct TechSlotWidget : unity::Component {
 inline ImageSelector* ShipImage(ShipTileWidget* tile)
 { return tile ? tile->Field<"_shipImage", ImageSelector*>() : nullptr; }
 
+inline ImageSelector* TokenImage(TechSlotWidget* slot)
+{
+  auto slot_root = il2cpp::GcHandle::Strong(slot);
+  if (!slot_root || !slot->Is<TechSlotWidget>() || !unity::Alive(slot))
+    return nullptr;
+  auto  image    = il2cpp::GcHandle::Strong(slot->TokenImage());
+  auto* selector = image.Get<ImageSelector>();
+  return selector && selector->Is<ImageSelector>() && unity::Alive(selector) && unity::Alive(selector->gameObject())
+             ? selector
+             : nullptr;
+}
+
+inline ImageSelector* OwnedTokenSource(ShipManagementViewController* owner)
+{
+  auto root = il2cpp::GcHandle::Strong(owner);
+  if (!root || !unity::Alive(owner))
+    return nullptr;
+  // These are the same four serialized slots used by the frozen source. A
+  // missing field leaves this donor unavailable; it does not create a slot.
+  if (auto* image = TokenImage(owner->Field<"_forbiddenTechSlot", TechSlotWidget*>()))
+    return image;
+  if (auto* image = TokenImage(owner->Field<"_forbiddenTechStatus", TechSlotWidget*>()))
+    return image;
+  if (auto* image = TokenImage(owner->Field<"_chaosTechSlot", TechSlotWidget*>()))
+    return image;
+  return TokenImage(owner->Field<"_chaosTechStatus", TechSlotWidget*>());
+}
+
 inline const MethodInfo* SlotItemGetter()
 {
   static const auto* method = [] {
@@ -164,7 +192,7 @@ inline ImageSelector* TokenSource()
     return nullptr;
   for (auto* object : il2cpp::Items(array.value)) {
     auto* slot = object ? object->As<TechSlotWidget>() : nullptr;
-    if (auto* image = slot ? slot->TokenImage() : nullptr; unity::Alive(image))
+    if (auto* image = TokenImage(slot))
       return image;
   }
   return nullptr;
