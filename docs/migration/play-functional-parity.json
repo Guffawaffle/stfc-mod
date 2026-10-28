@@ -400,18 +400,20 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions."
+          "D:/dev/stfc-workspace/.ax/fleet-navigation-cohort-20261027/tests-4.log:382/382 Windows build/run/install steps; actual selection/ability/screen/hotkey/tow adapters with explicit managed-host substitutes, including shared/virtual call routes and previous regressions.",
+          "D:/dev/stfc-workspace/.ax/ability-recovery-switch-20261027/tests.log:384/384 Windows steps; actual config defaults/four combinations/reload and modeled startup mask with real repair/maintenance frame callbacks."
         ],
-        "exactCandidateRuntime": "b36d2837 Windows273 main ordinary PID48004:41/41 native steps,71 groups/frame ready, five stores unchanged. Guff ordinary selection/screen trial:looks good to me. Post-trial contained/rate-limited GetComponent NullReference recurred; caller/cause unqualified. Live tow/rare recovery/macOS not confirmed.",
+        "exactCandidateRuntime": "7c45c3bb Windows273 main ordinary PID55080:41/41 native steps,72 feature rows and FrameTick ready, five stores unchanged. Default-on smoke only. Prior GetComponent diagnostic recurred; cause unknown. Disabled runtime, actual stuck-button recovery and macOS unverified.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete frozen-source contract records preserved operations and deliberate lifecycle/availability corrections. Controlled native consumers passed; real UI pooling, exact-client action delivery, resource behavior and macOS remain separately qualified. No settings/store format or AAI changes.",
       "restorationCommits": [
-        "b36d28377318953e532597fb1191a47f114ee92c"
+        "b36d28377318953e532597fb1191a47f114ee92c",
+        "7c45c3bb40344f05791b84cef4e84361f934b3dd"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "activationAndDependencies": "Default-on restart-only [patches].abilitybuttonrecoveryhooks, independent of hotkeyhooks/control.hotkeys_enabled. Requires object tracking and shared FrameTick. Fleet replay/cargo/tow/selection cleanup stays under hotkeyhooks; no live UI toggle or ability activation.",
       "contract": "docs/migration/features/PLAY-FLEET-ABILITY-RECOVERY.md",
-      "catalogStatus": "Windows source/adapter/build/boot qualified; live tow or rare cooldown recovery unconfirmed",
+      "catalogStatus": "Windows config/adapter/build/default-on boot qualified; naturally stuck-button recovery and macOS unconfirmed",
       "userEntryPoint": "Existing fleet ability panel after native cooldown expiry; repairs button availability, never auto-activates",
       "branchObservations": [
         {
@@ -434,9 +436,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "b36d28377318953e532597fb1191a47f114ee92c",
+          "revision": "7c45c3bb40344f05791b84cef4e84361f934b3dd",
           "presence": "present",
-          "evidence": "src/mod/features/fleet_actions.cc; complete contract/cohort04 records source and exact-candidate results"
+          "evidence": "src/mod/features/fleet_actions.cc; dedicated recovery startup switch and preserved independent housekeeping; feature contract records exact qualification."
         }
       ],
       "assessments": [
@@ -463,6 +465,21 @@
           },
           "artifactSha256": "ff4ebe50268e98bf230c10e693fe1e6dd9ba12dfeaac6ae1046f7371bf391612",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/fleet-navigation-cohort-20261027/qualification.json"
+        },
+        {
+          "version": 2,
+          "date": "2026-10-28",
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a82c3e71f793cb3d92913c967e47b122eaa664ca",
+            "implementationCommit": "7c45c3bb40344f05791b84cef4e84361f934b3dd"
+          },
+          "contract": "docs/migration/features/PLAY-FLEET-ABILITY-RECOVERY.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "384/384 Windows steps;41/41 native build; default-on72 feature rows/FrameTick ready; five stores unchanged. Disabled-switch real-game and naturally stuck recovery unverified; recurring contained GetComponent diagnostic remains separate.",
+          "execution": "Direct tools and independent final-delta review; no Runner native execution.",
+          "artifactSha256": "5c7ee3b350479aaa007d976d99769945ddbb09976465241110ef1acfdf7bd835",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/ability-recovery-switch-20261027/qualification.json"
         }
       ]
     },

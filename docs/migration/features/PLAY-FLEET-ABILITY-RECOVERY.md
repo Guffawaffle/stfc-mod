@@ -125,6 +125,25 @@ Evidence: `D:/dev/stfc-workspace/.ax/ability-recovery-switch-20261027/tests.log`
 (SHA256 `6d9fcbdaa55b5c55d37345e01e0e25a89715b4804359488093d74a7139cfecde`);
 controlled-runtime executable SHA256
 `ea464a075d7452fd70ec5f5332d91ed34150d531c7f57b61fc184d42a5e9107a`.
-Default-on native boot qualification will be recorded against the exact build;
-disabled-switch native execution, a naturally stuck button and macOS remain
-unverified. No runtime TOML edit is required for the default-on trial.
+Native candidate `7c45c3bb40344f05791b84cef4e84361f934b3dd` built
+**41/41** steps and was deployed through AX's build-before-stop Zig cycle to
+Windows client273, main ordinary PID55080. DLL SHA256:
+`5c7ee3b350479aaa007d976d99769945ddbb09976465241110ef1acfdf7bd835`.
+The full startup snapshot contains all **72** feature registration rows, both
+maintenance and recovery, and `FrameTick delivery: ready`. This counts feature
+descriptors, not native detours. The generic cycle parser's early two-row count
+was not used as complete proof.
+
+Five tracked TOML/state files were byte-identical immediately after the cycle;
+no player configuration was edited. One contained/rate-limited GetComponent
+NullReference appears at23:59:16.882; the method/symptom also appeared before this
+switch. Caller/cause remain unqualified, so this is not an error-free runtime
+claim. Disabled-switch native execution, naturally stuck-button recovery and
+macOS remain unverified.
+
+Exact receipt and retained DLL:
+`D:/dev/stfc-workspace/artifacts/ability-recovery-switch-20261027/qualification.json`
+(SHA256 `a4bd72cbffa3098d4a35bf622142b881dc138a644f7cbafbfe40f0740ef095aa`).
+Its seven evidence files include test/build/cycle/startup and before/after store
+hashes. Direct independent final-delta review found no concrete regression.
+No Runner native execution, push, merge, store migration or new checkout occurred.
