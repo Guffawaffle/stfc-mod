@@ -153,15 +153,25 @@ namespace
 
   template <class T> std::string ExactNumberText(T value)
   {
-    char       text[128];
-    const auto written = [&] {
-      if constexpr (std::is_floating_point_v<T>)
-        return std::to_chars(text, text + sizeof(text), value, std::chars_format::general,
-                             std::numeric_limits<T>::max_digits10);
-      else
-        return std::to_chars(text, text + sizeof(text), value);
-    }();
+    char text[128];
+    // Shortest round-trip text keeps the exact editor lossless without exposing
+    // unnecessary binary-decimal expansion. This never rounds a stored value.
+    const auto written = std::to_chars(text, text + sizeof(text), value);
     return written.ec == std::errc{} ? std::string(text, written.ptr) : std::string{};
+  }
+
+  template <class T> std::string NumberDisplayText(T value)
+  {
+    if constexpr (std::is_floating_point_v<T>) {
+      // PLAY's readout policy: suppress only residue near a nonzero two-decimal
+      // value. Meaningful custom precision and tiny values remain visible.
+      const auto rounded = static_cast<T>(std::round(static_cast<double>(value) * 100.0) / 100.0);
+      if (std::isfinite(rounded) && rounded != 0
+          && std::abs(rounded - value)
+                 <= 4 * std::numeric_limits<T>::epsilon() * std::max(std::abs(value), std::abs(rounded)))
+        value = rounded;
+    }
+    return ExactNumberText(value);
   }
 
   // The PLAY ExactEntry workflow, reusing the current host's page custody.
@@ -256,12 +266,12 @@ namespace
     action->status        = [setting] { return setting->status_text(); };
     action->save_status   = [setting] { return setting->save_status(); };
     action->default_label = [setting] {
-      return setting->default_value() ? ExactNumberText(*setting->default_value()) : "";
+      return setting->default_value() ? NumberDisplayText(*setting->default_value()) : "";
     };
     action->read = [setting](size_t) {
       const auto state = setting->Observe().state;
-      return ActionSetting::Presentation{setting->label(), "Edit",
-                                         state.known() ? ExactNumberText(*state.value) : "Unavailable", state.known()};
+      return ActionSetting::Presentation{
+          setting->label(), "Edit", state.known() ? NumberDisplayText(*state.value) : "Unavailable", state.known()};
     };
     action->invoke = [setting, minimum, maximum](size_t) {
       const auto snapshot = setting->Observe();

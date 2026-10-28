@@ -496,7 +496,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             queue_case.addArg(mode);
             test_il2cpp.dependOn(&queue_case.step);
         }
-        inline for (.{ "instant-warp-native", "instant-warp-missing-override" }) |mode| {
+        inline for (.{ "instant-warp-native", "instant-warp-missing-override", "settings-slider-consumer" }) |mode| {
             const warp_case = b.addRunArtifact(exe);
             warp_case.addArg(mode);
             test_il2cpp.dependOn(&warp_case.step);

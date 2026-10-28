@@ -4,6 +4,7 @@
 // binding; native choice/slider bodies are never used as discovery probes.
 #include "game/settings_actions.h"
 #include "game/settings_values.h"
+#include <functional>
 
 namespace
 {
@@ -96,11 +97,14 @@ struct ValuesListObject {
   int32_t                      count = 1;
   std::array<Il2CppObject*, 2> entries{};
 };
-int     settings_values_count_calls = 0, settings_values_item_calls = 0, settings_values_trigger_calls = 0;
-bool    settings_values_count_throws = false;
-int32_t ValuesCount(Il2CppObject* object, const MethodInfo*)
+int  settings_values_count_calls = 0, settings_values_item_calls = 0, settings_values_trigger_calls = 0;
+bool settings_values_count_throws = false;
+std::function<void()> settings_values_on_count;
+int32_t               ValuesCount(Il2CppObject* object, const MethodInfo*)
 {
   ++settings_values_count_calls;
+  if (settings_values_on_count)
+    std::exchange(settings_values_on_count, {})();
   if (settings_values_count_throws)
     throw Il2CppExceptionWrapper(&thrown);
   return reinterpret_cast<ValuesListObject*>(object)->count;

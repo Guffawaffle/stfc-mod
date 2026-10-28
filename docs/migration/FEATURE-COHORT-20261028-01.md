@@ -214,8 +214,9 @@ embedded installed identity establish the actual source below.
   Registration count is not a count of detours or player-verified features.
 - Four of five compared stores, including the state file, were byte-identical.
   The main TOML changed after launch and logged a reload. The agent made no
-  TOML edits and did not restore/overwrite the change; operator attribution was
-  requested. Do not report all five stores as unchanged.
+  TOML edits and did not restore/overwrite the change. Guff confirmed removing
+  the loading-screen image, explaining that reload. Do not report all five
+  stores as unchanged.
 - At17:35:58.983 the contained, rate-limited GameObject.GetComponent NullReference
   diagnostic recurred. The caller and cause remain unqualified. Its method-level
   wording resembles the older recorded diagnostic, but that does not establish
@@ -226,6 +227,11 @@ native build, cycle, filtered startup log and before/after store hashes. The
 earlier boot helper stopped after two feature rows; the coordinator separately
 verified all 73 and frame readiness from the fresh log.
 
-The focused player trial has been requested. No current gameplay acceptance,
-macOS build/runtime result for this changed candidate, AAI analytics migration,
+Guff accepted the combined basic Windows trial: ship technology, OPC and chat
+scroll/reopen/shortcuts were good; fleet labels were "good I think" (tentative).
+This does not independently qualify every badge/title/channel/threshold or
+lifecycle edge. A separate Settings precision regression was reported in this
+trial and is tracked in `SETTINGS-PRECISION-20261028.md`.
+
+No macOS build/runtime result for this changed candidate, AAI analytics migration,
 Profiles deployment, push, PR update or release is claimed.

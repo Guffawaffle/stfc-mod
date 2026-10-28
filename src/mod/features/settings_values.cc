@@ -489,6 +489,30 @@ void SliderValueChanged(auto original, SettingsSliderWidget* widget, float desir
   view->state->Request(desired);
   RequestPageRefresh();
 }
+void SliderValueLabel(auto original, SettingsSliderWidget* widget, float value)
+{
+  if (ValuesThread()) {
+    auto view = ValueView(widget);
+    if (view && view->slider && view->state && !view->clearing) {
+      auto       root    = il2cpp::GcHandle::Strong(widget);
+      auto       current = root ? widget->TryCall<"get_Context", SettingsOptionContext*>()
+                                : il2cpp::CallResult<SettingsOptionContext*>{};
+      auto       context = current ? il2cpp::GcHandle::Strong(current.value) : il2cpp::GcHandle{};
+      const auto owned   = context ? ValueOwnership(context.Get<SettingsOptionContext>()) : std::nullopt;
+      // Ownership observation can reenter native code. Qualify the same live
+      // view again afterward; a pooled or departed row keeps native behavior.
+      const auto checked = root ? widget->TryCall<"get_Context", SettingsOptionContext*>()
+                                : il2cpp::CallResult<SettingsOptionContext*>{};
+      if (owned && *owned && checked && checked.value == context.Get() && view->context.Get() == context.Get()
+          && view->widget.Get() == widget && ValueView(widget) == view && !view->revoked && !view->clearing
+          && IsPageVisitCurrent(view->visit) && view->state && view->state->known())
+        // Unity invokes this listener separately after the change listener.
+        // Substitute only its label argument, never the setting/slider/save.
+        value = view->state->displayNumber();
+    }
+  }
+  original(widget, value);
+}
 void SelectionValueRelease(auto original, SettingsSelectionWidget* widget)
 {
   if (ValuesThread())
@@ -692,6 +716,8 @@ bool InstallSettingsValues()
                   SliderValueRefresh);
   IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(SettingsSliderWidget::Class::Method<void(float)>("OnSliderValueChanged")),
                   SliderValueChanged);
+  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(SettingsSliderWidget::Class::Method<void(float)>("UpdateValueLabel")),
+                  SliderValueLabel);
   IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(SettingsSliderWidget::Class::Method<void()>("OnAboutToReleaseContext")),
                   SliderValueRelease);
   if (!hooks.Commit())

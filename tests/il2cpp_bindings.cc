@@ -1836,6 +1836,7 @@ void PlannedWarpBindingObservations()
 #include "chat_bindings_cases.h"
 #include "opc_indicators_bindings_cases.h"
 #include "ship_tech_bindings_cases.h"
+#include "settings_values_consumer_cases.h"
 #if _WIN32
 #include "cargo_bindings_cases.h"
 #endif
@@ -1845,6 +1846,10 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "settings-slider-consumer") {
+    SettingsSliderConsumerCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("fleet-presentation-")) {
     FleetPresentationCases(argv[1]);
     return 0;

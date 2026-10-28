@@ -19,14 +19,18 @@
 #include "settings/text_entry.h"
 #include "text.h"
 
+#include <bit>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <future>
 #include <iostream>
 #include <limits>
+#include <locale>
 #include <map>
 #include <set>
 #include <spdlog/spdlog.h>
+#include <sstream>
 
 namespace
 {
@@ -34,6 +38,7 @@ const ConfigSaveFixtureDirectory              directory;
 const std::string                             config_name = "settings.toml", vars_name = "runtime.vars";
 size_t                                        path_reads = 0, ship_rescales = 0, queue_resets = 0;
 size_t                                        fleet_label_refreshes = 0;
+size_t                                        save_calls            = 0;
 std::vector<FeatureInstallation>              features;
 std::set<std::string>                         registered;
 std::map<std::string, config_edit::Value>     saved;
@@ -215,7 +220,10 @@ bool RegisterSetting(const char* section, const char* key) noexcept
   return true;
 }
 void SaveSetting(const char* section, const char* key, config_edit::Value value, std::chrono::milliseconds) noexcept
-{ saved.insert_or_assign(std::string(section) + "." + key, std::move(value)); }
+{
+  ++save_calls;
+  saved.insert_or_assign(std::string(section) + "." + key, std::move(value));
+}
 mod_settings::SaveStatus GetSaveStatus(const char*, const char*, const config_edit::Value&) noexcept
 { return {conflict ? mod_settings::SaveState::Conflict : mod_settings::SaveState::Saved}; }
 bool HasSaveFailures() noexcept
@@ -445,6 +453,49 @@ int main()
   const auto exact_before = Config::Get().graphics.ui_scale;
   Check(editor->commit(editor->value) && Config::Get().graphics.ui_scale == exact_before,
         "accepting unchanged initial text preserves the exact float");
+  // Exercise the production readout and exact editor independently. Presentation
+  // may suppress residue, but submitting untouched text must preserve every bit.
+  for (const auto& [value, display] : std::initializer_list<std::pair<float, const char*>>{
+           {.52f, "0.52"}, {std::nextafter(.26f, 0.0f), "0.26"}, {.1234567f, "0.1234567"}, {0.0f, "0"}}) {
+    const auto result = canonical->SetFromUser(value, canonical->Observe()).outcome;
+    Check(result == Outcome::AppliedVerified || result == Outcome::Unchanged, "fixture precision value applied");
+    const auto calls = save_calls;
+    Check(float_editor->Read(0).value == display && save_calls == calls,
+          "Edit-row readout hides float residue without a save or losing meaningful custom precision");
+    float_editor->invoke(0);
+    float              seed{};
+    std::istringstream input(editor->value);
+    input.imbue(std::locale::classic());
+    input >> seed;
+    Check(input && input.peek() == std::char_traits<char>::eof()
+              && std::bit_cast<uint32_t>(seed) == std::bit_cast<uint32_t>(value),
+          "modal seed is shortest round-trip text rather than an approximately rounded readout");
+    Check(editor->commit(editor->value) && save_calls == calls + 1
+              && std::bit_cast<uint32_t>(Config::Get().graphics.ui_scale) == std::bit_cast<uint32_t>(value)
+              && std::get<double>(saved.at("graphics.ui_scale")) == double(value),
+          "unchanged modal submission preserves float bits and the existing explicit-save/retry contract");
+  }
+  for (const float value : {1e-8f, std::numeric_limits<float>::max()}) {
+    Check(canonical->SetFromUser(value, canonical->Observe()).outcome == Outcome::AppliedVerified,
+          "tiny and very large exact values remain accepted outside the convenience slider range");
+    float              parsed_value{};
+    const auto         text = float_editor->Read(0).value;
+    std::istringstream input(text);
+    input.imbue(std::locale::classic());
+    input >> parsed_value;
+    Check(input && input.peek() == std::char_traits<char>::eof()
+              && std::bit_cast<uint32_t>(parsed_value) == std::bit_cast<uint32_t>(value)
+              && std::get<double>(saved.at("graphics.ui_scale")) == double(value),
+          "readout retains tiny/large values and persistence keeps the original float, not display rounding");
+    float_editor->invoke(0);
+    const auto calls = save_calls;
+    Check(editor->commit(editor->value) && save_calls == calls + 1
+              && std::get<double>(saved.at("graphics.ui_scale")) == double(value),
+          "unchanged tiny/large exact-editor values retain the existing exact-value save contract");
+  }
+  Check(interval->SetFromUser(std::numeric_limits<int>::max(), interval->Observe()).outcome == Outcome::AppliedVerified
+            && exact->Read(0).value == "2147483647",
+        "integer readouts retain every digit");
   editor.reset();
 #endif
 
