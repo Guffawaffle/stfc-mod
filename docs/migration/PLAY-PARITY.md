@@ -1,5 +1,20 @@
 # Downstream play preservation target
 
+## Current continuation — 2026-10-28
+
+`play-dev-ripper` now includes the four CI/test-only commits through
+`d55827023f98243eda4a5fb7af54a9c5d5bceebc`, matching the passing published
+checkpoint. Both Mac architectures, Windows, Linux, universal packaging and the
+separate Mac signing/notarization run succeeded. This did not change gameplay,
+deploy a binary or qualify optional AAI/Profiles builds and Mac runtime behavior.
+
+The [next eight-capability sprint](FEATURE-COHORT-20261028-01.md) covers ship
+technology artwork, fleet badges/labels/OPC and chat. It records current source
+differences, acceptance criteria, inventory drift and remaining completion lanes.
+Most catalog entries already have an implementation; their older classifications
+do not measure remaining port effort. The JSON inventory remains authoritative,
+and overall functional parity remains unclaimed.
+
 ## Travel and cargo workflow cohort — 2026-10-27
 
 [Cohort 20261027-02](FEATURE-COHORT-20261027-02.md) reassesses eight travel/cargo

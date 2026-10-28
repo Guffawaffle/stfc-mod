@@ -5,7 +5,7 @@
   "scope": "Player workflows and supporting contracts; historical PLAY plus explicitly selected frozen-play-dev cohorts including native AAI host",
   "state": "discovery-and-restoration-in-progress",
   "authority": "PLAY-PARITY.md",
-  "ci": "Explicitly parked; local builds and targeted tests only",
+  "ci": "Published candidate d55827023f98243eda4a5fb7af54a9c5d5bceebc passed Build40742965210; separate signing/notarization40743317365 succeeded. Optional AAI/Profiles hosts and native Mac gameplay are not established by default CI. No new CI work requested in the next sprint.",
   "overallFunctionalParity": false,
   "capabilities": [
     {
@@ -6948,7 +6948,7 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Paused after accepted basic Windows Alliance Games purchase/Research/currency trial. No overall product/platform parity or release claim.",
+    "status": "Continued from accepted Windows gameplay checkpoint; fast-forwarded through CI/test-only d5582702. Next fleet presentation/chat sprint planned, not implemented. No overall product/platform parity or release claim.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
     "obsoleteLocalPointer": {
@@ -6961,9 +6961,9 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+    "currentSourceCommit": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
     "artifactSha256": "c1de2877a4604805e9f39974a124dc76c59c64f68c2cbaff20f5c166e6095ff0",
-    "qualification": "387/387 offline,41/41 native,73 feature rows/frame ready,five stores unchanged. User purchase rows/Research/currency accepted; extended cases and macOS remain separate.",
+    "qualification": "Historical source4f9a6f3b:387/387 offline,41/41 native,73 feature rows/frame ready,five stores unchanged. User purchase rows/Research/currency accepted; no newly built/deployed d5582702 AAI-enabled Windows artifact. Extended cases and macOS remain separate.",
     "currentRuntime": {
       "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
       "buildMode": "releasedbg",
@@ -6982,7 +6982,7 @@
         "AT-STORE-CURRENCY",
         "AT-STORE-ROWS"
       ],
-      "status": "Basic Windows accepted; paused for account switch, macOS/extended lifecycle cases remain open"
+      "status": "Basic Windows accepted; historical account-switch pause ended. Extended lifecycle and macOS checks remain separate."
     },
     "previousRuntime": {
       "sourceCommit": "99bb6719b06a8b45281943ee390dd3b68694098e",
@@ -6992,6 +6992,49 @@
       "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification.json",
       "status": "Initial navigation/currency accepted; purchase failures reproduced and superseded by4f9a6f3b"
     },
-    "previousAcceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366"
+    "previousAcceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+    "integratedCiCheckpoint": {
+      "revision": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
+      "previousRevision": "4642fdda5ce011fd2285ed3a2f31bedbad5a520d",
+      "scope": "Four CI/test-only commits, no production behavior changes or new deployment",
+      "buildRun": "https://github.com/Guffawaffle/stfc-mod/actions/runs/40742965210",
+      "signingRun": "https://github.com/Guffawaffle/stfc-mod/actions/runs/40743317365",
+      "verifiedResult": "Windows/Linux/both Mac architectures/universal packaging successful; separate signing/notarization successful. Fresh GitHub readback 2026-10-28.",
+      "limits": "Default CI excludes optional private AAI and Profiles-host configurations. No new in-game qualification."
+    },
+    "nextCohort": {
+      "document": "docs/migration/FEATURE-COHORT-20261028-01.md",
+      "base": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
+      "capabilities": [
+        "PLAY-SHIP-TECH-ART",
+        "PLAY-FLEET-BADGES",
+        "PLAY-FLEET-LABELS",
+        "PLAY-FLEET-OPC",
+        "PLAY-CHAT-CHANNELS",
+        "PLAY-CHAT-AVATARS",
+        "PLAY-CHAT-TITLES",
+        "PLAY-CHAT-NAVIGATION"
+      ],
+      "status": "Planned; existing implementations require source-preservation reconciliation and qualification, not assumed missing ports"
+    },
+    "artifactSourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246"
+  },
+  "completionPlanningAssessment": {
+    "date": "2026-10-28",
+    "candidate": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
+    "document": "docs/migration/FEATURE-COHORT-20261028-01.md",
+    "inventoryEntries": 110,
+    "entriesWithSourceBoundReassessments": 38,
+    "entriesWithContracts": 40,
+    "meaning": "Historical dispositions, implementation presence, source reassessment, local tests and player verification are independent; these counts are not a completion percentage.",
+    "staleOrBaselineSpecificRows": [
+      "SET-NAV",
+      "SET-VALUES",
+      "DIAG-SCIENCE-ERROR",
+      "PLAY-FT-SHIP-NAME"
+    ],
+    "sourceHold": "DIAG-SCIENCE-ERROR was removed from play-dev at46307cc2 before frozen1baa55fe; do not restore it from an obsolete Missing label.",
+    "separateFollowup": "PLAY-REPAIR-INTERLOCK is absent from the frozen baseline and requires a separate current-client bug investigation.",
+    "limits": "Planning inspection only; no new runtime equivalence or formal eight-feature assessment is established."
   }
 }

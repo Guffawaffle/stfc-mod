@@ -143,5 +143,5 @@ independent migration status or execution authority.
 
 ## Active migration
 
-Branch: `play-dev-ripper`. Paused after accepted basic Windows Alliance Games purchase/Research/currency trial. No overall product/platform parity or release claim.
+Branch: `play-dev-ripper`. Continued from accepted Windows gameplay checkpoint; fast-forwarded through CI/test-only d5582702. Next fleet presentation/chat sprint planned, not implemented. No overall product/platform parity or release claim.
 See [branch routing and preserved checkpoints](PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26).
