@@ -1,12 +1,15 @@
 # Map and camera cohort — 2026-10-27
 
-**Offline implementation qualified; native trial pending.** The initial proposal was documentation-only at
+**Implementation, Windows build and basic player trial accepted.** The initial proposal was documentation-only at
 `c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce`. Guff then authorized continuing
 without Runner's native execution layer. Three directly coordinated workers
 own the lanes below, and the coordinator owns shared integration and builds.
-The accepted travel/cargo build remains the runtime baseline until this batch
-passes its own checks. No governed Attempt or Runner-managed worker execution
+The accepted travel/cargo build remained the runtime baseline until this batch
+passed its own checks. No governed Attempt or Runner-managed worker execution
 is claimed; helper implementation remains another agent's task.
+
+The accepted runtime is now `8c306f89`, as recorded below. The earlier running
+travel/cargo source references describe the baseline used during implementation.
 
 The implementation base is `c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce`;
 the older planning base below is retained as provenance, not the built candidate.
@@ -245,3 +248,65 @@ No source edits followed that suite; later edits record the results/catalog.
 Windows native construction/installation, real Unity layout/raycast/hit testing,
 touch pinch, real pooled view behavior and both macOS builds/native trials are
 separate qualifications. No current player acceptance is inferred from the suite.
+
+## Native and player qualification
+
+Implementation checkpoint: `8c306f892627c2f6304d57eec70f98c4581a5366`;
+source tree `0b095f36c696c32908cc6da43b2f53c5cec2daf1`. The normal AX Zig cycle
+built the clean, stable existing worktree **before** stopping main ordinary PID
+14228. Native construction passed **41/41 steps**, with the binary verifier
+confirming x86_64, the 16 proxy exports, static CRT and expected provenance marker.
+No second native build was needed after a separate gate invocation.
+
+Installed/copy-verified DLL SHA256:
+`8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19`.
+Build invocation: `ax-zig-20261028T024357-a701510e`, mode `releasedbg`.
+The main ordinary client273 reopened as PID57292, creation FILETIME
+`134376292234401142`, at the same installation. Embedded source and explicit
+worktree build agree on `8c306f89`; canonical checkout metadata in the nested
+deploy receipt remains a815944d and is not the Zig source identity. Observer
+resolution establishes the selected installation/session and current disk
+artifact, not a hash of already loaded instructions or account authentication.
+
+The fresh full log independently confirms all **71 groups**, including Zoom,
+ScrollZoomGuard, GalaxyLabels, GalaxySelection and AAI, then FrameTick ready.
+The initial generic boot parser still returns early; its small hook count alone
+was not used as complete startup evidence. The post-trial snapshot has **zero
+error lines**; warnings are the existing beta notice and deprecated sync.officer
+key. The earlier contained GetComponent diagnostic did not recur in this
+snapshot, which does not establish that its underlying issue is resolved.
+
+Five tracked TOML/state files were byte-identical immediately after the cycle.
+No agent TOML/config/store edits or migrations occurred. Later operator Settings
+changes are independent of that snapshot; no preferences were reverted for a
+hash comparison. Guff answered **"all seem good"** to the requested preset/
+keyboard zoom, side-chat wheel, Galaxy layers, housing and far-tier click trial.
+This is combined basic Windows player acceptance, not exhaustive proof of every
+source obligation, real touch device, forced failure or pooled lifecycle edge.
+macOS builds and Mcohall native testing remain open.
+
+Qualification receipt:
+`D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json`,
+SHA256 `8ef3b16a3971d6e1fc8c5db00a0892ceeea0411a179520c236ebadcb8f32f378`.
+The exact DLL is retained beside it as `8c306f89-version.dll`. Source-bound
+offline receipt, test logs, native build receipt/log, cycle receipt, runtime
+observer snapshot, post-trial log and before/after store hashes are under
+`D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/`; their hashes are listed
+in the qualification receipt. Earlier failed attempts remain visible.
+
+## Recovery and next boundary
+
+Scoped Downstream offline recovery frame:
+`0eaa14ad-e1d0-4f1f-84ac-9a89d7fd8762`, explicitly referring to
+`play-dev-ripper@8c306f89`. AXF writes through the canonical repo's existing
+scope, whose branch metadata currently names the unrelated tournament study;
+the explicit reference and source path distinguish this work. It is not a
+Runner-created frame, governed Attempt, Runner fanout or merge.
+
+The contracts, generated catalog and machine inventory retain historical
+assessments while adding this source/binary/player evidence. No push, merge,
+PLAY replacement, release or new checkout occurred. The remaining coherent
+feature cohort is fleet selection/ability recovery/navigation shortcuts and
+Discovery towing, with towing requiring a dedicated native ownership review.
+Pan momentum remains separately tracked; source comparison alone does not
+justify restoring a duplicate movement path. No new batch is claimed complete.

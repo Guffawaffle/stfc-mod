@@ -524,8 +524,11 @@ present; M8's earlier missing-control descriptions above are historical.
 
 The integrated Windows controlled-runtime suite passed 358/358 build/run/install
 steps with Debug fixture assertions, including previous Settings, preset, queue,
-travel/cargo and AAI-host regressions. Native/player/macOS qualification remains
-separate and is updated only with exact-candidate evidence in the cohort record.
+travel/cargo and AAI-host regressions. Candidate `8c306f89` then passed 41/41
+native build steps, all 71 installed groups and frame readiness, unchanged stores
+after the normal main-game cycle, and Guff's basic map/camera trial ("all seem
+good"). Extended native edges and macOS remain separate; exact source, artifact
+and receipt references are in the cohort record.
 Execution was direct collaboration/local tooling; Runner's native execution
 layer is held while its helper is developed separately. No overall parity,
 promotion, release or upstream-alignment claim follows from this batch.

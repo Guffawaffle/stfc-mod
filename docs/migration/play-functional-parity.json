@@ -2523,15 +2523,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CAMERA-ZOOM.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "System map zoom and existing camera Settings; configured reset/min/max shortcuts",
       "branchObservations": [
         {
@@ -2554,9 +2564,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/camera.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/camera.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -2569,17 +2579,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-CAMERA-ZOOM.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Multiple systems, maximum range, native tier crossings and reset."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -2603,15 +2616,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CAMERA-PRESETS.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "Configured five preset/store bindings, default store and existing camera Settings",
       "branchObservations": [
         {
@@ -2634,9 +2657,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/camera.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/camera.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -2649,17 +2672,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-CAMERA-PRESETS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Store and invoke five presets/default; reload/relaunch; overlapping bindings and session vs durable values."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -2683,15 +2709,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CAMERA-KEYBOARD.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "Configured held zoom-in/out shortcuts with pointer in the world or UI",
       "branchObservations": [
         {
@@ -2714,9 +2750,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/camera.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/camera.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -2729,17 +2765,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-CAMERA-KEYBOARD.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Held directions over world/UI, text focus, Scopely mode, pointer position."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -2763,15 +2802,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CAMERA-WHEEL.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "Mouse wheel over world, side chat or native scrolling UI; native touch pinch remains separate",
       "branchObservations": [
         {
@@ -2794,9 +2843,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/camera.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/camera.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -2809,17 +2858,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-CAMERA-WHEEL.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Implemented, unverified",
             "dependenciesAndLimitations": "Prior user confirmed sidechat wheel and keyboard zoom; final-artifact nested/occluded scrollers, world and touch pinch pending."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -2955,7 +3007,7 @@
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025",
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
         "playerVerifiedGameplayChecks": [
           {
@@ -2964,18 +3016,28 @@
             "platform": "Windows client273 ordinary session",
             "behavior": "Far-zoom click opens systems",
             "result": "passed; user reply yes, yes, and yes. Looking good for those"
+          },
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
           }
         ],
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "historicalExactCandidateRuntime": [
+          "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage"
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
       "restorationCommits": [
         "251889690a2377429e72e233dafffcbf370fa6dc",
-        "efb4903904763ed69608e1c4d5700d20720505f6"
+        "efb4903904763ed69608e1c4d5700d20720505f6",
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md.",
       "contract": "docs/migration/features/PLAY-GALAXY-SELECTION.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "Galaxy minor-system taps at Far zoom with Extended system selection enabled",
       "branchObservations": [
         {
@@ -2998,9 +3060,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/galaxy_selection.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/galaxy_selection.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -3013,17 +3075,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-GALAXY-SELECTION.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Partial",
             "dependenciesAndLimitations": "Native Mod Settings enable control remains missing. Native tap/fallback, pending interaction and pool-pressure behavior require exact-artifact in-game qualification."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -3049,18 +3114,30 @@
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025",
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "historicalExactCandidateRuntime": [
+          "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json"
+        ],
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
       "restorationCommits": [
         "251889690a2377429e72e233dafffcbf370fa6dc",
-        "efb4903904763ed69608e1c4d5700d20720505f6"
+        "efb4903904763ed69608e1c4d5700d20720505f6",
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md.",
       "contract": "docs/migration/features/PLAY-GALAXY-DETAIL.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "Mod Settings > Galaxy: independent major/minor detail choices and thresholds",
       "branchObservations": [
         {
@@ -3083,9 +3160,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/galaxy.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/galaxy.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -3098,17 +3175,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-GALAXY-DETAIL.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Partial",
             "dependenciesAndLimitations": "Native Mod Settings choice/threshold controls remain missing. In-tier crossing, culling and scene replacement need native qualification."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -3134,7 +3214,7 @@
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025",
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
         "playerVerifiedGameplayChecks": [
           {
@@ -3143,18 +3223,28 @@
             "platform": "Windows client273 ordinary session",
             "behavior": "Default/Mining/Hostiles/Hazards can stay selected together",
             "result": "passed; user reply yes, yes, and yes. Looking good for those"
+          },
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
           }
         ],
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "historicalExactCandidateRuntime": [
+          "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage"
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
       "restorationCommits": [
         "251889690a2377429e72e233dafffcbf370fa6dc",
-        "efb4903904763ed69608e1c4d5700d20720505f6"
+        "efb4903904763ed69608e1c4d5700d20720505f6",
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md.",
       "contract": "docs/migration/features/PLAY-GALAXY-OVERLAYS.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "Galaxy Default/Mining/Hostiles/Hazards and existing multiple-overlay Settings controls",
       "branchObservations": [
         {
@@ -3177,9 +3267,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/galaxy.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/galaxy.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -3192,17 +3282,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-GALAXY-OVERLAYS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Partial",
             "dependenciesAndLimitations": "Native Mod Settings overlay controls remain missing. All15 native combinations and pooled layout/reload/restart need runtime qualification."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -3228,7 +3321,7 @@
           "docs/migration/M8-GALAXY-CONTROLS.md; local candidate receipt under .ax/galaxy-parity-20261025",
           "D:/dev/stfc-workspace/.ax/map-camera-cohort-20261027/tests-4.log: 358/358 Windows build/run/install steps; actual production camera/Galaxy consumers with explicit native-service substitutes; existing Settings/presets/queue/travel/cargo/AAI-host regressions."
         ],
-        "exactCandidateRuntime": "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage",
+        "exactCandidateRuntime": "8c306f89 / Windows client273 main ordinary PID57292: all71 groups/frame ready, zero errors in post-trial snapshot, five stores unchanged immediately after cycle. Guff: all seem good. Basic acceptance only.",
         "playerVerifiedFinalCandidate": false,
         "playerVerifiedGameplayChecks": [
           {
@@ -3237,18 +3330,28 @@
             "platform": "Windows client273 ordinary session",
             "behavior": "Housing markers appear",
             "result": "passed; user reply yes, yes, and yes. Looking good for those"
+          },
+          {
+            "sourceCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
+            "installedSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+            "platform": "Windows client273 ordinary main",
+            "behavior": "Zoom preset/keyboard zoom, side-chat wheel, Galaxy layer combinations/housing/far-tier tapping; no forced preference overwrite.",
+            "result": "Guff: all seem good. Combined basic workflow acceptance; native failure/race/touch and macOS remain separate."
           }
         ],
-        "pendingCandidateRuntime": "Current MAP8 candidate not deployed yet; historical exactCandidateRuntime remains historical only."
+        "historicalExactCandidateRuntime": [
+          "efb49039 Windows273 ordinary startup: all62 groups installed, no fresh startup errors; gameplay unverified; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; user confirmed the basic gameplay check, not exhaustive lifecycle/pool/combination coverage"
+        ]
       },
       "dependenciesAndLimitations": "Complete frozen-source obligations and deliberate safety changes are in the linked contract. Existing Galaxy Settings controls are present; older missing-control notes are historical. Controlled native-body fixtures do not qualify real Unity layout, hit testing, raycasts, native touch or macOS. No change to config defaults, storage ownership, AAI, or adjacent camera features.",
       "restorationCommits": [
         "251889690a2377429e72e233dafffcbf370fa6dc",
-        "efb4903904763ed69608e1c4d5700d20720505f6"
+        "efb4903904763ed69608e1c4d5700d20720505f6",
+        "8c306f892627c2f6304d57eec70f98c4581a5366"
       ],
       "activationAndDependencies": "[patches].zoomhooks installs checked owners. Existing [graphics] Galaxy keys retain PLAY defaults; native map buttons support multi-select when enabled. See M8-GALAXY-CONTROLS.md.",
       "contract": "docs/migration/features/PLAY-GALAXY-HOUSING.md",
-      "catalogStatus": "Source/adapter qualified: 358/358 Windows steps; current native trial pending; macOS separate",
+      "catalogStatus": "Basic Windows map/camera workflow accepted; extended native edges and macOS separate",
       "userEntryPoint": "Galaxy housing-capable markers and existing Housing Settings control",
       "branchObservations": [
         {
@@ -3271,9 +3374,9 @@
         },
         {
           "refRole": "refactor",
-          "revision": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+          "revision": "8c306f892627c2f6304d57eec70f98c4581a5366",
           "presence": "present",
-          "evidence": "src/mod/features/galaxy.cc; existing consumer at batch base, subsequent corrections qualified in cohort03"
+          "evidence": "src/mod/features/galaxy.cc; source-preserving reconciliation and current basic Windows trial in cohort03"
         }
       ],
       "assessments": [
@@ -3286,17 +3389,20 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce"
+            "base": "c9b2e1cfb2dbaf15c67b175ae7ca563936a49cce",
+            "implementationCommit": "8c306f892627c2f6304d57eec70f98c4581a5366"
           },
           "contract": "docs/migration/features/PLAY-GALAXY-HOUSING.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261027-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "358/358 local Windows steps; source cross-review corrections rechecked; native game and macOS qualification separate.",
+          "verification": "358/358 local Windows suite steps;41/41 native build steps;71 groups/frame ready; five stores unchanged after cycle; basic Windows player acceptance. Extended native edges/macOS remain separately unqualified.",
           "execution": "Direct three-worker collaboration and local tooling; no Runner native execution or governed fanout.",
           "historicalRestorationNotes": {
             "classification": "Partial",
             "dependenciesAndLimitations": "Native Mod Settings enable control remains missing. Marker appearance and pooled release/rebind are unverified; dataset says housing-capable, not free slots."
-          }
+          },
+          "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
         }
       ]
     },
@@ -6290,9 +6396,9 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Development integration: launch accepted; partial Windows player test; Settings UX follow-ups deferred. Not release or overall parity.",
+    "status": "Development integration: map/camera launch and basic Windows player trial accepted; extended native/platform qualification remains open. Not release or overall parity.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
-    "acceptedCheckpoint": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+    "acceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
     "obsoleteLocalPointer": {
       "ref": "integration/ripper-foundation-m1b-20261025",
       "revision": "9a2018affa88915cfbf45803945637a64b95068f",
@@ -6303,32 +6409,18 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
-    "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
-    "qualification": "Travel/cargo eight-feature cohort: basic Windows player acceptance (all work), all71 groups/frame ready, five stores unchanged. One contained/rate-limited GetComponent exception remains unattributed. Extended native edges and Mac separately unqualified; no overall parity claim.",
+    "currentSourceCommit": "8c306f892627c2f6304d57eec70f98c4581a5366",
+    "artifactSha256": "8918d13bdafba5002aea58b105b9f97a08788c2939837ac4f8d698c037019a19",
+    "qualification": "MAP8 source-preserving cohort:358/358 local steps,41/41 native steps,71 groups/frame ready, five stores unchanged after cycle. Guff:all seem good. Existing contained GetComponent issue remains a separate unresolved diagnostic; no recurrence in retained snapshot.",
     "currentRuntime": {
-      "sourceCommit": "10477fd1a05df0c06ea3921dc56843fb8296fdbd",
+      "sourceCommit": "8c306f892627c2f6304d57eec70f98c4581a5366",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 14228,
+      "pidAtQualification": 57292,
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json"
-    },
-    "pendingCohort": {
-      "document": "docs/migration/FEATURE-COHORT-20261027-03.md",
-      "capabilities": [
-        "PLAY-CAMERA-ZOOM",
-        "PLAY-CAMERA-PRESETS",
-        "PLAY-CAMERA-KEYBOARD",
-        "PLAY-CAMERA-WHEEL",
-        "PLAY-GALAXY-DETAIL",
-        "PLAY-GALAXY-OVERLAYS",
-        "PLAY-GALAXY-HOUSING",
-        "PLAY-GALAXY-SELECTION"
-      ],
-      "status": "Source reviewed and local Windows suite passed; native build/trial pending. Accepted runtime remains travel/cargo10477fd1."
+      "receipt": "D:/dev/stfc-workspace/artifacts/map-camera-cohort-20261027/qualification.json"
     }
   }
 }
