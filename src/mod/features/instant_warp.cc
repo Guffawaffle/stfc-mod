@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,6 +33,17 @@ namespace
 constexpr auto& kInstantWarpNames = gameplay_settings::warp_names;
 
 WarpClickIntent warp_click_intent;
+
+template <class T> il2cpp::GcHandle InstantWarpRoot(const il2cpp::CallResult<T*>& observed)
+{
+  auto result = observed && observed.value ? il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(observed.value))
+                                           : il2cpp::GcHandle{};
+  if constexpr (requires { T::Class::Raw(); }) {
+    if (result && !result.template Get<il2cpp::Object>()->template Is<T>())
+      result.Reset();
+  }
+  return result;
+}
 
 bool WarpChoiceModifierHeld()
 {
@@ -81,39 +93,77 @@ bool ConsumeWarpChoice(CourseData* course)
 // The action auto-confirm takes for `fleet`: always-ask wins, then auto-jump, then auto-warp, then the default.
 InstantWarpConfirmation ResolveConfirmation(FleetPlayerData* fleet)
 {
-  const auto& ui      = Config::Get().ui;
-  const auto  words   = fleet ? ShipNameWords(fleet->DisplayName()) : std::vector<std::string>();
-  const auto  matches = [&words](const ShipFilter& filter) {
-    return filter.all
-           || std::ranges::any_of(filter.names, [&](const auto& name) { return ShipNameMatches(words, name); });
-  };
-  if (matches(ui.instant_warp_always_ask))
+  auto source = fleet ? il2cpp::GcHandle::Strong(fleet) : il2cpp::GcHandle{};
+  if (!source)
     return InstantWarpConfirmation::kNone;
-  if (matches(ui.instant_warp_auto_jump))
-    return InstantWarpConfirmation::kJump;
-  if (matches(ui.instant_warp_auto_warp))
-    return InstantWarpConfirmation::kWarp;
+  const auto  name    = source.Get<FleetPlayerData>()->DisplayName();
+  const auto& ui      = Config::Get().ui;
+  const auto  words   = ShipNameWords(name);
+  const auto  matches = [&words, &name](const ShipFilter& filter) -> std::optional<bool> {
+    if (filter.all)
+      return true;
+    if (filter.names.empty())
+      return false;
+    // A named policy cannot be ruled out using an unavailable localization.
+    if (name.empty())
+      return std::nullopt;
+    return std::ranges::any_of(filter.names, [&](const auto& pattern) { return ShipNameMatches(words, pattern); });
+  };
+  for (const auto [filter, action] : {std::pair{&ui.instant_warp_always_ask, InstantWarpConfirmation::kNone},
+                                      std::pair{&ui.instant_warp_auto_jump, InstantWarpConfirmation::kJump},
+                                      std::pair{&ui.instant_warp_auto_warp, InstantWarpConfirmation::kWarp}}) {
+    const auto match = matches(*filter);
+    if (!match)
+      return InstantWarpConfirmation::kNone;
+    if (*match)
+      return action;
+  }
   return ui.auto_confirm_instant_warp;
 }
 
 void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromptPopupViewController* _this)
 {
   original(_this);
-  auto*      widget  = _this->coursePromptPopupWidget();
-  auto*      context = widget ? widget->Context() : nullptr;
-  auto*      course  = context ? context->CourseData() : nullptr;
-  const bool ask     = ConsumeWarpChoice(course);
-  if (!context || !context->HasInstantWarp())
+  auto owner = il2cpp::GcHandle::Strong(_this);
+  auto widget =
+      owner ? InstantWarpRoot(owner.Get<CoursePromptPopupViewController>()->TryPopupWidget()) : il2cpp::GcHandle{};
+  auto context =
+      widget ? InstantWarpRoot(
+                   widget.Get<CoursePromptPopupWidget>()->TryCall<"get_Context", CoursePromptPopupDataContext*>())
+             : il2cpp::GcHandle{};
+  auto course =
+      context ? InstantWarpRoot(context.Get<CoursePromptPopupDataContext>()->TryCourseData()) : il2cpp::GcHandle{};
+  const bool ask = ConsumeWarpChoice(course.Get<CourseData>());
+  const auto instant =
+      context ? context.Get<CoursePromptPopupDataContext>()->TryHasInstantWarp() : il2cpp::CallResult<bool>{};
+  if (ask || !instant || !instant.value || !course)
     return;
-  const auto action =
-      ask ? InstantWarpConfirmation::kNone : ResolveConfirmation(course ? course->PlayerFleet() : nullptr);
+  auto fleet = InstantWarpRoot(course.Get<CourseData>()->TryCall<"get_PlayerFleet", FleetPlayerData*>());
+  if (!fleet)
+    return;
+  const auto action = ResolveConfirmation(fleet.Get<FleetPlayerData>());
+  if (action == InstantWarpConfirmation::kNone)
+    return;
+  // Localization and managed getters can reenter. Never answer a different
+  // popup, rebound context, course or fleet using the earlier decision.
+  const auto current_widget = owner.Get<CoursePromptPopupViewController>()->TryPopupWidget();
+  const auto current_context =
+      widget.Get<CoursePromptPopupWidget>()->TryCall<"get_Context", CoursePromptPopupDataContext*>();
+  const auto current_course  = context.Get<CoursePromptPopupDataContext>()->TryCourseData();
+  const auto current_fleet   = course.Get<CourseData>()->TryCall<"get_PlayerFleet", FleetPlayerData*>();
+  const auto current_instant = context.Get<CoursePromptPopupDataContext>()->TryHasInstantWarp();
+  if (!current_widget || current_widget.value != widget.Get<CoursePromptPopupWidget>() || !current_context
+      || current_context.value != context.Get<CoursePromptPopupDataContext>() || !current_course
+      || current_course.value != course.Get<CourseData>() || !current_fleet
+      || current_fleet.value != fleet.Get<FleetPlayerData>() || !current_instant || !current_instant.value)
+    return;
   spdlog::debug("[InstantWarp] answering the prompt with {}", kInstantWarpNames[std::to_underlying(action)]);
   switch (action) {
     case InstantWarpConfirmation::kWarp:
-      widget->InitiateRegularWarp();
+      widget.Get<CoursePromptPopupWidget>()->InitiateRegularWarp();
       break;
     case InstantWarpConfirmation::kJump:
-      widget->OnInstantWarpButtonClick();
+      widget.Get<CoursePromptPopupWidget>()->OnInstantWarpButtonClick();
       break;
     case InstantWarpConfirmation::kNone:
       break;
@@ -126,8 +176,12 @@ void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromp
 // rather than another UI detour, and only overrides the label text: never the button's context, timer, resource
 // cost, or click handler.
 
-std::string CurrentLabelText(TextLocalizer* label)
-{ return il2cpp::ToUtf8(label->CurrentText()); }
+std::optional<std::string> CurrentLabelText(TextLocalizer* label)
+{
+  const auto observed = label->TryCall<"CurrentText", Il2CppString*>();
+  auto       root     = InstantWarpRoot(observed);
+  return root ? std::optional{il2cpp::ToUtf8(reinterpret_cast<Il2CppString*>(root.Get()))} : std::nullopt;
+}
 
 // The label text this file set, so it is only cleared while it still reads that.
 struct OwnedLabel {
@@ -139,37 +193,49 @@ struct OwnedLabel {
 
   void Clear()
   {
-    auto*      label    = Get();
+    auto       source   = Get() ? il2cpp::GcHandle::Strong(Get()) : il2cpp::GcHandle{};
+    auto*      label    = source.Get<TextLocalizer>();
     const auto previous = std::exchange(text, {});
     handle.Reset();
-    if (unity::Alive(label) && label->textOverride() && CurrentLabelText(label) == previous)
-      label->ClearTextOverride();
+    const auto overridden = unity::Alive(label) ? label->TryTextOverride() : il2cpp::CallResult<bool>{};
+    if (!previous.empty() && overridden && overridden.value && CurrentLabelText(label) == previous)
+      (void)label->TryCall<"ClearTextOverride", void>();
   }
 
   void Apply(TextLocalizer* label, const char* desired)
   {
-    if (!label || !desired) {
+    auto source = label ? il2cpp::GcHandle::Strong(label) : il2cpp::GcHandle{};
+    if (!source || !desired) {
       Clear();
       return;
     }
     if (Get() != label) {
       Clear();
       // Don't take ownership from an existing text override.
-      if (label->textOverride())
+      const auto overridden = label->TryTextOverride();
+      if (!overridden || overridden.value)
         return;
       handle = il2cpp::GcHandle::Weak(label);
       if (!handle)
         return;
     }
-    const auto current = CurrentLabelText(label);
-    if (!text.empty() && label->textOverride() && current != text) {
+    const auto overridden = label->TryTextOverride();
+    const auto current    = CurrentLabelText(label);
+    if (!overridden || !current || (!text.empty() && overridden.value && *current != text)
+        || (text.empty() && overridden.value)) {
       Clear();
       return;
     }
-    if (text == desired && label->textOverride() && current == desired)
+    if (text == desired && overridden.value && *current == desired)
       return;
-    label->OverrideLocalizedText(il2cpp::NewString(desired));
-    text = desired;
+    auto* value      = il2cpp::NewString(desired);
+    auto  value_root = value ? il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(value)) : il2cpp::GcHandle{};
+    if (value_root
+        && label->TryCall<"OverrideLocalizedText", void(Il2CppString*)>(
+            reinterpret_cast<Il2CppString*>(value_root.Get())))
+      text = desired;
+    else
+      Clear();
   }
 };
 // Never destroyed: freeing a GC handle in a static destructor can run after the runtime has shut down.
@@ -196,17 +262,29 @@ void InstantWarpFrame()
     return;
   }
 
-  auto*       widget  = unity::Newest<StarNodeObjectViewerWidget>();
-  auto*       button  = unity::Alive(widget) && widget->isActiveAndEnabled() ? widget->visitButton() : nullptr;
-  const char* desired = nullptr;
+  auto*       observed_widget = unity::Newest<StarNodeObjectViewerWidget>();
+  auto        widget          = observed_widget ? il2cpp::GcHandle::Strong(observed_widget) : il2cpp::GcHandle{};
+  auto        button          = widget && unity::Alive(widget.Get<StarNodeObjectViewerWidget>())
+                                        && widget.Get<StarNodeObjectViewerWidget>()->isActiveAndEnabled()
+                                    ? InstantWarpRoot(widget.Get<StarNodeObjectViewerWidget>()->TryVisitButton())
+                                    : il2cpp::GcHandle{};
+  const char* desired         = nullptr;
   // The ordinary visit path uses the currently selected fleet. The card's cached popup CourseData is only filled on
   // click, so it cannot preview. Toll and wormhole buttons confirm their own way and keep the game's text.
-  if (unity::Alive(button) && button->isActiveAndEnabled() && button->Interactable()) {
-    auto* fleets     = FleetsManager::Instance();
-    auto* deployment = DeploymentManager::Instance();
-    auto* fleet      = unity::Alive(fleets) ? fleets->GetSelectedFleetData() : nullptr;
-    if (fleet && unity::Alive(deployment) && deployment->HasInstantWarpAbility(fleet)) {
-      switch (ResolveConfirmation(fleet)) {
+  if (button && unity::Alive(button.Get<GenericButtonWidget>())
+      && button.Get<GenericButtonWidget>()->isActiveAndEnabled() && button.Get<GenericButtonWidget>()->Interactable()) {
+    auto fleets     = InstantWarpRoot(FleetsManager::Class::TryCall<"get_Instance", FleetsManager*>());
+    auto deployment = InstantWarpRoot(DeploymentManager::Class::TryCall<"get_Instance", DeploymentManager*>());
+    auto fleet = fleets && unity::Alive(fleets.Get<FleetsManager>())
+                     ? InstantWarpRoot(fleets.Get<FleetsManager>()->TryCall<"GetSelectedFleetData", FleetPlayerData*>())
+                     : il2cpp::GcHandle{};
+    const auto has_instant =
+        fleet && deployment && unity::Alive(deployment.Get<DeploymentManager>())
+            ? deployment.Get<DeploymentManager>()->TryCall<"HasInstantWarpAbility", bool(FleetPlayerData*)>(
+                  fleet.Get<FleetPlayerData>())
+            : il2cpp::CallResult<bool>{};
+    if (has_instant && has_instant.value) {
+      switch (ResolveConfirmation(fleet.Get<FleetPlayerData>())) {
         case InstantWarpConfirmation::kWarp:
           desired = "WARP";
           break;
@@ -216,10 +294,19 @@ void InstantWarpFrame()
         case InstantWarpConfirmation::kNone:
           break;
       }
+      const auto current = fleets.Get<FleetsManager>()->TryCall<"GetSelectedFleetData", FleetPlayerData*>();
+      if (!current || current.value != fleet.Get<FleetPlayerData>())
+        desired = nullptr;
     }
   }
-  auto* label = desired ? button->mainText() : nullptr;
-  action_label.Apply(unity::Alive(label) ? label : nullptr, desired);
+  if (desired) {
+    const auto current_button = widget.Get<StarNodeObjectViewerWidget>()->TryVisitButton();
+    if (unity::Newest<StarNodeObjectViewerWidget>() != widget.Get<StarNodeObjectViewerWidget>() || !current_button
+        || current_button.value != button.Get<GenericButtonWidget>())
+      desired = nullptr;
+  }
+  auto label = desired ? InstantWarpRoot(button.Get<GenericButtonWidget>()->TryMainText()) : il2cpp::GcHandle{};
+  action_label.Apply(unity::Alive(label.Get<TextLocalizer>()) ? label.Get<TextLocalizer>() : nullptr, desired);
 }
 
 bool InstallInstantWarp()

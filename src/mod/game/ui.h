@@ -49,6 +49,11 @@ struct VisibilityController : il2cpp::Object {
   // transition runs. The property is called VisibilityState, a name this header gives the enum.
   VisibilityState state()
   { return Field<"_state", VisibilityState>(); }
+  il2cpp::CallResult<VisibilityState> TryState()
+  {
+    static const bool available = Class::HasField<"_state", VisibilityState>();
+    return available ? il2cpp::CallResult<VisibilityState>{true, state()} : il2cpp::CallResult<VisibilityState>{};
+  }
   VisibilityState State()
   { return Get<"VisibilityState", VisibilityState>(); }
 
@@ -91,8 +96,21 @@ struct TextLocalizer : il2cpp::Object {
   // The backing field, not the SignificantDecimals property.
   void SetSignificantDecimals(int32_t value)
   { SetField<"m_significantDecimals">(value); }
+  int32_t significantDecimals()
+  { return Field<"m_significantDecimals", int32_t>(); }
+  static bool CargoFormatFieldsAvailable()
+  {
+    static const bool available =
+        Class::HasField<"m_identifier", Il2CppString*>() && Class::HasField<"m_significantDecimals", int32_t>();
+    return available;
+  }
   bool textOverride()
   { return Field<"_textOverride", bool>(); }
+  il2cpp::CallResult<bool> TryTextOverride()
+  {
+    static const bool available = Class::HasField<"_textOverride", bool>();
+    return available ? il2cpp::CallResult<bool>{true, textOverride()} : il2cpp::CallResult<bool>{};
+  }
   // Declared on GraphicLocalizer<,>: the rendered graphic, resolved lazily even on inactive labels.
   il2cpp::Object* Target()
   { return Get<"Target", il2cpp::Object*>(); }
@@ -203,6 +221,11 @@ struct GenericButtonWidget : Widget<GenericButtonContext> {
   { return Field<"_semaphoreButtonListener", SemaphoreButtonListener*>(); }
   TextLocalizer* mainText()
   { return Field<"_mainText", TextLocalizer*>(); }
+  il2cpp::CallResult<TextLocalizer*> TryMainText()
+  {
+    static const bool available = Class::HasField<"_mainText", TextLocalizer*>();
+    return available ? il2cpp::CallResult<TextLocalizer*>{true, mainText()} : il2cpp::CallResult<TextLocalizer*>{};
+  }
   bool Interactable()
   { return Get<"Interactable", bool>(); }
 
@@ -453,18 +476,28 @@ struct ArtifactHallDetailsViewController : unity::Behaviour {
 
 // The cargo bar's "X of Y" label. Its fields are declared on LegacyProgressBar and Widget`1; lookups walk the
 // parents.
+struct ProgressData : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IProgressData">;
+};
+
 struct LegacyComparableProgressBar : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Stats", "LegacyComparableProgressBar">;
 
   TextLocalizer* currentValue_X_of_Y()
   { return Field<"_currentValue_X_of_Y", TextLocalizer*>(); }
-  // IProgressData
-  il2cpp::Object* context()
-  { return Field<"m_context", il2cpp::Object*>(); }
+  ProgressData* context()
+  { return Field<"m_context", ProgressData*>(); }
   bool snapToValue()
   { return Field<"_snapToValue", bool>(); }
   void SetSnapToValue(bool value)
   { SetField<"_snapToValue">(value); }
+  static bool CargoFieldsAvailable()
+  {
+    static const bool available =
+        Class::HasField<"_currentValue_X_of_Y", TextLocalizer*>() && Class::HasField<"m_context", ProgressData*>()
+        && Class::HasField<"_snapToValue", bool>() && TextLocalizer::Class::HasField<"m_identifier", Il2CppString*>();
+    return available;
+  }
 };
 
 // Digit.Client.UI.MessageUtility: static helpers that open the game's message popups. Only hooked.

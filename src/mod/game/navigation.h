@@ -365,9 +365,19 @@ struct CoursePromptPopupDataContext : il2cpp::Object {
 
   bool HasInstantWarp()
   { return Field<"HasInstantWarp", bool>(); }
+  il2cpp::CallResult<bool> TryHasInstantWarp()
+  {
+    static const bool available = Class::HasField<"HasInstantWarp", bool>();
+    return available ? il2cpp::CallResult<bool>{true, HasInstantWarp()} : il2cpp::CallResult<bool>{};
+  }
   // A public field, named after it, so the type needs `::` here.
   ::CourseData* CourseData()
   { return Field<"CourseData", ::CourseData*>(); }
+  il2cpp::CallResult<::CourseData*> TryCourseData()
+  {
+    static const bool available = Class::HasField<"CourseData", ::CourseData*>();
+    return available ? il2cpp::CallResult<::CourseData*>{true, CourseData()} : il2cpp::CallResult<::CourseData*>{};
+  }
 };
 
 struct CoursePromptPopupWidget : Widget<CoursePromptPopupDataContext> {
@@ -384,6 +394,12 @@ struct CoursePromptPopupViewController : il2cpp::Object {
 
   CoursePromptPopupWidget* coursePromptPopupWidget()
   { return Field<"_coursePromptPopupWidget", CoursePromptPopupWidget*>(); }
+  il2cpp::CallResult<CoursePromptPopupWidget*> TryPopupWidget()
+  {
+    static const bool available = Class::HasField<"_coursePromptPopupWidget", CoursePromptPopupWidget*>();
+    return available ? il2cpp::CallResult<CoursePromptPopupWidget*>{true, coursePromptPopupWidget()}
+                     : il2cpp::CallResult<CoursePromptPopupWidget*>{};
+  }
 };
 
 // TouchKit's touch; a held touch reports Stationary, which the pan ignores.

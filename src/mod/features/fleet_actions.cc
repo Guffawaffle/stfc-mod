@@ -28,11 +28,13 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -855,82 +857,229 @@ void ViewSelectedFleet(FleetPlayerData* fleet)
 
 // --- Target cargo ---
 
-// Frames left in which to show the cargo of a pre-scanned target. The rewards widget can appear a few frames
-// after the pre-scan itself, so a request keeps trying for a while.
-int show_cargo_frames = 0;
+// A delayed cargo request belongs to the exact visible card, rewards widget and target context. The original
+// one-/five-pass retry windows are absolute Unity-frame windows, so skipped shortcut dispatch cannot keep work
+// alive indefinitely or transfer it to a newly scanned target.
+struct PendingTargetCargo {
+  il2cpp::GcHandle viewer, rewards, context, controller;
+  int64_t          target_id = 0;
+  int32_t          frame = -1, last_frame = -1, remaining_passes = 0;
+  bool             automatic = false;
+};
+auto&    pending_target_cargo     = *new std::vector<PendingTargetCargo>;
+uint64_t cargo_request_generation = 0;
 
-// The cargo panel of a pre-scan card that is showing, or null.
-VisibilityController* ShownTargetCargo(PreScanTargetWidget* pre_scan)
+bool CargoStateShown(VisibilityState state)
+{ return state == VisibilityState::Show || state == VisibilityState::Visible; }
+
+void CancelTargetCargo()
 {
-  auto* rewards = pre_scan->rewardsButtonWidget();
-  auto* cargo   = rewards ? rewards->rewardsController() : nullptr;
-  return cargo && ControllerShown(pre_scan->visibilityController()) ? cargo : nullptr;
+  pending_target_cargo.clear();
+  ++cargo_request_generation; // Also invalidates a detached request being processed inside a reentrant native call.
+}
+void CancelTargetCargoForWidget(RewardsButtonWidget* widget)
+{
+  std::erase_if(pending_target_cargo, [widget](const auto& request) { return request.rewards.Get() == widget; });
+  ++cargo_request_generation;
+}
+
+std::optional<PendingTargetCargo> ObserveTargetCargo(PreScanTargetWidget* pre_scan)
+{
+  PendingTargetCargo result;
+  result.viewer     = WarpRoot(pre_scan);
+  auto*      viewer = result.viewer.Get<PreScanTargetWidget>();
+  const auto alive  = viewer ? unity::TryAlive(viewer) : il2cpp::CallResult<bool>{};
+  const auto active = viewer ? viewer->TryCall<"get_isActiveAndEnabled", bool>() : il2cpp::CallResult<bool>{};
+  if (!alive || !alive.value || !active || !active.value)
+    return {};
+  auto       visibility = WarpRoot(viewer->TryVisibilityController());
+  const auto shown =
+      visibility ? visibility.Get<VisibilityController>()->TryState() : il2cpp::CallResult<VisibilityState>{};
+  if (!shown || !CargoStateShown(shown.value))
+    return {};
+  result.rewards = WarpRoot(viewer->TryRewardsButton());
+  if (!result.rewards)
+    return {};
+  auto* rewards     = result.rewards.Get<RewardsButtonWidget>();
+  result.context    = WarpRoot(rewards->TryCall<"get_Context", BattleTargetData*>());
+  result.controller = WarpRoot(rewards->TryRewardsController());
+  if (!result.context || !result.controller)
+    return {};
+  const auto id = result.context.Get<BattleTargetData>()->TryCall<"get_TargetID", int64_t>();
+  if (!id)
+    return {};
+  result.target_id = id.value; // An observed zero is not an unavailable station/target observation.
+  return result;
+}
+
+bool SameCargoSource(const PendingTargetCargo& expected, const PendingTargetCargo& current)
+{
+  return expected.viewer.Get() == current.viewer.Get() && expected.rewards.Get() == current.rewards.Get()
+         && expected.context.Get() == current.context.Get() && expected.controller.Get() == current.controller.Get()
+         && expected.target_id == current.target_id;
+}
+
+void RetireTargetCargo()
+{
+  if (pending_target_cargo.empty())
+    return;
+  const auto frame = unity::Time::frameCount();
+  if (!Config::Get().control.hotkeys_enabled || Config::Get().control.use_scopely_hotkeys
+      || Shortcut::CaptureBlocksShortcuts() || unity::Key::IsInputFocused()) {
+    CancelTargetCargo();
+    return;
+  }
+  std::erase_if(pending_target_cargo,
+                [frame](const auto& request) { return frame < request.frame || frame > request.last_frame; });
+}
+
+void ScheduleTargetCargo(PendingTargetCargo request, bool automatic, int32_t passes)
+{
+  const auto frame = unity::Time::frameCount();
+  if (frame < 0 || passes < 1 || frame > std::numeric_limits<int32_t>::max() - passes)
+    return;
+  CancelTargetCargoForWidget(request.rewards.Get<RewardsButtonWidget>());
+  request.frame            = frame;
+  request.last_frame       = frame + passes;
+  request.remaining_passes = passes;
+  request.automatic        = automatic;
+  pending_target_cargo.push_back(std::move(request));
 }
 
 void ToggleTargetCargo()
 {
+  CancelTargetCargo();
   for (auto* pre_scan : unity::Instances<PreScanTargetWidget>()) {
-    if (auto* cargo = ShownTargetCargo(pre_scan)) {
-      if (cargo->IsShown())
-        cargo->Hide();
-      else
-        show_cargo_frames = 5;
-    }
+    auto current = ObserveTargetCargo(pre_scan);
+    if (!current)
+      continue;
+    const auto state = current->controller.Get<VisibilityController>()->TryState();
+    if (!state)
+      continue;
+    if (CargoStateShown(state.value))
+      current->controller.Get<VisibilityController>()->Hide();
+    else
+      ScheduleTargetCargo(std::move(*current), false, 5);
   }
 }
 
-void ShowPendingTargetCargo()
-{
-  for (auto* pre_scan : unity::Instances<PreScanTargetWidget>())
-    if (auto* cargo = ShownTargetCargo(pre_scan); cargo && !cargo->IsShown())
-      cargo->Show(true);
-  --show_cargo_frames;
-}
-
-// Whether the target's cargo opens by itself, per the show_*_cargo settings for its kind.
+// Whether the target's cargo opens by itself, per the show_*_cargo settings for its kind. Failed field/getter
+// reads cannot become a station or hostile classification merely because an unavailable value defaults to null.
 bool ShowsCargoByDefault(RewardsButtonWidget* widget)
 {
-  if (mining_preview::SuppressAutomaticCargo(widget))
+  if (!widget || !Config::Get().ui.show_cargo_default || mining_preview::SuppressAutomaticCargo(widget))
     return false;
-  const auto& config = Config::Get();
-  auto*       target = widget && config.ui.show_cargo_default ? widget->Context() : nullptr;
+  auto owner  = WarpRoot(widget);
+  auto target = owner ? WarpRoot(owner.Get<RewardsButtonWidget>()->TryCall<"get_Context", BattleTargetData*>())
+                      : il2cpp::GcHandle{};
   if (!target)
     return false;
-
-  auto* deployed = target->TargetFleetDeployedData();
-  if (!deployed)
-    return config.ui.show_station_cargo;
-  switch (deployed->FleetType()) {
+  const auto observed_deployed = target.Get<BattleTargetData>()->TryTargetFleetData();
+  if (!observed_deployed)
+    return false;
+  if (!observed_deployed.value)
+    return Config::Get().ui.show_station_cargo;
+  auto       deployed = WarpRoot(observed_deployed);
+  const auto type =
+      deployed ? deployed.Get<FleetDeployedData>()->TryFleetType() : il2cpp::CallResult<DeployedFleetType>{};
+  if (!type)
+    return false;
+  switch (type.value) {
     case DeployedFleetType::Player:
-      return config.ui.show_player_cargo;
+      return Config::Get().ui.show_player_cargo;
     case DeployedFleetType::Marauder: {
-      auto* hull = deployed->Hull();
-      return hull && hull->Type() == HullType::ArmadaTarget ? config.ui.show_armada_cargo
-                                                            : config.ui.show_hostile_cargo;
+      const auto observed_hull = deployed.Get<FleetDeployedData>()->TryHull();
+      if (!observed_hull)
+        return false;
+      if (!observed_hull.value)
+        return Config::Get().ui.show_hostile_cargo;
+      auto       hull = WarpRoot(observed_hull);
+      const auto hull_type =
+          hull ? hull.Get<HullSpec>()->TryCall<"get_Type", HullType>() : il2cpp::CallResult<HullType>{};
+      return hull_type
+             && (hull_type.value == HullType::ArmadaTarget ? Config::Get().ui.show_armada_cargo
+                                                           : Config::Get().ui.show_hostile_cargo);
     }
     default:
       return false;
   }
 }
 
+void ShowPendingTargetCargo()
+{
+  RetireTargetCargo();
+  auto       requests   = std::exchange(pending_target_cargo, {});
+  const auto generation = cargo_request_generation;
+  const auto frame      = unity::Time::frameCount();
+  for (auto& request : requests) {
+    if (generation != cargo_request_generation)
+      break; // A reentrant bind/cancel owns the new request episode.
+    auto current = ObserveTargetCargo(request.viewer.Get<PreScanTargetWidget>());
+    if (!current || !SameCargoSource(request, *current)
+        || (request.automatic && !ShowsCargoByDefault(current->rewards.Get<RewardsButtonWidget>())))
+      continue;
+    const auto state = current->controller.Get<VisibilityController>()->TryState();
+    if (!state)
+      continue;
+    // Category getters can reenter native code; verify the card/context once more before showing anything.
+    auto confirmed = ObserveTargetCargo(request.viewer.Get<PreScanTargetWidget>());
+    if (!confirmed || !SameCargoSource(*current, *confirmed) || generation != cargo_request_generation)
+      continue;
+    if (!CargoStateShown(state.value))
+      confirmed->controller.Get<VisibilityController>()->Show(true);
+    --request.remaining_passes;
+    if (generation == cargo_request_generation && request.remaining_passes > 0 && frame < request.last_frame)
+      pending_target_cargo.push_back(std::move(request));
+  }
+}
+
 void ShowCargoByDefault(RewardsButtonWidget* widget)
 {
-  if (auto* cargo = widget ? widget->rewardsController() : nullptr; cargo && ShowsCargoByDefault(widget)) {
-    cargo->Show(true);
-    show_cargo_frames = 1;
+  auto       owner   = WarpRoot(widget);
+  auto       context = owner ? WarpRoot(owner.Get<RewardsButtonWidget>()->TryCall<"get_Context", BattleTargetData*>())
+                             : il2cpp::GcHandle{};
+  auto       cargo   = owner ? WarpRoot(owner.Get<RewardsButtonWidget>()->TryRewardsController()) : il2cpp::GcHandle{};
+  const auto alive   = owner ? unity::TryAlive(owner.Get()) : il2cpp::CallResult<bool>{};
+  const auto target_id =
+      context ? context.Get<BattleTargetData>()->TryCall<"get_TargetID", int64_t>() : il2cpp::CallResult<int64_t>{};
+  if (!owner || !context || !cargo || !alive || !alive.value || !target_id
+      || !ShowsCargoByDefault(owner.Get<RewardsButtonWidget>()))
+    return;
+  // Qualify the post-getter episode; callbacks must not open a rebound widget's new target using old policy.
+  auto       current_context = WarpRoot(owner.Get<RewardsButtonWidget>()->TryCall<"get_Context", BattleTargetData*>());
+  auto       current_cargo   = WarpRoot(owner.Get<RewardsButtonWidget>()->TryRewardsController());
+  const auto current_id = current_context ? current_context.Get<BattleTargetData>()->TryCall<"get_TargetID", int64_t>()
+                                          : il2cpp::CallResult<int64_t>{};
+  if (!current_context || !current_cargo || current_context.Get() != context.Get() || current_cargo.Get() != cargo.Get()
+      || !current_id || current_id.value != target_id.value)
+    return;
+  cargo.Get<VisibilityController>()->Show(true);
+  for (auto* pre_scan : unity::Instances<PreScanTargetWidget>()) {
+    auto request = ObserveTargetCargo(pre_scan);
+    if (request && request->rewards.Get() == owner.Get() && request->context.Get() == context.Get()
+        && request->controller.Get() == cargo.Get())
+      ScheduleTargetCargo(std::move(*request), true, 1);
   }
 }
 
 void RewardsButtonWidget_OnDidBindContext_Hook(auto original, RewardsButtonWidget* _this)
 {
+  auto owner = WarpRoot(_this);
+  CancelTargetCargoForWidget(_this);
   original(_this);
-  ShowCargoByDefault(_this);
+  if (owner)
+    ShowCargoByDefault(owner.Get<RewardsButtonWidget>());
 }
 
 void PreScanTargetWidget_ShowWithFleet_Hook(auto original, PreScanTargetWidget* _this, void* fleet)
 {
+  auto owner = WarpRoot(_this);
   original(_this, fleet);
-  ShowCargoByDefault(_this->rewardsButtonWidget());
+  if (owner) {
+    auto rewards = WarpRoot(owner.Get<PreScanTargetWidget>()->TryRewardsButton());
+    if (rewards)
+      ShowCargoByDefault(rewards.Get<RewardsButtonWidget>());
+  }
 }
 
 // --- Queue switch ---
@@ -946,6 +1095,7 @@ bool ActionQueueManager_IsQueueUnlocked_Hook(auto original, ActionQueueManager* 
 void AbilityButtonsFrame()
 {
   RetireFleetReplay(); // Also runs in capture/native-hotkey/disabled modes which skip ordinary shortcut dispatch.
+  RetireTargetCargo();
   DiscoveryTowFrame(); // Runs in every input mode so disable/capture can retire pending native work.
   static Throttle throttle(std::chrono::milliseconds(250));
   if (!throttle.Due())
@@ -1092,11 +1242,11 @@ bool FleetActionShortcuts()
 
   if (Shortcut::IsDown(Action::kActionView)) {
     if (mining_preview::Cycle())
-      show_cargo_frames = 0;
+      CancelTargetCargo();
     else
       ToggleTargetCargo();
   }
-  if (show_cargo_frames > 0)
+  if (!pending_target_cargo.empty())
     ShowPendingTargetCargo();
   return false;
 }

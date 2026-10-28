@@ -22,6 +22,12 @@ struct ObjectViewerBaseWidget : Widget<NavigationInteractionUIContext> {
 
   VisibilityController* visibilityController()
   { return Field<"_visibilityController", VisibilityController*>(); }
+  il2cpp::CallResult<VisibilityController*> TryVisibilityController()
+  {
+    static const bool available = Class::HasField<"_visibilityController", VisibilityController*>();
+    return available ? il2cpp::CallResult<VisibilityController*>{true, visibilityController()}
+                     : il2cpp::CallResult<VisibilityController*>{};
+  }
   ParentObjectViewerViewController* Parent()
   { return Get<"Parent", ParentObjectViewerViewController*>(); }
   void HideAllViewers()
@@ -33,6 +39,12 @@ struct RewardsButtonWidget : Widget<BattleTargetData> {
 
   VisibilityController* rewardsController()
   { return Field<"_rewardsController", VisibilityController*>(); }
+  il2cpp::CallResult<VisibilityController*> TryRewardsController()
+  {
+    static const bool available = Class::HasField<"_rewardsController", VisibilityController*>();
+    return available ? il2cpp::CallResult<VisibilityController*>{true, rewardsController()}
+                     : il2cpp::CallResult<VisibilityController*>{};
+  }
 };
 
 struct ScanEngageButtonsWidget : Widget<BattleTargetData> {
@@ -53,6 +65,12 @@ struct PreScanTargetWidget : ObjectViewerBaseWidget {
   { return Field<"_scanEngageButtonsWidget", ScanEngageButtonsWidget*>(); }
   RewardsButtonWidget* rewardsButtonWidget()
   { return Field<"_rewardsButtonWidget", RewardsButtonWidget*>(); }
+  il2cpp::CallResult<RewardsButtonWidget*> TryRewardsButton()
+  {
+    static const bool available = Class::HasField<"_rewardsButtonWidget", RewardsButtonWidget*>();
+    return available ? il2cpp::CallResult<RewardsButtonWidget*>{true, rewardsButtonWidget()}
+                     : il2cpp::CallResult<RewardsButtonWidget*>{};
+  }
   GenericButtonWidget* addToQueueButtonWidget()
   { return Field<"_addToQueueButtonWidget", GenericButtonWidget*>(); }
   GenericButtonWidget* armadaAttackButton()
@@ -109,6 +127,12 @@ struct StarNodeObjectViewerWidget : ObjectViewerBaseWidget {
 
   GenericButtonWidget* visitButton()
   { return Field<"_visitButton", GenericButtonWidget*>(); }
+  il2cpp::CallResult<GenericButtonWidget*> TryVisitButton()
+  {
+    static const bool available = Class::HasField<"_visitButton", GenericButtonWidget*>();
+    return available ? il2cpp::CallResult<GenericButtonWidget*>{true, visitButton()}
+                     : il2cpp::CallResult<GenericButtonWidget*>{};
+  }
   void OnViewButtonActivation()
   { Call<"OnViewButtonActivation">(); }
   void InitiateWarp()

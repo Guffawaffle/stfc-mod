@@ -1,5 +1,17 @@
 # Downstream play preservation target
 
+## Travel and cargo workflow cohort — 2026-10-27
+
+[Cohort 20261027-02](FEATURE-COHORT-20261027-02.md) reassesses eight travel/cargo
+workflows against frozen play-dev using three bounded workers and shared
+integration. The current Windows suite passed 347/347 build/run/install steps;
+native trial and macOS remain separate. Full source comparison distinguishes
+existing retained-course behavior from actual cargo polling/restoration
+omissions and inherited delayed-preview defects. LexRunner provided dependency
+ordering; worker execution remains direct collaboration because governed native
+Windows containment is unavailable. The cohort record tracks final artifacts
+and qualification without an overall-parity claim.
+
 ## Fleet and queue workflow cohort — 2026-10-27
 
 [Cohort 20261027-01](FEATURE-COHORT-20261027-01.md) reassesses the existing fleet

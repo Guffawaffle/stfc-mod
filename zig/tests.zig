@@ -79,7 +79,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         addFixture(ctx, build_tests, test_mod, "notification-audio-files-tests", module);
     }
 
-    inline for (.{ "keyboard_layout_diagnostics", "officer_preset_handoff", "officer_sort_compare", "discovery_tow_policy", "native_text_entry" }) |fixture| {
+    inline for (.{ "keyboard_layout_diagnostics", "officer_preset_handoff", "officer_sort_compare", "discovery_tow_policy", "native_text_entry", "mining_preview_poll" }) |fixture| {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
         module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
@@ -471,6 +471,21 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             queue_case.addArg(mode);
             test_il2cpp.dependOn(&queue_case.step);
         }
+        inline for (.{ "instant-warp-native", "instant-warp-missing-override" }) |mode| {
+            const warp_case = b.addRunArtifact(exe);
+            warp_case.addArg(mode);
+            test_il2cpp.dependOn(&warp_case.step);
+        }
+        inline for (.{ "preview-cargo", "preview-cargo-field" }) |mode| {
+            const preview_case = b.addRunArtifact(exe);
+            preview_case.addArg(mode);
+            test_il2cpp.dependOn(&preview_case.step);
+        }
+        if (ctx.isWindows()) inline for (.{ "cargo-native", "cargo-context-pointer", "cargo-snap-invalid", "cargo-inherited-hook", "cargo-format-signature" }) |mode| {
+            const cargo_case = b.addRunArtifact(exe);
+            cargo_case.addArg(mode);
+            test_il2cpp.dependOn(&cargo_case.step);
+        };
         // Avatar field/target qualification is also process-cached. Exercise
         // absent native retention support and each malformed schema separately.
         inline for (.{

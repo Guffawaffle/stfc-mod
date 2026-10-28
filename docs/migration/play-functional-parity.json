@@ -536,19 +536,68 @@
       },
       "migration": {
         "path": "src/mod/features/fleet_actions.cc",
-        "symbolOrWorkflow": "Cargo"
+        "symbolOrWorkflow": "ShowPendingTargetCargo"
       },
       "expectedBehavior": "Category defaults and delayed cargo opening",
       "verificationProcedure": "All target categories, delayed widgets, replacement/expiry, native/mod hotkey changes.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "All target categories, delayed widgets, replacement/expiry, native/mod hotkey changes.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. All target categories, delayed widgets, replacement/expiry, native/mod hotkey changes.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CARGO-PREVIEW.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_actions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-CARGO-PREVIEW.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-MINING-CYCLE",
@@ -561,19 +610,69 @@
       },
       "migration": {
         "path": "src/mod/features/mining_preview.cc",
-        "symbolOrWorkflow": "Cycle"
+        "symbolOrWorkflow": "mining_preview::Cycle"
       },
       "expectedBehavior": "Mining node, occupant and cargo cycle",
       "verificationProcedure": "Occupied/vacant/change occupant, cargo options, node reuse, scene change and timeout.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Occupied/vacant/change occupant, cargo options, node reuse, scene change and timeout.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Occupied/vacant/change occupant, cargo options, node reuse, scene change and timeout.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-MINING-CYCLE.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "mods/src/patches/parts/hotkeys.cc",
+          "notes": "ActionView only toggles existing PreScan cargo; complete tree scan found no node/occupant/return-session consumer. See source contract."
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/mining_preview.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/mining_preview.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/mining_preview.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-MINING-CYCLE.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-CARGO-FORMAT",
@@ -586,19 +685,68 @@
       },
       "migration": {
         "path": "src/mod/features/cargo.cc",
-        "symbolOrWorkflow": "CargoFormat"
+        "symbolOrWorkflow": "ColourTextLocalizer_SetLocalTextParameters_Hook"
       },
       "expectedBehavior": "Cargo abbreviation precision",
       "verificationProcedure": "Cargo vs unrelated labels, precision below/above range and reload.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Cargo vs unrelated labels, precision below/above range and reload.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Cargo vs unrelated labels, precision below/above range and reload.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CARGO-FORMAT.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/cargo_format.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/cargo_format.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/cargo_format.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/cargo.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-CARGO-FORMAT.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-CARGO-INSTANT",
@@ -611,19 +759,68 @@
       },
       "migration": {
         "path": "src/mod/features/cargo.cc",
-        "symbolOrWorkflow": "InstantCargo"
+        "symbolOrWorkflow": "LegacyComparableProgressBar_SetWidgetData_Hook"
       },
       "expectedBehavior": "Instant cargo counter with native flag restoration",
       "verificationProcedure": "Reused/noncargo context and original snap true/false; Windows only in both sources.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Reused/noncargo context and original snap true/false; Windows only in both sources.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Reused/noncargo context and original snap true/false; Windows only in both sources.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CARGO-INSTANT.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_cargo.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_cargo.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_cargo.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/cargo.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-CARGO-INSTANT.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-OFFICER-SORT",
@@ -1696,7 +1893,7 @@
           "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
-      "userEntryPoint": "Swap Ship; Mod Settings → Officers & Ships",
+      "userEntryPoint": "Swap Ship; Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Officers & Ships",
       "configurationKeys": [
         "ui.double_click_to_assign_ship"
       ],
@@ -1798,19 +1995,68 @@
       },
       "migration": {
         "path": "src/mod/features/instant_warp.cc",
-        "symbolOrWorkflow": "Popup"
+        "symbolOrWorkflow": "ResolveConfirmation"
       },
       "expectedBehavior": "Per-ship jump/warp/ask precedence",
       "verificationProcedure": "Overlapping filters, default, localized hull keys, no valid fleet/course and failed native action.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Overlapping filters, default, localized hull keys, no valid fleet/course and failed native action.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Overlapping filters, default, localized hull keys, no valid fleet/course and failed native action.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-WARP-AUTO.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_warp_confirmation.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_warp_confirmation.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_warp_confirmation.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/instant_warp.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-WARP-AUTO.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-WARP-MODIFIER",
@@ -1823,19 +2069,68 @@
       },
       "migration": {
         "path": "src/mod/features/instant_warp.cc",
-        "symbolOrWorkflow": "OnMoveFleetAction"
+        "symbolOrWorkflow": "NavigationManager_OnMoveFleetAction_ChoiceHook"
       },
       "expectedBehavior": "Ctrl/Command-click manual warp/jump choice",
       "verificationProcedure": "Wrong fleet/node/popup, delayed popup, one-use intent, invalid identity, held/released mouse and both platforms.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Wrong fleet/node/popup, delayed popup, one-use intent, invalid identity, held/released mouse and both platforms.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Wrong fleet/node/popup, delayed popup, one-use intent, invalid identity, held/released mouse and both platforms.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-WARP-MODIFIER.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_warp_confirmation.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_warp_confirmation.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/instant_warp_confirmation.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/instant_warp.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-WARP-MODIFIER.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-WARP-LABEL",
@@ -1848,19 +2143,68 @@
       },
       "migration": {
         "path": "src/mod/features/instant_warp.cc",
-        "symbolOrWorkflow": "Label"
+        "symbolOrWorkflow": "InstantWarpFrame"
       },
       "expectedBehavior": "WARP/JUMP visit-label preview",
       "verificationProcedure": "Fleet/filter/modifier changes, external text owner, toll/wormhole, recycled label; no action/cost mutation.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Fleet/filter/modifier changes, external text owner, toll/wormhole, recycled label; no action/cost mutation.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Fleet/filter/modifier changes, external text owner, toll/wormhole, recycled label; no action/cost mutation.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-WARP-LABEL.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/warp_action_label.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/warp_action_label.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/warp_action_label.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/instant_warp.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-WARP-LABEL.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-WARP-COURSE",
@@ -1879,13 +2223,63 @@
       "verificationProcedure": "Replace selected fleet/course/path during getter; reject toll/recall/used/wormhole/action course.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
-        "exactCandidateRuntime": "pending",
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+        ],
+        "exactCandidateRuntime": "Pending for this cohort. Earlier player observations remain historical; do not qualify changed source.",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Replace selected fleet/course/path during getter; reject toll/recall/used/wormhole/action course.",
+      "dependenciesAndLimitations": "Read complete contract for inherited defects, intentional safety changes, exact fixture layers and native/platform gaps. Replace selected fleet/course/path during getter; reject toll/recall/used/wormhole/action course.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-WARP-COURSE.md",
+      "catalogStatus": "Complete frozen-source scan; 347 Windows build/run/install steps passed; exact-candidate native trial and macOS pending",
+      "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "partial",
+          "evidence": "mods/src/patches/parts/hotkeys.cc",
+          "notes": "Legacy hidden-card native handlers exist, but qualified retained course/path/position recovery dispatch does not. See source contract."
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/planned_system_warp.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/planned_system_warp.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_actions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-27",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "a546b7c9f846aa22aa9a12b82367d8a2134fa5ff"
+          },
+          "contract": "docs/migration/features/PLAY-WARP-COURSE.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261027-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "347/347 Windows build/run/install steps. Production-adapter substitutions and pure policies are separate from exact-client native play; native build/trial and macOS pending."
+        }
+      ]
     },
     {
       "id": "PLAY-SHIP-TECH-ART",
@@ -3461,7 +3855,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-AUDIO-PICKER.md",
-      "userEntryPoint": "Mod Settings → Audio Alerts → alert page",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Audio Alerts ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ alert page",
       "configurationKeys": [
         "audio.coalescing",
         "audio.alert_*",
@@ -3700,7 +4094,7 @@
           "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
-      "userEntryPoint": "Mod Settings → Loading Screens",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Loading Screens",
       "configurationKeys": [
         "graphics.loader_image"
       ],
@@ -4393,7 +4787,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-WARP-FILTERS.md",
-      "userEntryPoint": "Mod Settings → Map & Travel → Ship route filters",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Map & Travel ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Ship route filters",
       "configurationKeys": [
         "ui.instant_warp_auto_jump",
         "ui.instant_warp_auto_warp",
@@ -4611,7 +5005,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-DAILY-FACTIONS.md",
-      "userEntryPoint": "Mod Settings → Claims & Confirmations",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Claims & Confirmations",
       "configurationKeys": [
         "ui.daily_bulk_claim_factions"
       ],
@@ -4817,7 +5211,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-BANNER-FILTERS.md",
-      "userEntryPoint": "Mod Settings → Notifications",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ Notifications",
       "configurationKeys": [
         "ui.disabled_banner_types",
         "ui.notify_banner_types"

@@ -102,9 +102,13 @@ struct FleetDeployedData : il2cpp::Object {
 
   HullSpec* Hull()
   { return Get<"Hull", HullSpec*>(); }
+  il2cpp::CallResult<HullSpec*> TryHull()
+  { return TryCall<"get_Hull", HullSpec*>(); }
   // Nonexistent when the property is missing.
   DeployedFleetType FleetType()
   { return Get<"FleetType", DeployedFleetType>(); }
+  il2cpp::CallResult<DeployedFleetType> TryFleetType()
+  { return TryCall<"get_FleetType", DeployedFleetType>(); }
   int64_t Id()
   { return Get<"ID", int64_t>(); }
   il2cpp::CallResult<int64_t> TryId()
@@ -135,6 +139,12 @@ struct BattleTargetData : il2cpp::Object {
 
   FleetDeployedData* TargetFleetDeployedData()
   { return Field<"TargetFleetDeployedData", FleetDeployedData*>(); }
+  il2cpp::CallResult<FleetDeployedData*> TryTargetFleetData()
+  {
+    static const bool available = Class::HasField<"TargetFleetDeployedData", FleetDeployedData*>();
+    return available ? il2cpp::CallResult<FleetDeployedData*>{true, TargetFleetDeployedData()}
+                     : il2cpp::CallResult<FleetDeployedData*>{};
+  }
 };
 
 enum class FleetState : int32_t {
