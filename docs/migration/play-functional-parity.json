@@ -5077,10 +5077,20 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
+          "docs/migration/SETTINGS-PRECISION-20261028.md:source-preserving readout/late-slider-label correction;400/400 steps plus exact source/binary receipt at artifacts/settings-precision-20261028/qualification.json"
         ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "date": "2026-10-28",
+            "sourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+            "artifactSha256": "5d4918bd8492a468074ba3c4e424a27b64aa2b7eca1ddd5610157b4dcd597284",
+            "platform": "Windows client273 main ordinary",
+            "result": "Looks good: basic Settings precision presentation after cycle; not full control/lifecycle/platform qualification."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Choice canonical naming/Index, multi-select group detach/restore, pooled interactability restoration and bind-time write suppression restored from PLAY. Windows regression passed; actual control/lifecycle qualification remains open. Inline Edit presentation, choice styling and full string/list/media workflows are not counted equivalent.",
       "restorationCommits": [],
@@ -5090,7 +5100,10 @@
         "document": "docs/migration/SETTINGS-PRECISION-20261028.md",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "reportedArtifact": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
-        "status": "Source-preserving readout and late-slider-label correction implemented; focused offline/native qualification tracked separately. Not a complete Settings parity reassessment."
+        "status": "400/400 Windows regression steps;41/41 native build;73 groups/frame ready; Guff basic precision trial:looks good. Mac and extended cases separate. Historical Partial classification is not erased by this bounded correction.",
+        "implementationCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+        "artifactSha256": "5d4918bd8492a468074ba3c4e424a27b64aa2b7eca1ddd5610157b4dcd597284",
+        "receipt": "D:/dev/stfc-workspace/artifacts/settings-precision-20261028/qualification.json"
       }
     },
     {
@@ -7520,9 +7533,9 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Fleet presentation/chat basic combined Windows trial accepted (labels tentative). Correcting source-identified Settings precision regression; no full parity or release claim.",
+    "status": "Fleet presentation/chat basic combined Windows trial accepted (labels tentative); source-preserving Settings precision correction now built/deployed and basic Windows trial accepted. No full parity or release claim.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
-    "acceptedCheckpoint": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+    "acceptedCheckpoint": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
     "obsoleteLocalPointer": {
       "ref": "integration/ripper-foundation-m1b-20261025",
       "revision": "9a2018affa88915cfbf45803945637a64b95068f",
@@ -7533,21 +7546,21 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
-    "artifactSha256": "66c0f10db68252e2f9db96c213b9ce6580b594e714c2776f4b2100c0b0680670",
-    "qualification": "399/399 Windows build/run/install steps with Debug fixture assertions;41/41 Windows native build steps;73 groups/frame ready. Four of five stores unchanged; main TOML changed/reloaded after startup without agent config edits, user confirms loading-image removal. Contained GetComponent diagnostic remains. Basic combined Windows trial accepted; labels tentative, extended cases unverified.",
+    "currentSourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+    "artifactSha256": "5d4918bd8492a468074ba3c4e424a27b64aa2b7eca1ddd5610157b4dcd597284",
+    "qualification": "400/400 Windows regression steps;41/41 native steps;73 groups/frame ready. Guff:looks good for Settings precision candidate. Four of five stores unchanged; main TOML changed during player Settings trial, no agent configuration edits. Contained GetComponent diagnostic remains unqualified. macOS/extended lifecycle separate.",
     "currentRuntime": {
-      "sourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
-      "buildId": "ax-zig-20261028T223200-0516de1e",
+      "sourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+      "buildId": "ax-zig-20261028T230143-6a23f6fa",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 39876,
-      "startedFileTime": "134377004856206877",
+      "pidAtQualification": 39924,
+      "startedFileTime": "134377023285810605",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json",
-      "status": "Windows startup qualified; basic combined trial accepted (labels tentative), extended cases/macOS separate. Session identity historical after later restart."
+      "receipt": "D:/dev/stfc-workspace/artifacts/settings-precision-20261028/qualification.json",
+      "status": "Windows native build/startup and basic Settings precision trial accepted; extended lifecycle/macOS remain separate. Session identity historical after any later restart."
     },
     "pendingCohort": {
       "document": "docs/migration/features/AT-STORE.md",
@@ -7559,15 +7572,17 @@
       "status": "Basic Windows accepted; historical account-switch pause ended. Extended lifecycle and macOS checks remain separate."
     },
     "previousRuntime": {
-      "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+      "sourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
+      "buildId": "ax-zig-20261028T223200-0516de1e",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 54228,
+      "pidAtQualification": 39876,
+      "startedFileTime": "134377004856206877",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
-      "status": "Basic Windows purchase/Research/currency trial accepted; historical session identity only"
+      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json",
+      "status": "Windows startup qualified; basic combined trial accepted (labels tentative), extended cases/macOS separate. Session identity historical after later restart."
     },
     "previousAcceptedCheckpoint": "8c306f892627c2f6304d57eec70f98c4581a5366",
     "integratedCiCheckpoint": {
@@ -7597,7 +7612,20 @@
       "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
       "receipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
     },
-    "artifactSourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084"
+    "artifactSourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+    "historicalRuntimes": [
+      {
+        "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
+        "buildMode": "releasedbg",
+        "client": 273,
+        "installation": "C:/Games/Star Trek Fleet Command/default/game",
+        "profile": "ordinary",
+        "pidAtQualification": 54228,
+        "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
+        "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
+        "status": "Basic Windows purchase/Research/currency trial accepted; historical session identity only"
+      }
+    ]
   },
   "completionPlanningAssessment": {
     "date": "2026-10-28",

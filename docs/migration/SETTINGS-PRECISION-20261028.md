@@ -76,6 +76,25 @@ Final candidate, passing log, source manifest, executable hashes and runtime
 trial status are recorded in the scoped recovery and qualification receipt at
 `D:/dev/stfc-workspace/artifacts/settings-precision-20261028/`.
 
+Implementation/deployed checkpoint:
+`e04dc3bfc031648a7b7a30a76b900fa26826102f` on `play-dev-ripper`.
+The final formatted source passed **400/400 Windows build/run/install steps**
+(`tests-3.log`); these are not 400 independent tests. Native build passed
+**41/41 steps**. The explicit AX Zig cycle built before stopping the old main
+ordinary session, then launched PID39924 / FILETIME134377023285810605.
+DLL SHA256 `5d4918bd8492a468074ba3c4e424a27b64aa2b7eca1ddd5610157b4dcd597284`,
+build `ax-zig-20261028T230143-6a23f6fa`; AAI `4bece2e` stayed enabled and clean.
+All 73 feature groups installed, including NativeSettingsValues, and shared
+frame delivery was ready. Guff's current trial response was **"looks good"**:
+basic Windows presentation accepted, not exhaustive platform/lifecycle parity.
+
+Four of five compared stores, including state, were byte-identical. The main
+TOML changed while the user tested Settings after relaunch. The agent edited no
+configuration/store and made no restoration; hashes alone do not identify the
+writer. The previously recorded contained/rate-limited GetComponent
+NullReference recurred at18:06:49.170, with caller/cause still unqualified.
+No error-free claim or unrelated performance investigation is made.
+
 Focused in-game check: open the affected Settings page; drag through several
 values, verify the Edit readout and slider stay clean during/after dragging;
 open Edit on a custom-precision value and cancel; leave/reopen the page. Exact

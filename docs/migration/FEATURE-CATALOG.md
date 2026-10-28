@@ -143,5 +143,5 @@ independent migration status or execution authority.
 
 ## Active migration
 
-Branch: `play-dev-ripper`. Fleet presentation/chat basic combined Windows trial accepted (labels tentative). Correcting source-identified Settings precision regression; no full parity or release claim.
+Branch: `play-dev-ripper`. Fleet presentation/chat basic combined Windows trial accepted (labels tentative); source-preserving Settings precision correction now built/deployed and basic Windows trial accepted. No full parity or release claim.
 See [branch routing and preserved checkpoints](PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26).
