@@ -86,8 +86,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$OPERATION" == sign-ripper-test ]]; then
-            sha=9e94ee203f9de04a23cfafd0314cacdec1d1f331
-            run=40736616942
+            sha=07ef78ba81055168fb21443d79719eae11d2f31d
+            run=40739520448
             for attempt in {1..60}; do
               gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" > "$RUNNER_TEMP/ripper-build.json"
               jq -e --arg sha "$sha" --arg repo "$GITHUB_REPOSITORY" '
