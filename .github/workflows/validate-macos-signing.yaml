@@ -10,7 +10,7 @@ on:
       operation:
         description: Check an existing submission or start a new signing submission
         type: choice
-        options: [status, sign]
+        options: [status, sign, sign-ripper-test]
         default: status
       submission_id:
         description: Apple submission ID to inspect (status only)
@@ -71,20 +71,43 @@ jobs:
           retention-days: 30
 
   resolve:
-    if: github.repository == 'Guffawaffle/stfc-mod' && github.event_name == 'workflow_dispatch' && inputs.operation == 'sign'
+    if: github.repository == 'Guffawaffle/stfc-mod' && github.event_name == 'workflow_dispatch' && (inputs.operation == 'sign' || inputs.operation == 'sign-ripper-test')
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
     outputs:
       run_id: ${{ steps.build.outputs.run_id }}
       source_sha: ${{ steps.build.outputs.source_sha }}
     steps:
-      - name: Select current play push build
+      - name: Select successful build before requesting signing approval
         id: build
         env:
           GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ inputs.operation }}
         run: |
           set -euo pipefail
-          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/play" --jq '.object.sha')
-          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yaml/runs?head_sha=$sha&branch=play&event=push&status=success" --jq '.workflow_runs[0].id')
+          if [[ "$OPERATION" == sign-ripper-test ]]; then
+            sha=9e94ee203f9de04a23cfafd0314cacdec1d1f331
+            run=40736616942
+            for attempt in {1..60}; do
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" > "$RUNNER_TEMP/ripper-build.json"
+              jq -e --arg sha "$sha" --arg repo "$GITHUB_REPOSITORY" '
+                .head_sha == $sha and .repository.full_name == $repo and
+                .head_branch == "review/ripper-play-migration-checkpoint-20261025" and
+                .event == "push" and .path == ".github/workflows/ci.yaml"
+              ' "$RUNNER_TEMP/ripper-build.json" >/dev/null
+              status=$(jq -r .status "$RUNNER_TEMP/ripper-build.json")
+              if [[ "$status" == completed ]]; then
+                jq -e '.conclusion == "success"' "$RUNNER_TEMP/ripper-build.json" >/dev/null
+                break
+              fi
+              echo "Waiting for exact Ripper Build $run ($status), attempt $attempt/60"
+              sleep 30
+            done
+            jq -e '.status == "completed" and .conclusion == "success"' "$RUNNER_TEMP/ripper-build.json" >/dev/null
+          else
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/play" --jq '.object.sha')
+            run=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yaml/runs?head_sha=$sha&branch=play&event=push&status=success" --jq '.workflow_runs[0].id')
+          fi
           [[ "$sha" =~ ^[0-9a-f]{40}$ && "$run" =~ ^[1-9][0-9]*$ ]]
           echo "source_sha=$sha" >> "$GITHUB_OUTPUT"
           echo "run_id=$run" >> "$GITHUB_OUTPUT"
@@ -96,3 +119,4 @@ jobs:
     with:
       build_run_id: ${{ needs.resolve.outputs.run_id }}
       source_sha: ${{ needs.resolve.outputs.source_sha }}
+      ripper_test: ${{ inputs.operation == 'sign-ripper-test' }}
