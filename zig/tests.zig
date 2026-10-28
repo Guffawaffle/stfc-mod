@@ -394,9 +394,10 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
 
     {
         const module = ctx.createModule(true);
-        libs.il2cpp.linkInto(module);
+        libs.il2cpp.includeInto(module);
+        libs.spud.linkInto(module);
         module.addIncludePath(b.path("src/mod"));
-        module.addCSourceFile(.{ .file = b.path("tests/aai_detour_test.cc"), .flags = flags });
+        module.addCSourceFiles(.{ .files = &.{ "tests/aai_detour_test.cc", "src/libs/il2cpp/src/hook.cc" }, .flags = flags });
         addFixture(ctx, build_tests, test_il2cpp, "aai-detour-tests", module);
     }
 
@@ -404,9 +405,10 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     // the production native-state latch is monotonic and intentionally has no test reset API.
     {
         const module = ctx.createModule(true);
-        libs.il2cpp.linkInto(module);
+        libs.il2cpp.includeInto(module);
+        libs.spud.linkInto(module);
         module.addIncludePath(b.path("src/mod"));
-        module.addCSourceFile(.{ .file = b.path("tests/hook_installation.cc"), .flags = flags });
+        module.addCSourceFiles(.{ .files = &.{ "tests/hook_installation.cc", "src/libs/il2cpp/src/hook.cc" }, .flags = flags });
         const exe = ctx.executable("hook-installation-tests", module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
@@ -642,6 +644,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         // The catalog's lazy picker admission uses the shared frame declarations.
         // This remains header-only: synthetic owners supply those functions.
         libs.spud.includeInto(module);
+        module.addCMacro("STFC_SETTINGS_TEXT_ENTRY_FIXTURE", "1");
         module.addCSourceFiles(.{
             .files = &.{
                 "tests/config_settings_test.cc",

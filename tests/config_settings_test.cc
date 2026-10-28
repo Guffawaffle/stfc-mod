@@ -4,6 +4,7 @@
 #include "config_save_fixture.h"
 #include "features/features.h"
 #include "features/fleet_notification_settings.h"
+#include "features/notifications.h"
 #include "file.h"
 #include "frame.h"
 #include "runtime_config.h"
@@ -163,6 +164,10 @@ std::span<const FeatureInstallation> FeatureInstallations()
 { return features; }
 bool IncomingPlayerAttackAvailable()
 { return false; }
+#if __APPLE__
+// Notification authorization belongs to the native host, outside this catalog fixture.
+void InitializeDesktopNotifications() {}
+#endif
 bool ToastAudioAvailable()
 {
   return std::ranges::any_of(features, [](const auto& f) { return std::string_view(f.name) == "Toasts"; });

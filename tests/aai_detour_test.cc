@@ -41,6 +41,9 @@ namespace il2cpp
 {
 void Report(std::string_view value)
 { std::cerr << value << '\n'; }
+// This native-pointer fixture must not enter the managed metadata layer.
+std::string Method::Name() const
+{ throw std::logic_error("AAI detour fixture unexpectedly requested managed metadata"); }
 } // namespace il2cpp
 int main()
 {

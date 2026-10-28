@@ -394,12 +394,14 @@ void UnsafeCase(std::string_view mode)
 }
 } // namespace fixture
 
-// This fixture uses the production hook.cc and public SPUD implementation, with
-// only the report sink supplied locally. It does not need IL2CPP API imports.
+// Link the production hook implementation with fixture diagnostics, without
+// importing GameAssembly or the managed metadata implementation.
 namespace il2cpp
 {
 void Report(std::string_view message)
 { fixture::reports.emplace_back(message); }
+std::string Method::Name() const
+{ throw std::logic_error("HookSet fixture unexpectedly requested managed metadata"); }
 } // namespace il2cpp
 
 int main(int argc, char** argv)

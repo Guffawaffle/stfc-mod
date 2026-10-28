@@ -1,5 +1,6 @@
 #include "config.h"
 #include "features/fleet_notification_settings.h"
+#include "features/notifications.h"
 #include "frame.h"
 #include "runtime_config.h"
 #include "settings/audio_alerts.h"
@@ -84,6 +85,10 @@ void SetNotificationAudioCoalescing(AudioCoalescing value)
 { coalescing = value; }
 bool IncomingPlayerAttackAvailable()
 { return incoming_ready; }
+#if __APPLE__
+// Notification authorization belongs to the native host, outside this audio fixture.
+void InitializeDesktopNotifications() {}
+#endif
 bool ToastAudioAvailable()
 { return toast_ready; }
 bool FleetNotificationAudioAvailable(FleetNotificationKind)

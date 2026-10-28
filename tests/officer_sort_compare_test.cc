@@ -18,7 +18,7 @@ int BelowDescending(void* a, void* b, void*)
 { return -BelowAscending(a, b, nullptr); }
 int Index(void* a, void* b, void*)
 { return CompareValue(static_cast<Officer*>(a)->index, static_cast<Officer*>(b)->index); }
-officer_sort::Comparer unlocked = nullptr, index = nullptr;
+officer_sort::Comparer unlocked = nullptr, index_comparer = nullptr;
 
 // The four source wrapper bodies are independent oracles for the shared chain.
 // Frozen officer_sort.cc supplies the roster reversal and assignment direction;
@@ -32,7 +32,7 @@ int RosterAscending(void* a, void* b)
   }
   if (const int r = BelowDescending(a, b, nullptr))
     return r;
-  return index ? -index(a, b, nullptr) : 0;
+  return index_comparer ? -index_comparer(a, b, nullptr) : 0;
 }
 int RosterDescending(void* a, void* b)
 {
@@ -43,7 +43,7 @@ int RosterDescending(void* a, void* b)
   }
   if (const int r = BelowAscending(a, b, nullptr))
     return r;
-  return index ? -index(a, b, nullptr) : 0;
+  return index_comparer ? -index_comparer(a, b, nullptr) : 0;
 }
 int AssignmentAscending(void* a, void* b)
 {
@@ -54,7 +54,7 @@ int AssignmentAscending(void* a, void* b)
   }
   if (const int r = BelowAscending(a, b, nullptr))
     return r;
-  return index ? index(a, b, nullptr) : 0;
+  return index_comparer ? index_comparer(a, b, nullptr) : 0;
 }
 int AssignmentDescending(void* a, void* b)
 {
@@ -65,7 +65,7 @@ int AssignmentDescending(void* a, void* b)
   }
   if (const int r = BelowDescending(a, b, nullptr))
     return r;
-  return index ? index(a, b, nullptr) : 0;
+  return index_comparer ? index_comparer(a, b, nullptr) : 0;
 }
 } // namespace
 
@@ -74,8 +74,8 @@ int main()
   std::array<Officer, 6> officers{{{1, 1, 1}, {1, 0, 2}, {0, 1, 3}, {0, 0, 4}, {1, 1, 5}, {1, 1, 1}}};
   unsigned               comparisons = 0;
   for (int optional = 0; optional < 4; ++optional) {
-    unlocked = (optional & 1) ? Unlocked : nullptr;
-    index    = (optional & 2) ? Index : nullptr;
+    unlocked       = (optional & 1) ? Unlocked : nullptr;
+    index_comparer = (optional & 2) ? Index : nullptr;
     for (const bool roster : {false, true})
       for (const bool ascending_delegate : {false, true})
         for (auto& a : officers)
@@ -83,7 +83,7 @@ int main()
             const auto reference = roster ? (ascending_delegate ? RosterAscending : RosterDescending)
                                           : (ascending_delegate ? AssignmentAscending : AssignmentDescending);
             const auto bda       = roster == ascending_delegate ? BelowDescending : BelowAscending;
-            const int  actual    = officer_sort::Compare(&a, &b, unlocked, bda, index, roster ? -1 : 1);
+            const int  actual    = officer_sort::Compare(&a, &b, unlocked, bda, index_comparer, roster ? -1 : 1);
             for (const int direction : {1, -1}) {
               if (direction * actual != direction * reference(&a, &b))
                 throw std::runtime_error("source Below Deck comparator parity failed");
