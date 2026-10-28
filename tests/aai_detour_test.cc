@@ -56,6 +56,14 @@ int main()
     Target volatile native = &Native;
     native(&probe);
     require(probe.calls == 1 && probe.hooks == 0);
+    // Retain the real preflight result when a hosted architecture refuses this
+    // fixture. Inspection alone does not authorize patching an unbounded entry.
+    const auto plan = spud::inspect_detour(native);
+    std::cerr << "AAI fixture preflight: checked="
+              << (il2cpp::CheckedNativeEntry(reinterpret_cast<void*>(native)) != nullptr)
+              << " error=" << static_cast<int>(plan.error) << " entry=" << reinterpret_cast<uintptr_t>(native)
+              << " resolved=" << plan.resolved_target << " near=" << plan.required_patch_bytes
+              << " far=" << plan.far_required_patch_bytes << " far_jump=" << plan.far_jump_size << '\n';
     const auto trampoline = Install(native);
     require(trampoline && Install(native) == trampoline);
     native(&probe);

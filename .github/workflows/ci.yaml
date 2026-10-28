@@ -119,6 +119,15 @@ jobs:
         run: |
           scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \
             zig-out/bin/stfc-community-mod-loader zig-out/lib/libstfc-community-mod.dylib
+      - name: Retain native-detour fixture for architecture qualification
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-detour-fixture-${{ matrix.arch }}
+          path: .zig-cache/o/**/aai-detour-tests
+          include-hidden-files: true
+          retention-days: 3
+          if-no-files-found: warn
       # The install prefix as scripts/assemble-mac-app.sh expects it.
       - name: Package intermediate build
         run: |
