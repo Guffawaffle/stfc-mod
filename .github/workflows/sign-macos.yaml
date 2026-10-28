@@ -45,8 +45,8 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/mac-build.json"
           branch=play
           if [[ "$RIPPER_TEST" == true ]]; then
-            [[ "$SOURCE_SHA" == 07ef78ba81055168fb21443d79719eae11d2f31d ]]
-            [[ "$BUILD_RUN_ID" == 40739520448 ]]
+            [[ "$SOURCE_SHA" == d55827023f98243eda4a5fb7af54a9c5d5bceebc ]]
+            [[ "$BUILD_RUN_ID" == 40742965210 ]]
             branch=review/ripper-play-migration-checkpoint-20261025
           fi
           jq -e --arg sha "$SOURCE_SHA" --arg repo "$GITHUB_REPOSITORY" --arg branch "$branch" '
