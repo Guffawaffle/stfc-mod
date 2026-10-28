@@ -103,3 +103,90 @@ remain unchanged. No push, release, PLAY replacement or whole-product parity.
 
 Mac trial repeats supported workflows after both architecture builds. Native
 failure/race tests and missing APIs remain independent of successful launch.
+
+## Completed candidate and qualification
+
+Implementation checkpoint:
+`94f4b3e07417430b0bf3f4683e692ec15239e366`
+(Preserve fleet and queue workflows across typed native boundaries).
+All source/tests were clean at this checkpoint for verification and deployment;
+the later qualification checkpoint changes documentation only.
+
+### Offline and native build
+
+- Windows `test-mod test-il2cpp test-aai-host build-tests`, with the immutable
+  AAI source enabled, completed **335/335 build/run/install steps**. This is a
+  build-step count, not 335 independent test cases. Fourteen explicit fixture
+  reruns also passed, with executable hashes and modes recorded separately.
+- Production native DLL construction completed **41/41 steps**, with the proxy
+  exports and static CRT retained. Final cycle construction preceded stopping
+  the game, so build time did not become game downtime.
+- Controlled adapters and local filesystem fixtures cover the behaviors listed
+  above. They do not prove real native collection timing or a network recovery
+  race. Independent source/correction review finished without an unresolved
+  substantive finding; this was direct collaboration, not Runner execution.
+- AAI's source remains `4bece2e5f1afa7c7343f009e83398742a0f86114`.
+  The current host regression modes passed. Earlier 42-fixture/96-comparison
+  analytical qualification is historical evidence at that unchanged pin, not
+  a claim that all replay comparisons were rerun in this cohort.
+
+Exact command output and executable identities:
+`D:/dev/stfc-workspace/artifacts/fleet-queue-cohort-20261027/offline-qualification.json`
+(SHA256 `49f5bf94c176594c38ae41e1d137d753e1ff49b9ed0e9b33ea9a5589f236e109`).
+The final test log is
+`D:/dev/stfc-workspace/.ax/fleet-queue-cohort-20261027/tests-final.log`.
+
+### Windows native trial
+
+The approved Zig cycle targeted only the main installation
+`C:/Games/Star Trek Fleet Command/default/game`, ordinary profile, client 273.
+The old PID 39960 was replaced by PID 3352, creation FILETIME
+`134376187428315886`. Installed source is the implementation checkpoint above;
+the embedded build identity is `ax-zig-20261027T234953-ddd0a2f0`.
+
+Installed DLL SHA256:
+`ed89a38e1bdd425dc752bbcc53e0e795829897f2567a1cb05729381463a6b5c5`.
+
+Fresh logs confirmed all **71 feature groups**, recovery/thin/address hooks,
+both AAI native hooks and **FrameTick delivery ready**. This is group reporting,
+not a count of individual detours. Guff's response to normal queued
+attacks/clear/toggle, scan/engage shortcuts, Escape through target cards and
+obvious blank UI/unexpected actions was **“no problems”**. No forced recovery
+race, resource-consuming repair experiment or automated gameplay was performed.
+The five tracked TOML/state files were byte-identical before and after the cycle.
+No game configuration or data-store migration was made.
+
+One post-startup `UnityEngine.GameObject.GetComponent` NullReferenceException
+was logged and contained. Its caller has not been attributed to this cohort.
+Frequency is unknown because the binding suppresses further exceptions from
+that method. The game remained responsive and the user reported no problems;
+neither observation establishes an error-free run or resolves this log finding.
+
+Runtime receipt:
+`D:/dev/stfc-workspace/artifacts/fleet-queue-cohort-20261027/runtime-qualification.json`
+(SHA256 `12a6d0dd7332661578a672111bae726ef10ce3dc595256ae61fe83556ccc2dee`).
+Raw cycle receipt:
+`D:/dev/stfc-workspace/.ax/fleet-queue-cohort-20261027/cycle.json`.
+
+### Qualification and tooling limits
+
+Natural vanished-target/network races, extended real input/scene transitions,
+macOS compilation and Mcohall's native trial remain open. The historical repair
+interlock is a separate discovery follow-up, not an implemented protection here.
+AAI's prior player acceptance remains attached to its earlier source candidate;
+this cohort confirms unchanged host/hook installation and automated regressions.
+
+The cycle's generic boot parser returned before initialization completed and
+counted only two groups. The full 71 groups and frame readiness were checked
+independently afterward. Its raw nested `deploy.commit` describes canonical
+checkout `a815944d`, while the explicitly selected Zig worktree, prepared build,
+embedded marker and installed hash bind the actual source to `94f4b3e0`.
+These raw receipts are retained; no lifecycle-tooling changes were made to hide
+the attribution mismatch. Native build/deploy used the existing approved Zig
+adapter because the published AXF build schema does not expose that mode.
+
+This is implementation plus automated qualification and basic Windows player
+acceptance. It is not complete recovery-race qualification, whole-product parity,
+a release, or authorization to push/merge. PLAY, play-dev and the frozen source
+are unchanged. The running candidate is left in place; no additional cycle is
+needed to save these documentation updates.

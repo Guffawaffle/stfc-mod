@@ -10,6 +10,16 @@ interlock was discovered separately and remains a named follow-up, not an
 assumed fix in this batch. Native race/input and macOS qualification remain
 explicit; this is not whole-product parity.
 
+Implementation `94f4b3e07417430b0bf3f4683e692ec15239e366` passed 335 Windows
+build/run/install steps and 14 explicit fixture reruns. The exact native build
+launched in the main ordinary installation with all 71 feature groups and frame
+delivery ready. Guff reported **“no problems”** for normal queue, scan/engage and
+Escape use. Five tracked settings/state files remained byte-identical. Natural
+recovery races, extended interaction coverage and macOS remain unqualified.
+One contained, rate-limited `GetComponent` exception is recorded without causal
+attribution; this is not an error-free runtime claim. The cohort record binds
+these observations to the source, installed DLL hash and local receipts.
+
 ## Native AAI integration — 2026-10-27
 
 The [AAI host contract](features/PLAY-AAI.md) ports the frozen play-dev dependency
