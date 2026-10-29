@@ -3,7 +3,6 @@
 
 // Use the host ABI for the 24-byte value-type callback on Windows and both Mac architectures.
 // Validate the managed layout before installing.
-#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
 #include <atomic>
 #include <array>
 #include <utility>
@@ -326,7 +325,3 @@ void InstallActionQueueRecovery()
   ready.store(a && b && c && d);
   spdlog::info("[FasterQueueRecovery] ready={}", ready.load());
 }
-#else
-void InstallActionQueueRecovery() {}
-void ResetQueueRecoveryTracking() {}
-#endif

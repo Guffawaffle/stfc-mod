@@ -3,7 +3,6 @@
 
 // Port of the active v2.1.0-guffa.10 guard, not the dormant completion repair.
 // Shared 64-bit managed layout; incompatible runtime contracts leave the feature unavailable.
-#if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
 #include <algorithm>
 #include <atomic>
 #include <array>
@@ -317,6 +316,3 @@ void InstallThinQueueProtection()
   ready.store(a && b && c);
   spdlog::info("[ThinQueueProtection] ready={}", ready.load());
 }
-#else
-void InstallThinQueueProtection() {}
-#endif
