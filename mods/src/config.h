@@ -23,15 +23,18 @@ public:
     Buffs,
     Buildings,
     EmeraldChain,
+    Fleets,
     Haven,
     Inventory,
     Jobs,
     Missions,
     Officer,
+    Profile,
     Research,
     Resources,
     Ships,
     Slots,
+    StoreOffers,
     Tech,
     Traits
   };
@@ -50,15 +53,18 @@ public:
   bool battlelogs       = false;
   bool buffs            = false;
   bool buildings        = true;
+  bool fleets           = false;
   bool haven            = true;
   bool inventory        = false;
   bool jobs             = false;
   bool missions         = false;
   bool officers         = false;
+  bool profile          = false;
   bool research         = true;
   bool resources        = false;
   bool ships            = false;
   bool slots            = false;
+  bool store_offers     = false;
   bool tech             = false;
   bool traits           = false;
 
@@ -72,15 +78,18 @@ constexpr std::array SyncOptions{
     SyncConfig::Option{SyncConfig::Type::Buffs, "buff", "buffs", &SyncConfig::buffs},
     SyncConfig::Option{SyncConfig::Type::Buildings, "module", "buildings", &SyncConfig::buildings},
     SyncConfig::Option{SyncConfig::Type::EmeraldChain, "emerald_chain", "buffs", &SyncConfig::buffs},
+    SyncConfig::Option{SyncConfig::Type::Fleets, "fleet", "fleets", &SyncConfig::fleets},
     SyncConfig::Option{SyncConfig::Type::Haven, "haven", "haven", &SyncConfig::haven},
     SyncConfig::Option{SyncConfig::Type::Inventory, "inventory", "inventory", &SyncConfig::inventory},
     SyncConfig::Option{SyncConfig::Type::Jobs, "job", "jobs", &SyncConfig::jobs},
     SyncConfig::Option{SyncConfig::Type::Missions, "mission", "missions", &SyncConfig::missions},
     SyncConfig::Option{SyncConfig::Type::Officer, "officer", "officers", &SyncConfig::officers},
+    SyncConfig::Option{SyncConfig::Type::Profile, "profile", "profile", &SyncConfig::profile},
     SyncConfig::Option{SyncConfig::Type::Research, "research", "research", &SyncConfig::research},
     SyncConfig::Option{SyncConfig::Type::Resources, "resource", "resources", &SyncConfig::resources},
     SyncConfig::Option{SyncConfig::Type::Ships, "ship", "ships", &SyncConfig::ships},
     SyncConfig::Option{SyncConfig::Type::Slots, "slot", "slots", &SyncConfig::slots},
+    SyncConfig::Option{SyncConfig::Type::StoreOffers, "store_offer", "store_offers", &SyncConfig::store_offers},
     SyncConfig::Option{SyncConfig::Type::Tech, "ft", "tech", &SyncConfig::tech},
     SyncConfig::Option{SyncConfig::Type::Traits, "trait", "traits", &SyncConfig::traits},
 };
@@ -185,6 +194,7 @@ public:
   bool  use_out_of_dock_power;
   float system_pan_momentum;
   float system_pan_momentum_falloff;
+  bool disable_target_camera_lock;
 
   float keyboard_zoom_speed;
   int   select_timer;
@@ -233,7 +243,9 @@ public:
   NotificationSound alert_armada_battle_lost = NotificationSound::None;
   bool                     auto_open_bulk_claim_flyout;
   bool                     auto_confirm_ft_upgrade;
+  bool                     forbidden_tech_ship_name;
   bool                     auto_confirm_reveal_ability;
+  bool                     auto_confirm_alliance_contribution;
 
   std::vector<std::string> daily_bulk_claim_factions;
 
@@ -303,6 +315,7 @@ public:
   bool installLoadingTipHooks;
   bool installDoubleClickAssignShipHooks;
   bool installForbiddenTechConfirmationHooks;
+  bool installForbiddenTechShipNameHooks;
   bool installRevealConfirmationHooks;
   bool installInstantWarpConfirmationHooks;
   bool installAudioEventHooks;

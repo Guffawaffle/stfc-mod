@@ -595,15 +595,21 @@ void parse_faction_filter(std::string_view value, std::vector<std::string>& fact
   static constexpr std::array kKnownFactions{"federation", "klingon", "romulan"};
 
   factions.clear();
+  bool none = false;
   for (const auto& token : StrSplit(std::string(value), ',')) {
     const auto stripped = StripAsciiWhitespace(token);
-    if (stripped.empty()) continue;
+    if (stripped.empty())
+      continue;
 
-    auto lowered = AsciiStrToLower(stripped);
+    auto lowered = AsciiStrToLower(std::string(stripped));
 
+    if (lowered == "none") {
+      none = true;
+      continue;
+    }
     if (std::ranges::find(kKnownFactions, lowered) == kKnownFactions.end()) {
       spdlog::warn("Unrecognised faction '{}' in daily_bulk_claim_factions; expected one of: federation, klingon, "
-                   "romulan. Ignoring.",
+                   "romulan, or none by itself. Ignoring.",
                    stripped);
       continue;
     }
@@ -612,13 +618,21 @@ void parse_faction_filter(std::string_view value, std::vector<std::string>& fact
       factions.emplace_back(std::move(lowered));
     }
   }
+  if (none) {
+    if (!factions.empty())
+      spdlog::warn("daily_bulk_claim_factions: none overrides named factions; use none by itself.");
+    factions = {"none"};
+  }
 }
 
 void read_daily_bulk_claim_factions(toml::table& config, toml::table& new_config, std::vector<std::string>& factions,
                                     std::string_view default_value, bool write_log)
 {
-  const auto value =
-      config["ui"]["daily_bulk_claim_factions"].value<std::string>().value_or(std::string(default_value));
+  auto value = config["ui"]["daily_bulk_claim_factions"].value<std::string>().value_or(std::string(default_value));
+  // Blank has the same meaning as an omitted setting. Materialize the default
+  // for both gameplay and generated config values; none is the explicit opt-out.
+  if (StripAsciiWhitespace(value).empty())
+    value = std::string(default_value);
   parse_faction_filter(value, factions);
 
   new_config.emplace<toml::table>("ui", toml::table());
@@ -999,6 +1013,8 @@ void Config::Load()
       get_config_or_default(config, parsed, "patches", "doubleclickassignshiphooks", DCP::doubleclickassignshiphooks, write_config);
   this->installForbiddenTechConfirmationHooks =
       get_config_or_default(config, parsed, "patches", "forbiddentechconfirmhooks", DCP::forbiddentechconfirmhooks, write_config);
+  this->installForbiddenTechShipNameHooks = get_config_or_default(
+      config, parsed, "patches", "forbiddentechshipnamehooks", DCP::forbiddentechshipnamehooks, write_config);
   this->installRevealConfirmationHooks =
       get_config_or_default(config, parsed, "patches", "revealconfirmhooks", DCP::revealconfirmhooks, write_config);
   this->installQueueAddressGuardHooks = get_config_or_default(
@@ -1093,6 +1109,8 @@ void Config::Load()
 
   this->system_pan_momentum_falloff = get_config_or_default(config, parsed, "graphics", "system_pan_momentum_falloff",
                                                             DCG::system_pan_momentum_falloff, write_log);
+  this->disable_target_camera_lock = get_config_or_default(config, parsed, "graphics", "disable_target_camera_lock",
+                                                         DCG::disable_target_camera_lock, write_log);
   this->borderless_fullscreen =
       get_config_or_default(config, parsed, "graphics", "borderless_fullscreen", DCG::borderless_fullscreen, write_log);
   this->transition_time =
@@ -1201,9 +1219,14 @@ void Config::Load()
   this->auto_confirm_ft_upgrade =
       get_config_or_default(config, parsed, "ui", "auto_confirm_ft_upgrade",
                                                         DCU::auto_confirm_ft_upgrade, write_config);
+  this->forbidden_tech_ship_name = get_config_or_default(
+      config, parsed, "ui", "forbidden_tech_ship_name", DCU::forbidden_tech_ship_name, write_config);
   this->auto_confirm_reveal_ability =
       get_config_or_default(config, parsed, "ui", "auto_confirm_reveal_ability",
                                                         DCU::auto_confirm_reveal_ability, write_config);
+  this->auto_confirm_alliance_contribution =
+      get_config_or_default(config, parsed, "ui", "auto_confirm_alliance_contribution",
+                                                        DCU::auto_confirm_alliance_contribution, write_config);
 
   this->extend_chest_purchase_max = get_config_or_default(config, parsed, "ui", "extend_chest_purchase_max",
                                                           DCU::extend_chest_purchase_max, write_config);
@@ -1572,7 +1595,7 @@ void Config::Load()
             << " (Release)"
 #endif
 
-            << "\n\nPlease see https://github.com/netniv/stfc-mod for latest configuration help, examples and future "
+            << "\n\nPlease see https://github.com/STFC-Mod/mod for latest configuration help, examples and future "
                "releases\n"
             << "or visit the STFC Community Mod discord server at https://discord.gg/PrpHgs7Vjs\n\n";
 }

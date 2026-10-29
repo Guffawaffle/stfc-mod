@@ -1,10 +1,12 @@
 #include "config.h"
+#include "errormsg.h"
 #include "patches/screen_update_hook.h"
 #include "prime/Color.h"
+#include "prime/Hub.h"
 #include "prime/Vector2.h"
 
-#include <il2cpp/il2cpp_helper.h>
 #include <il2cpp-tabledefs.h>
+#include <il2cpp/il2cpp_helper.h>
 #include <spdlog/spdlog.h>
 
 #include <chrono>
@@ -39,15 +41,20 @@ bool TryInvoke(const MethodInfo* method, void* target, void** args, Il2CppObject
 }
 
 // Unity has Type/string and generic overloads with the same argument count.
-const MethodInfo* TypeMethod(Il2CppClass* cls, const char* name)
+const MethodInfo* TypeMethod(Il2CppClass* cls, const char* name, int argumentCount = 1)
 {
   // The shared filtered lookup cannot inspect is_generic and only searches
   // one class. Keep the overload check here so a generic overload cannot win.
   void* iter = nullptr;
   while (cls) {
     while (auto* method = il2cpp_class_get_methods(cls, &iter)) {
-      if (method->is_generic || std::strcmp(method->name, name) || method->parameters_count != 1)
+      if (method->is_generic || std::strcmp(method->name, name) || method->parameters_count != argumentCount)
         continue;
+      if (argumentCount == 2) {
+        auto* second = il2cpp_method_get_param(method, 1);
+        if (!second || il2cpp_type_is_byref(second) || il2cpp_type_get_type(second) != IL2CPP_TYPE_BOOLEAN)
+          continue;
+      }
       auto* param = il2cpp_class_from_type(il2cpp_method_get_param(method, 0));
       if (param && !std::strcmp(il2cpp_class_get_namespace(param), "System")
           && !std::strcmp(il2cpp_class_get_name(param), "Type"))
@@ -151,6 +158,7 @@ struct Root {
 };
 
 Root navigation, panel, label, anomalyManager;
+std::int64_t renderedSeconds = -1;
 
 void Clear()
 {
@@ -164,12 +172,77 @@ void Clear()
   panel.reset();
   navigation.reset();
   anomalyManager.reset();
+  renderedSeconds = -1;
 }
 
-Il2CppObject* Find(Il2CppClass* type)
+bool InSystemNavigation()
 {
-  static auto* method = TypeMethod(UnityObject(), "FindObjectOfType");
-  return WithType(method, nullptr, type);
+  static auto*  hub            = Class("Assembly-CSharp", "Digit.Client.Core", "Hub");
+  static auto*  sectionsGetter = IL2CppClassHelper(hub).GetMethodInfo("get_SectionManager", 0);
+  Il2CppObject* sections       = nullptr;
+  std::int32_t  section        = 0;
+  return TryInvoke(sectionsGetter, nullptr, nullptr, &sections) && Value(sections, "get_CurrentSection", section)
+         && static_cast<SectionID>(section) == SectionID::Navigation_System;
+}
+
+Il2CppObject* ExistingSingleton(Il2CppClass* singletonClass)
+{
+  // get_Instance may search the scene or create a replacement. Read only the
+  // native owner's existing singleton, and retry when it has not initialized.
+  auto* parent = singletonClass ? il2cpp_class_get_parent(singletonClass) : nullptr;
+  if (!parent || std::strcmp(il2cpp_class_get_name(parent), "MonoSingleton`1"))
+    return nullptr;
+  auto* instance = il2cpp_class_get_field_from_name(parent, "s_instance");
+  if (!instance || !(il2cpp_field_get_flags(instance) & FIELD_ATTRIBUTE_STATIC) || !instance->type
+      || il2cpp_type_is_byref(instance->type))
+    return nullptr;
+  const auto kind = il2cpp_type_get_type(instance->type);
+  if (kind != IL2CPP_TYPE_CLASS && kind != IL2CPP_TYPE_GENERICINST && kind != IL2CPP_TYPE_VAR)
+    return nullptr;
+  Il2CppObject* value = nullptr;
+  il2cpp_field_static_get_value(instance, &value);
+  return value && il2cpp_class_is_assignable_from(singletonClass, value->klass) && Alive(value) ? value : nullptr;
+}
+
+Il2CppObject* RegisteredController(Il2CppClass* controllerClass, Il2CppClass* contextClass)
+{
+  if (!controllerClass || !contextClass)
+    return nullptr;
+  static auto* screenClass = Class("Assembly-CSharp", "Digit.Client.UI", "ScreenManager");
+  auto*        screens     = Field(ExistingSingleton(screenClass), "_screens");
+  int          count       = 0;
+  if (!Value(screens, "get_Count", count) || count < 0 || count > 256)
+    return nullptr;
+  auto* item = IL2CppClassHelper(screens->klass).GetMethodInfo("get_Item", 1);
+  for (int index = 0; index < count; ++index) {
+    void*         args[] = {&index};
+    Il2CppObject* canvas = nullptr;
+    if (!TryInvoke(item, screens, args, &canvas) || !Alive(canvas))
+      continue;
+    auto* context = Get(canvas, "get_Context");
+    bool  visible = false;
+    if (!context || !il2cpp_class_is_assignable_from(contextClass, context->klass)
+        || !Value(canvas, "get_Visible", visible) || !visible)
+      continue;
+    // Search only the registered canvas that owns this context. The top
+    // interaction canvas and its root can belong to unrelated overlays.
+    // Component exposes the non-generic (Type, bool) overload. The one-argument
+    // overload is generic and cannot be invoked with a runtime Type object.
+    bool          includeInactive = false;
+    void*         controllerArgs[] = {il2cpp_type_get_object(il2cpp_class_get_type(controllerClass)), &includeInactive};
+    Il2CppObject* controller = nullptr;
+    TryInvoke(TypeMethod(canvas->klass, "GetComponentInChildren", 2), canvas, controllerArgs, &controller);
+    if (Alive(controller))
+      return controller;
+  }
+  return nullptr;
+}
+
+Il2CppObject* NavigationHud()
+{
+  static auto* hud     = Class("Assembly-CSharp", "Digit.Prime.Navigation.UI", "HudNavigationViewController");
+  static auto* context = Class("Assembly-CSharp", "Digit.Prime.Navigation", "NavigationViewData");
+  return RegisteredController(hud, context);
 }
 
 Il2CppObject* Component(Il2CppObject* object, Il2CppClass* type)
@@ -199,7 +272,8 @@ Il2CppObject* NewObject(const char* name, Il2CppObject* parent, Root& root)
   auto* transform          = WithType(TypeMethod(go, "AddComponent"), object, rt);
   bool  worldPositionStays = false;
   void* parentArgs[]       = {parent, &worldPositionStays};
-  if (!transform || !TryInvoke(IL2CppClassHelper(transform->klass).GetMethodInfo("SetParent", 2), transform, parentArgs))
+  if (!transform
+      || !TryInvoke(IL2CppClassHelper(transform->klass).GetMethodInfo("SetParent", 2), transform, parentArgs))
     return nullptr;
   return transform;
 }
@@ -272,13 +346,14 @@ bool Create(Il2CppObject* nav)
   Il2CppObject* name   = nullptr;
   if (!TryInvoke(IL2CppClassHelper(names->klass).GetMethodInfo("get_Item", 1), names, args, &name) || !Alive(name))
     return false;
-  static auto* drawerClass = Class("Assembly-CSharp", "Digit.Prime.HUD", "HudAllianceAndNewsViewController");
-  auto*        drawer      = Find(drawerClass);
-  auto*        chest       = Get(Field(drawer, "_chestPromotion"), "get_transform");
-  auto*        parent      = Get(chest, "get_parent");
-  static auto* tmp         = Class("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
-  auto*        source      = Component(name, tmp);
-  auto*        font        = Get(source, "get_font");
+  static auto* drawerClass   = Class("Assembly-CSharp", "Digit.Prime.HUD", "HudAllianceAndNewsViewController");
+  static auto* drawerContext = Class("Assembly-CSharp", "Digit.Prime.HUD", "HudAllianceAndNewsViewControllerContext");
+  auto* drawer = RegisteredController(drawerClass, drawerContext);
+  auto* chest  = Get(Field(drawer, "_chestPromotion"), "get_transform");
+  auto* parent = Get(chest, "get_parent");
+  static auto* tmp    = Class("Unity.TextMeshPro", "TMPro", "TextMeshProUGUI");
+  auto*        source = Component(name, tmp);
+  auto*        font   = Get(source, "get_font");
   if (!parent || !font)
     return false;
 
@@ -337,10 +412,20 @@ void Update()
     Clear();
     return;
   }
-  if (!Alive(navigation.get())) {
+  if (!InSystemNavigation()) {
     Clear();
-    static auto* cls = Class("Assembly-CSharp", "Digit.Prime.Navigation.UI", "HudNavigationViewController");
-    navigation.reset(Find(cls));
+    return;
+  }
+  static auto nextDiscovery = std::chrono::steady_clock::time_point{};
+  bool active = false;
+  if ((!Alive(navigation.get()) || !Value(navigation.get(), "get_isActiveAndEnabled", active) || !active)
+      && now >= nextDiscovery) {
+    nextDiscovery = now + std::chrono::seconds(1);
+    auto* replacement = NavigationHud();
+    if ((replacement && replacement != navigation.get()) || !Alive(navigation.get())) {
+      Clear();
+      navigation.reset(replacement);
+    }
   }
   auto*        nav   = navigation.get();
   bool         show  = false;
@@ -353,12 +438,13 @@ void Update()
     // Cache the Unity object, not its timer data. Unity's liveness check detects
     // destruction even while the managed wrapper is retained by our GC handle.
     if (!Alive(anomalyManager.get()))
-      anomalyManager.reset(Find(managerClass));
+      anomalyManager.reset(ExistingSingleton(managerClass));
     auto*         manager = anomalyManager.get();
     Il2CppObject* anomaly = nullptr;
     void*         args[]  = {&system};
     show = manager && Value(address, "get_System", system) && system > 0
-           && TryInvoke(IL2CppClassHelper(managerClass).GetMethodInfo("GetSystemGalacticAnomalies", 1), manager, args, &anomaly)
+           && TryInvoke(IL2CppClassHelper(managerClass).GetMethodInfo("GetSystemGalacticAnomalies", 1), manager, args,
+                        &anomaly)
            && Value(anomaly, "get_IsActive", show) && show
            && Value(Get(anomaly, "get_EndTimeTimerDataContext"), "get_RemainingTime", ticks) && ticks > 0;
   } else {
@@ -384,9 +470,13 @@ void Update()
     return;
   if (show) {
     auto seconds = ticks / 10000000 + (ticks % 10000000 != 0);
-    auto text    = seconds >= 3600 ? fmt::format("{}h {:02}m {:02}s", seconds / 3600, seconds / 60 % 60, seconds % 60)
-                                   : fmt::format("{:02}m {:02}s", seconds / 60, seconds % 60);
-    show         = Set(label.get(), "set_text", il2cpp_string_new(text.c_str()));
+    if (seconds != renderedSeconds) {
+      auto text = seconds >= 3600 ? fmt::format("{}h {:02}m {:02}s", seconds / 3600, seconds / 60 % 60, seconds % 60)
+                                  : fmt::format("{:02}m {:02}s", seconds / 60, seconds % 60);
+      show = Set(label.get(), "set_text", il2cpp_string_new(text.c_str()));
+      if (show)
+        renderedSeconds = seconds;
+    }
   }
   Set(panel.get(), "SetActive", &show);
 }
