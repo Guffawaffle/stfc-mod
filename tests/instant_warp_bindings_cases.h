@@ -35,14 +35,41 @@ Il2CppString*                             InstantWarpString(std::string_view tex
   instant_warp_strings.push_back(std::move(storage));
   return value;
 }
-Il2CppObject* instant_warp_fleet = nullptr;
-Il2CppObject  instant_warp_hull{};
-Il2CppString* instant_warp_name    = nullptr;
-int           instant_warp_regular = 0, instant_warp_jump = 0, instant_warp_overrides = 0, instant_warp_clears = 0;
-bool          instant_warp_text_throws = false, instant_warp_set_throws = false;
+Il2CppObject*         instant_warp_fleet          = nullptr;
+Il2CppObject*         instant_warp_selected_fleet = nullptr;
+Il2CppObject*         instant_warp_indexed_fleet  = nullptr;
+bool                  instant_warp_fleet_throws = false, instant_warp_lookup_throws = false;
+int                   instant_warp_lookup_calls = 0, instant_warp_selected_reads = 0;
+int64_t               instant_warp_lookup_id = 0;
+std::function<void()> instant_warp_lookup_read;
+Il2CppObject          instant_warp_hull{};
+Il2CppString*         instant_warp_name = nullptr;
+int  instant_warp_regular = 0, instant_warp_jump = 0, instant_warp_overrides = 0, instant_warp_clears = 0;
+bool instant_warp_text_throws = false, instant_warp_set_throws = false;
 std::function<void()> instant_warp_name_read;
 Il2CppObject*         InstantWarpFleet(Il2CppObject*, const MethodInfo*)
-{ return instant_warp_fleet; }
+{
+  if (instant_warp_fleet_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return instant_warp_fleet;
+}
+Il2CppObject* InstantWarpSelectedFleet(Il2CppObject*, const MethodInfo*)
+{
+  ++instant_warp_selected_reads;
+  return instant_warp_selected_fleet;
+}
+Il2CppObject* InstantWarpFleetById(Il2CppObject*, int64_t id, const MethodInfo*)
+{
+  ++instant_warp_lookup_calls;
+  instant_warp_lookup_id = id;
+  if (instant_warp_lookup_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  if (instant_warp_lookup_read)
+    instant_warp_lookup_read();
+  return instant_warp_indexed_fleet;
+}
+Il2CppObject* InstantWarpFleetByIndex(Il2CppObject*, int32_t, const MethodInfo*)
+{ throw std::runtime_error("course fleet ID was incorrectly used as a fleet index"); }
 Il2CppObject  instant_warp_manager{};
 Il2CppObject* InstantWarpManager(const MethodInfo*)
 { return &instant_warp_manager; }
@@ -111,7 +138,12 @@ void InstantWarpNativeCases(std::string_view mode)
   AddMethod(warp_node_class, "get_ID", reinterpret_cast<void*>(&InstantWarpNodeId), T(long_class), {});
   AddMethod(fleets_class, "get_Instance", reinterpret_cast<void*>(&InstantWarpManager), T(fleets_class), {},
             METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
-  AddMethod(fleets_class, "GetSelectedFleetData", reinterpret_cast<void*>(&InstantWarpFleet), T(fleet_data_class), {});
+  AddMethod(fleets_class, "GetSelectedFleetData", reinterpret_cast<void*>(&InstantWarpSelectedFleet),
+            T(fleet_data_class), {});
+  AddMethod(fleets_class, "GetFleetPlayerData", reinterpret_cast<void*>(&InstantWarpFleetByIndex), T(fleet_data_class),
+            {T(int_class)});
+  AddMethod(fleets_class, "GetFleetPlayerData", reinterpret_cast<void*>(&InstantWarpFleetById), T(fleet_data_class),
+            {T(long_class)});
   AddMethod(fleet_data_class, "get_Hull", reinterpret_cast<void*>(&InstantWarpHull), T(hull_class), {});
   AddProperty(fleet_data_class, "Hull", fleet_data_class.methods.back());
   AddMethod(fleet_data_class, "GetLocaId", reinterpret_cast<void*>(&InstantWarpLoca), T(long_class), {});
@@ -123,10 +155,11 @@ void InstantWarpNativeCases(std::string_view mode)
   AddMethod(label_class, "OverrideLocalizedText", reinterpret_cast<void*>(&InstantWarpOverrideText), T(void_class),
             {T(string_class)});
   AddMethod(label_class, "ClearTextOverride", reinterpret_cast<void*>(&InstantWarpClearText), T(void_class), {});
-  instant_warp_hull.klass    = &hull_class.klass;
-  instant_warp_manager.klass = &fleets_class.klass;
-  instant_warp_fleet         = reinterpret_cast<Il2CppObject*>(&identity_fleet);
-  instant_warp_name          = InstantWarpString("U.S.S. Enterprise-D");
+  instant_warp_hull.klass     = &hull_class.klass;
+  instant_warp_manager.klass  = &fleets_class.klass;
+  instant_warp_fleet          = reinterpret_cast<Il2CppObject*>(&identity_fleet);
+  instant_warp_selected_fleet = instant_warp_fleet;
+  instant_warp_name           = InstantWarpString("U.S.S. Enterprise-D");
   InstantWarpContextObject context{{&context_class.klass}, true, &warp_course};
   InstantWarpWidgetObject  widget{{&widget_class.klass}, &context.header};
   InstantWarpPopupObject   popup{{&popup_class.klass}, &widget.header};
@@ -246,6 +279,105 @@ void InstantWarpNativeCases(std::string_view mode)
   show();
   warp_root_failure = false;
   Require(instant_warp_jump == 3, "unavailable source custody leaves popup action native");
+
+  // Reproduce the live sequence: ordinary warp, explicit choice, then an
+  // ordinary cached course whose PlayerFleet is null but FleetID is intact.
+  reset_policy();
+  ui.auto_confirm_instant_warp = InstantWarpConfirmation::kWarp;
+  fleet_identity_value         = exact_fleet;
+  move(-1, node_id.value);
+  show();
+  Require(instant_warp_regular == 1, "ordinary click initially answers warp");
+  const auto initial_lookups = instant_warp_lookup_calls;
+  ++input_frame;
+  any_held                                                   = true;
+  held_keys[std::to_underlying(unity::KeyCode::LeftControl)] = true;
+  held_keys[std::to_underlying(unity::KeyCode::LeftCommand)] = true;
+  instant_mouse_held                                         = true;
+  move(-1, node_id.value);
+  show();
+  Require(instant_warp_regular == 1 && !warp_click_intent.fleet && instant_warp_lookup_calls == initial_lookups,
+          "explicit choice consumes once without consulting the fallback");
+  ++input_frame;
+  any_held = false;
+  held_keys.fill(false);
+  instant_mouse_held          = false;
+  instant_warp_indexed_fleet  = instant_warp_fleet;
+  instant_warp_fleet          = nullptr;
+  instant_warp_selected_fleet = nullptr;
+  const auto selected_reads   = instant_warp_selected_reads;
+  move(-1, node_id.value);
+  show();
+  Require(instant_warp_regular == 2 && instant_warp_lookup_calls == initial_lookups + 2
+              && instant_warp_lookup_id == exact_fleet && instant_warp_selected_reads == selected_reads,
+          "following plain click resolves and revalidates exact course fleet, independently of selected fleet");
+  show();
+  Require(instant_warp_regular == 3, "later ordinary popup does not inherit the manual choice");
+  // Ship-specific policy still uses the recovered course ship.
+  ui.instant_warp_auto_jump.names = {ShipNameWords("Enterprise-D")};
+  show();
+  Require(instant_warp_jump == 4, "recovered fleet retains named policy precedence over the default");
+  ui.instant_warp_always_ask.names = {ShipNameWords("Enterprise-D")};
+  show();
+  Require(instant_warp_jump == 4 && instant_warp_regular == 3, "recovered fleet respects named always-ask policy");
+  reset_policy();
+  ui.auto_confirm_instant_warp = InstantWarpConfirmation::kWarp;
+  fleet_identity_value         = exact_fleet + 1;
+  show();
+  Require(instant_warp_regular == 3, "mismatched lookup fleet never authorizes warp");
+  fleet_identity_value       = exact_fleet;
+  instant_warp_indexed_fleet = nullptr;
+  show();
+  Require(instant_warp_regular == 3, "absent exact fleet never falls back to current selection");
+  instant_warp_indexed_fleet = reinterpret_cast<Il2CppObject*>(&identity_fleet);
+  instant_warp_lookup_throws = true;
+  show();
+  instant_warp_lookup_throws = false;
+  Require(instant_warp_regular == 3, "failed native lookup retains the native choice");
+  const auto lookups_before_failure = instant_warp_lookup_calls;
+  instant_warp_fleet_throws         = true;
+  show();
+  instant_warp_fleet_throws = false;
+  Require(instant_warp_regular == 3 && instant_warp_lookup_calls == lookups_before_failure,
+          "failed PlayerFleet observation is not treated as a successful null");
+  warp_course_fleet_id = 0;
+  show();
+  Require(instant_warp_regular == 3 && instant_warp_lookup_calls == lookups_before_failure,
+          "unknown course fleet ID cannot authorize lookup");
+  warp_course_fleet_id   = exact_fleet;
+  instant_warp_name_read = [&] { warp_course_fleet_id = exact_fleet + 1; };
+  show();
+  instant_warp_name_read = {};
+  warp_course_fleet_id   = exact_fleet;
+  Require(instant_warp_regular == 3, "in-place course identity change during localization rejects stale result");
+  instant_warp_name_read = [&] { fleet_identity_value = exact_fleet + 1; };
+  show();
+  instant_warp_name_read = {};
+  fleet_identity_value   = exact_fleet;
+  Require(instant_warp_regular == 3, "in-place fleet identity change during localization rejects stale result");
+  instant_warp_name_read = [&] { instant_warp_indexed_fleet = nullptr; };
+  show();
+  instant_warp_name_read = {};
+  Require(instant_warp_regular == 3, "lookup disappearance during localization rejects stale result");
+  instant_warp_indexed_fleet     = reinterpret_cast<Il2CppObject*>(&identity_fleet);
+  const auto revalidation_lookup = instant_warp_lookup_calls + 2;
+  instant_warp_lookup_read       = [&] {
+    if (instant_warp_lookup_calls == revalidation_lookup)
+      context.course = nullptr;
+  };
+  show();
+  instant_warp_lookup_read = {};
+  context.course           = &warp_course;
+  Require(instant_warp_regular == 3, "popup rebound by final fleet lookup cannot receive a stale decision");
+  instant_warp_fleet                   = reinterpret_cast<Il2CppObject*>(&instant_warp_hull);
+  const auto lookups_before_wrong_type = instant_warp_lookup_calls;
+  show();
+  Require(instant_warp_regular == 3 && instant_warp_lookup_calls == lookups_before_wrong_type,
+          "nonnull invalid fleet does not take the successful-null fallback");
+  instant_warp_fleet          = reinterpret_cast<Il2CppObject*>(&identity_fleet);
+  instant_warp_selected_fleet = instant_warp_fleet;
+  fleet_identity_value        = 999;
+  Require(warp_roots.size() == initial_roots, "course fallback and rejection paths release every temporary root");
 
   owned.Apply(text, "JUMP");
   Require(label.overridden && owned.Get() == text && il2cpp::ToUtf8(label.text) == "JUMP" && instant_warp_overrides == 1

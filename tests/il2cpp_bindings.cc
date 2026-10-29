@@ -505,8 +505,9 @@ int32_t WarpTargetAction(Il2CppObject*, const MethodInfo*)
   ++warp_scalar_calls;
   return -1;
 }
+int64_t warp_course_fleet_id = 9007199254740993LL;
 int64_t WarpFleetId(Il2CppObject*, const MethodInfo*)
-{ return 9007199254740993LL; }
+{ return warp_course_fleet_id; }
 Il2CppObject* WarpGetTarget(Il2CppObject*, const MethodInfo*)
 {
   ++warp_reference_calls;
@@ -526,10 +527,11 @@ int64_t ShipIdentity_get_Id(Il2CppObject* self, const MethodInfo*)
     throw Il2CppExceptionWrapper(&thrown);
   return reinterpret_cast<ShipIdentityObject*>(self)->id;
 }
+int64_t fleet_identity_value = 999;
 int64_t FleetIdentity_get_Id(Il2CppObject*, const MethodInfo*)
 {
   ++fleet_identity_reads;
-  return 999;
+  return fleet_identity_value;
 }
 int32_t Base_Explode(Il2CppObject*, const MethodInfo*)
 { throw Il2CppExceptionWrapper(&thrown); }
