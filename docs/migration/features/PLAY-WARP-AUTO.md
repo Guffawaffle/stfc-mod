@@ -47,8 +47,12 @@ the existing preserving writer; accepted live state is not a disk-save receipt.
 ## Explicit corrections and limits
 
 The frozen and initial target could fall back to the configured default when a
-popup's course or player fleet was missing. This pass deliberately refuses that
+popup's course or player fleet was missing. The reassessment refused that
 automatic action: unavailable identity is not authorization for a paid option.
+The [October 28 runtime correction](../WARP-CHOICE-RECOVERY-20261028.md) qualifies
+a successful-null PlayerFleet through the exact course FleetID and native
+player-fleet lookup. A missing attached object alone no longer blocks an
+otherwise qualified decision; unknown or mismatched identity still does.
 Named filters with unavailable localization likewise retain the native choice
 when the higher-priority decision cannot be established. A wildcard/default
 decision that does not need a name remains usable. These are correctness

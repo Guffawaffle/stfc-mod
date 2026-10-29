@@ -2352,6 +2352,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-WARP-AUTO.md",
+      "currentRuntimeFollowup": "docs/migration/WARP-CHOICE-RECOVERY-20261028.md",
       "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
@@ -2441,6 +2442,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-WARP-MODIFIER.md",
+      "currentRuntimeFollowup": "docs/migration/WARP-CHOICE-RECOVERY-20261028.md",
       "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [
@@ -2530,6 +2532,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-WARP-LABEL.md",
+      "currentRuntimeFollowup": "docs/migration/WARP-CHOICE-RECOVERY-20261028.md",
       "catalogStatus": "Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified",
       "userEntryPoint": "Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls",
       "branchObservations": [

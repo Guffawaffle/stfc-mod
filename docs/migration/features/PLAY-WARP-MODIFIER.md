@@ -48,3 +48,8 @@ switch selected fleets/targets; verify no old override leaks. Observe missing or
 unsupported paths without forcing a resource-consuming action. The [automatic
 policy](PLAY-WARP-AUTO.md) and [label preview](PLAY-WARP-LABEL.md) retain separate
 obligations even though they share one feature owner.
+
+The [October 28 consecutive-click trial](../WARP-CHOICE-RECOVERY-20261028.md)
+confirmed modifier release and one-shot consumption. The next popup instead
+omitted its attached PlayerFleet; the repair resolves its exact course identity.
+Retain the complete interaction sequence in regression coverage.

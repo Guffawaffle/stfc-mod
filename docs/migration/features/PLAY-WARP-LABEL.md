@@ -48,3 +48,8 @@ change fleet and filters, hold/release modifier, reopen pooled system cards and
 visit toll/wormhole controls. Confirm only the owned ordinary label changes,
 while native availability, button behavior and costs remain unchanged. Windows
 player confirmation and macOS CI/Mcohall testing are independent of compilation.
+
+The [October 28 label/action mismatch](../WARP-CHOICE-RECOVERY-20261028.md)
+originated in the popup's omitted PlayerFleet after a manual choice. Preview
+input/ownership was not the cause; the repair qualifies the popup's course ship
+without changing the label implementation.
