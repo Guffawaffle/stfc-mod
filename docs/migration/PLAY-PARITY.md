@@ -1,5 +1,17 @@
 # Downstream play preservation target
 
+## Shop quantity and popup continuation — 2026-10-29
+
+[Cohort20261029-01](FEATURE-COHORT-20261029-01.md) source-reassesses donation,
+chest limits, shared popup/reveal handling and artifact Exchange All. The actual
+consumer fixture reproduced and then qualified a stale chest-context write;
+the existing popup atomic state and accurate next-view Settings timing were
+restored. Keys, defaults, stores and individual game actions remain unchanged.
+The assertion-enabled Windows suite passed419/419 steps. Native build/trial and
+Mac evidence are kept separate in the cohort; scoped Mac donation behavior
+continues to differ intentionally from the old global Slider hook. No overall
+functional-parity claim is made.
+
 ## Current continuation — 2026-10-28
 
 [Shop/claims/HUD/confirmations cohort03](FEATURE-COHORT-20261028-03.md) reads the

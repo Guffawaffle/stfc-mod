@@ -4929,19 +4929,69 @@
       },
       "migration": {
         "path": "src/mod/features/shop.cc",
-        "symbolOrWorkflow": "Donation"
+        "symbolOrWorkflow": "InventoryForPopup_set_MaxItemsToUse_Hook / scoped non-Windows row adjustment"
       },
       "expectedBehavior": "Donation slider extension",
       "verificationProcedure": "Tagged donation vs unrelated sliders, positive/zero/negative; mac migration intentionally narrows old global slider behavior; acceptance remains explicit.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Tagged donation vs unrelated sliders, positive/zero/negative; mac migration intentionally narrows old global slider behavior; acceptance remains explicit.",
+      "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior. Partial remains explicit: scoped Mac donation path intentionally differs from unsafe global Slider.maxValue hook; no Mac build/runtime qualified here.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-DONATION.md",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "presence": "present",
+          "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
+        }
+      ],
+      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "8fb8802708612ff21217f79b0cde7da63466809e",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-DONATION.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
+          "migrationStatus": "Partial",
+          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+        }
+      ]
     },
     {
       "id": "PLAY-CHEST-LIMIT",
@@ -4954,19 +5004,69 @@
       },
       "migration": {
         "path": "src/mod/features/shop.cc",
-        "symbolOrWorkflow": "Chest"
+        "symbolOrWorkflow": "InventoryUseRowWidget_SetWidgetData_Hook"
       },
       "expectedBehavior": "Chest purchase cap bounded at 160",
       "verificationProcedure": "Native cap smaller/equal/larger, invalid request and late tagging. Migration permits live enabling rather than startup-only install.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Native cap smaller/equal/larger, invalid request and late tagging. Migration permits live enabling rather than startup-only install.",
+      "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CHEST-LIMIT.md",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "presence": "present",
+          "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
+        }
+      ],
+      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "8fb8802708612ff21217f79b0cde7da63466809e",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-CHEST-LIMIT.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+        }
+      ]
     },
     {
       "id": "PLAY-OFFER-DETAILS",
@@ -5067,19 +5167,69 @@
       },
       "migration": {
         "path": "src/mod/features/shop.cc",
-        "symbolOrWorkflow": "Popup"
+        "symbolOrWorkflow": "SuppressPopup / native reveal decision / native-first interstitial close"
       },
       "expectedBehavior": "Shared first-popup-only session and reveal skip",
       "verificationProcedure": "Both PLC/interstitial orderings, process restart, scene reload, reentry and setting toggles; original call count.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Both PLC/interstitial orderings, process restart, scene reload, reentry and setting toggles; original call count.",
+      "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-POPUPS.md",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "presence": "present",
+          "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
+        }
+      ],
+      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "8fb8802708612ff21217f79b0cde7da63466809e",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-POPUPS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+        }
+      ]
     },
     {
       "id": "PLAY-BUFF-GUARD",
@@ -6581,19 +6731,70 @@
         "path": "mods/src/patches/parts/artifact_exchange.cc"
       },
       "migration": {
-        "path": "src/mod/features/shop.cc"
+        "path": "src/mod/features/shop.cc",
+        "symbolOrWorkflow": "InventoryUsePopupViewController_OnDidBindCanvasContext_Hook"
       },
       "expectedBehavior": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
       "activationAndDependencies": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
       "verificationProcedure": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Native bind first, then hide _convertAllButton; individual exchanges and unrelated inventory stay native. Test option/patch toggles and pooled controller.",
-      "restorationCommits": []
+      "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior.",
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-ARTIFACT-EXCHANGE-ALL.md",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/artifact_exchange.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/artifact_exchange.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/artifact_exchange.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "presence": "present",
+          "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
+        }
+      ],
+      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "8fb8802708612ff21217f79b0cde7da63466809e",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-ARTIFACT-EXCHANGE-ALL.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+        }
+      ]
     },
     {
       "id": "PLAY-OUT-OF-DOCK-POWER",
@@ -8154,18 +8355,16 @@
       "limits": "Default CI excludes optional private AAI and Profiles-host configurations. No new in-game qualification."
     },
     "nextCohort": {
-      "document": "docs/migration/FEATURE-COHORT-20261028-03.md",
-      "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
+      "document": "docs/migration/FEATURE-COHORT-20261029-01.md",
+      "base": "8fb8802708612ff21217f79b0cde7da63466809e",
       "capabilities": [
-        "PLAY-CLAIM",
-        "PLAY-HUD",
-        "PLAY-OFFER-DETAILS",
-        "PLAY-CONFIRMATIONS"
+        "PLAY-DONATION",
+        "PLAY-CHEST-LIMIT",
+        "PLAY-POPUPS",
+        "PLAY-ARTIFACT-EXCHANGE-ALL"
       ],
-      "status": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
-      "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json",
-      "implementationCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
-      "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
+      "status": "419/419 final Windows regression steps passed; native candidate qualification pending",
+      "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
     },
     "artifactSourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
     "historicalRuntimes": [
@@ -8208,12 +8407,12 @@
     ]
   },
   "completionPlanningAssessment": {
-    "date": "2026-10-28",
-    "candidateBase": "266a688cab23f668e660a0b20fdee33af03e19ee",
-    "document": "docs/migration/FEATURE-COHORT-20261028-03.md",
+    "date": "2026-10-29",
+    "candidateBase": "8fb8802708612ff21217f79b0cde7da63466809e",
+    "document": "docs/migration/FEATURE-COHORT-20261029-01.md",
     "inventoryEntries": 111,
-    "entriesWithSourceBoundReassessments": 60,
-    "entriesWithContracts": 62,
+    "entriesWithSourceBoundReassessments": 64,
+    "entriesWithContracts": 66,
     "meaning": "Historical dispositions, implementation presence, source reassessment, local tests and player verification are independent; these counts are not a completion percentage.",
     "staleOrBaselineSpecificRows": [
       "SET-NAV",

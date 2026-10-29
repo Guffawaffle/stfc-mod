@@ -517,7 +517,12 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             map_case.addArg(mode);
             test_il2cpp.dependOn(&map_case.step);
         }
-        inline for (.{ "shop-claims-native", "fleet-selection-native", "fleet-ability-native", "fleet-ability-id-field", "fleet-ability-timer-type", "screen-actions-buttons", "screen-actions-pending", "screen-actions-routing", "screen-actions-stepping", "hotkey-screen-order", "discovery-tow-native", "discovery-tow-reject-arity", "discovery-tow-reject-unsigned", "discovery-tow-reject-generic", "discovery-tow-reject-vector", "discovery-tow-virtual-equals", "discovery-tow-shared", "discovery-tow-reject-null-plan", "discovery-tow-reject-null-start", "discovery-tow-reject-null-instance", "discovery-tow-reject-null-tow", "discovery-tow-reject-null-ctor", "discovery-tow-reject-null-support", "discovery-tow-reject-byref-void", "discovery-tow-reject-shared-invoker" }) |mode| {
+        if (ctx.isWindows()) {
+            const claim_case = b.addRunArtifact(exe);
+            claim_case.addArg("shop-claims-native");
+            test_il2cpp.dependOn(&claim_case.step);
+        }
+        inline for (.{ "shop-limits-native", "fleet-selection-native", "fleet-ability-native", "fleet-ability-id-field", "fleet-ability-timer-type", "screen-actions-buttons", "screen-actions-pending", "screen-actions-routing", "screen-actions-stepping", "hotkey-screen-order", "discovery-tow-native", "discovery-tow-reject-arity", "discovery-tow-reject-unsigned", "discovery-tow-reject-generic", "discovery-tow-reject-vector", "discovery-tow-virtual-equals", "discovery-tow-shared", "discovery-tow-reject-null-plan", "discovery-tow-reject-null-start", "discovery-tow-reject-null-instance", "discovery-tow-reject-null-tow", "discovery-tow-reject-null-ctor", "discovery-tow-reject-null-support", "discovery-tow-reject-byref-void", "discovery-tow-reject-shared-invoker" }) |mode| {
             const navigation_case = b.addRunArtifact(exe);
             navigation_case.addArg(mode);
             test_il2cpp.dependOn(&navigation_case.step);

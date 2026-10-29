@@ -542,8 +542,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
        Live, "Skip the Excelsior Decloaking Deflector confirmation.");
   BOOL("claims", ui, disable_exchange_all, "Hide artifact Exchange All", Owner("ArtifactExchange"), ReopenView,
        "Reopen the artifact popup to refresh this button.");
-  INT("claims", ui, extend_chest_purchase_max, "Maximum chest quantity", misc, Restart,
-      "Zero disables extension; the effective extension is capped at 160.", "chests", 0, integer);
+  INT("claims", ui, extend_chest_purchase_max, "Maximum chest quantity", misc, ReopenView,
+      "Reopen the chest dialog; zero disables extension and the effective extension is capped at 160.", "chests", 0,
+      integer);
   BOOL("claims", ui, extend_donation_slider, "Extend donation slider", donation, ReopenView,
        "Use the configured donation limit in supported dialogs.");
   INT("claims", ui, extend_donation_max, "Maximum donation quantity", donation, ReopenView,

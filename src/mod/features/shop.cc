@@ -11,6 +11,7 @@
 #include <il2cpp/il2cpp.h>
 
 #include <algorithm>
+#include <atomic>
 #include <utility>
 
 namespace
@@ -108,25 +109,37 @@ void InventoryForPopup_set_MaxItemsToUse_Hook(auto original, InventoryForPopup* 
 // setter, and adjusting the context rather than the slider leaves every other slider alone.
 void InventoryUseRowWidget_SetWidgetData_Hook(auto original, InventoryUseRowWidget* _this)
 {
-  auto*       context = _this->Context();
-  const auto& ui      = Config::Get().ui;
-  if (context && context->IsChestPurchase()) {
-    const auto native_max = context->MaxItemsToUse();
-    const auto extended   = std::min(int64_t{ui.extend_chest_purchase_max}, kMaximumChestPurchaseMax);
-    if (native_max > 0 && extended > native_max)
-      context->SetMaxItemsToUse(extended);
-  }
+  auto owner   = il2cpp::GcHandle::Strong(_this);
+  auto context = owner ? il2cpp::GcHandle::Strong(_this->Context()) : il2cpp::GcHandle{};
+  if (context) {
+    auto*      popup   = context.Get<InventoryForPopup>();
+    const auto current = [&] { return _this->Context() == context.Get(); };
+    const auto chest   = popup->TryCall<"get_IsChestPurchase", bool>();
+    if (chest && chest.value) {
+      const auto native_max = popup->TryCall<"get_MaxItemsToUse", int64_t>();
+      const auto extended   = std::min(int64_t{Config::Get().ui.extend_chest_purchase_max}, kMaximumChestPurchaseMax);
+      if (native_max && native_max.value > 0 && extended > native_max.value && current())
+        popup->SetMaxItemsToUse(extended);
+    }
 #if !_WIN32
-  else if (context && ui.extend_donation_slider && context->IsDonationUse()) {
-    // extend_donation_max replaces the game's donation cap; 0 or less means no cap. Either way the slider stops at
-    // what the player owns.
-    const auto owned  = context->AmountOwned();
-    const auto cap    = ui.extend_donation_max > 0 ? int64_t{ui.extend_donation_max} : owned;
-    const auto target = owned > 0 ? std::min(cap, owned) : cap;
-    if (target > 0 && target != context->MaxItemsToUse())
-      context->SetMaxItemsToUse(target);
-  }
+    else if (chest && Config::Get().ui.extend_donation_slider) {
+      const auto donation = popup->TryCall<"get_IsDonationUse", bool>();
+      if (donation && donation.value) {
+        // Only a known owned amount can qualify the scoped donation bound.
+        // Nonpositive configured limits use that amount, not a guessed infinity.
+        const auto owned      = popup->TryCall<"get_AmountOwned", int64_t>();
+        const auto native_max = popup->TryCall<"get_MaxItemsToUse", int64_t>();
+        const auto configured = Config::Get().ui.extend_donation_max;
+        if (owned && native_max && owned.value > 0 && Config::Get().ui.extend_donation_slider && current()) {
+          const auto cap    = configured > 0 ? int64_t{configured} : owned.value;
+          const auto target = std::min(cap, owned.value);
+          if (target != native_max.value)
+            popup->SetMaxItemsToUse(target);
+        }
+      }
+    }
 #endif
+  }
   original(_this);
 }
 
@@ -147,14 +160,14 @@ bool ShopSceneManager_ShouldShowRevealSequence_Hook(auto original, il2cpp::Objec
 
 // --- First popup only ---
 
-bool popup_shown = false;
+std::atomic_bool popup_shown{false};
 
 // True for every ad or offer popup after the first one this session.
 bool SuppressPopup()
 {
   if (!Config::Get().ui.only_show_first_popup)
     return false;
-  return std::exchange(popup_shown, true);
+  return popup_shown.exchange(true);
 }
 
 void InterstitialViewController_AboutToShow_Hook(auto original, InterstitialViewController* _this)
