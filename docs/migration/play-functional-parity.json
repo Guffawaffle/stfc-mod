@@ -4988,14 +4988,23 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
         ],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "6664e54df7a9062143a757f39f02bbbf4330829d",
+            "installedSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+            "platform": "Windows client273 main ordinary",
+            "behavior": "Focused Gifts/Daily Goals/HUD/cooldown-offer combined trial",
+            "result": "Guff:seems good to me. Per-control coverage was not itemized; reward delivery and Mac behavior not established."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-OFFER-DETAILS.md",
-      "catalogStatus": "Complete frozen-source reassessment and controlled production-consumer checks; native/player/platform qualification separate",
+      "catalogStatus": "Basic combined Windows UI trial accepted; extended native/platform edges separate",
       "branchObservations": [
         {
           "refRole": "upstream-dev",
@@ -5017,7 +5026,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "revision": "6664e54df7a9062143a757f39f02bbbf4330829d",
           "presence": "present",
           "evidence": "src/mod/features/shop.cc"
         }
@@ -5033,14 +5042,17 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json",
+            "implementationCommit": "6664e54df7a9062143a757f39f02bbbf4330829d"
           },
           "contract": "docs/migration/features/PLAY-OFFER-DETAILS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "verification": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
           "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
-          "limits": "Native gameplay and platform qualification remain separate."
+          "limits": "Native gameplay and platform qualification remain separate.",
+          "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
         }
       ]
     },
@@ -5114,14 +5126,25 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
         ],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "6664e54df7a9062143a757f39f02bbbf4330829d",
+            "installedSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+            "platform": "Windows client273 main ordinary",
+            "behavior": "Focused Gifts/Daily Goals/HUD/cooldown-offer combined trial",
+            "result": "Guff:seems good to me. Per-control coverage was not itemized; reward delivery and Mac behavior not established."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "6664e54df7a9062143a757f39f02bbbf4330829d"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CLAIM.md",
-      "catalogStatus": "Complete frozen-source reassessment and controlled production-consumer checks; native/player/platform qualification separate",
+      "catalogStatus": "Basic combined Windows UI trial accepted; extended native/platform edges separate",
       "branchObservations": [
         {
           "refRole": "upstream-dev",
@@ -5143,7 +5166,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "revision": "6664e54df7a9062143a757f39f02bbbf4330829d",
           "presence": "present",
           "evidence": "src/mod/features/shop.cc; src/mod/features/missions.cc"
         }
@@ -5159,14 +5182,17 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json",
+            "implementationCommit": "6664e54df7a9062143a757f39f02bbbf4330829d"
           },
           "contract": "docs/migration/features/PLAY-CLAIM.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "verification": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
           "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
-          "limits": "Native gameplay and platform qualification remain separate."
+          "limits": "Native gameplay and platform qualification remain separate.",
+          "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
         }
       ]
     },
@@ -5215,14 +5241,23 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
         ],
-        "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "6664e54df7a9062143a757f39f02bbbf4330829d",
+            "installedSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+            "platform": "Windows client273 main ordinary",
+            "behavior": "Focused Gifts/Daily Goals/HUD/cooldown-offer combined trial",
+            "result": "Guff:seems good to me. Per-control coverage was not itemized; reward delivery and Mac behavior not established."
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-HUD.md",
-      "catalogStatus": "Complete frozen-source reassessment and controlled production-consumer checks; native/player/platform qualification separate",
+      "catalogStatus": "Basic combined Windows UI trial accepted; extended native/platform edges separate",
       "branchObservations": [
         {
           "refRole": "upstream-dev",
@@ -5244,7 +5279,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "revision": "6664e54df7a9062143a757f39f02bbbf4330829d",
           "presence": "present",
           "evidence": "src/mod/features/missions.cc"
         }
@@ -5260,14 +5295,17 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json",
+            "implementationCommit": "6664e54df7a9062143a757f39f02bbbf4330829d"
           },
           "contract": "docs/migration/features/PLAY-HUD.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "verification": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
           "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
-          "limits": "Native gameplay and platform qualification remain separate."
+          "limits": "Native gameplay and platform qualification remain separate.",
+          "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
         }
       ]
     },
@@ -5316,7 +5354,7 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
@@ -5345,7 +5383,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "revision": "6664e54df7a9062143a757f39f02bbbf4330829d",
           "presence": "present",
           "evidence": "src/mod/features/confirmations.cc"
         }
@@ -5361,14 +5399,17 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json",
+            "implementationCommit": "6664e54df7a9062143a757f39f02bbbf4330829d"
           },
           "contract": "docs/migration/features/PLAY-CONFIRMATIONS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "verification": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
           "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
-          "limits": "Alliance-contribution callback is an existing target consumer, not a frozen-source restoration."
+          "limits": "Alliance-contribution callback is an existing target consumer, not a frozen-source restoration.",
+          "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
         }
       ]
     },
@@ -8051,7 +8092,7 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Shop/claims/HUD/confirmation source reassessment and 418/418 Windows suite completed; native candidate qualification pending. Haven entry accepted without code change. No overall parity claim.",
+    "status": "Shop/claims/HUD/confirmation reassessment and Windows trial checkpoint complete; extended native/platform qualification separate. Overall parity unclaimed.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "faadd75c31e0d23c2209dad053bddb143e494207",
     "obsoleteLocalPointer": {
@@ -8064,20 +8105,21 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
-    "artifactSha256": "3085ae45e2bd27304cfd1503b42a52befebb228534b9a33906380d31d4984b83",
-    "qualification": "Warp fix:287/287 Windows regression steps,41/41 native steps,73 groups/frame ready,Guff seems good and matching trace. No configuration edits; macOS and extended gameplay separate.",
+    "currentSourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
+    "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
+    "qualification": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
     "currentRuntime": {
-      "sourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
+      "sourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
+      "buildId": "ax-zig-20261029T044613-4a95be3d",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 45748,
-      "startedFileTime": "134377073854501027",
+      "pidAtQualification": 35396,
+      "startedFileTime": "134377229899175440",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/warp-choice-diagnostic-20261028/fix-qualification.json",
-      "status": "Windows startup and consecutive-click repair accepted; session identity historical after a restart."
+      "receipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json",
+      "status": "Basic combined Windows UI trial accepted; historical session identity after any later restart. Known contained GetComponent diagnostic recurred; caller/cause unqualified."
     },
     "pendingCohort": {
       "document": "docs/migration/features/AT-STORE.md",
@@ -8120,10 +8162,12 @@
         "PLAY-OFFER-DETAILS",
         "PLAY-CONFIRMATIONS"
       ],
-      "status": "418/418 Windows controlled-runtime steps passed; native build and focused player trial pending",
-      "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+      "status": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
+      "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json",
+      "implementationCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
+      "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
     },
-    "artifactSourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
+    "artifactSourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
     "historicalRuntimes": [
       {
         "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
@@ -8148,6 +8192,18 @@
         "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
         "receipt": "D:/dev/stfc-workspace/artifacts/settings-precision-20261028/qualification.json",
         "status": "Windows native build/startup and basic Settings precision trial accepted; extended lifecycle/macOS remain separate. Session identity historical after any later restart."
+      },
+      {
+        "sourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
+        "buildMode": "releasedbg",
+        "client": 273,
+        "installation": "C:/Games/Star Trek Fleet Command/default/game",
+        "profile": "ordinary",
+        "pidAtQualification": 45748,
+        "startedFileTime": "134377073854501027",
+        "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
+        "receipt": "D:/dev/stfc-workspace/artifacts/warp-choice-diagnostic-20261028/fix-qualification.json",
+        "status": "Windows startup and consecutive-click repair accepted; session identity historical after a restart."
       }
     ]
   },

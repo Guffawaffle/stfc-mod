@@ -80,3 +80,38 @@ not native UI, reward delivery or Mac proof.
 
 No source push, upstream merge, store/config mutation or broader parity claim.
 Direct tooling only; no Runner-native execution or implementation fanout.
+
+## Exact native checkpoint and basic acceptance
+
+Signed implementation `6664e54df7a9062143a757f39f02bbbf4330829d` passed
+**41/41** native Windows build steps. AX built before stopping the game and
+then cycled only the main ordinary installation. Source stayed clean and
+stable across build; unchanged AAI `4bece2e5` and UI Lab stayed enabled.
+The binary verifier confirmed x64, 16 proxy exports, static CRT and the exact
+embedded source/build marker. Build invocation:
+`ax-zig-20261029T044613-4a95be3d`.
+
+Built and installed DLL SHA256:
+`6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769`.
+Main game PID35396, creation FILETIME `134377229899175440`, is historical
+session evidence after any subsequent restart. All73 feature groups installed
+and FrameTick delivery became ready. The five tracked settings/state files were
+unchanged across the cycle; no TOML edits or purchases were made by the agent.
+
+Guff's focused Gifts/Daily Goals/HUD/cooldown-offer trial: **"seems good to me"**.
+This is basic combined Windows acceptance, not confirmation that every optional
+control, reward-delivery action, callback failure or pooled-object edge was
+exercised. Live FT/reveal actions and macOS remain unqualified.
+
+The previously observed contained, rate-limited `UnityEngine.GameObject.GetComponent`
+NullReference recurred at23:51:57 after successful startup. Its caller/cause
+remains unqualified; this is not an error-free-session claim or a new repair
+campaign. No visible issue was reported in the focused trial.
+
+Local evidence: `source-inputs.json`, `tests-2.log`, `cycle.log`,
+`qualification.json`, `startup-summary.txt`, `stores-before.json` and
+`stores-after.json` in the directory above. The cycle's nested prebuilt-deploy
+wrapper also names its canonical checkout; the prepared-build source, exact
+binary marker and matching hashes establish the actual worktree candidate.
+The inventory keeps overall parity false and preserves remaining platform and
+workflow qualification. No push, merge or release follows from this checkpoint.
