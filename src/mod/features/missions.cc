@@ -372,21 +372,27 @@ constexpr int kMaxToggleAttempts = 300;
 
 // Weak, and checked before use: the screen can be destroyed without AboutToHide. Never destroyed: freeing a GC
 // handle in a static destructor can run after the runtime has shut down.
-auto& shown_missions_screen = *new il2cpp::GcHandle;
-bool  toggle_done           = false;
-int   toggle_attempts       = 0;
+auto&    shown_missions_screen = *new il2cpp::GcHandle;
+bool     toggle_done           = false;
+int      toggle_attempts       = 0;
+uint64_t claim_view_revision   = 0;
 
 void MissionViewController_AboutToShow_Hook(auto original, MissionViewController* _this)
 {
-  original(_this);
-  ShowClaimedFactionIcons(_this);
+  const auto revision   = ++claim_view_revision;
+  auto       owner      = il2cpp::GcHandle::Strong(_this);
   shown_missions_screen = il2cpp::GcHandle::Weak(_this);
+  original(_this);
+  if (owner && revision == claim_view_revision && shown_missions_screen.Get() == owner.Get())
+    ShowClaimedFactionIcons(owner.Get<MissionViewController>());
 }
 
 void MissionViewController_AboutToHide_Hook(auto original, MissionViewController* _this)
 {
-  if (shown_missions_screen.Get() == _this)
+  if (shown_missions_screen.Get() == _this) {
+    ++claim_view_revision;
     shown_missions_screen.Reset();
+  }
   original(_this);
 }
 
@@ -394,19 +400,33 @@ void DailyClaimFilterFrame()
 {
   if (toggle_done || !shown_missions_screen || !Config::Get().ui.daily_bulk_claim_toggle_default_on)
     return;
-  auto* controller = shown_missions_screen.Get<MissionViewController>();
-  auto* toggle     = unity::Alive(controller) ? controller->claimAllToggle() : nullptr;
-  if (!toggle)
+  const auto revision   = claim_view_revision;
+  auto       owner      = il2cpp::GcHandle::Strong(shown_missions_screen.Get());
+  auto*      controller = owner.Get<MissionViewController>();
+  auto       toggle     = il2cpp::GcHandle::Strong(unity::Alive(controller) ? controller->claimAllToggle() : nullptr);
+  auto       current    = [&] {
+    return owner && revision == claim_view_revision && shown_missions_screen.Get() == owner.Get()
+           && controller->claimAllToggle() == toggle.Get() && !toggle_done
+           && Config::Get().ui.daily_bulk_claim_toggle_default_on;
+  };
+  if (!toggle || !current())
     return;
-  if (!toggle->isOn()) {
+  const auto on = toggle.Get<unity::Toggle>()->TryCall<"get_isOn", bool>();
+  if (!on || !current())
+    return;
+  if (!on.value) {
     if (++toggle_attempts > kMaxToggleAttempts) {
       spdlog::warn("[DailyClaimFilter] the Claim All toggle never became usable; leaving it off");
       toggle_done = true;
       return;
     }
-    toggle->SimulateClick();
+    toggle.Get<unity::Toggle>()->SimulateClick();
   }
-  toggle_done = toggle->isOn();
+  if (current()) {
+    const auto after = toggle.Get<unity::Toggle>()->TryCall<"get_isOn", bool>();
+    if (after && current())
+      toggle_done = after.value;
+  }
 }
 
 bool InstallMissionHud()

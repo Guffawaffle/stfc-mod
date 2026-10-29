@@ -2,6 +2,20 @@
 
 ## Current continuation — 2026-10-28
 
+[Shop/claims/HUD/confirmations cohort03](FEATURE-COHORT-20261028-03.md) reads the
+complete frozen implementations and preserves existing consumers. Bounded
+gift-drawer and daily-toggle changes reject stale native show/update episodes;
+HUD, cooldown-offer and confirmation behavior is exercised without a rewrite.
+The Windows controlled-runtime suite passed 418/418 build/run/install steps.
+Native build/trial evidence is recorded separately in that cohort. No reward or
+purchase was performed by the fixtures; macOS remains separately qualified.
+
+The separately catalogued [Go to Haven shortcut](features/PLAY-HAVEN-ENTRY.md)
+was accepted by Guff from Station and another Haven on the already installed
+113f13ce build. No Haven code or deployment changed during that retest. The
+earlier intermittent missing-UI report remains unreproduced, with no asserted
+cause. New Escape/card dismissal and visitor Back behavior remain parked.
+
 [Haven native-event correction](HAVEN-VISUAL-EVENTS-20261028.md), signed source
 `113f13ce`, replaces normal timed visual discovery after the player observed road
 depth loss during Haven switching. Windows controlled checks passed 417/417

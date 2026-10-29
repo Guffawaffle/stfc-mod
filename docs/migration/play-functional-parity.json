@@ -4979,19 +4979,70 @@
       },
       "migration": {
         "path": "src/mod/features/shop.cc",
-        "symbolOrWorkflow": "BundleDataWidget"
+        "symbolOrWorkflow": "BundleDataWidget_OnActionButtonPressedCallback_Hook"
       },
       "expectedBehavior": "Cooldown offer opens auxiliary view",
       "verificationProcedure": "Cooldown bit combinations, expiry, missing state and ordinary purchase path.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Cooldown bit combinations, expiry, missing state and ordinary purchase path.",
+      "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-OFFER-DETAILS.md",
+      "catalogStatus": "Complete frozen-source reassessment and controlled production-consumer checks; native/player/platform qualification separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "presence": "present",
+          "evidence": "src/mod/features/shop.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-OFFER-DETAILS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
+          "limits": "Native gameplay and platform qualification remain separate."
+        }
+      ]
     },
     {
       "id": "PLAY-POPUPS",
@@ -5053,20 +5104,71 @@
         "symbolOrWorkflow": "Claim"
       },
       "migration": {
-        "path": "src/mod/features/shop.cc",
-        "symbolOrWorkflow": "Claims"
+        "path": "src/mod/features/shop.cc; src/mod/features/missions.cc",
+        "symbolOrWorkflow": "Gift drawer lifecycle; faction filter, claimed icons and once-per-session default toggle"
       },
       "expectedBehavior": "Bulk gift flyout and daily faction claiming",
       "verificationProcedure": "Filter/toggle, repeated binds, claimed/available states, popup opening and native callback ownership.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Filter/toggle, repeated binds, claimed/available states, popup opening and native callback ownership.",
+      "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CLAIM.md",
+      "catalogStatus": "Complete frozen-source reassessment and controlled production-consumer checks; native/player/platform qualification separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/open_bulk_claim_gifts.cc; mods/src/patches/parts/daily_faction_bulk_claim.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/open_bulk_claim_gifts.cc; mods/src/patches/parts/daily_faction_bulk_claim.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/open_bulk_claim_gifts.cc; mods/src/patches/parts/daily_faction_bulk_claim.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "presence": "present",
+          "evidence": "src/mod/features/shop.cc; src/mod/features/missions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-CLAIM.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
+          "limits": "Native gameplay and platform qualification remain separate."
+        }
+      ]
     },
     {
       "id": "PLAY-BASE-CARD",
@@ -5104,19 +5206,70 @@
       },
       "migration": {
         "path": "src/mod/features/missions.cc",
-        "symbolOrWorkflow": "HUD"
+        "symbolOrWorkflow": "Mission HUD native-first setup, independent modes and per-button baseline restoration"
       },
       "expectedBehavior": "Four mission HUD visibility choices",
       "verificationProcedure": "Auto/Always/Never independently; native baseline restoration, replacements and reload.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Auto/Always/Never independently; native baseline restoration, replacements and reload.",
+      "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-HUD.md",
+      "catalogStatus": "Complete frozen-source reassessment and controlled production-consumer checks; native/player/platform qualification separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/mission_hud_tweaks.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/mission_hud_tweaks.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/mission_hud_tweaks.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "presence": "present",
+          "evidence": "src/mod/features/missions.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-HUD.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
+          "limits": "Native gameplay and platform qualification remain separate."
+        }
+      ]
     },
     {
       "id": "PLAY-FT-SHIP-NAME",
@@ -5154,19 +5307,70 @@
       },
       "migration": {
         "path": "src/mod/features/confirmations.cc",
-        "symbolOrWorkflow": "Confirm"
+        "symbolOrWorkflow": "Exact callback-owner confirmation routing; reveal ability type86002"
       },
       "expectedBehavior": "FT, alliance and reveal confirmation choices",
       "verificationProcedure": "Enabled/disabled/inversion, relevant popup only, native callback original paths.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Enabled/disabled/inversion, relevant popup only, native callback original paths.",
+      "dependenciesAndLimitations": "Complete source operations, live settings/defaults and native lifecycle compared in the linked contract. Controlled managed-host fixtures are not native UI/action or Mac proof. Confirmations preserve the native callback boundary; no live reward claim, purchase or reveal was performed.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CONFIRMATIONS.md",
+      "catalogStatus": "Complete frozen-source reassessment and controlled production-consumer checks; native/player/platform qualification separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/forbidden_tech_confirmation.cc; mods/src/patches/parts/reveal_confirmation.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/forbidden_tech_confirmation.cc; mods/src/patches/parts/reveal_confirmation.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/forbidden_tech_confirmation.cc; mods/src/patches/parts/reveal_confirmation.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "presence": "present",
+          "evidence": "src/mod/features/confirmations.cc"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-CONFIRMATIONS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner-native execution or implementation fanout",
+          "limits": "Alliance-contribution callback is an existing target consumer, not a frozen-source restoration."
+        }
+      ]
     },
     {
       "id": "PLAY-ANOMALY",
@@ -7561,6 +7765,87 @@
           "execution": "Direct workflow, independent read-only review and AX cycle; no Runner native execution"
         }
       ]
+    },
+    {
+      "id": "PLAY-HAVEN-ENTRY",
+      "name": "Go to own Haven shortcut",
+      "parentCapability": "PLAY-SCREEN-ACTIONS",
+      "classification": "Implemented, unverified",
+      "baseline": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/hotkeys.cc; mods/src/prime/PlanetaryBaseManager.h",
+        "symbolOrWorkflow": "ShowHaven; ViewOwnHaven"
+      },
+      "migration": {
+        "path": "src/mod/features/screens.cc; src/mod/game/fleet.h",
+        "symbolOrWorkflow": "kScreens / PlanetaryBaseManager::ViewOwnHaven"
+      },
+      "expectedBehavior": "Editable ALT-H goes to own Haven through native Gateway readiness and planetary section transition, with no visitor context; normal focus/capture gates apply.",
+      "verificationProcedure": "Use from Station/System/Galaxy and a visitor Haven; check actual controls, not only camera arrival. Retain origin and current section if the earlier missing-UI report recurs.",
+      "validation": {
+        "staticSourceInspection": true,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "Existing113f13ce installed build, before any changes or deployment in cohort03; current session is historical after restart.",
+        "playerVerifiedFinalCandidate": false,
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "113f13ce277c5acf0f8f69bcc400417bb00be61f",
+            "installedSha256": "4c88a57cca7a72f48b74d32f700142141d3dcdbf8318166a1a87a2909f21d784",
+            "platform": "Windows client273 main ordinary",
+            "behavior": "ALT-H from Station and another Haven",
+            "result": "Guff confirmed both work; no intervening source change or deployment. Earlier intermittent missing UI remains unreproduced."
+          }
+        ]
+      },
+      "dependenciesAndLimitations": "Gateway prerequisite, native section transition and hotkey focus gates; cold-start and Mac qualification separate. No cause assigned to the earlier report; Escape/Back changes parked.",
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-HAVEN-ENTRY.md",
+      "catalogStatus": "Newly separated product capability; current basic Windows behavior accepted without code change",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc; mods/src/prime/PlanetaryBaseManager.h"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc; mods/src/prime/PlanetaryBaseManager.h"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/hotkeys.cc; mods/src/prime/PlanetaryBaseManager.h"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "266a688cab23f668e660a0b20fdee33af03e19ee",
+          "presence": "present",
+          "evidence": "src/mod/features/screens.cc; src/mod/game/fleet.h"
+        }
+      ],
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "266a688cab23f668e660a0b20fdee33af03e19ee"
+          },
+          "contract": "docs/migration/features/PLAY-HAVEN-ENTRY.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Source and native section-entry investigation plus Guff basic current Windows Station/visitor trial. No code change needed; extended platform/cold-start qualification separate.",
+          "execution": "Direct tooling; no Runner execution"
+        }
+      ]
     }
   ],
   "sourceCoverage": {
@@ -7766,7 +8051,7 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Warp consecutive-click repair accepted; Haven/artwork/scaling source-bound cohort undergoing its own final variant/native qualification. No overall parity or release claim.",
+    "status": "Shop/claims/HUD/confirmation source reassessment and 418/418 Windows suite completed; native candidate qualification pending. Haven entry accepted without code change. No overall parity claim.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "faadd75c31e0d23c2209dad053bddb143e494207",
     "obsoleteLocalPointer": {
@@ -7827,21 +8112,16 @@
       "limits": "Default CI excludes optional private AAI and Profiles-host configurations. No new in-game qualification."
     },
     "nextCohort": {
-      "document": "docs/migration/FEATURE-COHORT-20261028-02.md",
-      "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+      "document": "docs/migration/FEATURE-COHORT-20261028-03.md",
+      "base": "266a688cab23f668e660a0b20fdee33af03e19ee",
       "capabilities": [
-        "PLAY-HAVEN-ZOOM",
-        "PLAY-HAVEN-VISUALS",
-        "PLAY-HAVEN-ORBIT",
-        "PLAY-HAVEN-HISTORY",
-        "PLAY-ART-LOGIN",
-        "PLAY-ART-TRANSITION",
-        "PLAY-UI-SCALE",
-        "PLAY-VIEWER-SCALE",
-        "PLAY-SHIP-MODEL-SCALE"
+        "PLAY-CLAIM",
+        "PLAY-HUD",
+        "PLAY-OFFER-DETAILS",
+        "PLAY-CONFIRMATIONS"
       ],
-      "status": "Integrated Windows suite passed; background variants and native trial qualification in progress",
-      "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+      "status": "418/418 Windows controlled-runtime steps passed; native build and focused player trial pending",
+      "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/source-inputs.json"
     },
     "artifactSourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
     "historicalRuntimes": [
@@ -7873,11 +8153,11 @@
   },
   "completionPlanningAssessment": {
     "date": "2026-10-28",
-    "candidate": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
-    "document": "docs/migration/FEATURE-COHORT-20261028-02.md",
-    "inventoryEntries": 110,
-    "entriesWithSourceBoundReassessments": 55,
-    "entriesWithContracts": 57,
+    "candidateBase": "266a688cab23f668e660a0b20fdee33af03e19ee",
+    "document": "docs/migration/FEATURE-COHORT-20261028-03.md",
+    "inventoryEntries": 111,
+    "entriesWithSourceBoundReassessments": 60,
+    "entriesWithContracts": 62,
     "meaning": "Historical dispositions, implementation presence, source reassessment, local tests and player verification are independent; these counts are not a completion percentage.",
     "staleOrBaselineSpecificRows": [
       "SET-NAV",

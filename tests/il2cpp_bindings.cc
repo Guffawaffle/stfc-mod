@@ -1846,6 +1846,7 @@ void PlannedWarpBindingObservations()
 #include "loading_tips_cases.h"
 #if _WIN32
 #include "cargo_bindings_cases.h"
+#include "shop_claims_cases.h"
 #endif
 // clang-format on
 
@@ -1909,6 +1910,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "hotkey-screen-order") {
     HotkeyOrderNativeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "shop-claims-native") {
+    ShopClaimsCases();
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]).starts_with("screen-actions-")) {

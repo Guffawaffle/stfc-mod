@@ -17,39 +17,56 @@ namespace
 {
 // --- Gifts: open the bulk claim drawer ---
 
-// The gifts screen that is showing, compared only and never dereferenced, and whether its drawer was opened since it
-// appeared.
-ShopListScrollerViewController* shown_scroller = nullptr;
-bool                            drawer_opened  = false;
+// Weak current landing and its show revision. Native callbacks may close or
+// replace a pooled controller; no scene object is retained strongly between calls.
+auto&    shown_scroller  = *new il2cpp::GcHandle;
+uint64_t drawer_revision = 0;
+bool     drawer_opened   = false;
 
 void OpenBulkClaimDrawer(ShopListScrollerViewController* controller)
 {
   if (!Config::Get().ui.auto_open_bulk_claim_flyout || drawer_opened)
     return;
-
-  auto* drawer  = controller->selectionDrawerWidget();
-  auto* context = drawer ? drawer->Context() : nullptr;
-  if (!context || !context->Enabled())
+  const auto revision = drawer_revision;
+  auto       owner    = il2cpp::GcHandle::Strong(controller);
+  auto       current  = [&] {
+    return owner && revision == drawer_revision && shown_scroller.Get() == owner.Get()
+           && Config::Get().ui.auto_open_bulk_claim_flyout;
+  };
+  if (!current())
+    return;
+  auto       drawer  = il2cpp::GcHandle::Strong(controller->selectionDrawerWidget());
+  auto       context = drawer ? il2cpp::GcHandle::Strong(drawer.Get<DrawerWidget>()->Context()) : il2cpp::GcHandle{};
+  const bool enabled =
+      context && DrawerContext::Class::HasField<"Enabled", bool>() && context.Get<DrawerContext>()->Enabled();
+  if (!enabled || !current() || drawer_opened || controller->selectionDrawerWidget() != drawer.Get()
+      || drawer.Get<DrawerWidget>()->Context() != context.Get())
+    return;
+  if (!current() || drawer_opened)
     return;
 
   // Mark first so a native callback cannot cause a nested lifecycle update to open the drawer twice.
   drawer_opened = true;
-  drawer->OnOpenButtonClicked();
+  drawer.Get<DrawerWidget>()->OnOpenButtonClicked();
 }
 
 void ShopListScrollerViewController_AboutToShow_Hook(auto original, ShopListScrollerViewController* _this)
 {
-  shown_scroller = _this;
-  drawer_opened  = false;
+  const auto revision = ++drawer_revision;
+  auto       owner    = il2cpp::GcHandle::Strong(_this);
+  shown_scroller      = il2cpp::GcHandle::Weak(_this);
+  drawer_opened       = false;
   original(_this);
-  OpenBulkClaimDrawer(_this);
+  if (revision == drawer_revision && owner && shown_scroller.Get() == owner.Get())
+    OpenBulkClaimDrawer(owner.Get<ShopListScrollerViewController>());
 }
 
 void ShopListScrollerViewController_AboutToHide_Hook(auto original, ShopListScrollerViewController* _this)
 {
-  if (shown_scroller == _this) {
-    shown_scroller = nullptr;
-    drawer_opened  = false;
+  if (shown_scroller.Get() == _this) {
+    ++drawer_revision;
+    shown_scroller.Reset();
+    drawer_opened = false;
   }
   original(_this);
 }
@@ -57,9 +74,11 @@ void ShopListScrollerViewController_AboutToHide_Hook(auto original, ShopListScro
 // The drawer only becomes usable once the game fills it.
 void ShopListScrollerViewController_UpdateDrawer_Hook(auto original, ShopListScrollerViewController* _this)
 {
+  const auto revision = drawer_revision;
+  auto       owner    = il2cpp::GcHandle::Strong(_this);
   original(_this);
-  if (shown_scroller == _this)
-    OpenBulkClaimDrawer(_this);
+  if (revision == drawer_revision && owner && shown_scroller.Get() == owner.Get())
+    OpenBulkClaimDrawer(owner.Get<ShopListScrollerViewController>());
 }
 
 // --- Purchase and donation limits ---
