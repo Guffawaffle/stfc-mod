@@ -59,7 +59,8 @@ void NavigationManager_OnMoveFleetAction_ChoiceHook(auto original, NavigationMan
                                                     il2cpp::Nullable<unity::Vector3> position, int64_t node_id,
                                                     int64_t fleet_id, bool force_move)
 {
-  const bool ask = WarpChoiceModifierHeld() && (unity::Input::GetMouseButton(0) || unity::Input::GetMouseButtonUp(0));
+  const bool modifier = WarpChoiceModifierHeld();
+  const bool ask      = modifier && (unity::Input::GetMouseButton(0) || unity::Input::GetMouseButtonUp(0));
   // Clear even for ordinary/invalid moves, before any managed call can reenter.
   warp_click_intent.Begin(ask, fleet_id, node_id);
   if (ask && fleet_id == -1) {
@@ -71,6 +72,8 @@ void NavigationManager_OnMoveFleetAction_ChoiceHook(auto original, NavigationMan
                                 : il2cpp::CallResult<int64_t>{};
     warp_click_intent.Begin(true, id ? id.value : 0, node_id);
   }
+  spdlog::debug("[InstantWarp] move modifier={} ask={} fleet={} node={} pending_fleet={} unmatched={}", modifier, ask,
+                fleet_id, node_id, warp_click_intent.fleet, warp_click_intent.unmatched);
   original(_this, position, node_id, fleet_id, force_move);
 }
 
@@ -78,14 +81,20 @@ bool ConsumeWarpChoice(CourseData* course)
 {
   // Detach the intent before acquiring managed references or invoking getters.
   auto pending = std::exchange(warp_click_intent, {});
-  if (!pending.fleet || pending.unmatched)
-    return pending.Consume(false, 0, 0);
+  if (!pending.fleet || pending.unmatched) {
+    const bool ask = pending.Consume(false, 0, 0);
+    spdlog::debug("[InstantWarp] consume no matched identity ask={}", ask);
+    return ask;
+  }
   auto       root   = il2cpp::GcHandle::Strong(course);
   const auto fleet  = root ? root.Get<CourseData>()->TryFleetId() : il2cpp::CallResult<int64_t>{};
   const auto target = root ? root.Get<CourseData>()->TryTarget() : il2cpp::CallResult<CourseNode*>{};
   auto       node   = il2cpp::GcHandle::Strong(target ? target.value : nullptr);
   const auto id     = node ? node.Get<CourseNode>()->TryId() : il2cpp::CallResult<int64_t>{};
-  return pending.Consume(fleet && id, fleet ? fleet.value : 0, id ? id.value : 0);
+  const bool ask    = pending.Consume(fleet && id, fleet ? fleet.value : 0, id ? id.value : 0);
+  spdlog::debug("[InstantWarp] consume observed={} fleet={} node={} ask={}", bool(fleet && id), fleet ? fleet.value : 0,
+                id ? id.value : 0, ask);
+  return ask;
 }
 
 // --- Course prompt ---
@@ -136,12 +145,18 @@ void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromp
   const bool ask = ConsumeWarpChoice(course.Get<CourseData>());
   const auto instant =
       context ? context.Get<CoursePromptPopupDataContext>()->TryHasInstantWarp() : il2cpp::CallResult<bool>{};
+  spdlog::debug("[InstantWarp] popup ask={} owner={} widget={} context={} course={} instant_known={} instant={}", ask,
+                bool(owner), bool(widget), bool(context), bool(course), bool(instant), instant && instant.value);
   if (ask || !instant || !instant.value || !course)
     return;
-  auto fleet = InstantWarpRoot(course.Get<CourseData>()->TryCall<"get_PlayerFleet", FleetPlayerData*>());
+  const auto observed_fleet = course.Get<CourseData>()->TryCall<"get_PlayerFleet", FleetPlayerData*>();
+  auto       fleet          = InstantWarpRoot(observed_fleet);
+  spdlog::debug("[InstantWarp] popup fleet known={} supplied={} qualified={}", bool(observed_fleet),
+                observed_fleet && observed_fleet.value, bool(fleet));
   if (!fleet)
     return;
   const auto action = ResolveConfirmation(fleet.Get<FleetPlayerData>());
+  spdlog::debug("[InstantWarp] policy action={}", kInstantWarpNames[std::to_underlying(action)]);
   if (action == InstantWarpConfirmation::kNone)
     return;
   // Localization and managed getters can reenter. Never answer a different
@@ -155,8 +170,10 @@ void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromp
   if (!current_widget || current_widget.value != widget.Get<CoursePromptPopupWidget>() || !current_context
       || current_context.value != context.Get<CoursePromptPopupDataContext>() || !current_course
       || current_course.value != course.Get<CourseData>() || !current_fleet
-      || current_fleet.value != fleet.Get<FleetPlayerData>() || !current_instant || !current_instant.value)
+      || current_fleet.value != fleet.Get<FleetPlayerData>() || !current_instant || !current_instant.value) {
+    spdlog::debug("[InstantWarp] popup changed during policy resolution; keeping native choice");
     return;
+  }
   spdlog::debug("[InstantWarp] answering the prompt with {}", kInstantWarpNames[std::to_underlying(action)]);
   switch (action) {
     case InstantWarpConfirmation::kWarp:
