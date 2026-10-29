@@ -104,3 +104,29 @@ restoration evidence if a transition still flickers.
 
 Execution is direct tooling and independent collaboration, not Runner-governed
 execution. No new persistence, timer framework, feature descriptor or settings.
+
+### Windows candidate checkpoint
+
+Signed implementation: `113f13ce277c5acf0f8f69bcc400417bb00be61f`.
+Its own native build passed **41/41** steps with source clean and stable. AX
+built before deployment; the previous main process had already exited, so no
+running game was stopped. It installed the matching artifact and launched the
+main ordinary client273 session, PID31468 / creation FILETIME134377131876503804.
+All 73 feature groups installed and FrameTick reported ready. Startup log
+inspection found no fresh error/critical entries. Session identity is historical
+after another restart; this does not establish rendering or player acceptance.
+
+DLL SHA256:
+`4c88a57cca7a72f48b74d32f700142141d3dcdbf8318166a1a87a2909f21d784`.
+Build invocation: `ax-zig-20261029T020324-f4bfe794`.
+AAI remains clean at `4bece2e5f1afa7c7343f009e83398742a0f86114`, UI Lab enabled.
+All five tracked TOML/state hashes were unchanged; no agent configuration edits.
+
+The artifact directory above contains `events-source-inputs.json`,
+`events-offline-qualification.json`, `events-tests-4.log`,
+`events-build-receipt.json`, `events-native-build.log`, `events-cycle.log`,
+`events-stores-before.json`, `events-stores-after.json` and
+`events-runtime-qualification.json`. They distinguish source, compiled fixture,
+native DLL, installation and process evidence. Earlier cohort receipts are
+historical and do not qualify this correction. The home/visitor/home player trial
+has been requested and remains pending at this checkpoint. No push or promotion.

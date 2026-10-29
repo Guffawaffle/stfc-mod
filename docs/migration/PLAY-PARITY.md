@@ -2,6 +2,13 @@
 
 ## Current continuation — 2026-10-28
 
+[Haven native-event correction](HAVEN-VISUAL-EVENTS-20261028.md), signed source
+`113f13ce`, replaces normal timed visual discovery after the player observed road
+depth loss during Haven switching. Windows controlled checks passed 417/417
+steps and its native build passed 41/41; the main ordinary game launched with all
+73 groups. Actual home/visitor/home rendering acceptance remains pending. Failure
+recovery retries are retained explicitly; successful cohorts stay idle.
+
 `play-dev-ripper` now includes the four CI/test-only commits through
 `d55827023f98243eda4a5fb7af54a9c5d5bceebc`, matching the passing published
 checkpoint. Both Mac architectures, Windows, Linux, universal packaging and the

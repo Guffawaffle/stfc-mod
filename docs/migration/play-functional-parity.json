@@ -4018,7 +4018,7 @@
         "finding": "Player observed temporary road-depth loss during visitor/home switching; inherited timed discovery can delay new material handling.",
         "correction": "Native reset/material-event generation invalidation with checked readiness, next-frame discovery and independent restoration; successful cohorts stay idle. Failure-only recovery backoffs remain.",
         "evidence": "docs/migration/HAVEN-VISUAL-EVENTS-20261028.md; events-tests-4.log:417/417 Windows integrated build/run/install steps, including production event consumers and unchanged AAI host",
-        "status": "Offline-qualified correction; native rendering/player/platform trial pending"
+        "status": "113f13ce:417/417 Windows integrated steps,41/41 native build steps; main ordinary client273 PID31468 launched with73 groups and unchanged stores. Home/visitor/home rendering/player acceptance and macOS qualification pending."
       },
       "classification": "Implemented, unverified",
       "baseline": {
