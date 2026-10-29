@@ -485,7 +485,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         const exe = ctx.executable("il2cpp-bindings-tests", module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
-        inline for (.{ "haven-history-native", "haven-zoom-native", "haven-zoom-missing-position", "haven-zoom-missing-orthographic", "haven-zoom-foreign-position", "haven-zoom-foreign-rotation", "haven-zoom-widened-provider", "haven-zoom-widened-frame", "haven-zoom-widened-output-frame", "haven-orbit-native", "scale-native", "scale-missing-local", "loading-login-consumer", "loading-transition-consumer", "loading-tips-consumer" }) |mode| {
+        inline for (.{ "haven-visual-events", "haven-history-native", "haven-zoom-native", "haven-zoom-missing-position", "haven-zoom-missing-orthographic", "haven-zoom-foreign-position", "haven-zoom-foreign-rotation", "haven-zoom-widened-provider", "haven-zoom-widened-frame", "haven-zoom-widened-output-frame", "haven-orbit-native", "scale-native", "scale-missing-local", "loading-login-consumer", "loading-transition-consumer", "loading-tips-consumer" }) |mode| {
             const presentation_case = b.addRunArtifact(exe);
             presentation_case.addArg(mode);
             test_il2cpp.dependOn(&presentation_case.step);

@@ -140,6 +140,7 @@ struct Backend {
   bool                                 scan_ok = true, scan_throws = false;
   bool                                 get_owner_throws = false, find_throws = false, retain_throws = false;
   Object                               scanned_owner = nullptr;
+  std::function<void()>                during_scan;
   Access                               Acquire(const Weak& weak)
   {
     auto object = weak.weak.lock();
@@ -181,6 +182,8 @@ struct Backend {
     for (const auto& weak : water)
       if (auto object = weak.lock())
         out_water.push_back(Retain(object.get()));
+    if (during_scan)
+      during_scan();
     if (scan_throws)
       throw NativeFailure{};
     return scan_ok;
@@ -207,72 +210,173 @@ void Discovery()
   Backend    backend;
   Cache      cache;
   for (int i = 0; i < 10000; ++i)
-    cache.Refresh(backend, now);
-  Check(backend.finds == 1 && backend.scans == 0, "no-owner lookup ignored backoff");
+    Check(!cache.Refresh(backend, now), "initial unready cache published a cohort");
+  Check(!cache.IsReady() && backend.finds == 0 && backend.scans == 0, "initial load scanned before native readiness");
+  cache.SetReady(cache.Epoch(), true);
+  Check(!cache.Refresh(backend, now), "missing owner published a cohort");
+  for (int i = 0; i < 10000; ++i)
+    Check(!cache.Refresh(backend, now + 1s), "failed owner lookup became published");
+  Check(backend.finds == 1 && backend.scans == 0, "no-owner failure retried per callback");
   auto first = Make(1), road = Make(-10), water = Make(0);
   backend.owner = first;
   backend.roads = {road};
   backend.water = {water};
-  cache.Refresh(backend, now + 5s);
+  cache.Invalidate(true);
+  Check(cache.Refresh(backend, now), "new ready event did not bypass failed lookup deadline");
   Check(backend.finds == 2 && backend.scans == 1 && cache.Roads().size() == 1 && cache.Water().size() == 1,
         "road and water did not share owner discovery");
+  Check(cache.IsPublished() && cache.Owner().weak.lock() == first, "published owner did not match its cohort");
+  backend.get_owner_throws = backend.find_throws = backend.scan_throws = true;
   for (int i = 0; i < 10000; ++i)
-    cache.Refresh(backend, now + 6s);
-  Check(backend.finds == 2 && backend.scans == 1, "shared callers rescanned before five seconds");
-  auto streamed = Make(11);
-  backend.roads = {streamed};
-  cache.Refresh(backend, now + 10s);
-  Check(cache.Roads()[0].weak.lock() == streamed, "same-owner streamed descendants were not refreshed");
+    Check(cache.Refresh(backend, now + i * 10s), "idle published cache lost authority");
+  Check(backend.finds == 2 && backend.scans == 1, "successful idle cache performed timed discovery");
+  backend.get_owner_throws = backend.find_throws = backend.scan_throws = false;
+
+  // Reusing the same physical holder still requires a new material cohort.
+  const auto old_epoch = cache.Epoch();
+  const auto old_roads = cache.Roads();
+  const auto handles   = Weak::handles;
+  auto       streamed  = Make(11);
+  backend.roads        = {streamed};
+  cache.Invalidate();
+  Check(!cache.IsPublished() && cache.Roads().empty() && cache.Water().empty() && Weak::handles == handles
+            && old_roads[0].weak.lock() == road,
+        "invalidation exposed stale authority or synchronously destroyed borrowed cohort storage");
+  Check(!cache.Refresh(backend, now) && backend.scans == 1, "dirty generation scanned before readiness");
+  cache.SetReady(old_epoch, true);
+  Check(!cache.IsReady(), "stale completion marked a replacement request ready");
+  cache.SetReady(cache.Epoch(), true);
+  Check(cache.Refresh(backend, now) && cache.Roads()[0].weak.lock() == streamed,
+        "same-holder material event waited for a timer");
+
+  // A, B and A can all be live simultaneously; no clock advance selects them.
   auto replacement = Make(2);
   backend.owner    = replacement;
-  cache.Refresh(backend, now + 15s);
+  cache.Invalidate(true);
+  Check(cache.Refresh(backend, now), "active owner switch did not publish immediately");
   Check(first->alive && first->active && cache.Water()[0].weak.lock() == water && backend.scans == 3
             && backend.scanned_owner == replacement.get(),
         "alive owner replacement was not rescanned");
+  backend.owner = first;
+  backend.roads = {road};
+  cache.Invalidate(true);
+  Check(cache.Refresh(backend, now) && cache.Owner().weak.lock() == first && cache.Roads()[0].weak.lock() == road,
+        "same-time A-B-A navigation retained the visitor cohort");
+  const auto scans = backend.scans;
+  for (int i = 0; i < 20; ++i)
+    cache.Invalidate(true);
+  Check(cache.Refresh(backend, now) && backend.scans == scans + 1, "coalesced events performed repeated full scans");
+
+  backend.roads.clear();
+  backend.water.clear();
+  cache.Invalidate(true);
+  Check(cache.Refresh(backend, now) && cache.IsPublished() && cache.Roads().empty() && cache.Water().empty(),
+        "valid empty complete cohort was mistaken for discovery failure");
+  backend.roads = {streamed};
+  cache.Invalidate(true);
+  Check(cache.Refresh(backend, now) && cache.Roads()[0].weak.lock() == streamed,
+        "streaming after an empty cohort did not publish on its event");
+  cache.SetReady(cache.Epoch(), false);
+  Check(!cache.IsPublished() && cache.Roads().empty(), "readiness loss retained publication");
+  cache.SetReady(cache.Epoch(), true);
+  Check(cache.Refresh(backend, now), "new readiness did not permit same-time rediscovery");
+  cache.Clear();
+  Check(Weak::handles == 0 && !cache.IsReady(), "cache retirement leaked weak custody");
+}
+
+void DiscoveryFailures()
+{
+  using Cache = haven_visuals::SnapshotCache<Backend>;
+  using namespace std::chrono_literals;
+  const auto now = Cache::Clock::time_point{} + 100s;
+  Backend    backend;
+  Cache      cache;
+  auto       replacement = Make(2), road = Make(-10), water = Make(0);
+  backend.owner = replacement;
+  backend.roads = {road};
+  backend.water = {water};
+  cache.SetReady(cache.Epoch(), true);
+  Check(cache.Refresh(backend, now), "failure fixture did not publish initial cohort");
   replacement->active = false;
-  cache.Refresh(backend, now + 16s);
-  Check(cache.Roads().empty() && cache.Water().empty(), "inactive owner retained authoritative membership");
+  cache.Invalidate(true);
+  Check(!cache.Refresh(backend, now) && cache.Roads().empty() && cache.Water().empty(),
+        "inactive owner retained authoritative membership");
   replacement->active       = true;
   replacement->weak_failure = true;
-  cache.Refresh(backend, now + 20s);
+  cache.Invalidate(true);
+  Check(!cache.Refresh(backend, now), "failed weak owner custody published a cohort");
   const auto finds = backend.finds, scans = backend.scans;
   for (int i = 0; i < 10000; ++i)
-    cache.Refresh(backend, now + 21s);
+    Check(!cache.Refresh(backend, now + 1s), "failed weak custody became authoritative");
   Check(backend.finds == finds && backend.scans == scans && cache.Water().empty(),
         "failed weak owner custody published membership or retried per call");
   replacement->weak_failure = false;
   backend.roads.assign(1000, road);
   backend.water.assign(100, water);
-  cache.Refresh(backend, now + 25s);
+  cache.Invalidate(true);
+  Check(!cache.Refresh(backend, now), "oversized snapshot was published");
   Check(cache.Roads().empty() && cache.Water().empty() && Weak::handles == 1,
         "oversized snapshot published a supposedly complete prefix");
   backend.roads.assign(256, road);
   backend.water.assign(8, water);
-  cache.Refresh(backend, now + 30s);
+  Check(cache.Refresh(backend, now + 5s), "failed scan did not recover at its bounded retry");
   Check(cache.Roads().size() == 256 && cache.Water().size() == 8 && Weak::handles == 265,
         "complete admitted snapshot lost its bounded weak custody");
   backend.scan_ok = false;
-  cache.Refresh(backend, now + 35s);
-  cache.Refresh(backend, now + 36s);
+  cache.Invalidate(true);
+  Check(!cache.Refresh(backend, now), "failed scan became published");
+  Check(!cache.Refresh(backend, now + 1s), "failed scan bypassed retry delay");
   Check(cache.Roads().empty() && cache.Water().empty() && Weak::handles == 1, "failed scan retained stale membership");
   backend.scan_ok = true;
-  cache.Refresh(backend, now + 40s);
+  cache.Invalidate(true);
+  Check(cache.Refresh(backend, now), "new native event did not bypass scan-failure deadline");
   backend.scan_throws = true;
+  cache.Invalidate(true);
   try {
-    cache.Refresh(backend, now + 45s);
+    cache.Refresh(backend, now);
     Check(false, "throwing scan fixture was not reached");
   } catch (const NativeFailure&) {
   }
   const auto scans_after_throw = backend.scans;
-  cache.Refresh(backend, now + 46s);
+  Check(!cache.Refresh(backend, now + 1s), "throwing scan bypassed retry delay");
   Check(cache.Roads().empty() && cache.Water().empty() && backend.scans == scans_after_throw && Weak::handles == 0,
         "throwing scan retained stale membership or bypassed backoff");
   backend.scan_throws = false;
-  cache.Refresh(backend, now + 50s);
+  Check(cache.Refresh(backend, now + 5s), "throwing scan did not recover at bounded retry");
   Check(cache.Roads().size() == 256 && cache.Water().size() == 8,
         "throwing scan could not recover at its next attempt");
   cache.Clear();
   Check(Weak::handles == 0, "cache retirement leaked weak custody");
+}
+
+void DiscoveryReentry()
+{
+  using Cache = haven_visuals::SnapshotCache<Backend>;
+  using namespace std::chrono_literals;
+  const auto now = Cache::Clock::time_point{} + 100s;
+  Backend    backend;
+  Cache      cache;
+  auto       owner = Make(1), first = Make(10), streamed = Make(11);
+  backend.owner = owner;
+  backend.roads = {first};
+  cache.SetReady(cache.Epoch(), true);
+  backend.during_scan = [&] { cache.Invalidate(true); };
+  Check(!cache.Refresh(backend, now) && !cache.IsPublished() && cache.Roads().empty(),
+        "scan published after a nested event replaced its generation");
+  backend.during_scan = {};
+  backend.roads       = {streamed};
+  Check(cache.Refresh(backend, now) && cache.Roads()[0].weak.lock() == streamed && backend.scans == 2,
+        "nested event was lost or retained a stale failure deadline");
+
+  cache.Invalidate(true);
+  backend.during_scan = [&] {
+    cache.SetReady(cache.Epoch(), false);
+    cache.SetReady(cache.Epoch(), true);
+  };
+  Check(!cache.Refresh(backend, now) && !cache.IsPublished(),
+        "readiness changed during a scan without withdrawing its publication");
+  backend.during_scan = {};
+  Check(cache.Refresh(backend, now), "readiness event during scan could not immediately recover");
 }
 
 void DiscoveryExceptions()
@@ -288,6 +392,7 @@ void DiscoveryExceptions()
     backend.owner = owner;
     backend.roads = {road};
     backend.water = {water};
+    cache.SetReady(cache.Epoch(), true);
     cache.Refresh(backend, now);
     owned.Apply(backend, cache.Roads(), cache.Water(), true, true);
     Check(owned.Pending() && !water->enabled && road->depth[0] == -1.0f,
@@ -305,6 +410,7 @@ void DiscoveryExceptions()
       backend.owner         = Make(2);
       backend.retain_throws = true;
     }
+    cache.Invalidate(true);
     try {
       cache.Refresh(backend, when);
       Check(false, "discovery exception fixture did not reach its fault");
@@ -345,9 +451,9 @@ void OperationGuard()
   auto       clock        = started;
   bool       busy         = false;
   int        nested_calls = 0;
-  water->during_write     = [&](auto) {
-    clock += 6s; // Both the one-second apply and five-second discovery deadlines passed.
-    Check(clock > started + 1s, "nested operation did not exercise an expired throttle");
+  cache.SetReady(cache.Epoch(), true);
+  water->during_write = [&](auto) {
+    clock += 6s; // Time passing cannot grant a nested native episode access.
     const auto finds = backend.finds, scans = backend.scans;
     const auto road_writes = road->writes, water_writes = water->writes;
     const bool ran = haven_visuals::RunExclusive(busy, [&] {
@@ -418,23 +524,23 @@ void Water()
   object->success[0]       = false;
   object->lose_readback[0] = true;
   object->during_write     = [&](auto) { owned.Apply(backend, {}, {}, false, false); };
-  owned.Apply(backend, {}, members, false, true);
+  Check(!owned.Apply(backend, {}, members, false, true), "lost water readback became verified");
   Check(!object->enabled && owned.Pending(), "mutating failed override or nested Apply lost restoration");
   object->during_write     = {};
   object->lose_readback[0] = false;
   object->enabled_readable = true;
   object->mutate[0]        = false;
   object->success[0]       = true;
-  owned.Apply(backend, {}, {}, false, false);
+  Check(!owned.Apply(backend, {}, {}, false, false), "unmutated successful water setter became verified");
   Check(!object->enabled && owned.Pending(), "setter success alone acknowledged water restoration");
   object->mutate[0]        = true;
   object->success[0]       = false;
   object->lose_readback[0] = true;
-  owned.Apply(backend, {}, {}, false, false);
+  Check(!owned.Apply(backend, {}, {}, false, false), "missing water restoration readback became verified");
   Check(object->enabled && owned.Pending(), "missing readback acknowledged water restoration");
   object->enabled_readable = true;
   object->lose_readback[0] = false;
-  owned.Apply(backend, {}, {}, false, false);
+  Check(owned.Apply(backend, {}, {}, false, false), "matching later water readback remained unverified");
   Check(!owned.Pending(), "matching later water readback did not retire restoration");
 
   haven_visuals::WaterRestoration state;
@@ -482,11 +588,11 @@ void Roads()
   const auto restored_writes = object->writes[2];
   object->mutate[1]          = true;
   object->lose_readback[1]   = true;
-  owned.Apply(backend, {}, {}, false, false);
+  Check(!owned.Apply(backend, {}, {}, false, false), "missing road restoration readback became verified");
   Check(object->depth[0] == 0.0f && owned.Pending(), "road setter status replaced matching readback");
   object->depth_readable[0] = true;
   object->lose_readback[1]  = false;
-  owned.Apply(backend, {}, {}, false, false);
+  Check(owned.Apply(backend, {}, {}, false, false), "matching later road readback remained unverified");
   Check(!owned.Pending() && object->writes[2] == restored_writes, "partial restore repeated an acknowledged property");
 
   object->depth = {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()};
@@ -512,6 +618,80 @@ void Roads()
   Check(object->depth[0] == 0.0f && !owned.Pending(), "throwing owned pass kept reentry latched or lost restoration");
 }
 
+void VerifiedResults()
+{
+  Backend                              backend;
+  haven_visuals::OwnedVisuals<Backend> owned;
+  auto                                 road = Make(-7), water = Make(0);
+  auto                                 roads = Members(backend, road), waters = Members(backend, water);
+  road->success     = {false, false, false};
+  water->success[0] = false;
+  Check(owned.Apply(backend, roads, waters, true, true) && owned.Pending(),
+        "matching readback did not verify an override after failed setter status");
+
+  road->depth_readable[0] = false;
+  water->enabled_readable = false;
+  const auto road_writes  = road->writes;
+  Check(!owned.Apply(backend, roads, waters, true, true) && road->writes == road_writes && owned.Pending(),
+        "unknown active state became verified or allowed an incomplete new road pair");
+  road->depth_readable[0] = true;
+  road->mutate[1]         = false;
+  Check(!owned.Apply(backend, {}, {}, false, false) && road->depth == std::array{-1.0f, 0.0f} && owned.Pending(),
+        "partial road/water restoration became verified or short-circuited independent cleanup");
+  const auto restored_second = road->writes[2];
+  road->mutate[1]            = true;
+  water->enabled_readable    = true;
+  Check(owned.Apply(backend, {}, {}, false, false) && !owned.Pending() && water->enabled
+            && road->depth == std::array{0.0f, 0.0f} && road->writes[2] == restored_second,
+        "verified cleanup depended on setter status or repeated an acknowledged property");
+
+  road->depth                = {-2.0f, -3.0f};
+  const auto stronger_writes = road->writes;
+  Check(owned.Apply(backend, roads, {}, true, false) && !owned.Pending() && road->writes == stronger_writes,
+        "already stronger native road state was not verified without mutation");
+  road->depth = {0.0f, 0.0f};
+  Check(owned.Apply(backend, roads, {}, true, false), "road override did not verify");
+  road->depth[0] = -0.25f;
+  Check(owned.Apply(backend, {}, {}, false, false) && !owned.Pending() && road->depth[0] == -0.25f,
+        "known external edit prevented verified ownership release");
+
+  water->root_failure = true;
+  Check(!owned.Apply(backend, {}, waters, false, true) && !owned.Pending(),
+        "unavailable active custody became verified");
+  water->root_failure = false;
+  water->weak_failure = true;
+  Check(!owned.Apply(backend, {}, waters, false, true) && !owned.Pending(),
+        "failed persistent custody became verified");
+  water->weak_failure = false;
+  water->id_readable  = false;
+  Check(!owned.Apply(backend, {}, waters, false, true), "unknown signed identity became verified");
+  water->id_readable      = true;
+  water->enabled_readable = false;
+  Check(!owned.Apply(backend, {}, waters, false, true) && !owned.Pending(),
+        "missing water observation became verified without an obligation");
+  water->enabled_readable = true;
+  bool nested_verified    = true;
+  water->during_write     = [&](auto) { nested_verified = owned.Apply(backend, {}, {}, false, false); };
+  Check(owned.Apply(backend, {}, waters, false, true) && !nested_verified && owned.Pending(),
+        "reentrant refusal became verified or prevented the outer checked override");
+  water->during_write   = {};
+  water->alive_readable = false;
+  Check(!owned.Apply(backend, {}, {}, false, false) && owned.Pending(),
+        "unavailable owned lifetime became verified cleanup");
+  water->alive_readable = true;
+  water->alive          = false;
+  Check(owned.Apply(backend, {}, {}, false, false) && !owned.Pending(),
+        "confirmed native loss did not settle the restoration result");
+  Check(owned.Apply(backend, {}, waters, false, true), "confirmed gone current member became an unknown failure");
+
+  // Scalar helpers also report unowned release as settled without native reads.
+  haven_visuals::WaterRestoration water_state;
+  haven_visuals::RoadRestoration  road_state;
+  auto                            access = backend.Acquire(waters[0]);
+  Check(water_state.Apply(access, false) && road_state.Apply(access, 0, false),
+        "unowned release required an irrelevant native observation");
+}
+
 void IdentitiesAndCustody()
 {
   Backend                              backend;
@@ -521,7 +701,7 @@ void IdentitiesAndCustody()
   auto previous = Members(backend, old), current = Members(backend, replacement);
   owned.Apply(backend, {}, previous, false, true);
   old->root_failure = true;
-  owned.Apply(backend, {}, current, false, true);
+  Check(!owned.Apply(backend, {}, current, false, true), "unresolved old custody became verified replacement");
   Check(owned.Pending() && replacement->writes[0] == 0, "unavailable old identity was silently rebased");
   old->root_failure = false;
   owned.Apply(backend, {}, current, false, true);
@@ -589,7 +769,7 @@ void Limits()
     water.push_back(backend.Retain(object.get()));
     objects.push_back(std::move(object));
   }
-  owned.Apply(backend, roads, water, true, true);
+  Check(!owned.Apply(backend, roads, water, true, true), "oversized membership was reported as verified");
   for (const auto& object : objects)
     Check(object->writes == std::array{0, 0, 0}, "oversized membership authorized a prefix of native mutations");
   Check(owned.Pending() && !previous->enabled, "oversized membership discarded an unconfirmed old obligation");
@@ -610,10 +790,13 @@ int main()
 {
   try {
     Discovery();
+    DiscoveryFailures();
+    DiscoveryReentry();
     DiscoveryExceptions();
     OperationGuard();
     Water();
     Roads();
+    VerifiedResults();
     IdentitiesAndCustody();
     Limits();
     Check(Weak::handles == 0, "fixture or owned algorithms leaked weak handles");

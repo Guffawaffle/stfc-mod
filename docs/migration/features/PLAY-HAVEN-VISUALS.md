@@ -2,6 +2,12 @@
 
 Contract version: 1. Status: implementation assessment; production-policy validation passed, native qualification pending.
 
+Follow-up: the Windows trial of `1c3dba98` found delayed road bias on Haven
+switches. [Native-event refresh](../HAVEN-VISUAL-EVENTS-20261028.md) records the
+replacement scheduling, exact-client hook evidence, tests and outstanding trial.
+The timer description below is the pinned source contract, not the corrected
+target's normal execution policy.
+
 ## Inputs and scope
 
 Source: `frozen/play-dev-20261026` at `1baa55fedf1758b19f843cc59707b8901a0b4998`.

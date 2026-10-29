@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cmath>
 #include <concepts>
+#include <functional>
 #include <new>
 #include <optional>
 #include <string_view>
@@ -60,11 +61,12 @@ public:
   using Weak   = il2cpp::GcHandle;
   using Object = unity::GameObject*;
 
-  HavenVisualBackend()
+  explicit HavenVisualBackend(std::function<bool()> current = {})
+      : current_(std::move(current))
   {
-    for (size_t i = 0; i < properties_.size(); ++i)
-      properties_[i] = HoldString(il2cpp::NewString(i == 0 ? "_OffsetFactor" : "_OffsetUnits"));
   }
+  bool Current() const
+  { return !current_ || current_(); }
   HavenVisualAccess Acquire(const Weak& weak)
   { return {weak, *this}; }
   Weak Retain(const HavenVisualAccess& access)
@@ -178,7 +180,13 @@ public:
     return IsActiveOwner(owner.Get<unity::GameObject>());
   }
   Il2CppString* Property(size_t index) const
-  { return index < properties_.size() ? reinterpret_cast<Il2CppString*>(properties_[index].Get()) : nullptr; }
+  {
+    if (index >= properties_.size())
+      return nullptr;
+    if (!properties_[index])
+      properties_[index] = HoldString(il2cpp::NewString(index == 0 ? "_OffsetFactor" : "_OffsetUnits"));
+    return reinterpret_cast<Il2CppString*>(properties_[index].Get());
+  }
 
 private:
   static Weak HoldString(Il2CppString* value)
@@ -208,8 +216,9 @@ private:
         "mat_PB_3101501_asphalt_", "mat_PB_3101601_asphalt_", "mat_PB_3101701_asphalt_"};
     return std::ranges::any_of(prefixes, [&](auto prefix) { return name.starts_with(prefix); });
   }
-  std::array<Weak, 2> properties_;
-  Weak                current_owner_, found_owner_;
+  mutable std::array<Weak, 2> properties_;
+  Weak                        current_owner_, found_owner_;
+  std::function<bool()>       current_;
 };
 
 HavenVisualAccess::HavenVisualAccess(const il2cpp::GcHandle& weak, const HavenVisualBackend& backend)
@@ -231,6 +240,8 @@ HavenVisualAccess::HavenVisualAccess(const il2cpp::GcHandle& weak, const HavenVi
 }
 il2cpp::Object* HavenVisualAccess::Live() const
 {
+  if (!backend_.Current())
+    return nullptr;
   auto*      object = root_.Get<il2cpp::Object>();
   const auto alive  = object ? unity::TryAlive(object) : il2cpp::CallResult<bool>{};
   return alive && alive.value ? object : nullptr;
@@ -251,7 +262,7 @@ bool HavenVisualAccess::WriteEnabled(bool value)
 {
   auto* object   = Live();
   auto* renderer = object ? object->As<unity::Renderer>() : nullptr;
-  return renderer && renderer->TrySetEnabled(value).succeeded;
+  return renderer && backend_.Current() && renderer->TrySetEnabled(value).succeeded;
 }
 std::optional<float> HavenVisualAccess::ReadDepth(size_t property)
 {
@@ -268,40 +279,179 @@ bool HavenVisualAccess::WriteDepth(size_t property, float value)
   auto*      material = object ? object->As<unity::Material>() : nullptr;
   auto*      name     = backend_.Property(property);
   const auto has      = material && name ? material->TryHasProperty(name) : il2cpp::CallResult<bool>{};
-  return has && has.value && material->TrySetFloat(name, value).succeeded;
+  return has && has.value && backend_.Current() && material->TrySetFloat(name, value).succeeded;
 }
 
 class HavenVisualOwner
 {
 public:
-  void Apply(bool expanded, bool hidden)
+  void SceneChanging(bool ready = false, const char* reason = "native reset")
   {
-    Attempt([&] {
-      qualified_since_frame_ = true;
-      if (!expanded && !hidden && !owned_.Pending())
-        return;
-      if (!due_.Due())
-        return;
-      HavenVisualBackend backend;
-      if (!expanded && !hidden) {
-        owned_.Apply(backend, {}, {}, false, false);
+    // Native callbacks can reenter an application. Only invalidate authority
+    // here: the current episode may still hold spans into the cached vectors.
+    // Coalesce streaming bursts without starvation; reentry must defer work.
+    const bool already_pending_ready = ready && cache_.IsReady() && !cache_.IsPublished() && !busy_;
+    cache_.Invalidate(ready);
+    if (!already_pending_ready)
+      changed_frame_ = unity::Time::frameCount();
+    applied_epoch_ = 0;
+    retry_         = {};
+    dirty_reason_  = reason;
+  }
+  bool MaterialEventsRelevant() const
+  { return cache_.IsReady() && bool(cache_.Owner()) && (desired_expanded_ || desired_hidden_); }
+  uint64_t Generation() const
+  { return cache_.Epoch(); }
+  void StreamPayloadUnavailable(uint64_t epoch)
+  {
+    if (cache_.Epoch() == epoch && MaterialEventsRelevant())
+      SceneChanging(true, "unavailable streamed payload custody");
+  }
+  void MaterialsChanged(unity::GameObject* object)
+  {
+    if (!object || !MaterialEventsRelevant())
+      return;
+    const auto epoch            = cache_.Epoch();
+    auto       owner            = il2cpp::GcHandle::Strong(cache_.Owner().Get());
+    auto       candidate        = il2cpp::GcHandle::Strong(object);
+    const auto retry_membership = [&] {
+      if (cache_.Epoch() == epoch)
+        SceneChanging(true, "unavailable streamed-object ownership");
+    };
+    if (!owner || !candidate) {
+      retry_membership();
+      return;
+    }
+    if (!candidate.Get<il2cpp::Object>()->Is<unity::GameObject>())
+      return;
+    const auto owner_alive     = unity::TryAlive(owner.Get<unity::GameObject>());
+    const auto candidate_alive = unity::TryAlive(candidate.Get<unity::GameObject>());
+    if (!owner_alive || !owner_alive.value || !candidate_alive) {
+      retry_membership();
+      return;
+    }
+    if (!candidate_alive.value)
+      return;
+    const auto root_transform = owner.Get<unity::GameObject>()->TryCall<"get_transform", unity::Transform*>();
+    auto       root           = il2cpp::GcHandle::Strong(root_transform ? root_transform.value : nullptr);
+    const auto own_transform  = candidate.Get<unity::GameObject>()->TryCall<"get_transform", unity::Transform*>();
+    auto       node           = il2cpp::GcHandle::Strong(own_transform ? own_transform.value : nullptr);
+    if (!root || !node) {
+      retry_membership();
+      return;
+    }
+    std::unordered_set<const void*> visited;
+    while (root && node && visited.insert(node.Get()).second) {
+      if (node.Get() == root.Get()) {
+        if (cache_.Epoch() == epoch)
+          SceneChanging(true, "native mesh/material refresh");
         return;
       }
-      cache_.Refresh(backend, std::chrono::steady_clock::now());
-      owned_.Apply(backend, cache_.Roads(), cache_.Water(), expanded, hidden);
+      const auto parent = node.Get<unity::Transform>()->TryCall<"get_parent", unity::Transform*>();
+      if (!parent) {
+        retry_membership();
+        return;
+      }
+      node = il2cpp::GcHandle::Strong(parent ? parent.value : nullptr);
+      if (parent.value && !node) {
+        retry_membership();
+        return;
+      }
+    }
+    if (node)
+      retry_membership();
+  }
+  void Apply(bool expanded, bool hidden)
+  {
+    qualified_since_frame_ = true;
+    Attempt([&] {
+      const auto now         = std::chrono::steady_clock::now();
+      const bool was_enabled = desired_expanded_ || desired_hidden_;
+      if (desired_expanded_ != expanded || desired_hidden_ != hidden)
+        retry_ = {};
+      desired_expanded_ = expanded;
+      desired_hidden_   = hidden;
+      if (!was_enabled && (expanded || hidden))
+        cache_.Invalidate(false);
+      if (!expanded && !hidden && !owned_.Pending())
+        return;
+      const auto         epoch = cache_.Epoch();
+      HavenVisualBackend backend([this, epoch] { return cache_.Epoch() == epoch; });
+      if (!expanded && !hidden) {
+        Restore(backend, now, epoch);
+        return;
+      }
+      if (!cache_.IsReady()) {
+        const auto observed =
+            haven_orbit_binding::Starbase::Class::TryCall<"get_Instance", haven_orbit_binding::Starbase*>();
+        auto       manager = il2cpp::GcHandle::Strong(observed ? observed.value : nullptr);
+        const auto ready =
+            manager && unity::Alive(manager.Get<haven_orbit_binding::Starbase>())
+                ? manager.Get<haven_orbit_binding::Starbase>()->TryCall<"get_AreInitialVisualsReady", bool>()
+                : il2cpp::CallResult<bool>{};
+        if (!ready || !ready.value) {
+          Restore(backend, now, epoch);
+          return; // Cheap native readiness only while a generation is pending.
+        }
+        cache_.SetReady(epoch, true);
+      }
+      if (cache_.IsPublished() && applied_epoch_ == epoch && applied_expanded_ == expanded && applied_hidden_ == hidden)
+        return;
+      if (cache_.Epoch() != epoch || unity::Time::frameCount() == changed_frame_)
+        return; // Let native streaming/lighting callers finish their frame.
+      const bool was_published = cache_.IsPublished();
+      const auto start         = Clock::now();
+      if (!cache_.Refresh(backend, now)) {
+        Restore(backend, now, epoch);
+        return; // Failed-only cache recovery; never a periodic successful scan.
+      }
+      if (!was_published)
+        spdlog::debug("[HavenZoom] visual generation={} published roads={} water={} reason={} scan_us={}", epoch,
+                      cache_.Roads().size(), cache_.Water().size(), dirty_reason_,
+                      std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start).count());
+      if (now < retry_)
+        return;
+      const bool verified = owned_.Apply(backend, cache_.Roads(), cache_.Water(), expanded, hidden);
+      if (cache_.Epoch() != epoch || !cache_.IsPublished())
+        return; // A callback during a setter must not acknowledge a stale cohort.
+      applied_epoch_    = verified ? epoch : 0;
+      applied_expanded_ = expanded;
+      applied_hidden_   = hidden;
+      retry_            = verified ? Clock::time_point{} : now + std::chrono::seconds(1);
     });
   }
   void Frame()
   {
     Attempt([&] {
-      if (std::exchange(qualified_since_frame_, false) || !owned_.Pending() || !due_.Due())
+      const bool qualified = std::exchange(qualified_since_frame_, false);
+      if (!qualified && was_qualified_)
+        SceneChanging(false, "left qualified Haven camera");
+      was_qualified_ = qualified;
+      if (qualified || !owned_.Pending())
         return;
-      HavenVisualBackend backend;
-      owned_.Apply(backend, {}, {}, false, false);
+      const auto now = Clock::now();
+      if (now < retry_)
+        return;
+      const auto         epoch = cache_.Epoch();
+      HavenVisualBackend backend([this, epoch] { return cache_.Epoch() == epoch; });
+      Restore(backend, now, epoch);
+      if (cache_.Epoch() != epoch)
+        return;
+      desired_expanded_ = desired_hidden_ = false;
     }); // No scene discovery outside a qualified Haven camera callback.
   }
 
 private:
+  void Restore(HavenVisualBackend& backend, std::chrono::steady_clock::time_point now, uint64_t epoch)
+  {
+    if (now < retry_ || !owned_.Pending())
+      return;
+    const bool restored = owned_.Apply(backend, {}, {}, false, false);
+    if (cache_.Epoch() != epoch)
+      return;
+    applied_epoch_ = 0;
+    retry_         = restored ? Clock::time_point{} : now + std::chrono::seconds(1);
+  }
   template <class F> void Attempt(F&& action)
   {
     try {
@@ -315,10 +465,15 @@ private:
       }
     }
   }
-  Throttle                                         due_{std::chrono::seconds(1)};
+  using Clock = std::chrono::steady_clock;
   haven_visuals::SnapshotCache<HavenVisualBackend> cache_;
   haven_visuals::OwnedVisuals<HavenVisualBackend>  owned_;
-  bool                                             qualified_since_frame_ = false, reported_ = false, busy_ = false;
+  Clock::time_point                                retry_{};
+  uint64_t                                         applied_epoch_ = 0;
+  int32_t                                          changed_frame_ = -1;
+  const char*                                      dirty_reason_  = "initial qualified scene";
+  bool desired_expanded_ = false, desired_hidden_ = false, applied_expanded_ = false, applied_hidden_ = false;
+  bool qualified_since_frame_ = false, was_qualified_ = false, reported_ = false, busy_ = false;
 };
 HavenVisualOwner* HavenVisuals()
 {
@@ -330,6 +485,34 @@ void HavenVisualsFrame()
 {
   if (auto* visuals = HavenVisuals())
     visuals->Frame();
+}
+
+void PlanetaryStarbaseManager_ResetInitialVisualLoadState_Hook(auto original, haven_orbit_binding::Starbase* _this)
+{
+  if (auto* visuals = HavenVisuals())
+    visuals->SceneChanging(false, "initial visual reset");
+  original(_this);
+}
+void PlanetaryStarbaseManager_ClearMapModuleVisualState_Hook(auto original, haven_orbit_binding::Starbase* _this)
+{
+  if (auto* visuals = HavenVisuals())
+    visuals->SceneChanging(false, "map module reset");
+  original(_this);
+}
+void AssetLODStreaming_RefreshMeshAndMaterial_Hook(auto original, il2cpp::Object* _this, unity::GameObject* object)
+{
+  auto* visuals = HavenVisuals();
+  if (!visuals || !visuals->MaterialEventsRelevant()) {
+    original(_this, object);
+    return; // No Unity lookups or GC handles for non-Haven streaming.
+  }
+  const auto epoch = visuals->Generation();
+  auto       root  = il2cpp::GcHandle::Strong(object);
+  original(_this, object);
+  if (root)
+    visuals->MaterialsChanged(root.Get<unity::GameObject>());
+  else if (object)
+    visuals->StreamPayloadUnavailable(epoch);
 }
 
 // Haven's zoom blends between two planetary orbits, each pinned to one radius (min == max) and sitting on it. Reads
@@ -518,9 +701,20 @@ void PlanetaryHelpHistoryContext_ApplyRecords_Hook(auto original, PlanetaryHelpH
 
 bool InstallHavenZoom()
 {
+  if (!unity::Time::FrameCountAvailable()
+      || !haven_orbit_binding::Starbase::Class::Method<bool()>("get_AreInitialVisualsReady")) {
+    spdlog::warn("[HavenZoom] visual lifecycle readiness unavailable; keeping native camera");
+    return false;
+  }
   il2cpp::HookSet hooks("HavenZoom");
   IL2CPP_STAGE(hooks, BlendFrameProvider::Class::Method<void(unity::Camera*)>("UpdateCameraFrame"),
                BlendFrameProvider_UpdateCameraFrame_Hook);
+  IL2CPP_STAGE(hooks, haven_orbit_binding::Starbase::Class::Method<void()>("ResetInitialVisualLoadState"),
+               PlanetaryStarbaseManager_ResetInitialVisualLoadState_Hook);
+  IL2CPP_STAGE(hooks, haven_orbit_binding::Starbase::Class::Method<void()>("ClearMapModuleVisualState"),
+               PlanetaryStarbaseManager_ClearMapModuleVisualState_Hook);
+  IL2CPP_STAGE(hooks, HavenAssetLodStreaming::Method<void(unity::GameObject*)>("RefreshMeshAndMaterial"),
+               AssetLODStreaming_RefreshMeshAndMaterial_Hook);
   return hooks.Commit();
 }
 

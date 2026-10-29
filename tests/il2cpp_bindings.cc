@@ -1840,6 +1840,7 @@ void PlannedWarpBindingObservations()
 #include "ship_tech_bindings_cases.h"
 #include "settings_values_consumer_cases.h"
 #include "haven_native_cases.h"
+#include "haven_visual_events_cases.h"
 #include "ui_scale_bindings_cases.h"
 #include "loading_artwork_cases.h"
 #include "loading_tips_cases.h"
@@ -1852,6 +1853,10 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "haven-visual-events") {
+    HavenVisualEventsCases(argv[1]);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("haven-")) {
     HavenNativeCases(argv[1]);
     return 0;

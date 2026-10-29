@@ -4012,6 +4012,14 @@
     {
       "id": "PLAY-HAVEN-VISUALS",
       "name": "Reversible road depth and water visibility",
+      "followUp": {
+        "date": "2026-10-28",
+        "reportedCandidate": "1c3dba98df35bd6e1433a4d545e890e92606a3dc",
+        "finding": "Player observed temporary road-depth loss during visitor/home switching; inherited timed discovery can delay new material handling.",
+        "correction": "Native reset/material-event generation invalidation with checked readiness, next-frame discovery and independent restoration; successful cohorts stay idle. Failure-only recovery backoffs remain.",
+        "evidence": "docs/migration/HAVEN-VISUAL-EVENTS-20261028.md; events-tests-4.log:417/417 Windows integrated build/run/install steps, including production event consumers and unchanged AAI host",
+        "status": "Offline-qualified correction; native rendering/player/platform trial pending"
+      },
       "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",

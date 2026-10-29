@@ -47,3 +47,7 @@ template <il2cpp::Name N, class T, class B> il2cpp::CallResult<T> Field(B* objec
 struct PlanetaryHelpHistoryContext : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.PlanetaryBase", "PlanetaryHelpHistoryContext">;
 };
+
+// The substantive post-refresh endpoint is shared by native mesh arrival and
+// material-load completion. Its receiver is used only by the installed detour.
+using HavenAssetLodStreaming = il2cpp::Class<"Assembly-CSharp", "", "AssetLODStreaming">;

@@ -98,3 +98,27 @@ three checks found no source changes. `offline-qualification.json` binds the
 passing logs, installed fixture executable and limits. Neither the fake image
 decoder nor these metadata fixtures establish native rendering, scene behavior,
 hook fit, or player/Mac acceptance. No check is attributed to Runner execution.
+
+### Windows native build and startup
+
+Source `1c3dba98df35bd6e1433a4d545e890e92606a3dc` passed **41/41** native build
+steps. AX built the Zig candidate before stopping the explicitly selected main
+ordinary game, then copied and relaunched it. Source remained clean/stable across
+the build. Installed bytes match the source artifact SHA256:
+`0001a9f34ff234c9290e76ab421f7600b7516675f80f7fbfcd796b73051cfab1`.
+
+Windows client 273, main installation
+`C:/Games/Star Trek Fleet Command/default/game`, PID 40200 at qualification:
+all 73 feature groups installed and FrameTick delivery ready. No agent config
+edits. JSON readback confirms all five tracked TOML/state hashes unchanged.
+`build-receipt.json`, `cycle.log`, `native-build.log`, `stores-before.json`,
+`stores-after.json` and `qualification.json` retain exact inputs/session evidence.
+Session identity becomes historical after another restart.
+
+The player trial found temporary road-depth loss on visiting another Haven and
+returning home. The inherited one-second apply/five-second discovery cadence is
+replaced in the [native-event follow-up](HAVEN-VISUAL-EVENTS-20261028.md), with its
+own fixtures and candidate qualification. The previous build is not accepted for
+that workflow. Native startup is not proof of visual/gameplay equivalence,
+per-monitor DPI, custom-image decoding, every history/scene edge or macOS behavior.
+No build or player result is claimed for either Mac architecture in this cohort.
