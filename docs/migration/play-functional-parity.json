@@ -4018,7 +4018,13 @@
         "finding": "Player observed temporary road-depth loss during visitor/home switching; inherited timed discovery can delay new material handling.",
         "correction": "Native reset/material-event generation invalidation with checked readiness, next-frame discovery and independent restoration; successful cohorts stay idle. Failure-only recovery backoffs remain.",
         "evidence": "docs/migration/HAVEN-VISUAL-EVENTS-20261028.md; events-tests-4.log:417/417 Windows integrated build/run/install steps, including production event consumers and unchanged AAI host",
-        "status": "113f13ce:417/417 Windows integrated steps,41/41 native build steps; main ordinary client273 PID31468 launched with73 groups and unchanged stores. Home/visitor/home rendering/player acceptance and macOS qualification pending."
+        "status": "113f13ce:417/417 Windows integrated steps,41/41 native build steps; main ordinary client273 PID31468 launched with73 groups and unchanged stores. Guff accepted focused home/visitor/home expanded-zoom road appearance; reset-event logs and settled idle confirmed. Later-streamer runtime coverage and macOS remain unqualified.",
+        "playerTrial": {
+          "sourceCheckpoint": "113f13ce277c5acf0f8f69bcc400417bb00be61f",
+          "installedSha256": "4c88a57cca7a72f48b74d32f700142141d3dcdbf8318166a1a87a2909f21d784",
+          "behavior": "Home Haven, visitor Haven, return home at expanded zoom; immediate road appearance and settled idle",
+          "result": "Guff:yup, leaving open. Four reset-generation scans1220-2526us; no recurring successful idle scans. Existing rate-limited GetComponent exception recurred with caller/cause unattributed."
+        }
       },
       "classification": "Implemented, unverified",
       "baseline": {

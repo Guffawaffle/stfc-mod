@@ -128,5 +128,26 @@ The artifact directory above contains `events-source-inputs.json`,
 `events-stores-before.json`, `events-stores-after.json` and
 `events-runtime-qualification.json`. They distinguish source, compiled fixture,
 native DLL, installation and process evidence. Earlier cohort receipts are
-historical and do not qualify this correction. The home/visitor/home player trial
-has been requested and remains pending at this checkpoint. No push or promotion.
+historical and do not qualify this correction. No push or promotion.
+
+### Focused Windows player trial
+
+Guff completed the requested home/visitor/home switching at expanded zoom and
+answered **"yup, leaving open"** to whether the roads retained their correct
+appearance immediately after each load. This accepts that narrow Windows workflow
+on the exact DLL above; it is not full feature/platform parity.
+
+Four successful discovery publications were logged at local21:09:18.881,
+21:09:36.782,21:09:47.215 and21:10:08.451. All were native map-module-reset
+generations. Their scoped scan times were 1220,1522,2526 and2025 microseconds;
+these are discovery callback durations, not full-frame costs or end-to-end loading
+latencies. Road counts were7,0,7,7, with one water renderer in each. The visitor's
+zero-road cohort alone does not prove missing discovery; no visual defect was
+reported. Real streamed-material callback coverage beyond these reset paths
+remains unqualified, although its production adapter is exercised offline.
+
+At local21:10:36.831, the final scene had no further publication for over28seconds,
+consistent with no recurring one/five-second successful scans. A separate
+contained/rate-limited GameObject.GetComponent NullReferenceException occurred at
+21:09:35.534. The same diagnostic predates this correction; caller and cause
+remain unattributed. It is preserved rather than claiming an error-free trial.
