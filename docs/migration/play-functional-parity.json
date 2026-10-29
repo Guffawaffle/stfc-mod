@@ -4938,11 +4938,13 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "a93e688c Windows client273 main ordinary PID1088; 419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior. Partial remains explicit: scoped Mac donation path intentionally differs from unsafe global Slider.maxValue hook; no Mac build/runtime qualified here.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "a93e688c5db9acd23ec86d7a6e5641d70b39db02"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-DONATION.md",
       "branchObservations": [
@@ -4966,12 +4968,12 @@
         },
         {
           "refRole": "refactor",
-          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "revision": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
           "presence": "present",
           "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
         }
       ],
-      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "catalogStatus": "Source-qualified and Windows startup passed; focused player, extended native and Mac qualification remain separate",
       "assessments": [
         {
           "version": 1,
@@ -4983,13 +4985,16 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "8fb8802708612ff21217f79b0cde7da63466809e",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json",
+            "implementationCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02"
           },
           "contract": "docs/migration/features/PLAY-DONATION.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
           "migrationStatus": "Partial",
-          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
-          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+          "verification": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout",
+          "artifactSha256": "0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
         }
       ]
     },
@@ -5013,11 +5018,13 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "a93e688c Windows client273 main ordinary PID1088; 419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "a93e688c5db9acd23ec86d7a6e5641d70b39db02"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CHEST-LIMIT.md",
       "branchObservations": [
@@ -5041,12 +5048,12 @@
         },
         {
           "refRole": "refactor",
-          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "revision": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
           "presence": "present",
           "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
         }
       ],
-      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "catalogStatus": "Source-qualified and Windows startup passed; focused player, extended native and Mac qualification remain separate",
       "assessments": [
         {
           "version": 1,
@@ -5058,13 +5065,16 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "8fb8802708612ff21217f79b0cde7da63466809e",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json",
+            "implementationCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02"
           },
           "contract": "docs/migration/features/PLAY-CHEST-LIMIT.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
-          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+          "verification": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout",
+          "artifactSha256": "0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
         }
       ]
     },
@@ -5176,11 +5186,13 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "a93e688c Windows client273 main ordinary PID1088; 419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior.",
-      "restorationCommits": [],
+      "restorationCommits": [
+        "a93e688c5db9acd23ec86d7a6e5641d70b39db02"
+      ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-POPUPS.md",
       "branchObservations": [
@@ -5204,12 +5216,12 @@
         },
         {
           "refRole": "refactor",
-          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "revision": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
           "presence": "present",
           "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
         }
       ],
-      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "catalogStatus": "Source-qualified and Windows startup passed; focused player, extended native and Mac qualification remain separate",
       "assessments": [
         {
           "version": 1,
@@ -5221,13 +5233,16 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "8fb8802708612ff21217f79b0cde7da63466809e",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json",
+            "implementationCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02"
           },
           "contract": "docs/migration/features/PLAY-POPUPS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
-          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+          "verification": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout",
+          "artifactSha256": "0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
         }
       ]
     },
@@ -6742,7 +6757,7 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution."
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "a93e688c Windows client273 main ordinary PID1088; 419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Complete contract records native call order, settings/defaults, unavailable data and lifecycle handling. Actual production-consumer fixtures do not establish rendered native controls, purchases or Mac behavior.",
@@ -6769,12 +6784,12 @@
         },
         {
           "refRole": "refactor",
-          "revision": "8fb8802708612ff21217f79b0cde7da63466809e",
+          "revision": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
           "presence": "present",
           "evidence": "src/mod/features/shop.cc; src/mod/settings/config_settings.cc"
         }
       ],
-      "catalogStatus": "Complete source reassessment and419/419 Windows controlled-runtime steps; native/player/platform qualification pending",
+      "catalogStatus": "Source-qualified and Windows startup passed; focused player, extended native and Mac qualification remain separate",
       "assessments": [
         {
           "version": 1,
@@ -6786,13 +6801,16 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "8fb8802708612ff21217f79b0cde7da63466809e",
-            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json",
+            "implementationCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02"
           },
           "contract": "docs/migration/features/PLAY-ARTIFACT-EXCHANGE-ALL.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261029-01.md",
           "migrationStatus": "Implemented, unverified",
-          "verification": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/tests-2.log:419/419 Windows build/run/install steps with Debug assertions; actual shop limit/popup/reveal/artifact consumers and previous claims/HUD/Settings/preset/AAI-host regressions. No purchases, rewards or Mac execution.",
-          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout"
+          "verification": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
+          "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout",
+          "artifactSha256": "0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
         }
       ]
     },
@@ -8293,7 +8311,7 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Shop/claims/HUD/confirmation reassessment and Windows trial checkpoint complete; extended native/platform qualification separate. Overall parity unclaimed.",
+    "status": "Shop quantity/popup source-qualified candidate installed; focused dialog trial pending. Mac donation boundary remains Partial; overall parity unclaimed.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "faadd75c31e0d23c2209dad053bddb143e494207",
     "obsoleteLocalPointer": {
@@ -8306,21 +8324,21 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
-    "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
-    "qualification": "418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
+    "currentSourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
+    "artifactSha256": "0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9",
+    "qualification": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
     "currentRuntime": {
-      "sourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
-      "buildId": "ax-zig-20261029T044613-4a95be3d",
+      "sourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
+      "buildId": "ax-zig-20261029T055232-bf5eb72a",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 35396,
-      "startedFileTime": "134377229899175440",
+      "pidAtQualification": 1088,
+      "startedFileTime": "134377269329025803",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json",
-      "status": "Basic combined Windows UI trial accepted; historical session identity after any later restart. Known contained GetComponent diagnostic recurred; caller/cause unqualified."
+      "receipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json",
+      "status": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification. Session identity historical after any subsequent restart."
     },
     "pendingCohort": {
       "document": "docs/migration/features/AT-STORE.md",
@@ -8363,10 +8381,12 @@
         "PLAY-POPUPS",
         "PLAY-ARTIFACT-EXCHANGE-ALL"
       ],
-      "status": "419/419 final Windows regression steps passed; native candidate qualification pending",
-      "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json"
+      "status": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Focused player dialog trial pending; no resource actions or Mac qualification.",
+      "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json",
+      "implementationCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
+      "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
     },
-    "artifactSourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
+    "artifactSourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
     "historicalRuntimes": [
       {
         "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
@@ -8403,6 +8423,19 @@
         "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
         "receipt": "D:/dev/stfc-workspace/artifacts/warp-choice-diagnostic-20261028/fix-qualification.json",
         "status": "Windows startup and consecutive-click repair accepted; session identity historical after a restart."
+      },
+      {
+        "sourceCommit": "6664e54df7a9062143a757f39f02bbbf4330829d",
+        "buildId": "ax-zig-20261029T044613-4a95be3d",
+        "buildMode": "releasedbg",
+        "client": 273,
+        "installation": "C:/Games/Star Trek Fleet Command/default/game",
+        "profile": "ordinary",
+        "pidAtQualification": 35396,
+        "startedFileTime": "134377229899175440",
+        "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
+        "receipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json",
+        "status": "Basic combined Windows UI trial accepted; historical session identity after any later restart. Known contained GetComponent diagnostic recurred; caller/cause unqualified."
       }
     ]
   },

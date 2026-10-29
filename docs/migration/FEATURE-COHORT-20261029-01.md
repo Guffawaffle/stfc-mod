@@ -85,3 +85,34 @@ dependent-name parse issue, so the existing include order was preserved.
 gameObject property metadata. The fixture was corrected to supply the actual
 native property, without changing artifact production behavior or weakening the
 hide assertion. All these differ from the reproduced production context defect.
+
+## Exact native candidate
+
+Signed implementation `a93e688c5db9acd23ec86d7a6e5641d70b39db02` passed
+**41/41** native Windows build steps; verifier confirmed x64,16 proxy exports,
+static CRT and the exact provenance marker. AX invocation
+`ax-zig-20261029T055232-bf5eb72a` kept source clean/stable, built first, copied
+and launched the main ordinary installation. The previous game session had
+already closed; no running game was stopped during this cycle.
+
+Built and installed DLL SHA256:
+`0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9`.
+Session PID1088, creation FILETIME `134377269329025803`, is a historical identity
+after any later restart. All73 groups installed and FrameTick delivery became
+ready. No startup error/critical lines were observed in the recorded snapshot.
+The five tracked settings/state files stayed byte-identical. AAI `4bece2e5` and
+UI Lab remained enabled and unchanged. No live frame-cost, allocation reduction,
+native slider accuracy or macOS claim follows from these startup results.
+
+Focused player trial is pending: open/cancel chest and alliance donation
+dialogs, inspect their existing limits/controls, and inspect the artifact popup
+if the hide setting is normally used. No purchase, donation or conversion is
+needed. Popup allowance/reveal edge ordering has controlled callback evidence;
+ordinary startup alone does not exercise all those paths.
+
+`source-inputs.json` binds final tested inputs, fixture executable and419-step
+log. `cycle.log`, `qualification.json`, `startup-summary.txt`,
+`stores-before.json` and `stores-after.json` bind the native candidate. The
+canonical deploy wrapper also reports its own checkout; the prepared-build
+source, embedded marker and matching DLL hashes identify the worktree artifact.
+No push, merge, release or complete-product parity is claimed.
