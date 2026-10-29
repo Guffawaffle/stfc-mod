@@ -104,11 +104,13 @@ The five tracked settings/state files stayed byte-identical. AAI `4bece2e5` and
 UI Lab remained enabled and unchanged. No live frame-cost, allocation reduction,
 native slider accuracy or macOS claim follows from these startup results.
 
-Focused player trial is pending: open/cancel chest and alliance donation
-dialogs, inspect their existing limits/controls, and inspect the artifact popup
-if the hide setting is normally used. No purchase, donation or conversion is
-needed. Popup allowance/reveal edge ordering has controlled callback evidence;
-ordinary startup alone does not exercise all those paths.
+Guff accepted the focused open/cancel chest/alliance-donation dialog and
+optional artifact-popup trial: **"all look good"**. Record this as basic combined
+Windows UI acceptance; per-control coverage was not itemized. No purchase,
+donation, conversion, server-side quantity acceptance or Mac behavior is
+established by that feedback. Popup allowance/reveal edge ordering still has
+controlled callback evidence; ordinary startup alone does not exercise all those
+paths. No additional build or cycle was needed to record acceptance.
 
 `source-inputs.json` binds final tested inputs, fixture executable and419-step
 log. `cycle.log`, `qualification.json`, `startup-summary.txt`,
