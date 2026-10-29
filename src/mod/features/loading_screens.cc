@@ -30,13 +30,12 @@
 
 namespace
 {
-void ShowSprite(unity::Image* image, unity::Sprite* sprite, bool preserve_aspect)
+bool ShowSprite(unity::Image* image, unity::Sprite* sprite, bool preserve_aspect)
 {
-  image->SetSprite(sprite);
-  image->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
-  image->SetType(unity::Image::Type::Simple);
-  image->SetPreserveAspect(preserve_aspect);
-  image->SetRaycastTarget(false);
+  return image->TryCall<"set_sprite">(sprite)
+         && image->TryCall<"set_color">(unity::Color{1.0f, 1.0f, 1.0f, 1.0f})
+         && image->TryCall<"set_type">(unity::Image::Type::Simple)
+         && image->TryCall<"set_preserveAspect">(preserve_aspect) && image->TryCall<"set_raycastTarget">(false);
 }
 
 void HideImage(unity::Image* image)
@@ -72,8 +71,12 @@ struct ScreenImages {
       if (!data.empty() && LoadScreenImage(background, data.data(), data.size(), "custom loading background"))
         return &background;
     }
+#ifndef _USE_ORIGINAL_BG
     return LoadScreenImage(background, g_embeddedLoadingImage, g_embeddedLoadingImage_SIZE,
                            "embedded loading background");
+#else
+    return nullptr;
+#endif
   }
 
   unity::ImageAsset* Logo()
@@ -90,12 +93,34 @@ unity::GameObject* CreateOverlay(const char* name, unity::ImageAsset& asset, uni
                                  bool behind_siblings)
 {
   auto* sprite    = parent ? asset.Sprite() : nullptr;
-  auto* object    = sprite ? unity::GameObject::Create(name) : nullptr;
-  auto* transform = object ? object->GetComponent<unity::Transform>() : nullptr;
+  auto* object    = sprite ? il2cpp::Allocate<unity::GameObject>() : nullptr;
+  if (!object)
+    return nullptr;
+  // A failed attempt can already own a Unity object parented to the canvas.
+  // Releasing its managed root alone would leave an orphan overlay behind.
+  struct ProvisionalLoadingOverlay {
+    il2cpp::GcHandle root;
+    bool             constructed = false, published = false;
+    ~ProvisionalLoadingOverlay()
+    {
+      if (constructed && !published)
+        unity::Destroy(root.Get());
+    }
+  } provisional{il2cpp::GcHandle::Strong(object)};
+  if (!provisional.root)
+    return nullptr;
+  // New<GameObject> contains constructor exceptions but returns the allocation.
+  // Here successful construction is required before an overlay can be published.
+  if (!object->TryCall<".ctor">(il2cpp::NewString(name)))
+    return nullptr;
+  provisional.constructed = true;
+  auto* transform = object->GetComponent<unity::Transform>();
   if (!transform)
     return nullptr;
   // Attached to the canvas root, so the overlay covers the whole screen.
-  transform->SetParent(unity::CanvasRoot(parent), false);
+  auto* canvas = unity::CanvasRoot(parent);
+  if (!canvas || !transform->TryCall<"SetParent">(canvas, false))
+    return nullptr;
   if (behind_siblings)
     transform->SetAsFirstSibling();
 
@@ -104,8 +129,13 @@ unity::GameObject* CreateOverlay(const char* name, unity::ImageAsset& asset, uni
   auto* rect  = image ? object->GetComponent<unity::RectTransform>() : nullptr;
   if (!rect)
     return nullptr;
-  rect->Place(anchor_min, anchor_max, {0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f});
-  ShowSprite(image, sprite, preserve_aspect);
+  if (!rect->TryCall<"set_anchorMin">(anchor_min) || !rect->TryCall<"set_anchorMax">(anchor_max)
+      || !rect->TryCall<"set_pivot">(unity::Vector2{0.5f, 0.5f})
+      || !rect->TryCall<"set_sizeDelta">(unity::Vector2{0.0f, 0.0f})
+      || !rect->TryCall<"set_anchoredPosition">(unity::Vector2{0.0f, 0.0f})
+      || !ShowSprite(image, sprite, preserve_aspect))
+    return nullptr;
+  provisional.published = true;
   return object;
 }
 
@@ -180,8 +210,10 @@ void LoginSequence_Awake_Hook(auto original, LoginSequence* _this)
   if (!Config::Get().graphics.loader_enabled)
     return;
 
-  auto* background = screen_images.Background();
-  auto* canvas     = background ? _this->mainCanvas() : nullptr;
+  // The next login generation must observe changed files and discard the old
+  // rooted wrappers even if Unity has not unloaded their native textures yet.
+  screen_images = {};
+  auto* canvas     = _this->mainCanvas();
   auto* root       = canvas ? canvas->transform() : nullptr;
   if (!root)
     return;
@@ -192,13 +224,12 @@ void LoginSequence_Awake_Hook(auto original, LoginSequence* _this)
   if (!image)
     return;
 
-#ifndef _USE_ORIGINAL_BG
-  if (auto* sprite = background->Sprite()) {
+  auto* background = screen_images.Background();
+  if (auto* sprite = background ? background->Sprite() : nullptr) {
     image->SetOverrideSprite(sprite);
     ShowSprite(image, sprite, false);
     image->SetVerticesDirty();
   }
-#endif
   ScreenLogos{}.Create(image->transform());
 }
 
@@ -271,10 +302,33 @@ void LoadingTipViewController_SetRandomTipLocalisedText_Hook(auto original, Load
 // What has been done to the current TransitionViewController. Its Unity objects are looked up again on each
 // attempt rather than kept, since nothing roots them between hooks. A new controller or a reload starts over.
 struct TransitionState {
+  il2cpp::GcHandle owner, animator;
   bool        customized = false;
   bool        overlay    = false;
   ScreenLogos logos;
-} transition_screen;
+};
+// Like ScreenImages, weak handles must not be released after runtime shutdown.
+TransitionState& transition_screen = *new TransitionState;
+
+bool OwnTransition(TransitionViewController* controller, bool restart = false)
+{
+  if (restart || transition_screen.owner.Get() != controller) {
+    transition_screen       = {};
+    transition_screen.owner = il2cpp::GcHandle::Weak(controller);
+  }
+  return transition_screen.owner.Get() == controller;
+}
+
+void DisableTransitionAnimator(TransitionViewController* controller)
+{
+  if (transition_screen.animator)
+    return;
+  if (auto* animator = controller->animator()) {
+    auto root = il2cpp::GcHandle::Weak(animator);
+    if (root && animator->TryCall<"set_enabled">(false))
+      transition_screen.animator = std::move(root);
+  }
+}
 
 // The transition background: _staticOverride, or the Image on BGContainer's first child (whose transform is
 // returned in `box` so it can be stretched).
@@ -324,29 +378,35 @@ void CustomizeTransition(TransitionViewController* controller)
     return;
   auto* parent = box ? box : background->transform();
 
-  // The canvas animation would fade our overlay; AboutToHide switches it back on for the hide animation.
-  if (auto* animator = controller->animator())
-    animator->SetEnabled(false);
-
   if (!Config::Get().graphics.loader_transition_black) {
-#ifndef _USE_ORIGINAL_BG
+    auto* asset = screen_images.Background();
+    if (!asset) {
+      if (parent) {
+        transition_screen.logos.Create(parent);
+        transition_screen.customized = true;
+      }
+      return;
+    }
     if (parent && !transition_screen.overlay)
-      if (auto* image = screen_images.Background())
-        transition_screen.overlay =
-            CreateOverlay("STFCModBG", *image, parent, {0.0f, 0.0f}, {1.0f, 1.0f}, false, true) != nullptr;
+      transition_screen.overlay =
+          CreateOverlay("STFCModBG", *asset, parent, {0.0f, 0.0f}, {1.0f, 1.0f}, false, true) != nullptr;
     // Keep the game's background unless the replacement is fully attached, so a failure is visible but harmless.
     if (!transition_screen.overlay) {
       spdlog::warn("[TransitionScreen] the custom background is unavailable; keeping the game's");
       return;
     }
+    // The canvas animation would fade a successful replacement. Preserve native
+    // animation too when construction fails; AboutToHide restores our animator.
+    DisableTransitionAnimator(controller);
     HideImage(background);
     if (box) {
-      box->As<unity::RectTransform>()->Place({0.0f, 0.0f}, {1.0f, 1.0f}, {0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f});
+      if (auto* rect = box->As<unity::RectTransform>())
+        rect->Place({0.0f, 0.0f}, {1.0f, 1.0f}, {0.5f, 0.5f}, {0.0f, 0.0f}, {0.0f, 0.0f});
       box->SetLocalEulerAngles({0, 0, 0});
       box->SetLocalScale({1, 1, 1});
     }
-#endif
-  }
+  } else
+    DisableTransitionAnimator(controller);
 
   if (parent)
     transition_screen.logos.Create(parent);
@@ -360,21 +420,23 @@ void TransitionViewController_Awake_Hook(auto original, TransitionViewController
   original(_this);
   if (!Config::Get().graphics.loader_transition)
     return;
-  transition_screen = {};
-  CustomizeTransition(_this);
+  screen_images = {};
+  if (OwnTransition(_this, true))
+    CustomizeTransition(_this);
 }
 
 void TransitionViewController_AboutToShow_Hook(auto original, TransitionViewController* _this)
 {
   original(_this);
-  if (Config::Get().graphics.loader_transition && !transition_screen.customized)
+  if (Config::Get().graphics.loader_transition && OwnTransition(_this) && !transition_screen.customized)
     CustomizeTransition(_this);
 }
 
 void TransitionViewController_AboutToHide_Hook(auto original, TransitionViewController* _this)
 {
-  if (auto* animator = _this->animator(); animator && Config::Get().graphics.loader_transition)
-    animator->SetEnabled(true);
+  if (Config::Get().graphics.loader_transition && transition_screen.owner.Get() == _this)
+    if (auto* animator = transition_screen.animator.Get<unity::Behaviour>(); animator && unity::Alive(animator))
+      animator->SetEnabled(true);
   original(_this);
 }
 
@@ -382,7 +444,7 @@ void SlideShowViewController_ShowCurrentSlide_Hook(auto original, SlideShowViewC
 {
   original(_this);
   const auto& config = Config::Get();
-  if (config.graphics.loader_transition && !config.graphics.loader_transition_black)
+  if (config.graphics.loader_transition && !config.graphics.loader_transition_black && transition_screen.overlay)
     HideImage(_this->image());
 }
 
@@ -396,18 +458,20 @@ void MonoSingleton_PrepareAllForReload_Hook(auto original)
 
 // Shared by the login, tip and transition installs, whichever of them run, so it is its own set, installed on the
 // first call.
-void InstallReloadReset()
+bool InstallReloadReset()
 {
-  [[maybe_unused]] static const bool installed = [] {
+  static const bool loading_reload_installed = [] {
     il2cpp::HookSet hooks("LoadingScreens");
     IL2CPP_STAGE(hooks, MonoSingletonBase::Method("PrepareAllForReload"), MonoSingleton_PrepareAllForReload_Hook);
     return hooks.Commit();
   }();
+  return loading_reload_installed;
 }
 
 bool InstallLoginScreen()
 {
-  InstallReloadReset();
+  if (!InstallReloadReset())
+    return false;
   il2cpp::HookSet hooks("LoginScreen");
   IL2CPP_STAGE(hooks, LoginSequence::Class::Method("Awake"), LoginSequence_Awake_Hook);
   return hooks.Commit();
@@ -415,7 +479,8 @@ bool InstallLoginScreen()
 
 bool InstallTransitionScreen()
 {
-  InstallReloadReset();
+  if (!InstallReloadReset())
+    return false;
   il2cpp::HookSet hooks("TransitionScreen");
   IL2CPP_STAGE(hooks, TransitionViewController::Class::Method("Awake"), TransitionViewController_Awake_Hook);
   IL2CPP_STAGE(hooks, TransitionViewController::Class::Method("AboutToShow"),
@@ -429,7 +494,8 @@ bool InstallTransitionScreen()
 
 bool InstallLoadingTips()
 {
-  InstallReloadReset();
+  if (!InstallReloadReset())
+    return false;
   il2cpp::HookSet hooks("LoadingTips");
   IL2CPP_STAGE(hooks, LoadingTipViewController::Class::Method("SetRandomTipLocalisedText"),
                LoadingTipViewController_SetRandomTipLocalisedText_Hook);

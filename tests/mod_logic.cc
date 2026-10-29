@@ -213,6 +213,24 @@ void AbilityRecoveryPatch()
     }
 }
 
+void LoadingArtworkPolicy()
+{
+  for (bool transition : {false, true})
+    for (bool black : {false, true}) {
+      toml::table input;
+      input.insert("graphics", toml::table{{"loader_transition", transition},
+                                           {"loader_transition_black", black},
+                                           {"loader_image", "custom/loading.png"}});
+      toml::table effective;
+      const auto  parsed = Config::Parse(input, effective, false);
+      Check(parsed->graphics.loader_transition_black == (!transition || black),
+            "transition customization preserves requested mode independently of embedded background policy");
+      Check(parsed->graphics.loader_image == "custom/loading.png", "runtime custom image request is retained");
+      Check(effective["graphics"]["loader_transition_black"].value<bool>() == (!transition || black),
+            "effective transition mode matches the applied policy");
+    }
+}
+
 void Loading()
 {
   auto parsed = Load(R"(
@@ -679,6 +697,7 @@ int main()
   DefaultBindings();
   Loading();
   AbilityRecoveryPatch();
+  LoadingArtworkPolicy();
   ExampleSettings();
   NotificationAudio();
   DailyFactionSettings();

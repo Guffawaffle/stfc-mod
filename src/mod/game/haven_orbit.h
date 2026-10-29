@@ -2,6 +2,7 @@
 
 #include "app.h"
 #include "camera.h"
+#include "haven.h"
 
 #include <unity/application.h>
 #include <unity/input.h>
@@ -12,12 +13,7 @@
 
 namespace haven_orbit_binding
 {
-template <il2cpp::Name N, class T, class B> il2cpp::CallResult<T> Field(B* object)
-{
-  static auto* field = il2cpp::detail::ResolveField(B::Class::Raw(), N.View(), il2cpp::detail::SlotOf<T>(), false);
-  return object && field ? il2cpp::CallResult<T>{true, il2cpp::detail::ReadField<T>(field, object)}
-                         : il2cpp::CallResult<T>{};
-}
+using haven_binding::Field;
 template <il2cpp::Name N, class B> bool Write(B* object, float value)
 {
   static auto* field = il2cpp::detail::ResolveField(B::Class::Raw(), N.View(), il2cpp::detail::SlotOf<float>(), false);

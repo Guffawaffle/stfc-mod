@@ -36,7 +36,7 @@ pub const Options = struct {
                 bool,
                 "use_original_bg",
                 "Use the original game loading background",
-            ) orelse false,
+            ) orelse true,
             .bg_image = b.option([]const u8, "bg_image", "Custom loading screen image") orelse "",
             .test_optimize = b.option(
                 OptimizeMode,

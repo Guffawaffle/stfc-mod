@@ -909,14 +909,9 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("graphics", "loader_enabled", g.loader_enabled);
   r.Read("graphics", "loader_transition", g.loader_transition);
   r.Read("graphics", "loader_transition_black", g.loader_transition_black);
-  // Without transition customization (or in a build that keeps the original background) the game's own black
-  // background stays. The vars file records what is actually used.
-#ifdef _USE_ORIGINAL_BG
-  constexpr bool kOriginalBackground = true;
-#else
-  constexpr bool kOriginalBackground = false;
-#endif
-  if (kOriginalBackground || !g.loader_transition) {
+  // Disabling customization keeps the native black background. The embedded
+  // background build option must not override a runtime custom image request.
+  if (!g.loader_transition) {
     g.loader_transition_black = true;
     r.Record("graphics", "loader_transition_black", true);
   }

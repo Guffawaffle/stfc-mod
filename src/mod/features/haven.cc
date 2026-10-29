@@ -7,6 +7,7 @@
 
 #include "game/camera.h"
 #include "game/haven.h"
+#include "game/haven_orbit.h"
 
 #include <il2cpp/hook.h>
 #include <il2cpp/il2cpp.h>
@@ -334,21 +335,7 @@ void HavenVisualsFrame()
 // Haven's zoom blends between two planetary orbits, each pinned to one radius (min == max) and sitting on it. Reads
 // that radius, or nothing for any other kind of endpoint.
 std::optional<float> HavenOrbitRadius(FrameProvider* provider)
-{
-  if (!provider || !provider->Is<PlanetaryOrbitFrameProvider>() || !provider->Is<AbstractOrbitFrameProvider>())
-    return std::nullopt;
-  auto* orbit      = provider->As<AbstractOrbitFrameProvider>();
-  auto* constraint = orbit->constraint();
-  auto* data       = constraint ? constraint->radius() : nullptr;
-  if (!data || !data->enabled())
-    return std::nullopt;
-  const auto minimum = data->min(), maximum = data->max();
-  const auto radius = orbit->radius();
-  if (std::isfinite(radius) && std::isfinite(maximum) && maximum > 0.0f && minimum == maximum
-      && std::abs(radius - maximum) < 0.01f)
-    return radius;
-  return std::nullopt;
-}
+{ return haven_orbit_binding::Radius(provider ? provider->As<AbstractOrbitFrameProvider>() : nullptr); }
 
 // Every value is finite: NaN and infinity both fail.
 bool HavenFinite(std::floating_point auto... values)
@@ -364,44 +351,72 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   if ((!std::isfinite(max_zoom) || max_zoom <= 0.0f) && !hidden)
     return; // Pending interventions still drain through this feature's existing frame callback.
 
-  auto*      source        = _this->sourceFrameProvider();
-  auto*      target        = _this->targetFrameProvider();
-  const auto source_pinned = HavenOrbitRadius(source);
-  const auto target_pinned = source_pinned ? HavenOrbitRadius(target) : std::nullopt;
+  const auto source_observed = haven_binding::Field<"_sourceFrameProvider", FrameProvider*>(_this);
+  const auto target_observed = haven_binding::Field<"_targetFrameProvider", FrameProvider*>(_this);
+  auto*      source          = source_observed ? source_observed.value : nullptr;
+  auto*      target          = target_observed ? target_observed.value : nullptr;
+  const auto source_pinned   = HavenOrbitRadius(source);
+  const auto target_pinned   = source_pinned ? HavenOrbitRadius(target) : std::nullopt;
   if (!target_pinned)
     return;
   const float source_radius = *source_pinned, target_radius = *target_pinned;
   if (source_radius == target_radius)
     return;
 
-  auto* source_orbit = source->As<AbstractOrbitFrameProvider>();
-  auto* target_orbit = target->As<AbstractOrbitFrameProvider>();
-  auto* pivot        = source_orbit->orbitPivot();
-  if (!pivot || target_orbit->orbitPivot() != pivot || source_orbit->lookTarget() != pivot
-      || target_orbit->lookTarget() != pivot)
+  auto*      source_orbit = source->As<AbstractOrbitFrameProvider>();
+  auto*      target_orbit = target->As<AbstractOrbitFrameProvider>();
+  const auto pivot_a      = haven_binding::Field<"_orbitPivot", TargetController*>(source_orbit);
+  const auto pivot_b      = haven_binding::Field<"_orbitPivot", TargetController*>(target_orbit);
+  const auto look_a       = haven_binding::Field<"_lookTarget", TargetController*>(source_orbit);
+  const auto look_b       = haven_binding::Field<"_lookTarget", TargetController*>(target_orbit);
+  if (!pivot_a || !pivot_b || !look_a || !look_b || !pivot_a.value || pivot_b.value != pivot_a.value
+      || look_a.value != pivot_a.value || look_b.value != pivot_a.value)
     return;
-  auto*        source_frame = _this->sourceFrame();
-  auto*        target_frame = _this->targetFrame();
-  CameraFrame* result       = _this->blendedCameraFrame();
-  auto*        curve        = _this->blendCurve();
-  const auto   minimum = _this->softLimitMin(), maximum = _this->softLimitMax(), ratio = _this->blendRatio();
+  const auto source_frame_observed = haven_binding::Field<"_sourceFrame", CameraFrame*>(_this);
+  const auto target_frame_observed = haven_binding::Field<"_targetFrame", CameraFrame*>(_this);
+  const auto result_observed       = haven_binding::Field<"_blendedCameraFrame", EditableCameraFrame*>(_this);
+  const auto curve_observed        = haven_binding::Field<"_blendCurve", unity::AnimationCurve*>(_this);
+  const auto low                   = haven_binding::Field<"_softLimitMin", float>(_this);
+  const auto high                  = haven_binding::Field<"_softLimitMax", float>(_this);
+  const auto blend_ratio           = haven_binding::Field<"_blendRatio", float>(_this);
+  if (!source_frame_observed || !target_frame_observed || !result_observed || !curve_observed || !low || !high
+      || !blend_ratio)
+    return;
+  auto*        source_frame = source_frame_observed.value;
+  auto*        target_frame = target_frame_observed.value;
+  CameraFrame* result       = result_observed.value;
+  auto*        curve        = curve_observed.value;
+  const auto   minimum = low.value, maximum = high.value, ratio = blend_ratio.value;
   if (!source_frame || !target_frame || !result || !curve || source_frame == target_frame || result == source_frame
       || result == target_frame || !HavenFinite(minimum, maximum, ratio) || minimum < 0.0f || maximum > 1.0f
       || maximum <= minimum)
     return;
 
-  auto       position = result->position();
-  const auto ar = source_frame->rotation(), br = target_frame->rotation();
-  const auto af = source_frame->fov(), bf = target_frame->fov();
-  const auto rotation_dot    = ar.x * br.x + ar.y * br.y + ar.z * br.z + ar.w * br.w;
-  const auto gap             = std::abs(source_radius - target_radius);
-  const auto rotation_length = ar.x * ar.x + ar.y * ar.y + ar.z * ar.z + ar.w * ar.w;
+  const auto position_observed   = haven_binding::Field<"_position", unity::Vector3>(result);
+  const auto rotation_a          = haven_binding::Field<"_rotation", unity::Quaternion>(source_frame);
+  const auto rotation_b          = haven_binding::Field<"_rotation", unity::Quaternion>(target_frame);
+  const auto fov_a               = haven_binding::Field<"_FOV", float>(source_frame);
+  const auto fov_b               = haven_binding::Field<"_FOV", float>(target_frame);
+  const auto orthographic_a      = haven_binding::Field<"_orthographic", bool>(source_frame);
+  const auto orthographic_b      = haven_binding::Field<"_orthographic", bool>(target_frame);
+  const auto orthographic_result = haven_binding::Field<"_orthographic", bool>(result);
+  if (!position_observed || !rotation_a || !rotation_b || !fov_a || !fov_b || !orthographic_a || !orthographic_b
+      || !orthographic_result)
+    return;
+  auto       position = position_observed.value;
+  const auto ar = rotation_a.value, br = rotation_b.value;
+  const auto af = fov_a.value, bf = fov_b.value;
+  const auto rotation_dot           = ar.x * br.x + ar.y * br.y + ar.z * br.z + ar.w * br.w;
+  const auto gap                    = std::abs(source_radius - target_radius);
+  const auto rotation_length        = ar.x * ar.x + ar.y * ar.y + ar.z * ar.z + ar.w * ar.w;
+  const auto target_rotation_length = br.x * br.x + br.y * br.y + br.z * br.z + br.w * br.w;
   // Qualify the common-pivot, same-facing perspective orbit measured in Haven: unit rotations that agree up to sign
   // (|dot| = 1) and one field of view. Only then is moving along the camera's back axis the same as a wider orbit.
   // Preserve native output when a client changes that geometry or camera mode.
-  if (!HavenFinite(rotation_length, rotation_dot, af, bf) || std::abs(rotation_length - 1.0f) > 0.0001f
+  if (!HavenFinite(rotation_length, target_rotation_length, rotation_dot, af, bf)
+      || std::abs(rotation_length - 1.0f) > 0.0001f || std::abs(target_rotation_length - 1.0f) > 0.0001f
       || std::abs(std::abs(rotation_dot) - 1.0f) > 0.0001f || af <= 0.0f || std::abs(af - bf) > 0.001f
-      || source_frame->orthographic() || target_frame->orthographic() || result->orthographic())
+      || orthographic_a.value || orthographic_b.value || orthographic_result.value)
     return;
 
   // Water belongs to the qualified Haven scene, independently of curve shape or requested zoom expansion.
@@ -411,9 +426,12 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   if (!expanded)
     return;
 
-  const auto at_ratio   = curve->Evaluate(ratio);
-  const auto at_minimum = curve->Evaluate(minimum);
-  const auto at_maximum = curve->Evaluate(maximum);
+  const auto curve_ratio   = curve->TryCall<"Evaluate", float(float)>(ratio);
+  const auto curve_minimum = curve->TryCall<"Evaluate", float(float)>(minimum);
+  const auto curve_maximum = curve->TryCall<"Evaluate", float(float)>(maximum);
+  if (!curve_ratio || !curve_minimum || !curve_maximum)
+    return;
+  const auto at_ratio = curve_ratio.value, at_minimum = curve_minimum.value, at_maximum = curve_maximum.value;
   if (!HavenFinite(at_ratio, at_minimum, at_maximum))
     return;
   // Weights run from 0 at the inner orbit to 1 at the outer one, whichever way the blend goes. outer_weight and
@@ -444,7 +462,10 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   position.x += static_cast<float>(-2.0 * (ar.x * ar.z + ar.w * ar.y) * extra);
   position.y += static_cast<float>(-2.0 * (ar.y * ar.z - ar.w * ar.x) * extra);
   position.z += static_cast<float>((2.0 * (ar.x * ar.x + ar.y * ar.y) - 1.0) * extra);
-  auto clip = result->farPlane();
+  const auto clip_observed = haven_binding::Field<"_farPlane", float>(result);
+  if (!clip_observed)
+    return;
+  auto clip = clip_observed.value;
   if (!std::isfinite(clip) || clip <= 0.0f)
     return;
   clip += static_cast<float>(extra);
@@ -459,18 +480,39 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
 
 // --- Help history ---
 
+void ReverseHavenRecords(il2cpp::List<Il2CppObject*>* records)
+{
+  if (!records)
+    return;
+  auto owner = il2cpp::GcHandle::Strong(records);
+  if (!owner)
+    return;
+  const auto count = records->TryCall<"get_Count", int32_t>();
+  if (!count || count.value <= 1)
+    return;
+  // Preserve the source's complete snapshot before the first managed setter.
+  // A failed getter is unavailable data, never a null record to publish.
+  std::vector<il2cpp::GcHandle> items;
+  items.reserve(count.value);
+  for (int32_t i = 0; i < count.value; ++i) {
+    const auto observed = records->TryCall<"get_Item", Il2CppObject*(int32_t)>(i);
+    if (!observed)
+      return;
+    auto item = il2cpp::GcHandle::Strong(observed.value);
+    if (observed.value && (!item || item.Get() != observed.value))
+      return;
+    items.push_back(std::move(item));
+  }
+  for (int32_t i = 0; i < count.value; ++i)
+    if (!records->TryCall<"set_Item", void(int32_t, Il2CppObject*)>(i, items[count.value - i - 1].Get()))
+      return; // Like the source, retain native delivery after a setter failure.
+}
+
 void PlanetaryHelpHistoryContext_ApplyRecords_Hook(auto original, PlanetaryHelpHistoryContext* _this,
                                                    il2cpp::List<Il2CppObject*>* records)
 {
-  if (records && Config::Get().ui.reverse_haven_history) {
-    // Swap through the managed setter so reference writes keep their GC barriers.
-    for (int32_t i = 0, j = records->Count() - 1; i < j; ++i, --j) {
-      auto first = il2cpp::GcHandle::Strong((*records)[i]);
-      auto last  = il2cpp::GcHandle::Strong((*records)[j]);
-      records->Set(i, last.Get());
-      records->Set(j, first.Get());
-    }
-  }
+  if (Config::Get().ui.reverse_haven_history)
+    ReverseHavenRecords(records);
   original(_this, records);
 }
 

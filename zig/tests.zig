@@ -471,6 +471,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         const module = ctx.createModule(true);
         libs.il2cpp.linkInto(module);
         // The fake API must precede consumers so the linker does not pull in production API storage.
+        if (ctx.options.use_original_bg and ctx.options.bg_image.len == 0) module.addCMacro("_USE_ORIGINAL_BG", "1");
         module.addCSourceFile(.{ .file = b.path("tests/il2cpp_bindings.cc"), .flags = mod_flags });
         libs.spdlog.linkInto(module);
         libs.toml.includeInto(module);
@@ -484,6 +485,11 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         const exe = ctx.executable("il2cpp-bindings-tests", module);
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
+        inline for (.{ "haven-history-native", "haven-zoom-native", "haven-zoom-missing-position", "haven-zoom-missing-orthographic", "haven-zoom-foreign-position", "haven-zoom-foreign-rotation", "haven-zoom-widened-provider", "haven-zoom-widened-frame", "haven-zoom-widened-output-frame", "haven-orbit-native", "scale-native", "scale-missing-local", "loading-login-consumer", "loading-transition-consumer", "loading-tips-consumer" }) |mode| {
+            const presentation_case = b.addRunArtifact(exe);
+            presentation_case.addArg(mode);
+            test_il2cpp.dependOn(&presentation_case.step);
+        }
         // Metadata resolution is process-cached. Missing required array-class
         // metadata must be observed before any successful lookup in this process.
         inline for (.{ "array-class-missing", "string-class-missing" }) |mode| {
@@ -865,6 +871,7 @@ pub fn addDependencySmoke(ctx: *const Ctx, libs: []const Lib) void {
 fn settingsModule(ctx: *const Ctx, libs: Libs) *std.Build.Module {
     const b = ctx.b;
     const module = ctx.createModule(true);
+    if (ctx.options.use_original_bg and ctx.options.bg_image.len == 0) module.addCMacro("_USE_ORIGINAL_BG", "1");
     module.addIncludePath(b.path("src/mod"));
     module.addIncludePath(b.path("src/libs/unity/include"));
     libs.spdlog.linkInto(module);

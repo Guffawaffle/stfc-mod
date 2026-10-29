@@ -563,3 +563,13 @@ diagnostic recurred during the trial and remains an explicit unresolved follow-u
 Exact evidence belongs in that cohort.
 Runner's native execution stayed held; three workers and integration used direct
 collaboration. No overall parity or release claim is made.
+
+## Haven, artwork and scaling reconciliation
+
+[Cohort 20261028-02](FEATURE-COHORT-20261028-02.md) extends the pinned-source
+reassessment to nine existing Haven, loading-artwork and scaling capabilities.
+Contracts record exact operations and source/default/asset identity corrections;
+fixture, native, player and platform qualification remain distinct. See the
+cohort for current results, explicit source defects/limits and recovery evidence.
+The [warp consecutive-click repair](WARP-CHOICE-RECOVERY-20261028.md) is an
+independently accepted runtime correction, not a change to manual-choice intent.

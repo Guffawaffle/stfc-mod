@@ -3977,13 +3977,37 @@
       "verificationProcedure": "Both blend directions, inconsistent endpoints, limits, pan and invalid-geometry native fallback.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Both blend directions, inconsistent endpoints, limits, pan and invalid-geometry native fallback.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-HAVEN-ZOOM.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-HAVEN-ZOOM.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-HAVEN-VISUALS",
@@ -4002,17 +4026,41 @@
       "verificationProcedure": "Toggle independently, leave/reenter scene, external material edits and observation/write failures.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Toggle independently, leave/reenter scene, external material edits and observation/write failures.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-HAVEN-VISUALS.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-HAVEN-VISUALS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-HAVEN-ORBIT",
-      "name": "Haven right-drag and modifier reset",
+      "name": "Haven map drag and modifier reset",
       "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
@@ -4023,17 +4071,41 @@
         "path": "src/mod/features/haven_orbit.cc",
         "symbolOrWorkflow": "HavenOrbit"
       },
-      "expectedBehavior": "Haven right-drag and modifier reset",
+      "expectedBehavior": "Configured Haven drag/reset; frozen MOUSE2/ALT-MOUSE2 defaults use the middle button, not the right button.",
       "verificationProcedure": "Prior user confirmed actions; final artifact UI/text/placement gates, owner replacement and restoration pending.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Prior user confirmed actions; final artifact UI/text/placement gates, owner replacement and restoration pending.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-HAVEN-ORBIT.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-HAVEN-ORBIT.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-HAVEN-HISTORY",
@@ -4052,7 +4124,9 @@
       "verificationProcedure": "Empty/single/many rows, collection between managed setter calls, native original exactly once.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
@@ -4060,7 +4134,29 @@
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-HAVEN-HISTORY.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-HAVEN-HISTORY.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-CHAT-CHANNELS",
@@ -4461,13 +4557,37 @@
       "verificationProcedure": "Valid/invalid/Unicode file, resize, repeated login and file change across scene reload.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Valid/invalid/Unicode file, resize, repeated login and file change across scene reload.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-ART-LOGIN.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-ART-LOGIN.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-ART-TRANSITION",
@@ -4486,13 +4606,37 @@
       "verificationProcedure": "Both variants, show/hide, failed discovery retry, welcome/reset/nonrepeat tips and reload.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Both variants, show/hide, failed discovery retry, welcome/reset/nonrepeat tips and reload.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-ART-TRANSITION.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-ART-TRANSITION.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-AUDIO-EVENTS",
@@ -6044,12 +6188,36 @@
       "verificationProcedure": "Zero preserves native; render factor ui_scale*DPI clamped0.1-5, shortcut changes0.1-2. Test zero, limits, resize/monitor changes and persistence.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Zero preserves native; render factor ui_scale*DPI clamped0.1-5, shortcut changes0.1-2. Test zero, limits, resize/monitor changes and persistence.",
-      "restorationCommits": []
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-UI-SCALE.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-UI-SCALE.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-VIEWER-SCALE",
@@ -6067,12 +6235,36 @@
       "verificationProcedure": "Only ObjectViewerTemplate_Canvas; zero native; quarter-step shortcut; reused/hidden viewers and unrelated canvases.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Only ObjectViewerTemplate_Canvas; zero native; quarter-step shortcut; reused/hidden viewers and unrelated canvases.",
-      "restorationCommits": []
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-VIEWER-SCALE.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-VIEWER-SCALE.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-SHIP-MODEL-SCALE",
@@ -6090,12 +6282,36 @@
       "verificationProcedure": "New asset native scale multiplied; existing models rescaled by new/old ratio. Test mixed old/new models, failures, nonpositive setting and repeated adjustments.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/tests-3.log:416/416 Windows build/run/install steps with Debug assertions, actual Haven/artwork/scaling consumers, existing mod and AAI host regressions; no rendering or gameplay claim."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "New asset native scale multiplied; existing models rescaled by new/old ratio. Test mixed old/new models, failures, nonpositive setting and repeated adjustments.",
-      "restorationCommits": []
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-SHIP-MODEL-SCALE.md",
+      "catalogStatus": "Complete pinned-source reassessment and Windows controlled-consumer checks; native rendering/player/platform qualification separate",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-28",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
+          },
+          "contract": "docs/migration/features/PLAY-SHIP-MODEL-SCALE.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261028-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "416/416 Windows integrated steps; background build variants, native artifact and player trial qualified separately in the cohort record",
+          "execution": "Direct collaboration and local tooling; no Runner native execution"
+        }
+      ]
     },
     {
       "id": "PLAY-ARTIFACT-EXCHANGE-ALL",
@@ -7536,9 +7752,9 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Fleet presentation/chat basic combined Windows trial accepted (labels tentative); source-preserving Settings precision correction now built/deployed and basic Windows trial accepted. No full parity or release claim.",
+    "status": "Warp consecutive-click repair accepted; Haven/artwork/scaling source-bound cohort undergoing its own final variant/native qualification. No overall parity or release claim.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
-    "acceptedCheckpoint": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+    "acceptedCheckpoint": "faadd75c31e0d23c2209dad053bddb143e494207",
     "obsoleteLocalPointer": {
       "ref": "integration/ripper-foundation-m1b-20261025",
       "revision": "9a2018affa88915cfbf45803945637a64b95068f",
@@ -7549,21 +7765,20 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
-    "artifactSha256": "5d4918bd8492a468074ba3c4e424a27b64aa2b7eca1ddd5610157b4dcd597284",
-    "qualification": "400/400 Windows regression steps;41/41 native steps;73 groups/frame ready. Guff:looks good for Settings precision candidate. Four of five stores unchanged; main TOML changed during player Settings trial, no agent configuration edits. Contained GetComponent diagnostic remains unqualified. macOS/extended lifecycle separate.",
+    "currentSourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
+    "artifactSha256": "3085ae45e2bd27304cfd1503b42a52befebb228534b9a33906380d31d4984b83",
+    "qualification": "Warp fix:287/287 Windows regression steps,41/41 native steps,73 groups/frame ready,Guff seems good and matching trace. No configuration edits; macOS and extended gameplay separate.",
     "currentRuntime": {
-      "sourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
-      "buildId": "ax-zig-20261028T230143-6a23f6fa",
+      "sourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 39924,
-      "startedFileTime": "134377023285810605",
+      "pidAtQualification": 45748,
+      "startedFileTime": "134377073854501027",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/settings-precision-20261028/qualification.json",
-      "status": "Windows native build/startup and basic Settings precision trial accepted; extended lifecycle/macOS remain separate. Session identity historical after any later restart."
+      "receipt": "D:/dev/stfc-workspace/artifacts/warp-choice-diagnostic-20261028/fix-qualification.json",
+      "status": "Windows startup and consecutive-click repair accepted; session identity historical after a restart."
     },
     "pendingCohort": {
       "document": "docs/migration/features/AT-STORE.md",
@@ -7598,24 +7813,23 @@
       "limits": "Default CI excludes optional private AAI and Profiles-host configurations. No new in-game qualification."
     },
     "nextCohort": {
-      "document": "docs/migration/FEATURE-COHORT-20261028-01.md",
-      "base": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
+      "document": "docs/migration/FEATURE-COHORT-20261028-02.md",
+      "base": "e5e0d52ff40331072c4e9c008e3bcaee4a7e913c",
       "capabilities": [
-        "PLAY-SHIP-TECH-ART",
-        "PLAY-FLEET-BADGES",
-        "PLAY-FLEET-LABELS",
-        "PLAY-FLEET-OPC",
-        "PLAY-CHAT-CHANNELS",
-        "PLAY-CHAT-AVATARS",
-        "PLAY-CHAT-TITLES",
-        "PLAY-CHAT-NAVIGATION"
+        "PLAY-HAVEN-ZOOM",
+        "PLAY-HAVEN-VISUALS",
+        "PLAY-HAVEN-ORBIT",
+        "PLAY-HAVEN-HISTORY",
+        "PLAY-ART-LOGIN",
+        "PLAY-ART-TRANSITION",
+        "PLAY-UI-SCALE",
+        "PLAY-VIEWER-SCALE",
+        "PLAY-SHIP-MODEL-SCALE"
       ],
-      "status": "Source reconciliation, offline suite, native build/startup and basic combined Windows trial complete (labels tentative); Settings precision correction in progress, macOS/extended cases pending",
-      "inputManifest": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\source-inputs.json",
-      "implementationCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
-      "receipt": "D:\\dev\\stfc-workspace\\artifacts\\fleet-presentation-chat-20261028\\qualification.json"
+      "status": "Integrated Windows suite passed; background variants and native trial qualification in progress",
+      "inputManifest": "D:/dev/stfc-workspace/artifacts/haven-artwork-scale-20261028/source-inputs.json"
     },
-    "artifactSourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+    "artifactSourceCommit": "faadd75c31e0d23c2209dad053bddb143e494207",
     "historicalRuntimes": [
       {
         "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
@@ -7627,16 +7841,29 @@
         "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
         "receipt": "D:\\dev\\stfc-workspace\\artifacts\\alliance-store-port-20261028\\qualification-2.json",
         "status": "Basic Windows purchase/Research/currency trial accepted; historical session identity only"
+      },
+      {
+        "sourceCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
+        "buildId": "ax-zig-20261028T230143-6a23f6fa",
+        "buildMode": "releasedbg",
+        "client": 273,
+        "installation": "C:/Games/Star Trek Fleet Command/default/game",
+        "profile": "ordinary",
+        "pidAtQualification": 39924,
+        "startedFileTime": "134377023285810605",
+        "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
+        "receipt": "D:/dev/stfc-workspace/artifacts/settings-precision-20261028/qualification.json",
+        "status": "Windows native build/startup and basic Settings precision trial accepted; extended lifecycle/macOS remain separate. Session identity historical after any later restart."
       }
     ]
   },
   "completionPlanningAssessment": {
     "date": "2026-10-28",
     "candidate": "d55827023f98243eda4a5fb7af54a9c5d5bceebc",
-    "document": "docs/migration/FEATURE-COHORT-20261028-01.md",
+    "document": "docs/migration/FEATURE-COHORT-20261028-02.md",
     "inventoryEntries": 110,
-    "entriesWithSourceBoundReassessments": 38,
-    "entriesWithContracts": 40,
+    "entriesWithSourceBoundReassessments": 55,
+    "entriesWithContracts": 57,
     "meaning": "Historical dispositions, implementation presence, source reassessment, local tests and player verification are independent; these counts are not a completion percentage.",
     "staleOrBaselineSpecificRows": [
       "SET-NAV",
@@ -7646,6 +7873,6 @@
     ],
     "sourceHold": "DIAG-SCIENCE-ERROR was removed from play-dev at46307cc2 before frozen1baa55fe; do not restore it from an obsolete Missing label.",
     "separateFollowup": "PLAY-REPAIR-INTERLOCK is absent from the frozen baseline and requires a separate current-client bug investigation.",
-    "limits": "Planning inspection only; no new runtime equivalence or formal eight-feature assessment is established."
+    "limits": "Source-bound contracts and fixture qualification do not establish native/macOS/full product parity. Existing exclusions and blockers remain."
   }
 }

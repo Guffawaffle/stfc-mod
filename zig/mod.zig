@@ -70,7 +70,9 @@ pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Buil
     const module = ctx.createModule(true);
     module.addIncludePath(b.path("src/mod"));
     if (ctx.options.moddbg) module.addCMacro("_MODDBG", "1");
-    if (ctx.options.use_original_bg) module.addCMacro("_USE_ORIGINAL_BG", "1");
+    // As in PLAY's image producer, an explicit embedded image overrides the
+    // original-background build preference; runtime image selection is separate.
+    if (ctx.options.use_original_bg and ctx.options.bg_image.len == 0) module.addCMacro("_USE_ORIGINAL_BG", "1");
     for (libs) |lib| lib.includeInto(module);
     embedImages(ctx, module);
     addModSources(ctx, module, flags);
@@ -188,7 +190,7 @@ pub fn embedImages(ctx: *const Ctx, module: *std.Build.Module) void {
     const table = [_]Image{
         .{ "embedded_loading_image.h", "g_embeddedLoadingImage", bg_image },
         .{ "embedded_logo_image.h", "g_embeddedLogoImage", b.path("assets/stfc-mod-logo.png") },
-        .{ "embedded_cc_logo_image.h", "g_embeddedCCLogoImage", b.path("assets/official-cc-logo.png") },
+        .{ "embedded_cc_logo_image.h", "g_embeddedCCLogoImage", b.path("assets/guffawaffle-build-badge.png") },
         .{ "embedded_station_housing.h", "g_embeddedStationHousing", b.path("assets/data/station_housing.json") },
     };
     for (table) |entry| {

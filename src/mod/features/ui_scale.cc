@@ -28,16 +28,21 @@ namespace
 // Ships already in the system keep the scale they were loaded with, so rescale them by the change.
 void RescaleLoadedShips(float old_multiplier, float new_multiplier)
 {
-  if (old_multiplier <= 0.0f || new_multiplier <= 0.0f)
+  if (!std::isfinite(old_multiplier) || !std::isfinite(new_multiplier) || old_multiplier <= 0.0f
+      || new_multiplier <= 0.0f)
     return;
 
   const auto ratio = new_multiplier / old_multiplier;
+  if (!std::isfinite(ratio) || ratio <= 0.0f)
+    return;
   for (auto* selector : unity::Instances<FleetMeshSelector>()) {
     auto* object    = selector->LoadedObject();
     auto* transform = object ? object->transform() : nullptr;
     if (!transform)
       continue;
-    transform->SetLocalScale(transform->localScale() * ratio);
+    const auto local_scale = transform->TryCall<"get_localScale", unity::Vector3>();
+    if (local_scale)
+      transform->SetLocalScale(local_scale.value * ratio);
   }
 }
 
@@ -90,7 +95,7 @@ bool InstallUiScale()
                SystemViewShip_TryGetShipAssetBundleResource_Hook);
   IL2CPP_STAGE(hooks, ScreenManager::Class::Method("UpdateCanvasRootScaleFactor"),
                ScreenManager_UpdateCanvasRootScaleFactor_Hook);
-  IL2CPP_STAGE(hooks, CanvasController::Class::Method("Show", {"System.Int32", "System.Boolean"}),
+  IL2CPP_STAGE(hooks, CanvasController::Class::Method<void(int32_t, bool)>("Show"),
                CanvasController_Show_Hook);
   return hooks.Commit();
 }
@@ -138,7 +143,7 @@ void AdjustUiShipScale(bool up)
 bool SetUiShipScale(float value)
 {
   auto& current = Config::Get().graphics.ui_scale_ship;
-  if (!std::isfinite(value) || value <= 0.0f || !std::isfinite(current) || current <= 0.0f)
+  if (!std::isfinite(value) || value <= 0.0f)
     return false;
   const auto previous = current;
   current             = value;
