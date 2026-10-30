@@ -150,7 +150,10 @@ inline bool RetainPreview(PreScanTargetWidget* widget, const SetCourseResponse& 
     return false;
   auto data    = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(api.preview_data, source.Get()));
   auto context = il2cpp::GcHandle::Strong(Invoke(api.preview_context, source.Get()));
+  // The native preview may rebind while its context getter runs. A matching old
+  // target must never suppress the game's response for the replacement card.
   return data && context
+         && il2cpp::detail::ReadField<Il2CppObject*>(api.preview_data, source.Get()) == data.Get()
          && Matches(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response);
 }
 
@@ -170,4 +173,5 @@ inline bool RetainNavigation(NavigationInteractionUIViewController* controller, 
   return context && data
          && Matches(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response);
 }
+
 } // namespace base_card_binding

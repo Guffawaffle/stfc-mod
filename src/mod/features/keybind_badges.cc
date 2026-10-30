@@ -90,12 +90,16 @@ std::string BadgeText(std::string_view action_name)
   auto hint_action = action->primary;
   if (hint_action >= Action::kSelectShip1 && hint_action <= Action::kSelectShip8) {
     // The mod's ship keys select by position in the bar's context array, as RequestSelect does, not by dock index.
-    auto*      bar     = unity::Newest<FleetBarViewController>();
-    auto*      context = bar ? bar->CanvasContext() : nullptr;
-    const auto fleets  = il2cpp::Items(context ? context->FleetData() : nullptr);
-    hint_action        = ShipShortcutHintAction(hint_action, fleets.size(), [fleets](std::size_t position) {
-      auto* fleet = fleets[position];
-      return fleet ? fleet->Index() : -1;
+    auto bar = il2cpp::GcHandle::Strong(unity::Newest<FleetBarViewController>());
+    auto context =
+        bar ? il2cpp::GcHandle::Strong(bar.Get<FleetBarViewController>()->CanvasContext()) : il2cpp::GcHandle{};
+    auto array = context ? il2cpp::GcHandle::Strong(context.Get<FleetBarContext>()->FleetData()) : il2cpp::GcHandle{};
+    const auto fleets = il2cpp::Items(array.Get<il2cpp::Array<FleetPlayerData*>>());
+    hint_action       = ShipShortcutHintAction(hint_action, fleets.size(), [fleets](std::size_t position) {
+      auto       fleet = il2cpp::GcHandle::Strong(fleets[position]);
+      const auto index =
+          fleet ? fleet.Get<FleetPlayerData>()->TryCall<"get_Index", int32_t>() : il2cpp::CallResult<int32_t>{};
+      return index ? index.value : -1;
     });
   }
   auto hint = hint_action == Action::kCount ? std::string{} : Shortcut::Hint(hint_action);
@@ -109,31 +113,42 @@ std::string BadgeText(std::string_view action_name)
 
 void ShortcutKeybindHint_UpdateText_Hook(auto original, ShortcutKeybindHint* _this)
 {
-  auto* label = _this->keyTextLocalizer();
+  auto owner = il2cpp::GcHandle::Strong(_this);
+  auto label = owner ? il2cpp::GcHandle::Strong(_this->keyTextLocalizer()) : il2cpp::GcHandle{};
   if (!label)
     return original(_this);
 
   // UpdateText does not clear an existing override; clear ours first so native, disabled and unknown actions
   // cannot keep a stale mod badge.
-  label->ClearTextOverride();
+  label.Get<TextLocalizer>()->ClearTextOverride();
   original(_this);
 
-  const auto& config = Config::Get();
-  if (!config.control.hotkeys_enabled || config.control.use_scopely_hotkeys)
+  if (_this->keyTextLocalizer() != label.Get() || !Config::Get().control.hotkeys_enabled
+      || Config::Get().control.use_scopely_hotkeys)
     return;
 
-  auto* reference = _this->inputAction();
-  auto* action    = reference ? reference->action() : nullptr;
-  if (auto* name = action ? action->name() : nullptr)
-    label->OverrideLocalizedText(il2cpp::NewString(BadgeText(il2cpp::ToUtf8(name)).c_str()));
+  auto reference = il2cpp::GcHandle::Strong(_this->inputAction());
+  auto action =
+      reference ? il2cpp::GcHandle::Strong(reference.Get<unity::InputActionReference>()->action()) : il2cpp::GcHandle{};
+  auto name = action
+                  ? il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(action.Get<unity::InputAction>()->name()))
+                  : il2cpp::GcHandle{};
+  if (!name)
+    return;
+  const auto hint = BadgeText(il2cpp::ToUtf8(reinterpret_cast<Il2CppString*>(name.Get())));
+  auto       text = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(il2cpp::NewString(hint)));
+  if (text && _this->keyTextLocalizer() == label.Get() && _this->inputAction() == reference.Get()
+      && Config::Get().control.hotkeys_enabled && !Config::Get().control.use_scopely_hotkeys)
+    label.Get<TextLocalizer>()->OverrideLocalizedText(reinterpret_cast<Il2CppString*>(text.Get()));
 }
 
 void ShortcutKeybindHint_UpdateVisibility_Hook(auto original, ShortcutKeybindHint* _this, bool visible)
 {
+  auto owner = il2cpp::GcHandle::Strong(_this);
   original(_this, visible);
   // A badge that becomes visible keeps the text it had while hidden. Update its text again, which runs the text hook,
   // so it shows the current binding.
-  if (visible)
+  if (visible && owner)
     _this->UpdateText();
 }
 } // namespace
@@ -142,29 +157,33 @@ bool ToggleKeybindBadges()
 {
   if (!badges_installed)
     return false;
-  auto* manager = ShortcutsManager::Instance();
+  auto  owner   = il2cpp::GcHandle::Strong(ShortcutsManager::Instance());
+  auto* manager = owner.Get<ShortcutsManager>();
   if (!manager) {
     spdlog::warn("[Hotkeys] the game's shortcut manager is not up; no badges to toggle");
-    return true;
+    return false;
   }
   // The same gate the game's own show_keybindings action checks.
-  if (ShortcutsManager::CanUseShortcuts())
-    manager->SetShowKeybindings(!manager->ShowKeybindings());
-  return true;
+  const auto allowed = ShortcutsManager::Class::TryCall<"get_CanUseShortcuts", bool>();
+  if (!allowed || !allowed.value)
+    return false;
+  const auto shown = manager->TryCall<"get_ShowKeybindings", bool>();
+  return shown && manager->TryCall<"set_ShowKeybindings", void(bool)>(!shown.value).succeeded;
 }
 
 void HideKeybindBadges()
 {
-  auto* manager = badges_installed ? ShortcutsManager::Instance() : nullptr;
-  if (manager && manager->ShowKeybindings())
-    manager->SetShowKeybindings(false);
+  auto       owner = il2cpp::GcHandle::Strong(badges_installed ? ShortcutsManager::Instance() : nullptr);
+  const auto shown =
+      owner ? owner.Get<ShortcutsManager>()->TryCall<"get_ShowKeybindings", bool>() : il2cpp::CallResult<bool>{};
+  if (shown && shown.value)
+    owner.Get<ShortcutsManager>()->SetShowKeybindings(false);
 }
 
 void InstallKeybindBadges()
 {
-  // Settings are parsed before installation; NONE, empty and invalid bindings opt out.
-  if (!Shortcut::HasBinding(Action::kToggleShortcutHints))
-    return;
+  // Frozen PLAY installs independently of the current binding: Settings can
+  // assign an initially unbound toggle later without restarting the game.
 
   // Only the detour targets gate the feature. Members the badge path reads resolve on first use; a missing one is
   // reported once and reads as null, which leaves the game's own badge text.

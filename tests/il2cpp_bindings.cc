@@ -249,6 +249,8 @@ bool warp_vector_wrong_type = false, warp_root_failure = false;
 bool (*weak_root_refusal)(Il2CppObject*)                              = nullptr;
 Il2CppObject*                                     extra_value_box     = nullptr;
 void*                                             extra_value_payload = nullptr;
+Il2CppObject*                                     second_value_box     = nullptr;
+void*                                             second_value_payload = nullptr;
 int                                               warp_move_calls = 0, warp_vector_calls = 0, warp_validator_calls = 0;
 int64_t                                           warp_seen_fleet = 0, warp_seen_node = 0;
 unity::Vector3                                    warp_seen_position{};
@@ -873,6 +875,16 @@ API(const PropertyInfo*, il2cpp_class_get_property_from_name, (Il2CppClass * kla
   return nullptr;
 }
 END_API
+API(const MethodInfo*, il2cpp_class_get_method_from_name, (Il2CppClass * klass, const char* name, int argument_count))
+{
+  for (; klass; klass = klass->parent)
+    for (auto* method : Fake(klass).methods)
+      if (std::string_view(method->name) == name
+          && (argument_count < 0 || method->parameters_count == argument_count))
+        return method;
+  return nullptr;
+}
+END_API
 API(const MethodInfo*, il2cpp_property_get_get_method, (PropertyInfo * property))
 { return property->get; }
 END_API
@@ -1013,6 +1025,8 @@ API(void*, il2cpp_object_unbox, (Il2CppObject * object))
 {
   if (extra_value_box && object == extra_value_box)
     return extra_value_payload;
+  if (second_value_box && object == second_value_box)
+    return second_value_payload;
   if (object == &warp_vector_box.header)
     return &warp_vector_box.value;
   return object->klass == &long_class.klass ? static_cast<void*>(&queue_boxed_target) : &shared_result;
@@ -1849,12 +1863,33 @@ void PlannedWarpBindingObservations()
 #include "shop_claims_cases.h"
 #endif
 #include "shop_limits_cases.h"
+#include "navigation_ui_cases.h"
+#include "service_migration_cases.h"
 // clang-format on
 
 int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "service-endpoints") {
+    ServiceEndpointCases(); return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "service-buffs") {
+    ServiceBuffCases(); return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "navigation-badges") {
+    NavigationBadgeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "navigation-search") {
+    NavigationSearchCases();
+    return 0;
+  }
+
+  if (argc == 2 && std::string_view(argv[1]) == "navigation-card") {
+    NavigationCardCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "haven-visual-events") {
     HavenVisualEventsCases(argv[1]);
     return 0;

@@ -2192,7 +2192,30 @@
       },
       "dependenciesAndLimitations": "Unassigned/synthetic fleet, different dock sort, blocked selection, bar replacement and sections.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-DOCK-SYNC.md",
+      "catalogStatus": "Source review only; production unchanged.100ms polling/last-fleet acknowledgement redesign parked by Guff; no new native or automated equivalence claim.",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "path": "mods/src/patches/parts/hotkeys.cc"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+            "candidate": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md and artifacts/sona-migration-fit-20261029/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-DOCK-SYNC.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Source review only; production unchanged.100ms polling/last-fleet acknowledgement redesign parked by Guff; no new native or automated equivalence claim.",
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029"
+        }
+      ]
     },
     {
       "id": "PLAY-SCREEN-ACTIONS",
@@ -2312,7 +2335,30 @@
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-FOCUS-SEARCH.md",
+      "catalogStatus": "Search priority, visible-owner and field replacement consumer checks; native Focus attempt is not proof of actual focus; gameplay trial pending.",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "path": "mods/src/patches/parts/focus_search.cc"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+            "candidate": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md and artifacts/sona-migration-fit-20261029/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-FOCUS-SEARCH.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Search priority, visible-owner and field replacement consumer checks; native Focus attempt is not proof of actual focus; gameplay trial pending.",
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029"
+        }
+      ]
     },
     {
       "id": "PLAY-WARP-AUTO",
@@ -4841,7 +4887,30 @@
       },
       "dependenciesAndLimitations": "Remap, primary/fallback side-chat binding, hide/show, hotkey mode change and native context replacement.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-SHORTCUT-HINTS.md",
+      "catalogStatus": "Source install omission and stale-label write corrected; actual controlled badge consumer passes; player remap/rebind trial pending.",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "path": "mods/src/patches/parts/hotkeys.cc"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+            "candidate": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md and artifacts/sona-migration-fit-20261029/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-SHORTCUT-HINTS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Source install omission and stale-label write corrected; actual controlled badge consumer passes; player remap/rebind trial pending.",
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029"
+        }
+      ]
     },
     {
       "id": "PLAY-WINDOW",
@@ -4916,7 +4985,56 @@
       },
       "dependenciesAndLimitations": "Empty preserves native; each/both override, repeated loads and unavailable app config. Never expose credentials.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-GAME-CONFIG.md",
+      "catalogStatus": "Endpoint load/config-reentry and app-config replacement consumer checks; known behavior preserved; native endpoint routing unverified.",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "path": "mods/src/patches/parts/testing.cc"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+            "candidate": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md and artifacts/sona-migration-fit-20261029/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-GAME-CONFIG.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Endpoint load/config-reentry and app-config replacement consumer checks; known behavior preserved; native endpoint routing unverified.",
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029"
+        }
+      ],
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/testing.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/testing.cc"
+        },
+        {
+          "refRole": "play-dev/frozen",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/testing.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74 + current source manifest",
+          "presence": "present",
+          "evidence": "src/mod/features/game_config.cc"
+        }
+      ]
     },
     {
       "id": "PLAY-DONATION",
@@ -5287,7 +5405,56 @@
       },
       "dependenciesAndLimitations": "Null/empty/full and null entry at every position; no inferred valid collection on failure.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-BUFF-GUARD.md",
+      "catalogStatus": "Known null/empty/valid inputs preserved; unavailable Count/Item now explicitly refuses extraction as defensive hardening. Native crash/real GC not tested.",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "path": "mods/src/patches/parts/misc.cc"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+            "candidate": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md and artifacts/sona-migration-fit-20261029/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-BUFF-GUARD.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Known null/empty/valid inputs preserved; unavailable Count/Item now explicitly refuses extraction as defensive hardening. Native crash/real GC not tested.",
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029"
+        }
+      ],
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "play-dev/frozen",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/misc.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74 + current source manifest",
+          "presence": "present",
+          "evidence": "src/mod/features/buffs.cc"
+        }
+      ]
     },
     {
       "id": "PLAY-CLAIM",
@@ -5381,7 +5548,7 @@
     },
     {
       "id": "PLAY-BASE-CARD",
-      "name": "Starbase level/name card presentation",
+      "name": "Retain matching enemy station card across course responses and recall",
       "classification": "Implemented, unverified",
       "baseline": {
         "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
@@ -5392,8 +5559,8 @@
         "path": "src/mod/features/base_card.cc",
         "symbolOrWorkflow": "BaseCard"
       },
-      "expectedBehavior": "Starbase level/name card presentation",
-      "verificationProcedure": "Own/foreign station, absent level/name, pooled card rebind and default/disabled behavior.",
+      "expectedBehavior": "Keep the matching foreign-station card open; preserve native behavior for other/unknown targets. Repeated primary_action after recall is a longstanding unresolved feature limitation, not a migration regression.",
+      "verificationProcedure": "Own/foreign station, exact fleet/target/context, failed course, recall with null target, preview replacement and disabled behavior. Repeat-primary raid limitation parked separately.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [],
@@ -5402,7 +5569,31 @@
       },
       "dependenciesAndLimitations": "Own/foreign station, absent level/name, pooled card rebind and default/disabled behavior.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-BASE-CARD.md",
+      "catalogStatus": "Matching enemy-card retention, exact source and preview rebind guard qualified offline. Longstanding repeated primary_action after recall remains unresolved and parked. Experimental override removed from normal source, archived.",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "path": "mods/src/patches/parts/base_card.cc"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+            "candidate": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md and artifacts/sona-migration-fit-20261029/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-BASE-CARD.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-02.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Matching enemy-card retention, exact source and preview rebind guard qualified offline. Longstanding repeated primary_action after recall remains unresolved and parked. Experimental override removed from normal source, archived.",
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029",
+          "historicalInventoryLabel": "Starbase level/name card presentation"
+        }
+      ]
     },
     {
       "id": "PLAY-HUD",
@@ -6862,7 +7053,56 @@
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Reject CondSelfAtStation, delegate other conditions. PLAY installation is startup-only; migration checks current option live. Test dock/deployed, other args and reload; retain explicit live-toggle difference.",
-      "restorationCommits": []
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-OUT-OF-DOCK-POWER.md",
+      "catalogStatus": "Actual condition consumer checks; existing live-toggle versus source startup-only difference retained; gameplay power values unverified.",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-29",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+            "path": "mods/src/patches/parts/buff_fixes.cc"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+            "candidate": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md and artifacts/sona-migration-fit-20261029/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-OUT-OF-DOCK-POWER.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261029-03.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Actual condition consumer checks; existing live-toggle versus source startup-only difference retained; gameplay power values unverified.",
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029"
+        }
+      ],
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/buff_fixes.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/buff_fixes.cc"
+        },
+        {
+          "refRole": "play-dev/frozen",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/buff_fixes.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74 + current source manifest",
+          "presence": "present",
+          "evidence": "src/mod/features/buffs.cc"
+        }
+      ]
     },
     {
       "id": "PLAY-WINDOW-PROFILE-TITLE",
@@ -8338,7 +8578,7 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Shop quantity/popup cohort checkpoint accepted in basic Windows dialog trial; resource actions and extended/native Mac qualification separate. Donation platform difference remains Partial; overall parity unclaimed.",
+    "status": "Navigation/service source reassessment and LexSona pilot: offline-qualified candidate; no new runtime/player acceptance. Historical runtime records are not the current session.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "faadd75c31e0d23c2209dad053bddb143e494207",
     "obsoleteLocalPointer": {
@@ -8351,9 +8591,9 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
-    "artifactSha256": "0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9",
-    "qualification": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Guff focused combined Windows dialog trial:all look good; per-control coverage not itemized. No resource actions or Mac qualification.",
+    "currentSourceCommit": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
+    "artifactSha256": "bd90e6128fe12ad2061b97bb783ea3ff18c7d5b83f067edef86001a0b91d521f",
+    "qualification": "424/424 assertion-enabled Windows steps; stable AX native build and exact x64 proxy/provenance verification. Dirty-candidate source identity recorded separately; no deployment, current game behavior or Mac qualification.",
     "currentRuntime": {
       "sourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
       "buildId": "ax-zig-20261029T055232-bf5eb72a",
@@ -8365,7 +8605,7 @@
       "startedFileTime": "134377269329025803",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
       "receipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json",
-      "status": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Guff focused combined Windows dialog trial:all look good; per-control coverage not itemized. No resource actions or Mac qualification. Session identity historical after any subsequent restart."
+      "status": "HISTORICAL qualified shop session; later diagnostic cycles occurred. Not a current-session observation. 419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Guff focused combined Windows dialog trial:all look good; per-control coverage not itemized. No resource actions or Mac qualification. Session identity historical after any subsequent restart."
     },
     "pendingCohort": {
       "document": "docs/migration/features/AT-STORE.md",
@@ -8413,7 +8653,7 @@
       "implementationCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
       "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
     },
-    "artifactSourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
+    "artifactSourceCommit": "df56d9893baf5b3c19fd952f5e9564cfd32c9e74",
     "historicalRuntimes": [
       {
         "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
@@ -8464,15 +8704,25 @@
         "receipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json",
         "status": "Basic combined Windows UI trial accepted; historical session identity after any later restart. Known contained GetComponent diagnostic recurred; caller/cause unqualified."
       }
-    ]
+    ],
+    "latestOfflineCandidate": {
+      "cohort": "docs/migration/FEATURE-COHORT-20261029-03.md",
+      "qualification": "docs/migration/QUALIFICATION-20261029-SONA-MIGRATION.md",
+      "sourceDirty": true,
+      "sourceStateId": "worktree:bd7afcd6e57390e69ccef08943ab5b50ec881628b5709a0faa71436fde63bc2d",
+      "buildId": "ax-zig-20261030T032657-2afade12",
+      "manifest": "D:/dev/stfc-workspace/artifacts/sona-migration-fit-20261029/qualification.json",
+      "deployed": false,
+      "playerVerified": false
+    }
   },
   "completionPlanningAssessment": {
     "date": "2026-10-29",
     "candidateBase": "8fb8802708612ff21217f79b0cde7da63466809e",
     "document": "docs/migration/FEATURE-COHORT-20261029-01.md",
     "inventoryEntries": 111,
-    "entriesWithSourceBoundReassessments": 64,
-    "entriesWithContracts": 66,
+    "entriesWithSourceBoundReassessments": 71,
+    "entriesWithContracts": 73,
     "meaning": "Historical dispositions, implementation presence, source reassessment, local tests and player verification are independent; these counts are not a completion percentage.",
     "staleOrBaselineSpecificRows": [
       "SET-NAV",

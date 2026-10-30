@@ -1,5 +1,27 @@
 # Downstream play preservation target
 
+## Sona-guided service continuation — 2026-10-29
+
+[Cohort03](FEATURE-COHORT-20261029-03.md) covers native endpoint overrides,
+null buff-list protection and the existing out-of-dock predicate. The actual
+consumers reproduce and correct stale Config reads and unknown-count delegation;
+known list/condition behavior remains explicit. [Product-fit observations](LEXSONA-MIGRATION-PILOT-20261029.md)
+record real task-specific persona selection and direct agent consumption, with
+no claim of Runner execution or superiority over the previous skill.
+Parked raid diagnostic source is archived and removed from ordinary candidate
+source. The unresolved raid bug and dormant dock polling redesign remain parked.
+
+## Search, hints and retained-base continuation — 2026-10-29
+
+[Cohort20261029-02](FEATURE-COHORT-20261029-02.md) source-reassesses native
+shortcut hints, search focus and enemy base-card retention. Dormant management
+dock synchronization remains unchanged; its100ms polling redesign is parked.
+Windows controlled checks passed422/422 at that historical candidate. The
+**longstanding** retained-base `primary_action` experiments did not fix the bug;
+their source/traces are archived and ordinary source no longer includes them.
+That investigation is parked. The card must stay open on recall.
+This is not an overall migration-parity claim.
+
 ## Shop quantity and popup continuation — 2026-10-29
 
 [Cohort20261029-01](FEATURE-COHORT-20261029-01.md) source-reassesses donation,

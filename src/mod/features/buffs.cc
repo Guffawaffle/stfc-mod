@@ -27,7 +27,13 @@ bool BuffService_IsBuffConditionMet_Hook(auto original, il2cpp::Object* _this, B
 // with a null buff crashes the game, so it is answered with no buffs instead.
 il2cpp::List<il2cpp::Object*>* BuffService_ExtractBuffsOfType_Hook(auto original, ClientModifierType modifier,
                                                                    il2cpp::List<il2cpp::Object*>* list)
-{ return std::ranges::contains(il2cpp::Items(list), nullptr) ? nullptr : original(modifier, list); }
+{
+  auto owner = il2cpp::GcHandle::Strong(list);
+  if (list && !owner)
+    return nullptr;
+  const auto invalid = buff_binding::ContainsNull(list);
+  return !invalid || invalid.value ? nullptr : original(modifier, list);
+}
 
 bool InstallOutOfDockPower()
 {

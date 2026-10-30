@@ -423,11 +423,16 @@ bool StepScreen(int32_t step)
 // Focuses the search box of whichever inventory, officer or ship list is on screen.
 bool FocusSearchBox()
 {
+  if (!Config::Get().ui.focus_search || unity::Key::IsInputFocused())
+    return false;
   const auto focus = [](auto* owner) {
-    auto* field = CanvasController::OnScreen(owner) ? owner->inputField() : nullptr;
-    if (!field || !field->isActiveAndEnabled())
+    auto source = il2cpp::GcHandle::Strong(owner);
+    auto field  = source && CanvasController::OnScreen(owner) ? il2cpp::GcHandle::Strong(owner->inputField())
+                                                              : il2cpp::GcHandle{};
+    if (!field || !field.template Get<InputFieldWidget>()->isActiveAndEnabled() || !CanvasController::OnScreen(owner)
+        || owner->inputField() != field.Get() || !Config::Get().ui.focus_search)
       return false;
-    field->Focus();
+    field.template Get<InputFieldWidget>()->Focus();
     return true;
   };
   // InventoryListViewController also covers the officer roster and the other inventory screens.

@@ -204,7 +204,7 @@ void HudDrainDeferred() noexcept
     auto& state = HudState();
     state.deferred.Drain(state.refreshing || state.applying, [](auto* deferred) {
       auto owner = il2cpp::GcHandle::Strong(deferred);
-      if (auto* controller = owner.Get<MissionsHudViewController>(); unity::Alive(controller))
+      if (auto* controller = owner.template Get<MissionsHudViewController>(); unity::Alive(controller))
         ApplyHudVisibility(controller);
     });
   } catch (...) {

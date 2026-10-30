@@ -37,6 +37,7 @@ int           screen_actions_presses = 0, screen_actions_requests = 0, screen_ac
 int           screen_actions_index_writes = 0;
 std::function<void()> screen_actions_visibility_callback, screen_actions_press_callback;
 std::function<void()> screen_actions_section_callback, screen_actions_direction_callback;
+std::function<void(ScreenActionsController*)> screen_actions_active_callback;
 
 Il2CppObject* ScreenActionsSections(const MethodInfo*)
 { return screen_actions_current_sections; }
@@ -55,7 +56,11 @@ bool ScreenActionsVisible(Il2CppObject*, const MethodInfo*)
   return screen_actions_visible;
 }
 bool ScreenActionsActive(ScreenActionsController* self, const MethodInfo*)
-{ return self->active; }
+{
+  if (screen_actions_active_callback)
+    screen_actions_active_callback(self);
+  return self->active;
+}
 void ScreenActionsPress(Il2CppObject* self, const MethodInfo*)
 {
   Require(std::ranges::any_of(warp_roots, [self](const auto& root) { return root.second == self; }),

@@ -580,6 +580,28 @@ struct IBuffComparer : il2cpp::Object {
 // Digit.PrimeServer.Models.ClientModifierType: which stat a buff modifies. The mod passes it through unread.
 enum class ClientModifierType : int32_t {};
 
+namespace buff_binding
+{
+// The crash guard must distinguish an observed empty list from unavailable
+// collection access. The caller retains collection custody through native use.
+inline il2cpp::CallResult<bool> ContainsNull(il2cpp::List<il2cpp::Object*>* list)
+{
+  if (!list)
+    return {true, false};
+  const auto count = list->TryCall<"get_Count", int32_t>();
+  if (!count || count.value < 0)
+    return {};
+  for (int32_t index = 0; index < count.value; ++index) {
+    const auto item = list->TryCall<"get_Item", il2cpp::Object*>(index);
+    if (!item)
+      return {};
+    if (!item.value)
+      return {true, true};
+  }
+  return {true, false};
+}
+} // namespace buff_binding
+
 // Digit.PrimeServer.Models.BuffCondition; only the value the mod tests is named.
 enum class BuffCondition : int32_t {
   CondSelfAtStation = 114,

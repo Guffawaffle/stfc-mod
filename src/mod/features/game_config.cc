@@ -13,15 +13,27 @@ namespace
 {
 void Model_LoadConfigs_Hook(auto original, Model* _this)
 {
+  auto model = il2cpp::GcHandle::Strong(_this);
   original(_this);
-  auto* config = _this->appConfig();
+  auto config = model ? il2cpp::GcHandle::Strong(model.Get<Model>()->appConfig()) : il2cpp::GcHandle{};
   if (!config)
     return;
-  const auto& game = Config::Get().game;
-  if (!game.settings_url.empty())
-    config->SetPlatformSettingsUrl(il2cpp::NewString(game.settings_url));
-  if (!game.assets_url_override.empty())
-    config->SetAssetUrlOverride(il2cpp::NewString(game.assets_url_override));
+  const auto settings_url = Config::Get().game.settings_url;
+  if (!settings_url.empty()) {
+    auto text = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(il2cpp::NewString(settings_url)));
+    if (text)
+      config.Get<AppConfig>()->SetPlatformSettingsUrl(reinterpret_cast<Il2CppString*>(text.Get()));
+  }
+  // A native setter may replace Config or rebind the model. Preserve the source's
+  // fresh settings read and never send the second write into a replaced app config.
+  if (model.Get<Model>()->appConfig() != config.Get())
+    return;
+  const auto assets_url = Config::Get().game.assets_url_override;
+  if (!assets_url.empty()) {
+    auto text = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(il2cpp::NewString(assets_url)));
+    if (text)
+      config.Get<AppConfig>()->SetAssetUrlOverride(reinterpret_cast<Il2CppString*>(text.Get()));
+  }
 }
 
 bool InstallGameConfigOverrides()
