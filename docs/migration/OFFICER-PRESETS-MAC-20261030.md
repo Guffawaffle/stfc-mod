@@ -91,6 +91,14 @@ deferred post-save rebuild completion. Exact results, source hashes and any
 subsequent Windows native build are recorded in qualification.json there.
 Native build evidence must not be substituted for Mac rendering or interaction.
 
+Signed implementation checkpoint: bfedc29437d1b50e648e8a5fa1bcc614ca074c49.
+AX built that clean, stable source and verified the x64 proxy's16 exports,
+static CRT and full provenance marker. Windows DLL SHA256:
+53303e759400dff854be90396d6e06d6d829786bfa179e6f2b10c425ed7d714b.
+AAI stays pinned to clean4bece2e5f1afa7c7343f009e83398742a0f86114.
+Subsequent changes in this qualification record/inventory are documentation-only;
+the manifest binds the compiled files independently. No game cycle or deployment.
+
 The existing native original-once, lookup identity, async initialization,
 same-source rebind, throwing/nested save, cancellation-by-release, canonical
 identity and state-receipt tests remain. Original raw evidence and quiet/no-op
