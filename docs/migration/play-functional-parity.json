@@ -1307,9 +1307,18 @@
         ],
         "exactCandidateRuntime": "a0565d7e/client 273/ordinary Windows main PID 48968: player confirms opening, Shift/Ctrl reorder consumption, plain Edit renames correct row with unchanged crew, retained order on close/reopen. Eight successful exact local-order receipts; no fresh SmartScroller.ReassignItem exception stacks in captured session. Basic workflow only; not all native save/failure paths.",
         "playerVerifiedFinalCandidate": false,
-        "playerVerificationScope": "Basic Windows workflow player-verified; this boolean remains false for full feature/platform qualification."
+        "playerVerificationScope": "Basic Windows workflow player-verified; this boolean remains false for full feature/platform qualification.",
+        "playerVerifiedGameplayChecks": [
+          {
+            "sourceCheckpoint": "84584fa42c7dde6dee51ba0fc9c92b4c74899aab",
+            "platform": "macOS; architecture and exact client unreported",
+            "artifact": "https://github.com/Guffawaffle/stfc-mod/actions/runs/41174445680/artifacts/13031449180",
+            "behavior": "Preset reordering and retaining reordered set immediately after native save without backing out",
+            "result": "Mcohall confirmed both in screenshot supplied by Guff 2026-10-31; extended input/rename/replace/delete edges not individually confirmed."
+          }
+        ]
       },
-      "dependenciesAndLimitations": "Native initialization wait corrected and basic Windows workflow accepted. Actual native crew creation/replacement/deletion, forced-quit/power-loss durability and macOS CI/Mcohall remain unqualified. One real Settings OFF-save/restart path passed, not every control. Metadata preflight declines installation; contradictory rooted canonical field write remains fatal, never an unsafe save fallback. Shared file-I/O extraction and logging deferred.",
+      "dependenciesAndLimitations": "Basic Windows historical trial and signed84584fa4 Mac reorder/save-display trial accepted. Mac architecture/exact client and extended input/rename/replace/delete/failure paths remain unqualified; do not infer full platform parity. Existing canonical-write, initialization, state receipts and fail-closed contracts remain. Shared file-I/O extraction/logging stay deferred.",
       "restorationCommits": [
         "30eeec8eb8f92c5946adbe95481d4c88aae64bf4",
         "a0565d7e7a801679086e56c287d47e7c867bdbb3"
@@ -1471,7 +1480,7 @@
         "state": "native implementation complete; basic Windows workflow accepted; extended native and macOS qualification pending",
         "recordedImmediately": true
       },
-      "catalogStatus": "Basic Windows rename/reorder/reopen accepted historically;2026-10-30 reported Mac save/display regression and movement trouble on old/new unidentified builds. Bounded post-save corrections qualified offline; Mac and actual new-crew runtime remain open.",
+      "catalogStatus": "Basic Windows historical acceptance plus Mac signed84584fa4 reorder/save-display trial accepted; extended edges separate",
       "assessments": [
         {
           "version": 1,
@@ -4743,13 +4752,62 @@
       "verificationProcedure": "Start/pause/advance vs cleanup Stop/Unload semantics, original return values.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Start/pause/advance vs cleanup Stop/Unload semantics, original return values.",
+      "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-AUDIO-EVENTS.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+          },
+          "contract": "docs/migration/features/PLAY-AUDIO-EVENTS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+        }
+      ],
+      "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/audio_events.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/audio_events.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-AUDIO-EVENTS.md; complete workflow comparison"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "presence": "present",
+          "evidence": "src/mod/features/audio.cc; controlled qualifications are independent of branch presence"
+        }
+      ]
     },
     {
       "id": "PLAY-AUDIO-CUES",
@@ -4768,13 +4826,62 @@
       "verificationProcedure": "WAV/MP3, invalid paths, held shared buffer across reload, Same/All/None and failures on each platform.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "WAV/MP3, invalid paths, held shared buffer across reload, Same/All/None and failures on each platform.",
+      "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-AUDIO-CUES.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+          },
+          "contract": "docs/migration/features/PLAY-AUDIO-CUES.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+        }
+      ],
+      "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "partial",
+          "evidence": "built-in cue service/platform audio present; downstream custom-file loader/catalog consumers separate"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/notification_audio.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-AUDIO-CUES.md; complete workflow comparison"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "presence": "present",
+          "evidence": "src/mod/features/notification_audio.cc; controlled qualifications are independent of branch presence"
+        }
+      ]
     },
     {
       "id": "PLAY-NOTIFY-BANNERS",
@@ -4793,13 +4900,62 @@
       "verificationProcedure": "Both enqueue paths, hidden native banner with alerts enabled, rich text and localization payload failures.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Both enqueue paths, hidden native banner with alerts enabled, rich text and localization payload failures.",
+      "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-NOTIFY-BANNERS.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+          },
+          "contract": "docs/migration/features/PLAY-NOTIFY-BANNERS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+        }
+      ],
+      "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/disable_banners.cc and patches/notification_service.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/notification_service.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-NOTIFY-BANNERS.md; complete workflow comparison"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "presence": "present",
+          "evidence": "src/mod/features/toasts.cc; controlled qualifications are independent of branch presence"
+        }
+      ]
     },
     {
       "id": "PLAY-NOTIFY-MAC",
@@ -4818,15 +4974,64 @@
       "verificationProcedure": "Permission granted/denied/not requested, game bundle, foreground preferences, no delegate replacement or extra sound. Runtime not available here.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Permission granted/denied/not requested, game bundle, foreground preferences, no delegate replacement or extra sound. Runtime not available here.",
+      "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-NOTIFY-MAC.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+          },
+          "contract": "docs/migration/features/PLAY-NOTIFY-MAC.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+        }
+      ],
+      "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "notification_desktop_mac.mm absent; Mac audio backend is not desktop notification delivery"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/notification_desktop_mac.mm"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-NOTIFY-MAC.md; complete workflow comparison"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "presence": "present",
+          "evidence": "src/mod/features/notification_desktop_mac.mm; controlled qualifications are independent of branch presence"
+        }
+      ]
     },
     {
       "id": "PLAY-NOTIFY-FLEET",
@@ -4849,16 +5054,64 @@
           "notification-fixtures-build.log:189/189 local Windows build/run steps at initial notification-policy candidate; later source edits require rerun",
           "tests/fleet_alert_arrival.cc",
           "tests/fleet_alert_opc.cc",
-          "tests/incoming_attack_dedup.cc"
+          "tests/incoming_attack_dedup.cc",
+          "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Quiet seed, enable while active, journey epochs, OPC continuity, depletion debounce, polling unavailable and desktop/audio independence.",
+      "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-NOTIFY-FLEET.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+          },
+          "contract": "docs/migration/features/PLAY-NOTIFY-FLEET.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+        }
+      ],
+      "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "fleet_watch exists but parts/fleet_notifications.cc producer is absent"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/parts/fleet_notifications.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-NOTIFY-FLEET.md; complete workflow comparison"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "presence": "present",
+          "evidence": "src/mod/features/fleet_notifications.cc; controlled qualifications are independent of branch presence"
+        }
+      ]
     },
     {
       "id": "PLAY-NOTIFY-INCOMING",
@@ -4881,16 +5134,64 @@
           "notification-fixtures-build.log:189/189 local Windows build/run steps at initial notification-policy candidate; later source edits require rerun",
           "tests/fleet_alert_arrival.cc",
           "tests/fleet_alert_opc.cc",
-          "tests/incoming_attack_dedup.cc"
+          "tests/incoming_attack_dedup.cc",
+          "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Player vs NPC/faction, ship vs station, own vs foreign/self, malformed namespace/type, duplicate through both enqueues; preserve native banner.",
+      "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-NOTIFY-INCOMING.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+          },
+          "contract": "docs/migration/features/PLAY-NOTIFY-INCOMING.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+        }
+      ],
+      "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "presence": "absent",
+          "evidence": "dedicated incoming payload/setting/producer absent in inspected source; generic incoming toast is separate"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "present",
+          "evidence": "mods/src/patches/incoming_player_attack.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "present",
+          "evidence": "docs/migration/features/PLAY-NOTIFY-INCOMING.md; complete workflow comparison"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "presence": "present",
+          "evidence": "src/mod/game/notifications.cc; controlled qualifications are independent of branch presence"
+        }
+      ]
     },
     {
       "id": "PLAY-SHORTCUT-HINTS",
@@ -8760,6 +9061,13 @@
     ],
     "sourceHold": "DIAG-SCIENCE-ERROR was removed from play-dev at46307cc2 before frozen1baa55fe; do not restore it from an obsolete Missing label.",
     "separateFollowup": "PLAY-REPAIR-INTERLOCK is absent from the frozen baseline and requires a separate current-client bug investigation.",
-    "limits": "Source-bound contracts and fixture qualification do not establish native/macOS/full product parity. Existing exclusions and blockers remain."
+    "limits": "Source-bound contracts and fixture qualification do not establish native/macOS/full product parity. Existing exclusions and blockers remain.",
+    "latestSourceReconciliation": {
+      "date": "2026-10-31",
+      "document": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+      "entriesWithSourceBoundReassessments": 77,
+      "entriesWithContracts": 79,
+      "meaning": "Source contracts, offline tests and player/platform acceptance remain separate; not a completion percentage."
+    }
   }
 }

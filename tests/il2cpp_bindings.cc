@@ -1865,12 +1865,22 @@ void PlannedWarpBindingObservations()
 #include "shop_limits_cases.h"
 #include "navigation_ui_cases.h"
 #include "service_migration_cases.h"
+// Notification cases execute the production audio/banner/fleet consumers with controlled sinks.
+#include "notification_consumer_cases.h"
 // clang-format on
 
 int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "notification-native") {
+    NotificationConsumerCases(false);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "notification-reload") {
+    NotificationConsumerCases(true);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "preset-save-new") {
     OfficerPresetSaveObservations(true);
     return 0;

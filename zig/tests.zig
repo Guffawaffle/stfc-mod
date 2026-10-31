@@ -483,6 +483,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         @import("mod.zig").embedImages(ctx, module);
         module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
         const exe = ctx.executable("il2cpp-bindings-tests", module);
+        if (ctx.isWindows()) inline for (.{ "runtimeobject", "ole32", "oleaut32" }) |lib| module.linkSystemLibrary(lib, .{});
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
         inline for (.{ "haven-visual-events", "haven-history-native", "haven-zoom-native", "haven-zoom-missing-position", "haven-zoom-missing-orthographic", "haven-zoom-foreign-position", "haven-zoom-foreign-rotation", "haven-zoom-widened-provider", "haven-zoom-widened-frame", "haven-zoom-widened-output-frame", "haven-orbit-native", "scale-native", "scale-missing-local", "loading-login-consumer", "loading-transition-consumer", "loading-tips-consumer" }) |mode| {
@@ -522,7 +523,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             claim_case.addArg("shop-claims-native");
             test_il2cpp.dependOn(&claim_case.step);
         }
-        inline for (.{ "navigation-search", "navigation-card", "service-endpoints", "service-buffs", "preset-save-new", "preset-save-edge" }) |mode| {
+        inline for (.{ "notification-native", "notification-reload", "navigation-search", "navigation-card", "service-endpoints", "service-buffs", "preset-save-new", "preset-save-edge" }) |mode| {
             const navigation_ui_case = b.addRunArtifact(exe);
             navigation_ui_case.addArg(mode);
             test_il2cpp.dependOn(&navigation_ui_case.step);

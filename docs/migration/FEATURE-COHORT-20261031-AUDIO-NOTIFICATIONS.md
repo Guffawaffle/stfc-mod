@@ -1,0 +1,105 @@
+# Audio and notification source reconciliation — 2026-10-31
+
+Source frozen/play-dev-20261026 `1baa55fedf1758b19f843cc59707b8901a0b4998`;
+historical PLAY `cad98ef7990dd66167eb64ea5dda525c1fe2c296`; upstream discovery
+reference `e884efa7c6ff66d0776b4cd4d6b76ce193296be5` unchanged. Target worktree
+`D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream`, branch
+`play-dev-ripper`, base `41da6fc2f713552c571cc7bda88df0a094965644`.
+No source baseline, AAI pin, user configuration or store format advanced.
+
+## Complete source paths, not a replacement implementation
+
+| Capability | Contract | Outcome |
+| --- | --- | --- |
+| PLAY-AUDIO-EVENTS | [Fabric filters](features/PLAY-AUDIO-EVENTS.md) | Named/all/cleanup/native delegation preserved; actual hook-body cases added |
+| PLAY-AUDIO-CUES | [Cue playback](features/PLAY-AUDIO-CUES.md) | Prepared custom audio, asynchronous ownership and coalescing retained; existing dispatch/file/Settings tests rerun |
+| PLAY-NOTIFY-BANNERS | [Banner forwarding](features/PLAY-NOTIFY-BANNERS.md) | Existing native visibility/audio independence and comparison arguments qualified in controlled consumers |
+| PLAY-NOTIFY-INCOMING | [Incoming player alerts](features/PLAY-NOTIFY-INCOMING.md) | Current settings reacquired after native payload reads; duplicate policy unchanged |
+| PLAY-NOTIFY-FLEET | [Fleet producers](features/PLAY-NOTIFY-FLEET.md) | Seven producers, availability/activation/live-mask/depletion suppression paths preserved |
+| PLAY-NOTIFY-MAC | [Mac delivery](features/PLAY-NOTIFY-MAC.md) | Native platform file preserved; permission/runtime behavior remains separate |
+
+The scan followed original audio filtering/install code, cue catalog/patterns,
+local-file loader, both platform decoders/players, fleet transition/watch/OPC/
+arrival/activation policies, depletion original and forwarding scopes, incoming
+payload/tracker, banner hooks, localization/body selection, desktop backends,
+config activation and Audio Alerts settings/save consumers. Existing destination
+components remain owners; no new registry, decoder, timer, queue or framework.
+
+Target adaptations already present include transactional banner installation,
+typed game access, qualified/rooted toast parameter sources instead of arbitrary
+array scanning, separate depletion/observer readiness and live desktop masks.
+These are explicitly different from frozen implementation details, not silent
+claims of identical failure behavior. In particular, existing fleet-watch polling
+is documented, not redesigned. No feature is called player-equivalent merely
+because code compiled or its hook installed.
+
+## Reproduced lifecycle defect and bounded correction
+
+Frozen Config was a stable singleton. Migration Config::Activate replaces its
+owned Config object. HandleIncomingPlayerAlert retained a reference across
+ReadIncomingPlayerAttack's managed getters and reused it for audio/desktop policy.
+The controlled actual consumer fixture changes its settings provider during
+payload decoding, retaining the old object so the stale choice is deterministic
+without relying on freed memory. The original consumer selects the old cue;
+the corrected consumer selects the current Alarm cue. Its next identical event
+does not replay. Current cue is copied so immutable prepared audio has independent
+custody. Native/generic banner handling and duplicate identities are unchanged.
+
+This proves the consumer's stale-reference hazard, not that a real native getter
+normally reloads settings. Payload decoding, playback and watcher subscription
+are controlled substitutes. No attack, OS notification or audible sound is
+generated. Desktop permissions, actual localization and account/session changes
+remain native qualification boundaries.
+
+## Offline verification
+
+Evidence: `D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/`.
+
+- Final assertion-enabled Windows suite: **428/428** build/run/install steps.
+  `regression-final.log` runs `test-il2cpp test-mod test-hud-visibility
+  test-aai-host build-tests`, ReleaseFast libraries and Debug tests, Windows
+  MSVC target, AAI host enabled with unchanged pinned source `4bece2e5`.
+- `notification-native` executes production Fabric filtering, both banner hook
+  bodies, null delegation, audio independent of hidden banners, fleet audio-only
+  activation/disable/readiness, dock transition and depletion suppression scope.
+- `notification-reload` supplies native payload-decoding reentry and verifies
+  current cue plus duplicate suppression. Existing dispatch/files/coalescing,
+  text formatting, arrival/OPC/dedup, Settings and prior migration tests remain.
+- Initial fixture compilation lacked watcher type aliases, then Windows COM
+  libraries; those test-host setup failures are retained separately from the
+  production stale-settings reproduction. SDK-less invocation was not a source
+  failure; the installed Visual Studio environment supplies native library paths.
+- Important build-cache observation: after an included production `.cc` and
+  fixture header changed, Zig reused the earlier compiled test host. Those
+  intervening failures are stale-binary evidence, not failed correction trials.
+  Updating the actual test translation unit forced compilation; the fresh run
+  printed `Incoming reload cue: alarm` and passed. Final source/executable hashes
+  are retained; do not validate future included-source edits by stale test output.
+
+No Mac compile or runtime result is claimed for this new candidate. Mac CI
+qualification for the earlier preset artifact is a different source checkpoint.
+No player notification-delivery acceptance or overall migration parity follows
+from the offline suite. Native build/startup results, if subsequently performed,
+must be recorded against their exact artifacts separately.
+
+## Continuity and next qualification
+
+The connected scoped preservation-first_migration@1 persona was read directly;
+its five preservation/evidence duties informed source reuse, baseline-versus-
+migration lifetime attribution and the cache experiment. The exact receipt is
+`persona-receipt.json`. Direct source inspection, implementation and tests were
+not Runner execution. No tooling or learned-rule changes were made.
+
+Separately, Mcohall's signed Mac preset feedback accepts reordering and retaining
+order after save without backing out. It remains attached to signed source
+`84584fa4`, not this later candidate; architecture/client were not reported.
+See [preset handoff](OFFICER-PRESETS-MAC-20261030.md).
+
+For native qualification use the normal explicit-target AX lifecycle, build
+before downtime, preserve stores, inspect hook/frame readiness, then ordinary
+Audio Alerts Preview and already-configured fleet/banner behavior. Do not enable
+new notifications or induce attacks/repairs/resource spending merely for a test.
+Permission-denied/Mac delivery and rare incoming payloads remain separately open.
+Primary-action raid work, UI redesign, generic file persistence and release
+promotion remain parked. Next source group is Settings/load/save/state lifecycle
+reconciliation, using existing complete code rather than an implementation rewrite.

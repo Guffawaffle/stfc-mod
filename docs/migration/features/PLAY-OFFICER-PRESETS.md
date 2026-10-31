@@ -7,6 +7,11 @@ also passed. This establishes build/artifact qualification, not Mac player
 acceptance. [Exact builds, downloads and trial](../OFFICER-PRESETS-MAC-20261030.md#signed-test-downloads--2026-10-31).
 Existing CI feature selection does not enable the native AAI host.
 
+**Mac basic trial accepted later on 2026-10-31:** Mcohall confirmed reordering
+and retaining the reordered set after saving without backing out, using the
+linked signed artifact. Architecture/client and extended save/rename/input
+edges were not reported. This is specific player evidence, not overall parity.
+
 **2026-10-30 continuation:** Mcohall reports a save/display difference against
 an unidentified old release, and movement trouble also reported on that old
 build. [Source reassessment and trial](../OFFICER-PRESETS-MAC-20261030.md) keep

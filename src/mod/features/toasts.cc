@@ -430,9 +430,9 @@ void Notify(Toast* toast)
 // True means the dedicated alert path handled side effects; native banner visibility remains independent.
 bool HandleIncomingPlayerAlert(Toast* toast)
 {
-  const auto& config = Config::Get();
   if (toast->State() != ToastState::IncomingAttack
-      || (!config.ui.notify_incoming_player_attack && !config.audio.alert_incoming_player_attack.enabled()))
+      || (!Config::Get().ui.notify_incoming_player_attack
+          && !Config::Get().audio.alert_incoming_player_attack.enabled()))
     return false;
   const auto attack = ReadIncomingPlayerAttack(toast);
   if (!attack)
@@ -447,10 +447,14 @@ bool HandleIncomingPlayerAlert(Toast* toast)
   }
   if (!first)
     return true;
-  PlayNotificationSound(config.audio.alert_incoming_player_attack);
+  // Payload decoding invokes native getters. A reentrant settings activation replaces Config;
+  // use the current cue and retain its immutable clip independently of that config's lifetime.
+  const auto cue = Config::Get().audio.alert_incoming_player_attack;
+  PlayNotificationSound(cue);
   if (!toast_notification_suppression_depth
-      && (config.ui.notify_incoming_player_attack
-          || std::ranges::contains(config.ui.notify_banner_types, std::to_underlying(ToastState::IncomingAttack)))) {
+      && (Config::Get().ui.notify_incoming_player_attack
+          || std::ranges::contains(Config::Get().ui.notify_banner_types,
+                                   std::to_underlying(ToastState::IncomingAttack)))) {
     auto body = toast_text::StripRichText(ToastText(toast));
     if (body.empty()) {
       body = attack->attacker.empty() ? "A player is approaching your ship."

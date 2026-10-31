@@ -141,6 +141,14 @@ tooling redesign or skill retirement occurred.
 
 ## Signed test downloads — 2026-10-31
 
+**Mac player feedback received 2026-10-31:** Guff supplied Mcohall's response
+to the exact signed Mac artifact link below. Mcohall confirmed reordering works,
+then saved a preset and reported that it keeps the reordered set without backing
+out. This accepts both reported basic workflows on that candidate. Architecture
+and exact client were not supplied; do not infer both-architecture gameplay
+coverage, all modifier/rename/replace/delete edges or overall migration parity.
+Screenshot reference: `codex-clipboard-dadd6e66-5c9a-4f79-b11e-3b5500c1db9d.png`.
+
 The historical offline-only limits above now have these additional results:
 
 - Source `84584fa42c7dde6dee51ba0fc9c92b4c74899aab` on `play-dev-ripper`;
@@ -167,7 +175,8 @@ Windows DLL SHA256: `6ca1122e5bd49d1616de06582300d21bfe2d1713f3f3bb6bc99fdecf736
 Local hash verification on Windows is not local native Mac verification.
 
 Use the focused Mac trial above. No game deployment/cycle, release/tag/latest
-promotion or actual Mac preset acceptance occurred during signing. An earlier
+promotion or actual Mac preset acceptance occurred during signing itself;
+subsequent player feedback is recorded above. An earlier
 Mac-only request was cancelled while awaiting approval, before Apple submission;
 the combined signing run is the authoritative result.
 
