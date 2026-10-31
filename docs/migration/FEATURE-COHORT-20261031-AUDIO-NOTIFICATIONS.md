@@ -133,3 +133,20 @@ Permission-denied/Mac delivery and rare incoming payloads remain separately open
 Primary-action raid work, UI redesign, generic file persistence and release
 promotion remain parked. Next source group is Settings/load/save/state lifecycle
 reconciliation, using existing complete code rather than an implementation rewrite.
+
+## Bedtime stop — 2026-10-31
+
+Guff deferred the optional Audio Alerts Preview/usual fleet/banner trial until
+tomorrow. It has **not** been performed or accepted; preserve that distinction.
+Stop implementation and runtime operations here. Source `203e724a` is deployed;
+documentation checkpoint before this note was `17c29392`. The worktree was clean
+at the stop. No further code, settings, deployment or game-cycle work is required
+overnight. Prior recovery frame: `45711377-dc41-4a3f-89bb-74d5cfbde7f5`.
+
+On return, recover this document and the machine inventory; re-observe runtime
+identity before any target-dependent action, because PID4432 may be historical.
+Offer the short deferred trial when convenient, then continue CFG-LOAD-RELOAD,
+CFG-WRITER, STATE-STORE and STATE-QUIT source reconciliation. Use frozen
+`1baa55fe` and complete original sources/callers, preserve the working owners,
+formats, save receipts and failure contracts. Do not repeat completed audio
+discovery or silently resume the parked raid-primary investigation.
