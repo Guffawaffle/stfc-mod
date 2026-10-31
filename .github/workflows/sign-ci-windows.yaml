@@ -1,0 +1,144 @@
+name: Sign selected Windows CI artifact
+
+on:
+  workflow_call:
+    inputs:
+      build_run_id:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      run_attempt:
+        required: true
+        type: string
+      artifact_id:
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  sign:
+    if: github.repository == 'Guffawaffle/stfc-mod' && github.ref == 'refs/heads/ci/macos-signing-play' && github.event_name == 'workflow_dispatch'
+    runs-on: windows-2022
+    timeout-minutes: 20
+    environment: windows-release
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Recheck selected build and download exact artifact
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BUILD_ATTEMPT: ${{ inputs.run_attempt }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($PSVersionTable.PSVersion -lt [version]'7.4') { throw 'Native binary redirection requires PowerShell 7.4+' }
+          if ($env:BUILD_RUN_ID -notmatch '^[1-9][0-9]*$') { throw 'Invalid run ID' }
+          gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BUILD_RUN_ID" > "$env:RUNNER_TEMP/run.json"
+          $attempt = (Get-Content -Raw "$env:RUNNER_TEMP/run.json" | ConvertFrom-Json).run_attempt
+          if ("$attempt" -notmatch '^[1-9][0-9]*$') { throw 'Invalid run attempt' }
+          gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BUILD_RUN_ID/attempts/$attempt" > "$env:RUNNER_TEMP/run.json"
+          $pages = gh api --paginate --slurp "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BUILD_RUN_ID/artifacts?per_page=100" | ConvertFrom-Json
+          @{artifacts=@($pages | ForEach-Object { $_.artifacts })} | ConvertTo-Json -Depth 12 | Set-Content "$env:RUNNER_TEMP/artifacts.json" -Encoding utf8NoBOM
+          python scripts/ci-signing-input.py select --run-json "$env:RUNNER_TEMP/run.json" `
+            --artifacts-json "$env:RUNNER_TEMP/artifacts.json" --repository "$env:GITHUB_REPOSITORY" `
+            --run-id "$env:BUILD_RUN_ID" --platform windows --mode test --expected-sha "$env:SOURCE_SHA" `
+            --expected-attempt "$env:BUILD_ATTEMPT" --expected-artifact "$env:ARTIFACT_ID" `
+            --output "$env:RUNNER_TEMP/windows-input.json"
+          gh api "repos/$env:GITHUB_REPOSITORY/actions/artifacts/$env:ARTIFACT_ID/zip" > "$env:RUNNER_TEMP/windows.zip"
+          python scripts/ci-signing-input.py extract --archive "$env:RUNNER_TEMP/windows.zip" `
+            --selection "$env:RUNNER_TEMP/windows-input.json" --destination payload
+
+      - name: Verify DLL source and producing attempt before signing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          BUILD_ATTEMPT: ${{ inputs.run_attempt }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $receipt = Get-Content -Raw "$env:RUNNER_TEMP/windows-input.json" | ConvertFrom-Json
+          $comments = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path payload/version.dll)).Comments
+          $pattern = '^stfc-identity-v1;distribution=netniv\.stfc-community-mod;source=git:(?<source>[0-9a-f]{40});base=\k<source>;build=github:' +
+            [regex]::Escape($env:BUILD_RUN_ID) + ':' + [regex]::Escape($env:BUILD_ATTEMPT) + ':windows;mode=release;channel=ci$'
+          if ($comments -cnotmatch $pattern) { throw 'DLL identity does not match the selected CI run and attempt' }
+          $source = $Matches.source
+          $relationship = 'run-head'
+          if ($source -cne $env:SOURCE_SHA) {
+            if ($receipt.event -ne 'pull_request') { throw 'DLL source differs from the selected run HEAD' }
+            $commit = gh api "repos/$env:GITHUB_REPOSITORY/commits/$source" | ConvertFrom-Json
+            if ($env:SOURCE_SHA -cnotin @($commit.parents.sha)) { throw 'PR checkout does not contain the selected run HEAD as a direct parent' }
+            $relationship = 'pull-request-merge-parent'
+          }
+          "EMBEDDED_SOURCE_SHA=$source" >> $env:GITHUB_ENV
+          "SOURCE_RELATIONSHIP=$relationship" >> $env:GITHUB_ENV
+          "UNSIGNED_SHA256=$((Get-FileHash payload/version.dll -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_ENV
+
+      - name: Azure login with existing signing identity
+        uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign selected test DLL
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
+          files: ${{ github.workspace }}\payload\version.dll
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: STFC Community Mod - optional CI test
+          description-url: https://github.com/Guffawaffle/stfc-mod
+      - name: Verify timestamped publisher signature and retain input receipt
+        shell: pwsh
+        env:
+          EXPECTED_PUBLISHER: ${{ vars.WIN_PUBLISHER_NAME }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sig = Get-AuthenticodeSignature -LiteralPath payload/version.dll
+          if ($sig.Status -ne 'Valid' -or -not $sig.TimeStamperCertificate) { throw 'Valid timestamped signature required' }
+          $cert = $sig.SignerCertificate
+          $publisher = $cert.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+          if (-not $env:EXPECTED_PUBLISHER -or $publisher -cne $env:EXPECTED_PUBLISHER) { throw 'Unexpected signing publisher' }
+          $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPublicKey($cert)
+          if (-not $rsa -or $rsa.KeySize -lt 2048 -or $rsa.KeySize -gt 4096) { throw 'Expected supported RSA code-signing certificate' }
+          $oids = @($cert.Extensions | Where-Object { $_ -is [System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension] } |
+            ForEach-Object { $_.EnhancedKeyUsages | ForEach-Object Value })
+          if ('1.3.6.1.4.1.311.97.1.0' -notin $oids -or '1.3.6.1.5.5.7.3.3' -notin $oids) { throw 'Expected Azure Public Trust code-signing EKUs' }
+          $rsa.Dispose()
+          $inputReceipt = Get-Content -Raw "$env:RUNNER_TEMP/windows-input.json" | ConvertFrom-Json
+          [ordered]@{
+            repository = $env:GITHUB_REPOSITORY
+            sourceCommit = $env:EMBEDDED_SOURCE_SHA
+            sourceRelationship = $env:SOURCE_RELATIONSHIP
+            ciInput = $inputReceipt
+            unsignedSha256 = $env:UNSIGNED_SHA256
+            signedSha256 = (Get-FileHash payload/version.dll -Algorithm SHA256).Hash.ToLowerInvariant()
+            signer = $publisher
+            certificateThumbprint = $cert.Thumbprint
+            signingWorkflowCommit = $env:GITHUB_SHA
+            signingRunUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            purpose = 'test; no release promotion or CI-result change'
+          } | ConvertTo-Json -Depth 12 | Set-Content payload/provenance.json -Encoding utf8NoBOM
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: signed-windows-test-${{ inputs.build_run_id }}
+          path: payload/
+          if-no-files-found: error
+          retention-days: 30

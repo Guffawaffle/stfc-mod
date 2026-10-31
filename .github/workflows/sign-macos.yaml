@@ -9,17 +9,23 @@ on:
       source_sha:
         required: true
         type: string
-      ripper_test:
-        description: Sign only the explicitly pinned Ripper test checkpoint
+      ci_test_build:
+        description: Sign the selected CI artifact as an optional test download
         required: false
         default: false
         type: boolean
+      run_attempt:
+        required: false
+        type: string
+      installer_artifact_id:
+        required: false
+        type: string
 
 permissions: {}
 
 jobs:
   sign:
-    if: github.repository == 'Guffawaffle/stfc-mod'
+    if: github.repository == 'Guffawaffle/stfc-mod' && (!inputs.ci_test_build || (github.ref == 'refs/heads/ci/macos-signing-play' && github.event_name == 'workflow_dispatch'))
     runs-on: macos-26
     timeout-minutes: 60
     environment: macos-release
@@ -37,35 +43,42 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUILD_RUN_ID: ${{ inputs.build_run_id }}
           SOURCE_SHA: ${{ inputs.source_sha }}
-          RIPPER_TEST: ${{ inputs.ripper_test }}
+          CI_TEST_BUILD: ${{ inputs.ci_test_build }}
+          EXPECTED_ATTEMPT: ${{ inputs.run_attempt }}
+          EXPECTED_ARTIFACT: ${{ inputs.installer_artifact_id }}
         run: |
           set -euo pipefail
           [[ "$BUILD_RUN_ID" =~ ^[1-9][0-9]*$ ]]
           [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/mac-build.json"
-          branch=play
-          if [[ "$RIPPER_TEST" == true ]]; then
-            [[ "$SOURCE_SHA" == d55827023f98243eda4a5fb7af54a9c5d5bceebc ]]
-            [[ "$BUILD_RUN_ID" == 40742965210 ]]
-            branch=review/ripper-play-migration-checkpoint-20261025
-          fi
-          jq -e --arg sha "$SOURCE_SHA" --arg repo "$GITHUB_REPOSITORY" --arg branch "$branch" '
-            .head_sha == $sha and .head_branch == $branch and .event == "push" and
-            .status == "completed" and .conclusion == "success" and
-            .path == ".github/workflows/ci.yaml" and .repository.full_name == $repo
-          ' "$RUNNER_TEMP/mac-build.json"
-          if [[ "$RIPPER_TEST" != true ]]; then
+          attempt=$(jq -r .run_attempt "$RUNNER_TEMP/mac-build.json")
+          [[ "$attempt" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/attempts/$attempt" > "$RUNNER_TEMP/mac-build.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/artifacts?per_page=100" \
+            | jq '{artifacts:[.[].artifacts[]]}' > "$RUNNER_TEMP/artifacts.json"
+          mode=release
+          if [[ "$CI_TEST_BUILD" == true ]]; then mode=test; fi
+          python3 scripts/ci-signing-input.py select --run-json "$RUNNER_TEMP/mac-build.json" \
+            --artifacts-json "$RUNNER_TEMP/artifacts.json" --repository "$GITHUB_REPOSITORY" \
+            --run-id "$BUILD_RUN_ID" --platform macos --mode "$mode" --expected-sha "$SOURCE_SHA" \
+            --expected-attempt "$EXPECTED_ATTEMPT" --expected-artifact "$EXPECTED_ARTIFACT" \
+            --output "$RUNNER_TEMP/mac-input.json"
+          if [[ "$CI_TEST_BUILD" != true ]]; then
             relation=$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...play" --jq '.status')
             [[ "$relation" == ahead || "$relation" == identical ]]
           fi
 
-      - name: Download exact build installer
-        uses: actions/download-artifact@v8.0.1
-        with:
-          name: stfc-community-mod-installer
-          path: unsigned-macos
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.build_run_id }}
+      - name: Download and verify immutable installer artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          id=$(jq -r .artifact_id "$RUNNER_TEMP/mac-input.json")
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > "$RUNNER_TEMP/installer.zip"
+          python3 scripts/ci-signing-input.py extract --archive "$RUNNER_TEMP/installer.zip" \
+            --selection "$RUNNER_TEMP/mac-input.json" --destination unsigned-macos
+          echo "SOURCE_KIND=$(jq -r .source_kind "$RUNNER_TEMP/mac-input.json")" >> "$GITHUB_ENV"
 
       - name: Sign, notarize and package
         shell: bash
@@ -106,10 +119,13 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Upload signed macOS release
+      - name: Retain CI input receipt
+        run: cp "$RUNNER_TEMP/mac-input.json" signed-macos/ci-input.json
+
+      - name: Upload signed macOS artifact
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: signed-macos-release
+          name: ${{ inputs.ci_test_build && format('signed-macos-test-{0}', inputs.build_run_id) || 'signed-macos-release' }}
           path: signed-macos/
           if-no-files-found: error
           retention-days: 30

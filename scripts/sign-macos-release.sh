@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-sign an exact, successful play CI installer. Never rebuild with credentials.
+# Re-sign an exact selected CI installer. Never rebuild with credentials.
 set -euo pipefail
 umask 077
 
@@ -85,10 +85,11 @@ notarize() {
   payload="macos-notarization-payloads/$(basename "$file")"
   cp "$file" "$payload"
   payload_hash=$(shasum -a 256 "$payload" | awk '{print $1}')
-  jq -n --arg source "$SOURCE_SHA" --arg build "$BUILD_RUN_ID" \
+  jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}" --arg build "$BUILD_RUN_ID" \
     --arg input "$input_hash" --arg payload "$payload_hash" \
     --arg workflow "$GITHUB_SHA" --arg filename "$(basename "$file")" \
-    '{sourceCommit:$source,buildRunId:$build,inputDmgSha256:$input,
+    '{sourceCommit:(if $sourceKind == "pull-request-run-head" then null else $source end),
+      buildRunHeadSha:$source,sourceEvidenceKind:$sourceKind,buildRunId:$build,inputDmgSha256:$input,
       payloadSha256:$payload,filename:$filename,signingWorkflowCommit:$workflow}' \
     > "macos-notarization-payloads/$name-provenance.json"
   echo "Submitting $name ($payload_hash) to Apple"
@@ -172,13 +173,14 @@ archive=signed-macos/stfc-community-mod-macos-universal.tar.zst
 tar -cf - -C "$installed_app/Contents" libstfc-community-mod.dylib | zstd -15 -T0 -o "$archive"
 shasum -a 256 "$archive" | awk '{print $1}' > "$archive.sha256"
 dmg_hash=$(shasum -a 256 "$output" | awk '{print $1}')
-jq -n --arg source "$SOURCE_SHA" --arg build "$BUILD_RUN_ID" --arg team "$APPLE_TEAM_ID" \
+jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}" --arg build "$BUILD_RUN_ID" --arg team "$APPLE_TEAM_ID" \
   --arg signer "$MACOS_SIGNING_IDENTITY" --arg input "$input_hash" \
   --arg unsigned "$unsigned_library_hash" --arg signed "$signed_library_hash" --arg dmg "$dmg_hash" \
   --arg submittedDmg "$submitted_dmg_hash" \
   --arg workflow "$GITHUB_SHA" --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
   --slurpfile dmgTicket macos-notarization-evidence/dmg-submission.json \
-  '{sourceCommit:$source,buildRunId:$build,teamId:$team,signingIdentity:$signer,
+  '{sourceCommit:(if $sourceKind == "pull-request-run-head" then null else $source end),
+    buildRunHeadSha:$source,sourceEvidenceKind:$sourceKind,buildRunId:$build,teamId:$team,signingIdentity:$signer,
     inputDmgSha256:$input,unsignedLibrarySha256:$unsigned,signedLibrarySha256:$signed,
     dmgSha256:$dmg,signingWorkflowCommit:$workflow,signingRunUrl:$url,
     notarizationContainer:"dmg",submittedDmgSha256:$submittedDmg,
