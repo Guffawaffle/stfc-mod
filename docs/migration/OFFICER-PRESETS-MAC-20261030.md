@@ -138,3 +138,54 @@ omission and inherited/unknown behavior, and reproductions versus Mac evidence.
 This does not prove causal benefit or automatic learning. Source/fixture/native
 provenance remains separate from the behavioral receipt. No Runner execution,
 tooling redesign or skill retirement occurred.
+
+## Signed test downloads — 2026-10-31
+
+The historical offline-only limits above now have these additional results:
+
+- Source `84584fa42c7dde6dee51ba0fc9c92b4c74899aab` on `play-dev-ripper`;
+  preset C++ correction remains `bfedc29437d1b50e648e8a5fa1bcc614ca074c49`.
+  Later changes only documented qualification and enabled manual CI dispatch.
+- [Producer build 41173064281](https://github.com/Guffawaffle/stfc-mod/actions/runs/41173064281)
+  passed Windows, macOS arm64/Intel, Linux tests and universal packaging.
+  This uses existing CI defaults: native AAI host is **not enabled**.
+- [Signing run 41174445680](https://github.com/Guffawaffle/stfc-mod/actions/runs/41174445680)
+  succeeded at trusted controller `735c6149d2b59cbc8b216e623de4c3f246096bd8`.
+- [Mac download](https://github.com/Guffawaffle/stfc-mod/actions/runs/41174445680/artifacts/13031449180):
+  signed installer DMG and matching standalone universal dylib archive.
+  Apple submission `73ce19da-dd7b-4d38-a365-d91b7c31b460` was Accepted;
+  both architectures, stapling and Gatekeeper passed in the hosted Mac job.
+- [Windows download](https://github.com/Guffawaffle/stfc-mod/actions/runs/41174445680/artifacts/13032632356):
+  timestamped signed `version.dll` and provenance. Downloaded signature was
+  independently Valid on Windows and matched the configured publisher.
+
+Receipts, notarization evidence, exact submitted payload, downloaded outputs,
+review receipts and independent hash checks are retained under
+`D:/dev/stfc-workspace/artifacts/ci-run-signing-20261031/`.
+Final DMG SHA256: `9610e6b14fd909a3ed30dece32abfa78b7c26737a2ad831fa6879a586b33caf6`.
+Windows DLL SHA256: `6ca1122e5bd49d1616de06582300d21bfe2d1713f3f3bb6bc99fdecf736e5756`.
+Local hash verification on Windows is not local native Mac verification.
+
+Use the focused Mac trial above. No game deployment/cycle, release/tag/latest
+promotion or actual Mac preset acceptance occurred during signing. An earlier
+Mac-only request was cancelled while awaiting approval, before Apple submission;
+the combined signing run is the authoritative result.
+
+### Reusable optional signing
+
+Operational workflows/scripts are published separately on `ci/macos-signing-play`,
+not mixed into the migration tree. Do not merge that older source tree wholesale.
+[Controller documentation at its exact revision](https://github.com/Guffawaffle/stfc-mod/blob/735c6149d2b59cbc8b216e623de4c3f246096bd8/docs/ci-artifact-signing.md)
+describes selecting a retained CI run, `platform=both|macos|windows` and an
+optional expected HEAD. Fork runs, other producer workflows, expired/ambiguous
+artifacts and mismatching identities are refused. Signing is explicitly requested;
+ordinary pushes do not sign automatically. A signature does not establish CI
+success, faithful compilation or gameplay correctness.
+
+The Windows environment gained only the exact trusted controller branch policy
+(`64995641`); reviewer protections and Azure federation were unchanged. Both
+existing environment approvals were exercised for this authorized signing run.
+Three independent review lanes and correction-delta review found no actionable
+defect; review receipt derivation used the disclosed static-persona fallback.
+Nine selector/extraction tests, actionlint, shell/PowerShell syntax and hosted
+signing passed. No Runner-governed execution is claimed.

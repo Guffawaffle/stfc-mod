@@ -1,5 +1,12 @@
 # PLAY-OFFICER-PRESETS — Officer preset ordering and native save
 
+**2026-10-31 signing checkpoint:** candidate `84584fa4` (preset correction
+`bfedc294`; subsequent workflow/docs only) passed Windows, arm64/Intel macOS
+and Linux CI. Mac Developer ID signing/notarization and Windows code signing
+also passed. This establishes build/artifact qualification, not Mac player
+acceptance. [Exact builds, downloads and trial](../OFFICER-PRESETS-MAC-20261030.md#signed-test-downloads--2026-10-31).
+Existing CI feature selection does not enable the native AAI host.
+
 **2026-10-30 continuation:** Mcohall reports a save/display difference against
 an unidentified old release, and movement trouble also reported on that old
 build. [Source reassessment and trial](../OFFICER-PRESETS-MAC-20261030.md) keep
