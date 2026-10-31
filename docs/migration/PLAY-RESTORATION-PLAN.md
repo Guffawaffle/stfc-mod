@@ -14,6 +14,12 @@ candidate. Live fleet sync #325 is a deferred new feature. Reconcile remaining
 unassessed workflows and superseded task statuses; source presence and boot counts
 are not behavioral acceptance. Prior parked/excluded work remains explicit.
 
+Signed CORE test source `ee112729` is delivered and under user trial. The next
+candidate restores the [frozen station lifecycle guards](features/PLAY-CAMERA-STATION.md)
+omitted by the basic radius repair. The [contained UI lookup investigation](UI-LOOKUP-INVESTIGATION-20261031.md)
+adds bounded native caller/type evidence; it has not established the live cause.
+Keep the active test artifact separate from later candidates while the user tests.
+
 Today's signed test candidate must identify its source SHA, enabled optional hosts,
 platform builds and actual player evidence. A default CI build without AAI must not
 be described as equivalent to an AAI-enabled local build. Signing or delivering a

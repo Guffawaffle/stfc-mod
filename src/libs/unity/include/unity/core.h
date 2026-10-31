@@ -6,9 +6,12 @@
 #include <il2cpp/il2cpp.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <format>
 #include <ranges>
+#include <source_location>
 #include <string>
 #include <string_view>
 
@@ -132,10 +135,21 @@ struct GameObject : il2cpp::Object {
 
   // Passing System.Type selects the (Type) overloads over the string and generic ones. A null Type would throw in
   // managed code, so a missing class yields null instead.
-  template <typename T> T* GetComponent()
+  template <typename T> T* GetComponent(std::source_location caller = std::source_location::current())
   {
     auto* type = T::Class::TypeObject();
-    return type ? Call<"GetComponent", T*>(type) : nullptr;
+    if (!type)
+      return nullptr;
+    const auto result = TryCall<"GetComponent", T*>(type);
+    if (!result) {
+      // The IL2CPP report names only the shared managed method. Preserve the native caller/type for the first
+      // failure of each requested component, without logging successful "component absent" results each frame.
+      static std::atomic_flag reported;
+      if (!reported.test_and_set(std::memory_order_relaxed))
+        il2cpp::Report(std::format("[Unity] GetComponent<{}> failed at {}:{} ({})", il2cpp::ClassName(T::Class::Raw()),
+                                   caller.file_name(), caller.line(), caller.function_name()));
+    }
+    return result.value;
   }
   // The first active T on this GameObject or below it, depth first. Searches one hierarchy, where FindObject
   // searches every loaded object. This Unity only has the (Type, bool includeInactive) overload.

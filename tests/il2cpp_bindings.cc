@@ -356,7 +356,8 @@ unity::GameObject     selected_object{};
 unity::TMP_InputField input_field{};
 unity::GameObject*    selected         = &selected_object;
 bool                  has_event_system = true, has_input_field = true, redirect_selection = false;
-int                   event_system_reads = 0;
+bool                  component_lookup_throws = false;
+int                   event_system_reads      = 0;
 
 unity::EventSystem* EventSystem_get_current(const MethodInfo*)
 {
@@ -368,7 +369,13 @@ unity::GameObject* EventSystem_get_selected(unity::EventSystem*, const MethodInf
 void EventSystem_set_selected(unity::EventSystem*, unity::GameObject* value, const MethodInfo*)
 { selected = redirect_selection ? &selected_object : value; }
 unity::TMP_InputField* GameObject_get_component(unity::GameObject*, Il2CppObject*, const MethodInfo*)
-{ return has_input_field ? &input_field : nullptr; }
+{
+  if (component_lookup_throws) {
+    static Il2CppException exception{};
+    throw Il2CppExceptionWrapper(&exception);
+  }
+  return has_input_field ? &input_field : nullptr;
+}
 bool InputField_get_focused(unity::TMP_InputField*, const MethodInfo*)
 { return true; }
 
@@ -1879,8 +1886,12 @@ try {
     HudOwnerCases();
     return 0;
   }
-  if (argc == 2 && std::string_view(argv[1]) == "station-radius-native") {
-    StationRadiusCases();
+  if (argc == 2 && std::string_view(argv[1]).starts_with("station-radius-")) {
+    StationRadiusCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "component-lookup-diagnostic") {
+    ComponentLookupDiagnosticCases();
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "notification-native") {

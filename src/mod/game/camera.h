@@ -64,6 +64,16 @@ struct FrameProvider : unity::Behaviour {
 struct AbstractOrbitFrameProvider : FrameProvider {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.CameraController", "AbstractOrbitFrameProvider">;
 
+  // Interior zoom must not capture missing-as-zero fields as a native radius.
+  static bool ConstraintRadiusFieldsAvailable()
+  {
+    static const bool available = Class::HasField<"_constraint", OrbitConstraint*>()
+                                  && OrbitConstraint::Class::HasField<"_radius", FloatConstraint*>()
+                                  && FloatConstraint::Class::HasField<"_min", float>()
+                                  && FloatConstraint::Class::HasField<"_max", float>();
+    return available;
+  }
+
   OrbitConstraint* constraint()
   { return Field<"_constraint", OrbitConstraint*>(); }
   float radius()

@@ -637,3 +637,13 @@ fixture, native, player and platform qualification remain distinct. See the
 cohort for current results, explicit source defects/limits and recovery evidence.
 The [warp consecutive-click repair](WARP-CHOICE-RECOVERY-20261028.md) is an
 independently accepted runtime correction, not a change to manual-choice intent.
+
+## Station lifecycle and UI lookup follow-up
+
+The [station contract](features/PLAY-CAMERA-STATION.md) now includes the frozen
+weak ownership, all-owner conditional restore, changed-native-baseline, finite
+range and bounded cleanup obligations omitted by the basic `ee112729` repair.
+The [UI lookup investigation](UI-LOOKUP-INVESTIGATION-20261031.md) separates the
+observed managed error from its still-unidentified native caller and records
+bounded caller/type instrumentation. Signed `ee112729` gameplay checks and later
+candidate validation remain separate; neither establishes overall refactor parity.

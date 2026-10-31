@@ -3,6 +3,8 @@
 // Production owner bindings and camera callback; native scene objects are controlled substitutes.
 #include "game/hud.h"
 
+#include <thread>
+
 namespace
 {
 struct HudOwnerCanvas {
@@ -132,7 +134,28 @@ void HudOwnerCases()
       << "Registered HUD owner bindings: independent canvases, hidden/absent owners, exact Type,bool overload passed\n";
 }
 
-void StationRadiusCases()
+void ComponentLookupDiagnosticCases()
+{
+  const auto before = errors.size();
+  has_input_field   = false;
+  Require(!selected_object.GetComponent<unity::TMP_InputField>() && errors.size() == before,
+          "successfully absent component is silent");
+  component_lookup_throws = true;
+  Require(!selected_object.GetComponent<unity::TMP_InputField>(), "managed lookup failure remains contained");
+  Require(ErrorsMentioning("GetComponent<TMPro.TMP_InputField> failed at") == 1
+              && ErrorsMentioning("hud_owner_cases.h:") == 1 && ErrorsMentioning("ComponentLookupDiagnosticCases") == 1,
+          "failed lookup identifies requested component and actual native source caller");
+  const auto after = errors.size();
+  Require(!selected_object.GetComponent<unity::TMP_InputField>() && errors.size() == after,
+          "repeated lookup failure cannot flood diagnostics");
+  component_lookup_throws = false;
+  has_input_field         = true;
+  Require(selected_object.GetComponent<unity::TMP_InputField>() == &input_field,
+          "diagnostic does not suppress recovery");
+  std::cout << "Component lookup diagnostic: caller/type, contained failure, bounded logging and recovery passed\n";
+}
+
+void StationRadiusCases(std::string_view mode)
 {
   HavenFixtureGeometry scene("station-radius-native");
   auto&                hub      = Define("Digit.Client.Core", "Hub", IL2CPP_TYPE_CLASS, &object_class);
@@ -143,10 +166,31 @@ void StationRadiusCases()
   auto& section_getter =
       AddMethod(sections, "get_CurrentSection", reinterpret_cast<void*>(&HavenFixtureSection), T(int_class), {});
   AddProperty(sections, "CurrentSection", &section_getter);
-  haven_fixture_sections.klass        = &sections.klass;
-  auto  replacement                   = scene.far_provider;
-  auto* first                         = reinterpret_cast<OrbitFrameProvider*>(&scene.far_provider);
-  auto* second                        = reinterpret_cast<OrbitFrameProvider*>(&replacement);
+  haven_fixture_sections.klass = &sections.klass;
+  auto  replacement            = scene.far_provider;
+  auto* first                  = reinterpret_cast<OrbitFrameProvider*>(&scene.far_provider);
+  auto* second                 = reinterpret_cast<OrbitFrameProvider*>(&replacement);
+  if (mode != "station-radius-native") {
+    auto&      fields = mode == "station-radius-missing-provider"
+                            ? Fake(scene.far_provider.header.klass->parent->parent).fields
+                        : mode == "station-radius-missing-radius" ? Fake(scene.far_constraint.header.klass).fields
+                                                                  : Fake(scene.far_range.header.klass).fields;
+    const auto name   = mode == "station-radius-missing-provider" ? "_constraint"
+                        : mode == "station-radius-missing-radius" ? "_radius"
+                        : mode == "station-radius-missing-min"    ? "_min"
+                                                                  : "_max";
+    for (auto& field : fields)
+      if (std::string_view(field.name) == name)
+        field.name = "_unavailable";
+    Require(!InstallInteriorZoom() && !interior_zoom_installed,
+            "missing critical field refuses interior mutation before shared hook installation");
+    int originals = 0;
+    OrbitFrameProvider_UpdateConstrains_Hook([&](auto*, auto*) { ++originals; }, first, nullptr);
+    Require(scene.far_range.maximum == 1000 && originals == 1 && native_interior_radius.empty(),
+            "unavailable fields preserve native callback and range");
+    return;
+  }
+  Require(OrbitFrameProvider::ConstraintRadiusFieldsAvailable(), "all critical radius fields are qualified");
   auto& config                        = Config::Get();
   config.graphics.interior_zoom_scale = 2;
   bindings_config_override            = &config;
@@ -171,6 +215,113 @@ void StationRadiusCases()
   OrbitFrameProvider_UpdateConstrains_Hook(original, second, nullptr);
   Require(scene.far_range.maximum == 1000 && originals == 5,
           "live disable restores the shared range and every native original runs once");
+
+  const auto roots = warp_roots.size();
+  auto       run   = [&](HavenFixtureProvider& provider) {
+    const auto before = originals;
+    OrbitFrameProvider_UpdateConstrains_Hook(original, reinterpret_cast<OrbitFrameProvider*>(&provider), nullptr);
+    Require(originals == before + 1, "each station callback delivers native original exactly once");
+  };
+  config.graphics.interior_zoom_scale = 2;
+  run(scene.far_provider);
+  run(scene.close_provider);
+  Require(native_interior_radius.size() == 2 && warp_roots.size() == roots + 6,
+          "distinct ranges retain bounded weak owner triples, not strong permanent roots");
+  haven_fixture_section = SectionID::Starbase_Exterior;
+  run(replacement);
+  Require(scene.far_range.maximum == 1000 && scene.close_range.maximum == 100 && native_interior_radius.empty()
+              && warp_roots.size() == roots,
+          "exit from another provider restores every no-longer-ticking range and releases handles");
+
+  haven_fixture_section = SectionID::Starbase_Interior;
+  run(scene.far_provider);
+  scene.far_range.minimum = scene.far_range.maximum = 1500;
+  run(scene.far_provider);
+  Require(scene.far_range.maximum == 3000, "native replacement range becomes the new baseline");
+  scene.far_range.minimum = scene.far_range.maximum = 1700;
+  haven_fixture_section                             = SectionID::Starbase_Exterior;
+  run(scene.close_provider);
+  Require(scene.far_range.maximum == 1700, "exit never overwrites a later native or feature write");
+
+  haven_fixture_section = SectionID::Starbase_Interior;
+  run(scene.far_provider);
+  scene.far_provider.constraint = &scene.close_constraint;
+  run(scene.far_provider);
+  Require(scene.far_range.maximum == 1700 && scene.close_range.maximum == 200,
+          "replaced constraint restores retired radius before capturing the new one");
+  // Model managed-address reuse by expiring the stored weak provider identity, then reusing its native address.
+  for (auto& [handle, target] : warp_roots)
+    if (target == &scene.far_provider.header)
+      target = nullptr;
+  scene.close_range.minimum = scene.close_range.maximum = 350;
+  run(scene.far_provider);
+  Require(scene.close_range.maximum == 700
+              && native_interior_radius.at(first).provider.Get() == &scene.far_provider.header,
+          "expired weak identity at a reused address cannot reuse the old baseline");
+  haven_fixture_section = SectionID::Starbase_Exterior;
+  run(replacement);
+  scene.far_provider.constraint = &scene.far_constraint;
+  Require(scene.close_range.maximum == 350 && warp_roots.size() == roots, "replacement exit releases all handles");
+
+  haven_fixture_section = SectionID::Starbase_Interior;
+  run(scene.far_provider);
+  scene.far_constraint.radius = &scene.close_range;
+  run(scene.far_provider);
+  Require(scene.far_range.maximum == 1700 && scene.close_range.maximum == 700,
+          "radius replacement within the same constraint restores the prior range");
+  haven_fixture_section = SectionID::Starbase_Exterior;
+  run(replacement);
+  scene.far_constraint.radius = &scene.far_range;
+
+  haven_fixture_section   = SectionID::Starbase_Interior;
+  scene.far_range.minimum = scene.far_range.maximum = 1000;
+  run(scene.far_provider);
+  config.graphics.interior_zoom_scale = std::numeric_limits<float>::max();
+  run(scene.far_provider);
+  Require(scene.far_range.maximum == 1000 && native_interior_radius.empty(),
+          "overflow restores our last finite write and retires the entry");
+  config.graphics.interior_zoom_scale = 2;
+  warp_root_failure                   = true;
+  run(scene.far_provider);
+  warp_root_failure = false;
+  Require(scene.far_range.maximum == 1000 && native_interior_radius.empty(), "failed strong custody cannot mutate");
+  weak_root_refusal = [](Il2CppObject*) { return true; };
+  run(scene.far_provider);
+  weak_root_refusal = nullptr;
+  Require(scene.far_range.maximum == 1000 && native_interior_radius.empty() && warp_roots.size() == roots,
+          "failed weak custody cannot capture or mutate");
+
+  run(scene.far_provider);
+  for (auto& [handle, target] : warp_roots)
+    if (target == &scene.far_provider.header)
+      target = nullptr;
+  std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+  run(scene.close_provider);
+  Require(scene.far_range.maximum == 1000 && scene.close_range.maximum == 700 && native_interior_radius.size() == 1
+              && warp_roots.size() == roots + 3,
+          "periodic prune restores a surviving radius and releases an expired provider's weak handles");
+  haven_fixture_section = SectionID::Starbase_Exterior;
+  run(replacement);
+  haven_fixture_section = SectionID::Starbase_Interior;
+
+  std::array<HavenFixtureRange, kInteriorProviderLimit + 1>      ranges;
+  std::array<HavenFixtureConstraint, kInteriorProviderLimit + 1> constraints;
+  std::array<HavenFixtureProvider, kInteriorProviderLimit + 1>   providers;
+  for (size_t i = 0; i < providers.size(); ++i) {
+    ranges[i]               = scene.far_range;
+    constraints[i]          = scene.far_constraint;
+    constraints[i].radius   = &ranges[i];
+    providers[i]            = scene.far_provider;
+    providers[i].constraint = &constraints[i];
+    run(providers[i]);
+  }
+  Require(native_interior_radius.size() == kInteriorProviderLimit && ranges.back().maximum == 1000,
+          "bounded live owner admission leaves the seventeenth native range untouched");
+  config.graphics.interior_zoom_scale = std::numeric_limits<float>::quiet_NaN();
+  run(replacement);
+  Require(std::ranges::all_of(ranges, [](const auto& range) { return range.maximum == 1000; })
+              && native_interior_radius.empty() && warp_roots.size() == roots,
+          "invalid live scale restores every owned range and releases all weak handles");
   bindings_config_override = nullptr;
   native_interior_radius.clear();
   std::cout << "Station camera production callback: recreated providers, shared radius, native restoration and disable "

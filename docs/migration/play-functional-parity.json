@@ -3593,7 +3593,7 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Import applicable upstream PR349 radius-identity correction; preserve existing interior scaling, exterior rotation and shared Haven hook. Native station rendering and platform trial remain separate.",
+      "dependenciesAndLimitations": "Preserve frozen weak provider/constraint/radius identity, alias baseline, conditional all-owner restore, native baseline updates, finite guards and bounded pruning; retain exterior rotation and shared Haven hook. Native station rendering and platform trial remain separate.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-CAMERA-STATION.md",
@@ -3614,6 +3614,23 @@
           "verification": "Windows actual owner/camera regression modes passed; core binding/mod/sync/SPUD suite348/348 and native AAI-enabled build41/41 passed on recorded stable worktree inputs. Native player and Mac qualification remain pending. Evidence: D:/dev/stfc-workspace/artifacts/integration-audit-20261031/local-verification.json and native-build-receipt.json.",
           "correctiveDelta": "Upstream PR349 f9a131ea shared-radius restoration",
           "execution": "Foreground implementation; no Runner execution or parity completion claim."
+        },
+        {
+          "version": 2,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "ee1127292aa04cbd934903b5638758e8e235a67e"
+          },
+          "contract": "docs/migration/features/PLAY-CAMERA-STATION.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Windows core compile, existing binding/mod/sync/SPUD suites and build-tests passed 432/432 build/run/install steps. Nine explicit local modes passed, including the production station lifecycle callback, each missing critical field, caller/type diagnostics and prior timer/notification regressions. Evidence: D:/dev/stfc-workspace/artifacts/integration-audit-20261031/station-lifecycle-verification.json. Native rendering and Mac gameplay remain unqualified.",
+          "correctiveDelta": "The frozen fork already handles shared-radius aliases and stronger lifetime guards. Version 1's basic radius-key repair was not full frozen behavior preservation; port remaining source protections through typed bindings.",
+          "execution": "Foreground continuation while user tests signed ee112729; no replacement of the tested artifact or overall parity claim."
         }
       ]
     },
