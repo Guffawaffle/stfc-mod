@@ -28,15 +28,16 @@ def select(run, artifacts, repository, run_id, platform, mode="test", expected_s
             or run.get("head_repository", {}).get("full_name") != repository
             or run.get("path") != ".github/workflows/ci.yaml"
             or run.get("event") not in {"push", "workflow_dispatch", "pull_request"}
-            or run.get("status") != "completed" or not run.get("conclusion")
+            or run.get("status") not in {"completed", "in_progress"}
+            or (run.get("status") == "completed" and not run.get("conclusion"))
             or not re.fullmatch(r"[0-9a-f]{40}", sha)):
-        raise ValueError("Select a completed same-repository Build run; fork and other workflow inputs are refused")
+        raise ValueError("Select a started same-repository Build run; fork and other workflow inputs are refused")
     attempt = positive(run.get("run_attempt"))
     if expected_sha and expected_sha != sha:
         raise ValueError("Selected run HEAD changed or differs from the requested SHA")
     if expected_attempt and positive(expected_attempt) != attempt:
         raise ValueError("Selected run was rerun after selection; select the new attempt explicitly")
-    if mode == "release" and (run["event"] != "push" or run.get("head_branch") != "play"
+    if mode == "release" and (run.get("status") != "completed" or run["event"] != "push" or run.get("head_branch") != "play"
                               or run["conclusion"] != "success"):
         raise ValueError("Release signing still requires a successful play push build")
     names = {"macos": ("stfc-community-mod-installer", "stfc-community-mod-installer.dmg"),
@@ -65,7 +66,7 @@ def select(run, artifacts, repository, run_id, platform, mode="test", expected_s
         raise ValueError("Artifact identity changed after selection")
     return {"repository": repository, "run_id": run_id, "run_attempt": attempt,
             "head_sha": sha, "branch": run.get("head_branch"), "event": run["event"],
-            "build_conclusion": run["conclusion"], "mode": mode, "platform": platform,
+            "build_status": run["status"], "build_conclusion": run.get("conclusion"), "mode": mode, "platform": platform,
             "artifact_id": artifact_id, "artifact_digest": artifact["digest"],
             "artifact_name": name, "filename": filename,
             "run_started_at": run["run_started_at"], "artifact_created_at": artifact["created_at"],

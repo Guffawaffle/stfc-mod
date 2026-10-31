@@ -38,6 +38,13 @@ class SigningInput(unittest.TestCase):
         self.assertEqual(self.pick()["build_conclusion"], "failure")
         with self.assertRaises(ValueError): self.pick(mode="release")
 
+    def test_existing_artifact_does_not_wait_for_unrelated_jobs(self):
+        self.run.update(status="in_progress", conclusion=None, head_branch="play")
+        result = self.pick()
+        self.assertEqual(result["build_status"], "in_progress")
+        self.assertIsNone(result["build_conclusion"])
+        with self.assertRaises(ValueError): self.pick(mode="release")
+
     def test_release_stays_play_success_push_only(self):
         with self.assertRaises(ValueError): self.pick(mode="release")
         self.run["head_branch"] = "play"
@@ -51,7 +58,7 @@ class SigningInput(unittest.TestCase):
 
     def test_run_repository_workflow_and_status_refused(self):
         for key, value in [("id", 999), ("head_sha", "bad"), ("path", "other.yaml"),
-                           ("event", "pull_request_target"), ("status", "in_progress"),
+                           ("event", "pull_request_target"), ("status", "queued"),
                            ("head_repository", {"full_name": "fork/mod"})]:
             original = copy.deepcopy(self.run)
             self.run[key] = value

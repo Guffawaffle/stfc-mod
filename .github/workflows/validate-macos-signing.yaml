@@ -13,7 +13,7 @@ on:
         options: [status, sign, sign-run]
         default: status
       build_run_id:
-        description: Exact completed Build run to sign (sign-run only)
+        description: Exact Build run with the requested retained artifacts (sign-run only)
         type: string
       expected_head_sha:
         description: Optional exact run HEAD SHA cross-check (sign-run only)
@@ -137,7 +137,7 @@ jobs:
           echo "run_id=$SELECTED_RUN" >> "$GITHUB_OUTPUT"
           echo "run_attempt=$attempt" >> "$GITHUB_OUTPUT"
           echo "Selected Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN (attempt $attempt, HEAD $sha)" >> "$GITHUB_STEP_SUMMARY"
-          echo "Build conclusion: $(jq -r .conclusion "$RUNNER_TEMP/build.json"). Signing does not change its test result or publish a release." >> "$GITHUB_STEP_SUMMARY"
+          echo "Build status: $(jq -r .status "$RUNNER_TEMP/build.json"); conclusion: $(jq -r '.conclusion // "not yet established"' "$RUNNER_TEMP/build.json"). Signing does not change its test result or publish a release." >> "$GITHUB_STEP_SUMMARY"
 
   validate:
     needs: resolve

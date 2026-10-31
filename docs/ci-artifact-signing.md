@@ -1,7 +1,7 @@
 # Optional signing of a CI build
 
 Use the existing trusted signing branch, ci/macos-signing-play, to sign an
-explicit completed Build run. Choose macOS, Windows or both. This produces
+explicit Build run with available artifacts. Choose macOS, Windows or both. This produces
 test downloads without a release tag, release publication or latest-channel
 change. Normal pushes do not start signing.
 
@@ -21,14 +21,16 @@ The obsolete hard-coded Ripper test run is replaced by sign-run.
 
 ## Eligible inputs and what signing means
 
-Any branch's completed same-repository .github/workflows/ci.yaml run can supply
+Any branch's started same-repository .github/workflows/ci.yaml run can supply
 retained artifacts. Supported events are push, workflow_dispatch and same-repo
 pull_request. Fork runs, other workflows, expired/ambiguous artifacts and changed
 selection identities are refused. The selected platform must have produced its
 expected payload: version.dll or stfc-community-mod-installer.dmg.
 
-Test signing records the actual Build conclusion, including failure elsewhere
-in that run. It does not turn failed checks green or establish gameplay safety.
+Test signing records the actual Build status/conclusion, including failure or
+unfinished jobs elsewhere in that run. An available Mac installer does not need
+to wait for Windows compilation. Missing requested artifacts still fail selection;
+there is no silent platform fallback. Signing does not turn checks green or establish gameplay safety.
 Release signing retains the existing successful play-push and ancestry rules.
 
 Selection binds repository, run, attempt, HEAD, artifact ID and GitHub ZIP digest.
