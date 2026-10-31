@@ -1871,6 +1871,14 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "preset-save-new") {
+    OfficerPresetSaveObservations(true);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "preset-save-edge") {
+    OfficerPresetSaveObservations(false);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "service-endpoints") {
     ServiceEndpointCases(); return 0;
   }

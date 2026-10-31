@@ -1,5 +1,13 @@
 # PLAY-OFFICER-PRESETS — Officer preset ordering and native save
 
+**2026-10-30 continuation:** Mcohall reports a save/display difference against
+an unidentified old release, and movement trouble also reported on that old
+build. [Source reassessment and trial](../OFFICER-PRESETS-MAC-20261030.md) keep
+those reports separate. Two controlled consumer failures were reproduced:
+newly filled slots lacked a fresh order projection, and replacement rows could
+overwrite positional styling. Bounded corrections are offline; Mac runtime and
+actual new-crew save remain unqualified. Command dispatch has not changed.
+
 **2026-10-27 status:** correction `a0565d7e` has basic Windows player acceptance:
 opening, Shift/Ctrl reordering without opening rename, plain Edit renaming the
 correct row with its crew unchanged, and retained order after closing/reopening.

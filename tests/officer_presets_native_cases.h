@@ -300,6 +300,11 @@ void OfficerPresetNativeObservations()
             },
             owner, false);
         Require(scroll.source == context.list, "nested return preserves outer canonical scope");
+        const auto before_nested_frame = preset_test_rebuilds;
+        PresetFrame();
+        Require(scroll.source == context.list && view->projection_requested
+                    && preset_test_rebuilds == before_nested_frame,
+                "reentrant frame cannot consume post-save work while the enclosing save owns canonical data");
       },
       owner, false);
   Require(nested == 2 && scroll.source != context.list, "nested originals each once, outer restores projection");
@@ -370,6 +375,109 @@ void OfficerPresetNativeObservations()
       << "Officer preset production adapter: native Start wait/early close, async adoption, bind, exact order, fixed "
          "empty rows, native replacement/receiver, chords, "
          "receipts, repair, nested/throwing saves, disable, same-source rebind, close during save and release passed\n";
+}
+// Saving a previously empty slot changes the sortable membership, not just its
+// text. Exercise that independently from the earlier rename/replacement trial.
+void OfficerPresetSaveObservations(bool create)
+{
+  DefinePresetRuntime();
+  const auto roots_before                          = warp_roots.size();
+  Config::Get().ui.allow_officer_preset_reordering = true;
+  PresetNativeContext context{{OfficerPresetsViewContext::Class::Raw(), nullptr}, nullptr};
+  auto*               ctx  = reinterpret_cast<OfficerPresetsViewContext*>(&context);
+  auto*               crew = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(&object_class.klass, 1));
+  crew->Set(0, &base_object.header);
+  auto*                           empty = reinterpret_cast<il2cpp::ArrayObject*>(PresetArray(&object_class.klass, 1));
+  std::array<PresetNativeItem, 4> items{};
+  auto* array = reinterpret_cast<il2cpp::Array<OfficerPresetItemContext*>*>(PresetArray(&preset_item_class->klass, 4));
+  const std::array<std::int64_t, 4> ids{10, 55, 30, 40};
+  // Retained native PresentationType: FirstItem=0, MiddleItem=1, LastItem=2.
+  const std::array<std::int32_t, 4> presentations{0, 1, 1, 2};
+  for (int i = 0; i < 4; ++i) {
+    items[i] = {{&preset_item_class->klass, nullptr},
+                ctx,
+                ids[i],
+                i,
+                presentations[i],
+                ValuesString(i == 1 ? "" : "crew", i == 1 ? 0 : 4),
+                i == 1 ? empty : reinterpret_cast<il2cpp::ArrayObject*>(crew)};
+    array->Set(i, reinterpret_cast<OfficerPresetItemContext*>(&items[i]));
+  }
+  PresetNativeList list{{&preset_array_class->klass, nullptr}, reinterpret_cast<il2cpp::ArrayObject*>(array), 4};
+  context.list = reinterpret_cast<il2cpp::Object*>(&list);
+  PresetNativeScroller scroll;
+  scroll.header.klass = PresetSmartScroller::Class::Raw();
+  PresetNativeController controller{
+      {OfficerPresetsViewController::Class::Raw(), nullptr}, ctx, reinterpret_cast<PresetSmartScroller*>(&scroll)};
+  auto* owner          = reinterpret_cast<OfficerPresetsViewController*>(&controller);
+  preset_session_order = {30, 10, 40};
+  OfficerPresetsViewController_OnDidBindCanvasContext_Hook(PresetNativeBind, owner);
+  PresetFrame();
+  auto view = active_preset_view;
+  Require(view && view->boundary.State() == preset_boundary::Phase::Projected, "save trial starts projected");
+  const int index       = create ? 1 : 0;
+  auto      replacement = items[index];
+  replacement.slot      = create ? 50 : ids[index];
+  replacement.name      = ValuesString("saved", 5);
+  replacement.crew      = reinterpret_cast<il2cpp::ArrayObject*>(crew);
+  // The retained native save body generates MiddleItem even for an edge row.
+  replacement.presentation = 1;
+  int        calls         = 0;
+  const auto before_save   = preset_test_rebuilds;
+  OfficerPresetsViewController_OnSaveSlotsSuccess_Hook(
+      [&](auto*, bool increase) {
+        ++calls;
+        Require(increase == create && scroll.source == context.list, "original save has canonical data once");
+        array->Set(index, reinterpret_cast<OfficerPresetItemContext*>(&replacement));
+        il2cpp::Object* receiver = nullptr;
+        Require(PresetSmartScroller_TryGetInstanceForIndex_Hook(PresetLookup, controller.scroller, index, &receiver),
+                "native replacement binds its correct existing receiver");
+        reinterpret_cast<PresetNativeWidget*>(receiver)->context =
+            reinterpret_cast<OfficerPresetItemContext*>(&replacement);
+      },
+      owner, create);
+  Require(calls == 1 && preset_test_rebuilds == before_save, "no nested rebuild or repeated native save");
+  preset_test_defer = create;
+  PresetFrame();
+  if (create) {
+    Require(view->boundary.State() == preset_boundary::Phase::Transition,
+            "post-save native rebuild may complete asynchronously");
+    auto* pending = scroll.initializing;
+    PresetFrame();
+    PresetFrame();
+    Require(scroll.initializing == pending && preset_test_rebuilds == before_save + 1,
+            "post-save reconciliation requests one rebuild and waits for native completion");
+    preset_test_defer = false;
+    PresetRebuild(controller.scroller, owner, pending, nullptr);
+    PresetFrame();
+    const std::array<std::size_t, 4> expected{2, 0, 3, 1};
+    for (std::size_t i = 0; i < expected.size(); ++i)
+      Require(scroll.widgets[i].context == (*array)[expected[i]],
+              "newly saved crew is reconciled into the local order without closing the screen");
+    Require(view->slots[1] == 50 && !view->empty[1], "new saved identity replaces the qualified empty-slot header");
+    held_keys.fill(false);
+    held_keys[std::to_underlying(unity::KeyCode::LeftShift)] = true;
+    int renames                                              = 0;
+    OfficerPresetItemWidget_OnEditNameButtonClicked_Hook(
+        [&](auto*) { ++renames; }, reinterpret_cast<OfficerPresetItemWidget*>(&scroll.widgets[3]));
+    Require(renames == 0 && scroll.widgets[2].context == reinterpret_cast<OfficerPresetItemContext*>(&replacement),
+            "new crew can move immediately; reorder consumes native edit");
+    held_keys.fill(false);
+  }
+  OfficerPresetsViewController_OnAboutToReleaseCanvasContext_Hook([](auto*) {}, owner);
+  if (!create)
+    Require(replacement.presentation == 0,
+            "save preserves canonical FirstItem instead of adopting generated MiddleItem");
+  for (int i = 0; i < 4; ++i) {
+    auto* item = (*array)[i];
+    Require(preset_fields.order.Read(item) == i && preset_fields.slot.Read(item) == (create && i == 1 ? 50 : ids[i]),
+            "display reconciliation never rewrites canonical slots or order IDs");
+    Require(preset_fields.presentation.Read(item) == presentations[i], "native positional presentations restored");
+  }
+  view.reset();
+  Require(!active_preset_view && preset_views.empty() && warp_roots.size() == roots_before,
+          "save trial releases custody");
+  std::cout << "Preset save " << (create ? "new-crew reconciliation" : "native edge presentation") << " passed\n";
 }
 } // namespace
 

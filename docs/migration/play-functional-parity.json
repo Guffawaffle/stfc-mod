@@ -1302,7 +1302,8 @@
         "localAutomatedEvidence": [
           "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished.",
           "30eeec8e: 214/214 Windows build/run steps; production adapter and Settings disk fixtures explicitly rerun; 37/37 DLL build; see preset-settings-30eeec8e-receipt.json. No native UI/runtime claim.",
-          "a0565d7e: 214/214 Windows test-mod/test-il2cpp build/run steps; native Start wait/early close and async adoption cases against production adapter; explicit executable rerun exit 0; complete Windows DLL/provenance verification. D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json"
+          "a0565d7e: 214/214 Windows test-mod/test-il2cpp build/run steps; native Start wait/early close and async adoption cases against production adapter; explicit executable rerun exit 0; complete Windows DLL/provenance verification. D:/dev/stfc-workspace/artifacts/preset-settings-20261027/accepted-windows-basic/qualification.json",
+          "artifacts/mac-officer-presets-20261030/regression-final.log:426/426 Windows steps with Debug assertions; reproduced newly-filled membership and edge presentation failures; no Mac/runtime/player-data claim."
         ],
         "exactCandidateRuntime": "a0565d7e/client 273/ordinary Windows main PID 48968: player confirms opening, Shift/Ctrl reorder consumption, plain Edit renames correct row with unchanged crew, retained order on close/reopen. Eight successful exact local-order receipts; no fresh SmartScroller.ReassignItem exception stacks in captured session. Basic workflow only; not all native save/failure paths.",
         "playerVerifiedFinalCandidate": false,
@@ -1470,7 +1471,7 @@
         "state": "native implementation complete; basic Windows workflow accepted; extended native and macOS qualification pending",
         "recordedImmediately": true
       },
-      "catalogStatus": "Basic Windows preset workflow accepted after initialization-order fix; macOS and native crew create/replace/delete remain unqualified",
+      "catalogStatus": "Basic Windows rename/reorder/reopen accepted historically;2026-10-30 reported Mac save/display regression and movement trouble on old/new unidentified builds. Bounded post-save corrections qualified offline; Mac and actual new-crew runtime remain open.",
       "assessments": [
         {
           "version": 1,
@@ -1562,6 +1563,33 @@
             "macOS CI and Command+Edit native trial",
             "Actual native crew creation/replacement/deletion and longer stress qualification",
             "Forced-quit/power-loss durability not exercised in game"
+          ]
+        },
+        {
+          "version": 4,
+          "date": "2026-10-30",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "6c2f8eca6f0c8182423d6c0ab3b8e9dd2fe5d67a",
+            "candidate": "Source checkpoint and binary recorded in artifacts/mac-officer-presets-20261030/qualification.json"
+          },
+          "contract": "docs/migration/features/PLAY-OFFICER-PRESETS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": {
+            "sourceComparison": "Complete relevant frozen/target save, order, lifecycle, modifier and native-consumer paths; archived Windows client273 dump/save oracle hashes rechecked. Both sources use Command on Mac.",
+            "automated": "426/426 assertion-enabled Windows build/run steps; new-crew and edge-presentation consumer modes fail before changes, pass after. Reentrant frame/nested save and deferred post-save native completion also covered.",
+            "nativeBuild": "Separate receipt in artifacts/mac-officer-presets-20261030/qualification.json; not a Mac qualification.",
+            "macOS": "Mcohall report forwarded by Guff: save/display needs close/reopen on migration but reportedly not old release; moving also reportedly fails on old SPUD. Exact builds, architecture, option state and logs unknown. No new CI/runtime trial."
+          },
+          "evidence": "docs/migration/OFFICER-PRESETS-MAC-20261030.md",
+          "remaining": [
+            "Exact source/binary identities for both reported Mac builds",
+            "Mac CI build and focused save/new-row/Shift/Command/Edit/reopen trial",
+            "Actual player crew create/replace/delete and persistence remain independently qualified"
           ]
         }
       ],
@@ -2155,7 +2183,7 @@
           "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
-      "userEntryPoint": "Swap Ship; Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Officers & Ships",
+      "userEntryPoint": "Swap Ship; Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Officers & Ships",
       "configurationKeys": [
         "ui.double_click_to_assign_ship"
       ],
@@ -6148,7 +6176,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-AUDIO-PICKER.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Audio Alerts ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ alert page",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Audio Alerts ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ alert page",
       "configurationKeys": [
         "audio.coalescing",
         "audio.alert_*",
@@ -6396,7 +6424,7 @@
           "differences": "Active branch renamed; Search-row correction only. Prior feature-specific qualifications and limitations remain attached to their original artifacts."
         }
       ],
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Loading Screens",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Loading Screens",
       "configurationKeys": [
         "graphics.loader_image"
       ],
@@ -7282,7 +7310,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-WARP-FILTERS.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Map & Travel ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Ship route filters",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Map & Travel ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Ship route filters",
       "configurationKeys": [
         "ui.instant_warp_auto_jump",
         "ui.instant_warp_auto_warp",
@@ -7500,7 +7528,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-DAILY-FACTIONS.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Claims & Confirmations",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Claims & Confirmations",
       "configurationKeys": [
         "ui.daily_bulk_claim_factions"
       ],
@@ -7706,7 +7734,7 @@
         }
       ],
       "contract": "docs/migration/features/SET-BANNER-FILTERS.md",
-      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Notifications",
+      "userEntryPoint": "Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Notifications",
       "configurationKeys": [
         "ui.disabled_banner_types",
         "ui.notify_banner_types"
@@ -8060,7 +8088,7 @@
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
       "catalogStatus": "Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified",
-      "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
+      "userEntryPoint": "Alliance Games Ã¢â€ â€™ Store Ã¢â€ â€™ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
           "refRole": "upstream-dev",
@@ -8148,7 +8176,7 @@
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
       "catalogStatus": "Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified",
-      "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
+      "userEntryPoint": "Alliance Games Ã¢â€ â€™ Store Ã¢â€ â€™ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
           "refRole": "upstream-dev",
@@ -8236,7 +8264,7 @@
       "activationAndDependencies": "Default-on startup [patches].alliancegamesstorehooks; one feature owner, typed native store lifecycle, shared FrameTick; no diagnostics/file-probe dependency.",
       "contract": "docs/migration/features/AT-STORE.md",
       "catalogStatus": "Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified",
-      "userEntryPoint": "Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh",
+      "userEntryPoint": "Alliance Games Ã¢â€ â€™ Store Ã¢â€ â€™ material tooltip / currency header / purchase refresh",
       "branchObservations": [
         {
           "refRole": "upstream-dev",

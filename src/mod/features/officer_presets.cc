@@ -118,14 +118,14 @@ struct PresetView {
       if (!item)
         continue;
       if (tokens[index] != item) {
-        // A native save can replace a row with the same canonical OrderId.
-        presentations[index] = preset_fields.presentation.Read(item);
-        tokens[index]        = item;
+        // Native save generates MiddleItem even at an edge. Presentation is
+        // positional (First/Middle/Last), not a new saved-row property to adopt.
+        tokens[index] = item;
       }
       ok = preset_fields.presentation.Write(item, presentations[index]) && ok;
     }
-    // Native save generates its replacement using the cached item's
-    // Presentation. That cache can still name the previous row object.
+    // The editable cache can still name the previous row object. Restore its
+    // positional annotation too without changing native identity or contents.
     if (auto* cached = preset_fields.cached_context.Read(context.Get())) {
       const auto index = preset_fields.order.Read(cached);
       if (index < 0 || static_cast<std::size_t>(index) >= tokens.size() || !ItemValid(cached, index))
@@ -165,8 +165,7 @@ struct PresetView {
     if (!ItemValid(item, static_cast<std::size_t>(canonical_index)))
       return false;
     if (item && tokens[canonical_index] != item) {
-      presentations[canonical_index] = preset_fields.presentation.Read(item);
-      tokens[canonical_index]        = item;
+      tokens[canonical_index] = item;
     }
     array->Set(static_cast<std::size_t>(view), item);
     return (*array)[view] == item && (!item || preset_fields.presentation.Write(item, presentations[view]));
@@ -389,9 +388,12 @@ bool RenderPresetOrder(const std::shared_ptr<PresetView>& view, bool preserve_sc
   std::vector<preset_order::Row> rows;
   if (!ReadPresetRows(*view, rows))
     return false;
-  const auto plan = preset_order::Prepare(rows, preset_session_order);
+  auto plan = preset_order::Prepare(rows, preset_session_order);
   if (plan.status != preset_order::Status::Ready || rows.size() != view->tokens.size())
     return false;
+  for (std::size_t index = 0; index < rows.size(); ++index)
+    if (!view->empty[index] && rows[index].present && rows[index].slot != view->slots[index])
+      return false; // A filled slot cannot silently become another native identity.
   auto root = il2cpp::GcHandle::Strong(
       il2cpp::Array<OfficerPresetItemContext*>::New(OfficerPresetItemContext::Class::Raw(), rows.size()));
   if (!root)
@@ -409,6 +411,14 @@ bool RenderPresetOrder(const std::shared_ptr<PresetView>& view, bool preserve_sc
   view->pending_projection = projection;
   view->pending_ticket     = ticket;
   view->busy               = true;
+  // A native save may fill a formerly fixed empty slot. Reconcile both the
+  // sortable membership and its qualified identity only after the new plan is
+  // admitted; keep canonical SlotId/OrderId/crew objects entirely native-owned.
+  preset_session_order = std::move(plan.session_order);
+  for (std::size_t index = 0; index < rows.size(); ++index) {
+    view->slots[index] = rows[index].slot;
+    view->empty[index] = rows[index].Empty();
+  }
   struct BusyExit {
     PresetView& view;
     ~BusyExit()
@@ -571,6 +581,14 @@ void OfficerPresetsViewController_OnSaveSlotsSuccess_Hook(auto original, Officer
     { preset_saving = previous; }
   } exit{save.previous};
   preset_boundary::SaveOnce(view->boundary, *view, [&] { original(self, increase); });
+  if (view->boundary.Current(view->Observe())) {
+    // In-place receiver replacement is not a fresh ordering projection: saving
+    // an empty row changes which slots are sortable. As in frozen PLAY, apply
+    // local order again after a successful native save, outside this stack.
+    view->projection_requested    = true;
+    view->request_preserve_scroll = true;
+    TracePreset(*view, "save-reconciliation-queued");
+  }
   // Frame observes Restore and repairs outside this save/lookup stack. No second save call.
 }
 
@@ -645,7 +663,7 @@ void PresetFrame()
     }
   }
   auto view = active_preset_view;
-  if (!view || view->busy || !view->boundary.Current(view->Observe()))
+  if (!view || view->busy || preset_saving || !view->boundary.Current(view->Observe()))
     return;
   const auto phase = view->boundary.State();
   if (phase == preset_boundary::Phase::Native) {

@@ -522,7 +522,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             claim_case.addArg("shop-claims-native");
             test_il2cpp.dependOn(&claim_case.step);
         }
-        inline for (.{ "navigation-search", "navigation-card", "service-endpoints", "service-buffs" }) |mode| {
+        inline for (.{ "navigation-search", "navigation-card", "service-endpoints", "service-buffs", "preset-save-new", "preset-save-edge" }) |mode| {
             const navigation_ui_case = b.addRunArtifact(exe);
             navigation_ui_case.addArg(mode);
             test_il2cpp.dependOn(&navigation_ui_case.step);

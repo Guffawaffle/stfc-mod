@@ -1,5 +1,13 @@
 # Downstream play preservation target
 
+## Preset save/Mac feedback — 2026-10-30
+
+[The preset continuation](OFFICER-PRESETS-MAC-20261030.md) reproduces and corrects
+two post-save consumer omissions while preserving the canonical save boundary.
+Save/display and movement reports have different old-release comparisons;
+unknown Mac build/settings/runtime evidence remains explicit. This source work
+does not establish Mac parity or qualify actual player crew creation.
+
 ## Sona-guided service continuation — 2026-10-29
 
 [Cohort03](FEATURE-COHORT-20261029-03.md) covers native endpoint overrides,
