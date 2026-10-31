@@ -26,7 +26,10 @@ struct HudOwnerObject {
 HudOwnerManager* hud_owner_manager      = nullptr;
 bool             hud_owner_count_throws = false;
 int              hud_owner_searches     = 0;
-int32_t          HudOwnerCount(HudOwnerList* list, const MethodInfo*)
+Il2CppObject*    hud_owner_disabled     = nullptr;
+bool             HudOwnerActive(Il2CppObject* controller, const MethodInfo*)
+{ return controller != hud_owner_disabled; }
+int32_t HudOwnerCount(HudOwnerList* list, const MethodInfo*)
 {
   if (hud_owner_count_throws)
     throw Il2CppExceptionWrapper(&thrown);
@@ -56,6 +59,10 @@ bool HudOwnerStatic(FieldInfo* field, void* value)
 
 void HudOwnerCases()
 {
+  auto& behaviour = Define("UnityEngine", "Behaviour", IL2CPP_TYPE_CLASS, &component_class);
+  auto& active_getter =
+      AddMethod(behaviour, "get_isActiveAndEnabled", reinterpret_cast<void*>(&HudOwnerActive), T(bool_class), {});
+  AddProperty(behaviour, "isActiveAndEnabled", &active_getter);
   auto& manager = Define("Digit.Client.UI", "ScreenManager", IL2CPP_TYPE_CLASS, &object_class);
   auto& canvas  = Define("Digit.Client.UI", "CanvasController", IL2CPP_TYPE_CLASS, &component_class);
   auto& list    = Define("HudFixture", "CanvasList", IL2CPP_TYPE_CLASS, &object_class);
@@ -80,29 +87,33 @@ void HudOwnerCases()
   AddProperty(component_class, "gameObject", &object_getter);
   AddMethod(game_object_class, "GetComponentInChildren", reinterpret_cast<void*>(&HudOwnerChildren), T(component_class),
             {T(type_class), T(bool_class)});
-  Il2CppObject navigation{{&nav.klass}}, alliance{{&drawer.klass}}, navigation_context{{&nav_context.klass}},
-      alliance_context{{&drawer_context.klass}};
-  HudOwnerObject nav_object{{&go.klass}, &navigation}, drawer_object{{&go.klass}, &alliance};
+  Il2CppObject navigation{{&nav.klass}}, retired_navigation{{&nav.klass}}, alliance{{&drawer.klass}},
+      navigation_context{{&nav_context.klass}}, alliance_context{{&drawer_context.klass}};
+  HudOwnerObject nav_object{{&go.klass}, &navigation}, retired_object{{&go.klass}, &retired_navigation},
+      drawer_object{{&go.klass}, &alliance};
   HudOwnerCanvas overlay{{&canvas.klass}, &base_object.header, nullptr},
       hidden{{&canvas.klass}, &navigation_context, &nav_object.header, false};
   HudOwnerCanvas navigation_canvas{{&canvas.klass}, &navigation_context, &nav_object.header},
+      retired_canvas{{&canvas.klass}, &navigation_context, &retired_object.header},
       alliance_canvas{{&canvas.klass}, &alliance_context, &drawer_object.header};
-  HudOwnerList    screens{{&list.klass}, {&overlay, &hidden, &navigation_canvas, &alliance_canvas}};
+  HudOwnerList    screens{{&list.klass}, {&overlay, &hidden, &retired_canvas, &navigation_canvas, &alliance_canvas}};
   HudOwnerManager owner{{&manager.klass}, &screens};
   hud_owner_manager              = &owner;
+  hud_owner_disabled             = &retired_navigation;
   tow_static_field_read_override = HudOwnerStatic;
   const auto roots               = warp_roots.size();
-  auto* found_navigation = ScreenManager::RegisteredController<HudNavigationViewController, NavigationViewData>();
+  auto*      found_navigation = ScreenManager::RegisteredController<HudNavigationViewController, NavigationViewData>();
   if (!found_navigation)
     for (const auto& error : errors)
       std::cerr << error << '\n';
-  Require(found_navigation == reinterpret_cast<HudNavigationViewController*>(&navigation),
-          "navigation owner is found outside unrelated top canvas, skipping hidden matching context");
+  Require(
+      found_navigation == reinterpret_cast<HudNavigationViewController*>(&navigation),
+      "navigation owner skips unrelated/hidden canvases and a disabled old controller before the active replacement");
   Require(
       ScreenManager::RegisteredController<HudAllianceAndNewsViewController, HudAllianceAndNewsViewControllerContext>()
           == reinterpret_cast<HudAllianceAndNewsViewController*>(&alliance),
       "drawer is found on a separate registered canvas");
-  Require(hud_owner_searches == 2 && warp_roots.size() == roots,
+  Require(hud_owner_searches == 3 && warp_roots.size() == roots,
           "only matching visible hierarchies are searched and temporary roots release");
   navigation_canvas.visible = false;
   Require(!ScreenManager::RegisteredController<HudNavigationViewController, NavigationViewData>(),

@@ -14,14 +14,14 @@ neither must descend from the top interaction canvas. The migration lost that be
 | A1 | Restart gate `patches.galacticanomalytimerhooks`, live `graphics.galactic_anomaly_timer`, default false. Existing descriptor/frame owner and Settings registration remain. |
 | A2 | Only system navigation and the native `CanShowGalacticAnomaly` gate admit a countdown. Leaving the section or disabling releases the panel/navigation owner. |
 | A3 | Resolve navigation and drawer through their separate registered, visible canvas contexts. `ScreenManager::RegisteredController` reads the existing singleton, roots the registry during traversal, rejects unavailable counts and uses the existing non-generic `GetComponentInChildren(Type,bool)` binding. No global scene scan or new detour. |
-| A4 | Retain a live active navigation owner; retry missing/inactive owners at most once per second. Missing owners remain retryable and do not create a native singleton. |
+| A4 | Retain a live active navigation owner; retry missing/inactive owners at most once per second. Skip disabled old controllers while continuing toward active replacements on later canvases. Missing owners remain retryable and do not create a native singleton. |
 | A5 | Read the viewed system's existing anomaly and remaining native timer; require an active anomaly and positive ticks. No new local countdown clock or inferred fleet system. |
 | A6 | Keep the 198x38 pink frame/dark fill, native system font, optional rounded sprite and centered text below Help All/Engage/Claim. No native button is moved. |
 | A7 | Preserve 250ms polling, ceiling seconds, hour/minute formatting and existing displayed-second write cache. Expiry/missing clock hides the panel. |
 | A8 | Missing panel resources produce the existing warning/backoff. Unity liveness and rooted owner cleanup remain separate from native clock availability. |
 
 The owner regression cases execute the production binding against a controlled registry:
-an unrelated overlay, a hidden matching canvas, separate navigation/drawer canvases,
+an unrelated overlay, a hidden matching canvas, a disabled old controller preceding its active replacement, separate navigation/drawer canvases,
 the exact Type/bool overload, failed count, absent singleton and temporary root release.
 They do not render TMP or simulate a real Mac scene. Native qualification must check an
 active countdown, expiry, system changes, drawer collapse, return/reload and disable.

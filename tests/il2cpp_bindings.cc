@@ -1868,7 +1868,7 @@ void PlannedWarpBindingObservations()
 // Notification cases execute the production audio/banner/fleet consumers with controlled sinks.
 #include "notification_consumer_cases.h"
 #include "hud_owner_cases.h"
-// Registered HUD owners and shared station radii are exercised in separate runtime processes.
+// Registered active HUD owners and shared station radii are exercised in separate runtime processes.
 // clang-format on
 
 int main(int argc, char** argv)

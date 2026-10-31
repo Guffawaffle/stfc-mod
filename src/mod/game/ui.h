@@ -337,7 +337,7 @@ struct ScreenManager : MonoSingleton<ScreenManager> {
         continue;
       auto* object     = canvas->gameObject();
       auto* controller = object ? object->GetComponentInChildren<Controller>() : nullptr;
-      if (unity::Alive(controller))
+      if (unity::Alive(controller) && unity::ActiveAndEnabled(controller))
         return controller;
     }
     return nullptr;
