@@ -82,6 +82,36 @@ No player notification-delivery acceptance or overall migration parity follows
 from the offline suite. Native build/startup results, if subsequently performed,
 must be recorded against their exact artifacts separately.
 
+## Native Windows checkpoint
+
+Signed implementation `203e724a00004dceecbd0eea45cf49157deb4d21` passed the
+AX Zig native build with clean/stable source, x64 proxy verification, 16 exports,
+static CRT and exact embedded provenance. AAI host/UI Lab remained enabled at
+unchanged `4bece2e5`. The cycle built and verified before stopping the existing
+main ordinary session PID9668, then copied/verified and launched PID4432.
+
+Installed DLL SHA256:
+`c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb`.
+New session creation FILETIME `134379033263993446`, client273, installation
+`C:/Games/Star Trek Fleet Command/default/game`. This session identity becomes
+historical after another restart; ordinary launch does not establish account
+identity or profile isolation. Both installed and built hashes match.
+
+Actual startup logs show **73/73** installed groups, FrameTick ready, AAI's two
+native hooks and no error/critical/unavailable lines in the captured check.
+The older AX boot parser counted only the two AAI `status=installed` strings;
+`startup-summary.json` counts actual `+ Patching` lines instead. Normal beta and
+existing `sync.officer` deprecation warnings are not installation failures.
+The existing `Music_All` filter ran naturally. This does not qualify cleanup
+semantics, audible/desktop delivery, incoming reentry or the full player workflow.
+
+All five tracked TOML/state files stayed byte-identical. No config edits, preset
+mutations, induced fleet action, endpoint changes or release promotion occurred.
+`cycle.log`, `cycle-build-receipt.json`, `startup-log-snapshot.txt`,
+`startup-summary.json`, `stores-before.json`, `stores-after.json` and
+`qualification.json` retain the exact results under the evidence directory.
+Guff's optional Audio Alerts/usual-notification trial is pending separately.
+
 ## Continuity and next qualification
 
 The connected scoped preservation-first_migration@1 persona was read directly;

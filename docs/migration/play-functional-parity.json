@@ -4755,7 +4755,7 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "203e724a Windows273 ordinary main PID4432:73 groups/frame ready, zero error/unavailable lines, five stores unchanged. Existing Music_All filter naturally exercised. Not Mac or complete audio/notification delivery acceptance.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
@@ -4772,13 +4772,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644",
+            "implementationCommit": "203e724a00004dceecbd0eea45cf49157deb4d21"
           },
           "contract": "docs/migration/features/PLAY-AUDIO-EVENTS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
           "migrationStatus": "Implemented, unverified",
           "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
-          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution.",
+          "artifactSha256": "c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\audio-notifications-20261031\\qualification.json"
         }
       ],
       "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
@@ -4803,7 +4806,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "revision": "203e724a00004dceecbd0eea45cf49157deb4d21",
           "presence": "present",
           "evidence": "src/mod/features/audio.cc; controlled qualifications are independent of branch presence"
         }
@@ -4829,7 +4832,7 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "203e724a Windows273 ordinary main PID4432:73 groups/frame ready, zero error/unavailable lines, five stores unchanged. Existing Music_All filter naturally exercised. Not Mac or complete audio/notification delivery acceptance.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
@@ -4846,13 +4849,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644",
+            "implementationCommit": "203e724a00004dceecbd0eea45cf49157deb4d21"
           },
           "contract": "docs/migration/features/PLAY-AUDIO-CUES.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
           "migrationStatus": "Implemented, unverified",
           "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
-          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution.",
+          "artifactSha256": "c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\audio-notifications-20261031\\qualification.json"
         }
       ],
       "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
@@ -4877,7 +4883,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "revision": "203e724a00004dceecbd0eea45cf49157deb4d21",
           "presence": "present",
           "evidence": "src/mod/features/notification_audio.cc; controlled qualifications are independent of branch presence"
         }
@@ -4903,7 +4909,7 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "203e724a Windows273 ordinary main PID4432:73 groups/frame ready, zero error/unavailable lines, five stores unchanged. Existing Music_All filter naturally exercised. Not Mac or complete audio/notification delivery acceptance.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
@@ -4920,13 +4926,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644",
+            "implementationCommit": "203e724a00004dceecbd0eea45cf49157deb4d21"
           },
           "contract": "docs/migration/features/PLAY-NOTIFY-BANNERS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
           "migrationStatus": "Implemented, unverified",
           "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
-          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution.",
+          "artifactSha256": "c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\audio-notifications-20261031\\qualification.json"
         }
       ],
       "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
@@ -4951,7 +4960,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "revision": "203e724a00004dceecbd0eea45cf49157deb4d21",
           "presence": "present",
           "evidence": "src/mod/features/toasts.cc; controlled qualifications are independent of branch presence"
         }
@@ -4977,7 +4986,7 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Mac desktop delivery remains unqualified. Shared candidate203e724a passed Windows startup only; existing Mac backend is unchanged source, not executed on Windows.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
@@ -4996,13 +5005,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644",
+            "implementationCommit": "203e724a00004dceecbd0eea45cf49157deb4d21"
           },
           "contract": "docs/migration/features/PLAY-NOTIFY-MAC.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
           "migrationStatus": "Implemented, unverified",
           "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
-          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution.",
+          "artifactSha256": "c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\audio-notifications-20261031\\qualification.json"
         }
       ],
       "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
@@ -5027,7 +5039,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "revision": "203e724a00004dceecbd0eea45cf49157deb4d21",
           "presence": "present",
           "evidence": "src/mod/features/notification_desktop_mac.mm; controlled qualifications are independent of branch presence"
         }
@@ -5057,7 +5069,7 @@
           "tests/incoming_attack_dedup.cc",
           "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "203e724a Windows273 ordinary main PID4432:73 groups/frame ready, zero error/unavailable lines, five stores unchanged. Existing Music_All filter naturally exercised. Not Mac or complete audio/notification delivery acceptance.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
@@ -5076,13 +5088,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644",
+            "implementationCommit": "203e724a00004dceecbd0eea45cf49157deb4d21"
           },
           "contract": "docs/migration/features/PLAY-NOTIFY-FLEET.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
           "migrationStatus": "Implemented, unverified",
           "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
-          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution.",
+          "artifactSha256": "c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\audio-notifications-20261031\\qualification.json"
         }
       ],
       "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
@@ -5107,7 +5122,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "revision": "203e724a00004dceecbd0eea45cf49157deb4d21",
           "presence": "present",
           "evidence": "src/mod/features/fleet_notifications.cc; controlled qualifications are independent of branch presence"
         }
@@ -5137,12 +5152,13 @@
           "tests/incoming_attack_dedup.cc",
           "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/regression-final.log:428/428 steps; exact limits in docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "203e724a Windows273 ordinary main PID4432:73 groups/frame ready, zero error/unavailable lines, five stores unchanged. Existing Music_All filter naturally exercised. Not Mac or complete audio/notification delivery acceptance.",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "See complete source contract and docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md. No native notification/sound delivery or overall platform parity inferred from offline tests.",
       "restorationCommits": [
-        "working candidate after 5c921b65; not yet committed or deployed"
+        "working candidate after 5c921b65; not yet committed or deployed",
+        "203e724a00004dceecbd0eea45cf49157deb4d21"
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAY-NOTIFY-INCOMING.md",
@@ -5156,13 +5172,16 @@
           },
           "target": {
             "branch": "play-dev-ripper",
-            "base": "41da6fc2f713552c571cc7bda88df0a094965644"
+            "base": "41da6fc2f713552c571cc7bda88df0a094965644",
+            "implementationCommit": "203e724a00004dceecbd0eea45cf49157deb4d21"
           },
           "contract": "docs/migration/features/PLAY-NOTIFY-INCOMING.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
           "migrationStatus": "Implemented, unverified",
           "verification": "428/428 assertion-enabled Windows steps; production consumers with controlled runtime/sinks, no audible/desktop delivery. New Mac build/runtime and player trial remain unqualified.",
-          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution."
+          "execution": "Direct continuous development, scoped LexSona guidance; no Runner execution.",
+          "artifactSha256": "c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb",
+          "artifactReceipt": "D:\\dev\\stfc-workspace\\artifacts\\audio-notifications-20261031\\qualification.json"
         }
       ],
       "catalogStatus": "Frozen-source workflow reconciled; controlled Windows evidence, native/platform delivery separate",
@@ -5187,7 +5206,7 @@
         },
         {
           "refRole": "refactor",
-          "revision": "41da6fc2f713552c571cc7bda88df0a094965644 + audio-notifications source delta",
+          "revision": "203e724a00004dceecbd0eea45cf49157deb4d21",
           "presence": "present",
           "evidence": "src/mod/game/notifications.cc; controlled qualifications are independent of branch presence"
         }
@@ -8907,7 +8926,7 @@
   "activeMigration": {
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
-    "status": "Preset save continuation locally corrected and Windows-qualified; exact Mac report builds and native trial remain unresolved. No deployment or new player acceptance.",
+    "status": "Audio/notification cohort source-reconciled,428/428 Windows regression and native startup qualified; main ordinary cycle performed. Optional player notification/audio trial pending. Signed84584fa4 basic Mac preset reorder/save-display trial accepted separately.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
     "acceptedCheckpoint": "faadd75c31e0d23c2209dad053bddb143e494207",
     "obsoleteLocalPointer": {
@@ -8920,30 +8939,32 @@
       "revision": "076c85a84ee5d126b02582f55936ccfc4a066a29"
     },
     "routing": "docs/migration/PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26",
-    "currentSourceCommit": "bfedc29437d1b50e648e8a5fa1bcc614ca074c49",
-    "artifactSha256": "53303e759400dff854be90396d6e06d6d829786bfa179e6f2b10c425ed7d714b",
-    "qualification": "426/426 assertion-enabled Windows steps; clean stable native Windows build, x64 exports/static CRT/provenance verified atbfedc294. Mac compilation/runtime and actual new-crew player trial remain unqualified.",
+    "currentSourceCommit": "203e724a00004dceecbd0eea45cf49157deb4d21",
+    "artifactSha256": "c005b06b99a3e518be0d99307d7fd567365a4c477d110ad52b9081f8f8aafceb",
+    "qualification": "203e724a clean/stable native source, x64 proxy provenance/exports/static CRT verified,73 groups/frame ready, five stores unchanged. No complete notification-delivery or Mac qualification for this candidate.",
     "currentRuntime": {
-      "sourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
-      "buildId": "ax-zig-20261029T055232-bf5eb72a",
+      "sourceCommit": "203e724a00004dceecbd0eea45cf49157deb4d21",
       "buildMode": "releasedbg",
       "client": 273,
       "installation": "C:/Games/Star Trek Fleet Command/default/game",
       "profile": "ordinary",
-      "pidAtQualification": 1088,
-      "startedFileTime": "134377269329025803",
+      "pidAtQualification": 4432,
+      "startedFileTime": "134379033263993446",
       "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
-      "receipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json",
-      "status": "HISTORICAL qualified shop session; later diagnostic cycles occurred. Not a current-session observation. 419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Guff focused combined Windows dialog trial:all look good; per-control coverage not itemized. No resource actions or Mac qualification. Session identity historical after any subsequent restart."
+      "receipt": "D:/dev/stfc-workspace/artifacts/audio-notifications-20261031/qualification.json",
+      "status": "73 groups/frame ready; stores unchanged; optional player delivery trial pending. Session historical after restart."
     },
     "pendingCohort": {
-      "document": "docs/migration/features/AT-STORE.md",
+      "document": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
       "capabilities": [
-        "AT-STORE-RESEARCH",
-        "AT-STORE-CURRENCY",
-        "AT-STORE-ROWS"
+        "PLAY-AUDIO-EVENTS",
+        "PLAY-AUDIO-CUES",
+        "PLAY-NOTIFY-BANNERS",
+        "PLAY-NOTIFY-INCOMING",
+        "PLAY-NOTIFY-FLEET",
+        "PLAY-NOTIFY-MAC"
       ],
-      "status": "Basic Windows accepted; historical account-switch pause ended. Extended lifecycle and macOS checks remain separate."
+      "status": "Source/offline and Windows native startup qualified; optional normal-play/audio trial pending; Mac platform delivery remains separate."
     },
     "previousRuntime": {
       "sourceCommit": "d61b383d9e3b83d5c8ea4852c8c495e35d1a9084",
@@ -8969,20 +8990,16 @@
       "limits": "Default CI excludes optional private AAI and Profiles-host configurations. No new in-game qualification."
     },
     "nextCohort": {
-      "document": "docs/migration/FEATURE-COHORT-20261029-01.md",
-      "base": "8fb8802708612ff21217f79b0cde7da63466809e",
+      "document": "docs/migration/PLAY-PARITY.md",
       "capabilities": [
-        "PLAY-DONATION",
-        "PLAY-CHEST-LIMIT",
-        "PLAY-POPUPS",
-        "PLAY-ARTIFACT-EXCHANGE-ALL"
+        "CFG-LOAD-RELOAD",
+        "CFG-WRITER",
+        "STATE-STORE",
+        "STATE-QUIT"
       ],
-      "status": "419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Guff focused combined Windows dialog trial:all look good; per-control coverage not itemized. No resource actions or Mac qualification.",
-      "inputManifest": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/source-inputs.json",
-      "implementationCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
-      "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
+      "status": "Next source-preserving reassessment of existing Settings/load-save/state lifecycle; do not replace working owners or introduce generic persistence."
     },
-    "artifactSourceCommit": "bfedc29437d1b50e648e8a5fa1bcc614ca074c49",
+    "artifactSourceCommit": "203e724a00004dceecbd0eea45cf49157deb4d21",
     "historicalRuntimes": [
       {
         "sourceCommit": "4f9a6f3b4102e7a6aba6299d932e960284dd5246",
@@ -9032,15 +9049,28 @@
         "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
         "receipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json",
         "status": "Basic combined Windows UI trial accepted; historical session identity after any later restart. Known contained GetComponent diagnostic recurred; caller/cause unqualified."
+      },
+      {
+        "sourceCommit": "a93e688c5db9acd23ec86d7a6e5641d70b39db02",
+        "buildId": "ax-zig-20261029T055232-bf5eb72a",
+        "buildMode": "releasedbg",
+        "client": 273,
+        "installation": "C:/Games/Star Trek Fleet Command/default/game",
+        "profile": "ordinary",
+        "pidAtQualification": 1088,
+        "startedFileTime": "134377269329025803",
+        "aaiRevision": "4bece2e5f1afa7c7343f009e83398742a0f86114",
+        "receipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json",
+        "status": "HISTORICAL qualified shop session; later diagnostic cycles occurred. Not a current-session observation. 419/419 assertion-enabled Windows steps;41/41 native steps;73 groups/frame ready;five stores unchanged;no startup errors observed in snapshot. Guff focused combined Windows dialog trial:all look good; per-control coverage not itemized. No resource actions or Mac qualification. Session identity historical after any subsequent restart."
       }
     ],
     "latestOfflineCandidate": {
-      "sourceCommit": "bfedc29437d1b50e648e8a5fa1bcc614ca074c49",
-      "cohort": "docs/migration/OFFICER-PRESETS-MAC-20261030.md",
-      "qualification": "D:/dev/stfc-workspace/artifacts/mac-officer-presets-20261030/qualification.json",
+      "sourceCommit": "203e724a00004dceecbd0eea45cf49157deb4d21",
+      "cohort": "docs/migration/FEATURE-COHORT-20261031-AUDIO-NOTIFICATIONS.md",
+      "qualification": "D:\\dev\\stfc-workspace\\artifacts\\audio-notifications-20261031\\qualification.json",
       "sourceDirty": false,
-      "sourceStateId": "git:bfedc29437d1b50e648e8a5fa1bcc614ca074c49",
-      "deployed": false,
+      "sourceStateId": "git:203e724a00004dceecbd0eea45cf49157deb4d21",
+      "deployed": true,
       "playerVerified": false,
       "macVerified": false
     }
