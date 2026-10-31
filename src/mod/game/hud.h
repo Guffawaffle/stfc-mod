@@ -49,6 +49,8 @@ struct GalacticAnomaly : il2cpp::Object {
 };
 
 struct NavigationViewData : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationViewData">;
+
   NodeAddress* ViewingAddress()
   { return Get<"ViewingAddress", NodeAddress*>(); }
 };
@@ -67,6 +69,10 @@ struct HudNavigationViewController : unity::Behaviour {
 };
 
 // The upper-right drawer with Help All, Engage and Claim.
+struct HudAllianceAndNewsViewControllerContext : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.HUD", "HudAllianceAndNewsViewControllerContext">;
+};
+
 struct HudAllianceAndNewsViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.HUD", "HudAllianceAndNewsViewController">;
 

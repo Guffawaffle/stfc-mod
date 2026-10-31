@@ -70,7 +70,7 @@ public:
       return;
     }
 
-    auto* nav = Navigation();
+    auto* nav = Navigation(now);
     // Remaining ticks of the active anomaly in the viewed system.
     const int64_t ticks = nav && nav->isActiveAndEnabled() && nav->CanShowGalacticAnomaly() ? RemainingTicks(nav) : 0;
     auto*         label = Label();
@@ -104,23 +104,23 @@ public:
   }
 
 private:
-  // The navigation HUD while the system view is open. It has no singleton; look for it on the top visible canvas
-  // whenever the one held is gone or inactive, rather than with FindObjectOfType, which scans every object.
-  HudNavigationViewController* Navigation()
+  // Navigation and the alliance drawer have separate registered owner canvases.
+  HudNavigationViewController* Navigation(AnomalyClock::time_point now)
   {
     if (Hub::CurrentSection() != SectionID::Navigation_System) {
       DestroyPanel();
       navigation_.Reset();
+      next_discovery_ = {};
       return nullptr;
     }
     if (auto* nav = navigation_.Get<HudNavigationViewController>(); unity::Alive(nav) && nav->isActiveAndEnabled())
       return nav;
+    if (now < next_discovery_)
+      return nullptr;
+    next_discovery_ = now + std::chrono::seconds(1);
     DestroyPanel();
-    auto* canvas    = ScreenManager::GetTopCanvas(true);
-    auto* transform = canvas ? canvas->transform() : nullptr;
-    auto* object    = transform ? transform->gameObject() : nullptr;
-    navigation_ =
-        il2cpp::GcHandle::Strong(object ? object->GetComponentInChildren<HudNavigationViewController>() : nullptr);
+    navigation_ = il2cpp::GcHandle::Strong(
+        ScreenManager::RegisteredController<HudNavigationViewController, NavigationViewData>());
     auto* nav = navigation_.Get<HudNavigationViewController>();
     return unity::Alive(nav) ? nav : nullptr;
   }
@@ -162,11 +162,8 @@ private:
     auto* name   = il2cpp::At(helper ? helper->systemName() : nullptr, 0);
     if (!unity::Alive(name))
       return nullptr;
-    // The drawer is on the HUD's own canvas.
-    auto* hud       = nav->transform();
-    auto* hud_root  = hud ? hud->root() : nullptr;
-    auto* root      = hud_root ? hud_root->gameObject() : nullptr;
-    auto* drawer    = root ? root->GetComponentInChildren<HudAllianceAndNewsViewController>() : nullptr;
+    auto* drawer    = ScreenManager::RegisteredController<HudAllianceAndNewsViewController,
+                                                          HudAllianceAndNewsViewControllerContext>();
     auto* promotion = drawer ? drawer->chestPromotion() : nullptr;
     auto* chest     = promotion ? promotion->transform() : nullptr;
     auto* parent    = chest ? chest->parent() : nullptr;
@@ -222,7 +219,7 @@ private:
   }
 
   il2cpp::GcHandle         navigation_, label_;
-  AnomalyClock::time_point next_update_{};
+  AnomalyClock::time_point next_update_{}, next_discovery_{};
   int64_t                  shown_seconds_ = -1;
 };
 

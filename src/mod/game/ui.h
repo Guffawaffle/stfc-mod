@@ -67,6 +67,8 @@ struct CanvasController : unity::Behaviour {
 
   bool Visible()
   { return Get<"Visible", bool>(); }
+  il2cpp::Object* Context()
+  { return Get<"Context", il2cpp::Object*>(); }
   Il2CppString* name()
   { return Get<"name", Il2CppString*>(); }
 
@@ -302,6 +304,44 @@ struct ScreenManager : MonoSingleton<ScreenManager> {
   // The canvas drawn on top; with visible_only, the top one that is shown.
   static CanvasController* GetTopCanvas(bool visible_only)
   { return Class::Call<"GetTopCanvas", CanvasController*>(visible_only); }
+
+  // HUD owners can live on separate registered canvases, outside the top interaction hierarchy.
+  // Read the existing singleton only: Instance may create one during a scene transition.
+  template <typename Controller, typename Context> static Controller* RegisteredController()
+  {
+    auto* manager = Class::Field<"s_instance", ScreenManager*>();
+    if (!unity::Alive(manager))
+      return nullptr;
+    auto manager_root = il2cpp::GcHandle::Strong(manager);
+    if (!manager_root)
+      return nullptr;
+    auto* screens = manager->Field<"_screens", il2cpp::List<CanvasController*>*>();
+    if (!screens)
+      return nullptr;
+    auto screens_root = il2cpp::GcHandle::Strong(screens);
+    if (!screens_root)
+      return nullptr;
+    const auto count = screens->TryCall<"get_Count", int32_t>();
+    if (!count || count.value < 0)
+      return nullptr;
+    for (int32_t index = 0; index < count.value; ++index) {
+      const auto item   = screens->TryCall<"get_Item", CanvasController*>(index);
+      auto*      canvas = item ? item.value : nullptr;
+      if (!unity::Alive(canvas))
+        continue;
+      auto canvas_root = il2cpp::GcHandle::Strong(canvas);
+      if (!canvas_root)
+        continue;
+      auto* context = canvas->Context();
+      if (!context || !context->Is<Context>() || !canvas->Visible())
+        continue;
+      auto* object     = canvas->gameObject();
+      auto* controller = object ? object->GetComponentInChildren<Controller>() : nullptr;
+      if (unity::Alive(controller))
+        return controller;
+    }
+    return nullptr;
+  }
 
   unity::CanvasScaler* canvasRootScaler()
   { return Field<"m_canvasRootScaler", unity::CanvasScaler*>(); }

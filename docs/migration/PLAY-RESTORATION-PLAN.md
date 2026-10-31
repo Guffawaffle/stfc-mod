@@ -1,5 +1,26 @@
 # Full downstream play restoration plan
 
+## Current completion direction — 2026-10-31
+
+Finish on `play-dev-ripper` in this existing checkout. Preserve selected existing
+play/play-dev functionality and behavior on typed IL2CPP bindings, including the
+already integrated optional product hosts when those hosts are selected. Keep the
+frozen source identities below unchanged; track applicable fixes absent from those
+sources as explicit corrective deltas. New upstream functionality waits until parity.
+
+First repair the Galactic Anomaly owner regression and import station-radius
+restoration #349. Keep the later incoming-alert settings-custody correction in the
+candidate. Live fleet sync #325 is a deferred new feature. Reconcile remaining
+unassessed workflows and superseded task statuses; source presence and boot counts
+are not behavioral acceptance. Prior parked/excluded work remains explicit.
+
+Today's signed test candidate must identify its source SHA, enabled optional hosts,
+platform builds and actual player evidence. A default CI build without AAI must not
+be described as equivalent to an AAI-enabled local build. Signing or delivering a
+functional test candidate does not close the remaining whole-refactor parity work.
+
+Earlier dated checkpoints below retain their historical scope and evidence.
+
 Primary target: **play `cad98ef7990dd66167eb64ea5dda525c1fe2c296`**.
 Migration starting checkpoint: `606025e439c84e1512ce33227473246e69febeec`.
 Source checkout: `D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream`.

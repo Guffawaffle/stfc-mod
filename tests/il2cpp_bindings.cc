@@ -1867,12 +1867,22 @@ void PlannedWarpBindingObservations()
 #include "service_migration_cases.h"
 // Notification cases execute the production audio/banner/fleet consumers with controlled sinks.
 #include "notification_consumer_cases.h"
+#include "hud_owner_cases.h"
+// Registered HUD owners and shared station radii are exercised in separate runtime processes.
 // clang-format on
 
 int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "anomaly-owners") {
+    HudOwnerCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "station-radius-native") {
+    StationRadiusCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "notification-native") {
     NotificationConsumerCases(false);
     return 0;

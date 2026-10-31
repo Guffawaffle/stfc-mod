@@ -243,7 +243,7 @@
       "deps": [
         "P01"
       ],
-      "status": "native-contract-blocked-inactive-handoff-fixture-qualified",
+      "status": "basic-preset-workflows-accepted-windows-and-mac-extended-edges-open",
       "steps": [
         "Reuse existing pure order policy and state owner; SlotId0 valid, fixed empties preserved.",
         "Restore Shift-up/Ctrl-or-Command-down rename gestures and immediate session order.",

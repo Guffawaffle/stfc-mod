@@ -3593,9 +3593,29 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Repeated interior/exterior/Haven transitions and live disable; no compounded saved ranges.",
+      "dependenciesAndLimitations": "Import applicable upstream PR349 radius-identity correction; preserve existing interior scaling, exterior rotation and shared Haven hook. Native station rendering and platform trial remain separate.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CAMERA-STATION.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5c279fab7b0f578debf2c3614de0ce76dd752aa9"
+          },
+          "contract": "docs/migration/features/PLAY-CAMERA-STATION.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Windows actual owner/camera regression modes passed; core binding/mod/sync/SPUD suite348/348 and native AAI-enabled build41/41 passed on recorded stable worktree inputs. Native player and Mac qualification remain pending. Evidence: D:/dev/stfc-workspace/artifacts/integration-audit-20261031/local-verification.json and native-build-receipt.json.",
+          "correctiveDelta": "Upstream PR349 f9a131ea shared-radius restoration",
+          "execution": "Foreground implementation; no Runner execution or parity completion claim."
+        }
+      ]
     },
     {
       "id": "PLAY-SYSTEM-ORBIT",
@@ -6156,9 +6176,29 @@
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Available/missing native clocks and content; system transitions and disabled setting. Do not revive unrelated prototype.",
+      "dependenciesAndLimitations": "Correct registered visible navigation/drawer owners independently; preserve native viewed-system clock, layout and disabled/expiry cleanup. Focused regression fixtures and exact-artifact gameplay qualification remain separate.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-ANOMALY.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5c279fab7b0f578debf2c3614de0ce76dd752aa9"
+          },
+          "contract": "docs/migration/features/PLAY-ANOMALY.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Windows actual owner/camera regression modes passed; core binding/mod/sync/SPUD suite348/348 and native AAI-enabled build41/41 passed on recorded stable worktree inputs. Native player and Mac qualification remain pending. Evidence: D:/dev/stfc-workspace/artifacts/integration-audit-20261031/local-verification.json and native-build-receipt.json.",
+          "correctiveDelta": "Upstream PR350 owner discovery adapted to existing typed bindings",
+          "execution": "Foreground implementation; no Runner execution or parity completion claim."
+        }
+      ]
     },
     {
       "id": "SET-NAV",

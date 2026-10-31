@@ -596,10 +596,10 @@ TKTouch* TKTouch_populateWithPosition_Hook(auto original, TKTouch* _this, uintpt
 // orbit's radius. Widening the orbit's [min, max] lets the zoom go further. The same orbit is the exterior station
 // camera, so it is widened only inside the interior and put back everywhere else.
 
-// Each orbit's own radius range, as found before widening. The interior has one orbit, so this stays tiny; keys are
-// compared only, never dereferenced.
-std::unordered_map<OrbitFrameProvider*, std::pair<float, float>> native_interior_radius;
-bool                                                             interior_zoom_installed = false;
+// Providers are recreated across section transitions, but their shared radius survives. Restore by radius identity;
+// keys are compared only, never dereferenced.
+std::unordered_map<FloatConstraint*, std::pair<float, float>> native_interior_radius;
+bool                                                          interior_zoom_installed = false;
 
 void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider* _this, unity::Camera* primary_camera)
 {
@@ -610,10 +610,10 @@ void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider*
     const float scale    = Config::Get().graphics.interior_zoom_scale;
     if (interior && std::isfinite(scale) && scale > 1.0f) {
       // Recorded on first sight and always scaled from there, so doing this every frame cannot compound.
-      const auto [low, high] = native_interior_radius.try_emplace(_this, radius->min(), radius->max()).first->second;
+      const auto [low, high] = native_interior_radius.try_emplace(radius, radius->min(), radius->max()).first->second;
       radius->SetMin(low * scale);
       radius->SetMax(high * scale);
-    } else if (const auto native = native_interior_radius.find(_this); native != native_interior_radius.end()) {
+    } else if (const auto native = native_interior_radius.find(radius); native != native_interior_radius.end()) {
       // Left wider, the exterior view stays zoomed out and its station labels drop out of range.
       const auto [low, high] = native->second;
       radius->SetMin(low);
