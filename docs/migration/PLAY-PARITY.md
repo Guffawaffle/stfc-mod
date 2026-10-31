@@ -647,3 +647,8 @@ The [UI lookup investigation](UI-LOOKUP-INVESTIGATION-20261031.md) separates the
 observed managed error from its still-unidentified native caller and records
 bounded caller/type instrumentation. Signed `ee112729` gameplay checks and later
 candidate validation remain separate; neither establishes overall refactor parity.
+
+The [pin input contract](features/PLAY-PINS-INPUT.md#own-card-geometry-correction--2026-10-31)
+records a further own-card geometry correction: descendants no longer determine
+the group/drop rectangle. Adapter fixtures and Windows builds qualify that layer;
+rendered results and the frozen group rim/hover/cue presentation remain open.

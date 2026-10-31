@@ -351,7 +351,8 @@ unity::RectTransform* PinRefreshBand(unity::ScrollRect* scroll, ShipManagementVi
     const auto fleet = tile->TryCall<"get_Context", FleetPlayerData*>();
     if (!fleet || !ship_pins::IsPinned(fleet.value))
       continue;
-    const auto bounds = unity::RectTransformUtility::RelativeBounds(content, PinRect(tile));
+    // Decorations and overflowing text descendants must not enlarge the card's pin/drop rectangle.
+    const auto bounds = unity::RectTransformUtility::OwnBounds(content, PinRect(tile));
     if (!bounds || !std::isfinite(bounds.value.center.x) || !std::isfinite(bounds.value.center.y)
         || !std::isfinite(bounds.value.extents.x) || !std::isfinite(bounds.value.extents.y)
         || bounds.value.extents.x <= 0 || bounds.value.extents.y <= 0)
@@ -596,8 +597,7 @@ bool Install()
       || !unity::Canvas::Class::HasProperty<"worldCamera", unity::Camera*>()
       || !unity::RectTransformUtility::Class::StaticMethod<bool(unity::RectTransform*, unity::Vector2, unity::Camera*)>(
           "RectangleContainsScreenPoint")
-      || !unity::RectTransformUtility::Class::StaticMethod<unity::Bounds(unity::Transform*, unity::Transform*)>(
-          "CalculateRelativeRectTransformBounds"))
+      || !unity::RectTransformUtility::OwnBoundsAvailable())
     return false;
   if (!EnsureShipTileBinding())
     return false;

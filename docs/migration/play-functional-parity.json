@@ -2002,18 +2002,39 @@
             "Contained GetComponent exception caller/cause unresolved; occurrence count unknown",
             "Remaining geometry/dispatch/rebind/focus failure paths and macOS unqualified; further testing held"
           ]
+          },
+          {
+            "version": 2,
+            "date": "2026-10-31",
+            "source": {
+              "ref": "frozen/play-dev-20261026",
+              "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+            },
+            "target": {
+              "branch": "play-dev-ripper",
+              "base": "203bc90fed6631468440458f411b25bec9802bad"
+            },
+            "contract": "docs/migration/features/PLAY-PINS-INPUT.md",
+            "migrationStatus": "Partial",
+            "correctiveDelta": "Restore source own-card rectangle projection instead of descendant-inclusive bounds. Existing simpler group rim/hover/cue presentation remains a separate source gap; this geometry correction does not close I4.",
+            "verification": "Windows core compile and build-tests passed 196/196 steps; affected binding/mod suites passed 312/312 steps. Five explicit production geometry adapter modes plus station, diagnostic and timer-owner regressions passed. No new CI registration. Evidence: D:/dev/stfc-workspace/artifacts/integration-audit-20261031/pin-geometry-verification.json.",
+            "remaining": [
+              "Frozen group margin, fill/rim hover and drag styles, unmasked edges, cue presentation and reset behavior remain to reconcile",
+              "Rendered band, hit testing, native pooled ScrollRect dispatch and Mac gameplay are unqualified",
+              "Live GetComponent caller and cause remain unresolved; new bounded instrumentation is built separately from the current ee112729 user trial"
+            ]
         }
       ],
       "knownIssues": [
         {
           "id": "PIN-GROUP-VISUAL",
-          "status": "open; correction held during current player testing",
+            "status": "open; own-card geometry correction under validation; native visual and remaining frozen styling pending",
           "evidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-02/pinned-group-feedback.png",
           "description": "Group rectangle unclear and spills beyond cards; screenshot is actual usability evidence."
         },
         {
           "id": "PIN-COMPONENT-EXCEPTION",
-          "status": "observed; caller/cause unresolved; investigate after hold",
+            "status": "observed; caller/cause unresolved; bounded native caller/type diagnostic built at 203bc90f, not deployed during ee112729 user trial",
           "description": "GameObject.GetComponent NullReferenceException in trial log, contained by binding; later reports suppressed, occurrence count unknown."
         }
       ]

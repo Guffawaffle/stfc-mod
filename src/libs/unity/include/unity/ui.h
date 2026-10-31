@@ -7,6 +7,7 @@
 
 #include <il2cpp/il2cpp.h>
 
+#include <cmath>
 #include <cstdint>
 #include <string_view>
 
@@ -123,6 +124,85 @@ struct RectTransformUtility {
   }
   static il2cpp::CallResult<Bounds> RelativeBounds(Transform* root, Transform* child)
   { return Class::TryCall<"CalculateRelativeRectTransformBounds", Bounds(Transform*, Transform*)>(root, child); }
+
+  static bool OwnBoundsAvailable()
+  { return OwnRectGetter() && OwnPointMethod(false) && OwnPointMethod(true); }
+
+  // The two opposite corners of this rectangle in root space, excluding all descendants. This preserves the
+  // axis-aligned card measurement used by PLAY; RelativeBounds intentionally includes descendant geometry.
+  static il2cpp::CallResult<Bounds> OwnBounds(Transform* root, RectTransform* child)
+  {
+    if (!root || !child || !OwnBoundsAvailable())
+      return {};
+    auto root_owner  = il2cpp::GcHandle::Strong(root);
+    auto child_owner = il2cpp::GcHandle::Strong(child);
+    if (!root_owner || !child_owner)
+      return {};
+    const auto observed = il2cpp::detail::TryInvokeBoxed(OwnRectGetter(), child, nullptr);
+    auto       box      = il2cpp::GcHandle::Strong(observed ? observed.value : nullptr);
+    using RectClass     = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Rect">;
+    if (!box || !box.Get()->klass
+        || !il2cpp::detail::ValueClassMatches(&box.Get()->klass->byval_arg, RectClass::Raw(), sizeof(Rect)))
+      return {};
+    const auto rect = il2cpp::detail::FromBoxed<Rect>(box.Get());
+    if (!std::isfinite(rect.x) || !std::isfinite(rect.y) || !std::isfinite(rect.width) || !std::isfinite(rect.height))
+      return {};
+    const Vector3 corners[]{{rect.x, rect.y, 0}, {rect.x + rect.width, rect.y + rect.height, 0}};
+    Vector3       local[2]{};
+    for (size_t i = 0; i < 2; ++i) {
+      auto point = corners[i];
+      if (!std::isfinite(point.x) || !std::isfinite(point.y))
+        return {};
+      void*      point_args[]{&point};
+      const auto world = TryReadVector3(OwnPointMethod(false), child, point_args);
+      if (!world || !std::isfinite(world.value.x) || !std::isfinite(world.value.y) || !std::isfinite(world.value.z))
+        return {};
+      auto       world_point = world.value;
+      void*      world_args[]{&world_point};
+      const auto relative = TryReadVector3(OwnPointMethod(true), root, world_args);
+      if (!relative || !std::isfinite(relative.value.x) || !std::isfinite(relative.value.y)
+          || !std::isfinite(relative.value.z) || std::abs(relative.value.x) > 1'000'000
+          || std::abs(relative.value.y) > 1'000'000)
+        return {};
+      local[i] = relative.value;
+    }
+    const auto low_x = std::min(local[0].x, local[1].x), high_x = std::max(local[0].x, local[1].x);
+    const auto low_y = std::min(local[0].y, local[1].y), high_y = std::max(local[0].y, local[1].y);
+    return {
+        true,
+        {{(low_x + high_x) * 0.5f, (low_y + high_y) * 0.5f, 0}, {(high_x - low_x) * 0.5f, (high_y - low_y) * 0.5f, 0}}};
+  }
+
+private:
+  static const MethodInfo* OwnRectGetter()
+  {
+    static const auto* method = [] {
+      using RectClass      = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Rect">;
+      const auto candidate = RectTransform::Class::Method<Rect()>("get_rect");
+      return candidate && candidate.Info()->invoker_method
+                     && il2cpp::detail::ValueClassMatches(candidate.Info()->return_type, RectClass::Raw(), sizeof(Rect))
+                 ? candidate.Info()
+                 : nullptr;
+    }();
+    return method;
+  }
+  static const MethodInfo* OwnPointMethod(bool inverse)
+  {
+    static const auto resolve = [](const char* name) -> const MethodInfo* {
+      using TransformClass = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Transform">;
+      const auto candidate = TransformClass::Method<Vector3(Vector3)>(name);
+      return candidate && candidate.Info()->invoker_method
+                     && il2cpp::detail::ValueClassMatches(candidate.Info()->parameters[0], Vector3Class(),
+                                                          sizeof(Vector3))
+                     && il2cpp::detail::ValueClassMatches(candidate.Info()->return_type, Vector3Class(),
+                                                          sizeof(Vector3))
+                 ? candidate.Info()
+                 : nullptr;
+    };
+    static const auto* point         = resolve("TransformPoint");
+    static const auto* inverse_point = resolve("InverseTransformPoint");
+    return inverse ? inverse_point : point;
+  }
 };
 
 struct Toggle : Behaviour {

@@ -1875,6 +1875,7 @@ void PlannedWarpBindingObservations()
 // Notification cases execute the production audio/banner/fleet consumers with controlled sinks.
 #include "notification_consumer_cases.h"
 #include "hud_owner_cases.h"
+#include "pin_geometry_cases.h"
 // Registered active HUD owners and shared station radii are exercised in separate runtime processes.
 // clang-format on
 
@@ -1892,6 +1893,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "component-lookup-diagnostic") {
     ComponentLookupDiagnosticCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("pin-geometry-")) {
+    PinGeometryCases(argv[1]);
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "notification-native") {
