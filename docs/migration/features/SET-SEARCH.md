@@ -28,3 +28,8 @@ services must actually be available before this workflow can work. Boot or sourc
 presence does not establish those rendered/interactive conditions. Full native
 SET-NAV staging/menu validation, search typing/result/Back acceptance and current
 Mac execution remain separate obligations; no new player-test gate is imposed.
+
+Windows source9cb2f6bf is deployed with AAI/UI Lab. The clean/stable native build
+passes41/41 steps; exact source/path/hash and full frame readiness are verified,
+with four root TOML hashes unchanged. This is build/boot evidence only, not a
+rendered search or actual result/Back trial; see cohort for exact identity/limits.

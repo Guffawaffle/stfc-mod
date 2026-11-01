@@ -67,7 +67,24 @@ production code. query-final-tests.log/query-final-command.json qualify final
 full-query retention and record command/cwd/base/duration/exit. Earlier after
 logs are intermediate boundary-only checks, not the final candidate. Source
 files/diff, branch observations and final production/test hashes are retained.
-Mac SDK is absent; this correction is not Mac-qualified. Native delivery will be
-recorded after the clean source-bound build/cycle. Other native Settings
+Mac SDK is absent; this correction is not Mac-qualified. Other native Settings
 publication, rendered interaction, actual Back/caret/focus and platform checks
 remain open; accepted mission/pin behavior and parked scopes remain unchanged.
+
+## Windows delivery
+
+Clean signed source `9cb2f6bf6182e803c4e0436d1d7e937bb1429275` passed the
+41/41-step source-bound AX build with clean AAI4bece2e5/UI Lab retained. Source
+stayed stable through the build. One guarded ordinary C-game cycle stopped
+PID47028 and started PID3212. Embedded build ax-zig-20261101T164745-23eca28f,
+intended loaded module path, build/installed hash and full frame readiness are
+verified. DLL SHA256:
+`7BB3EBBA3AF25A0F84CDCE48BCB3A03723D004AF224981968205FC3AD8D72F49`.
+No fresh startup errors observed; the working4498a8b8 DLL is retained.
+
+No agent TOML edits; all four root TOML hashes match their pre-cycle values.
+This boot observation does not qualify actual search typing/result/Back or full
+native menu publication. Exact command/cwd/source/duration/exit and runtime
+evidence are in native-cycle-command.json/native-cycle.log and
+runtime-verification.json. Next: SET-NAV complete publication/menu lifecycle,
+retaining its prior open native trial notes; do not repeat this search model work.

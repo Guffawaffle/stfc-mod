@@ -6413,7 +6413,7 @@
           "settings-search-navigation-20261101: initial controller partial-UTF8 reproduction against base; final full-query retention204/204 Windows Settings/model/typed-adapter steps",
           "tests/maintenance_pages_test.cc: complete2/3/4-byte native input retention, unchanged query revision, ASCII and existing queue/Clear/failure/Dismiss paths"
         ],
-        "exactCandidateRuntime": "Correction 8aa5f2ac, main ordinary Windows client273 PID48852/filetime134375441138301477: exact disk artifact/module path, FrameTick ready, zero startup errors and four unchanged TOML files. Native search interaction not yet rechecked.",
+        "exactCandidateRuntime": "Signed9cb2f6bf / DLL7BB3EBBA: Windows ordinary target/module/full-frame boot verified; no actual search typing/result/Back or full menu publication trial",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Native header input and metadata navigation retained. Search-row correction tests/build/boot qualified; actual search typing, result click/Back and failure rendering after this correction remain unverified.",
@@ -6422,7 +6422,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/SET-SEARCH.md",
-      "catalogStatus": "Frozen search model retained; full UTF-8 query correction tested; native interaction/Mac open",
+      "catalogStatus": "Frozen search model/full UTF-8 retention qualified; Windows boot verified; native result/Back/Mac open",
       "userEntryPoint": "Existing Mod Settings root search field, result Open/Clear and contextual Back",
       "migrationAssessments": [
         {
@@ -6436,7 +6436,13 @@
             "Exact-client menu/search/result/Back/focus interaction",
             "Full SET-NAV publication qualification",
             "Current Mac correction execution"
-          ]
+          ],
+          "nativeDelivery": {
+            "commit": "9cb2f6bf6182e803c4e0436d1d7e937bb1429275",
+            "sha256": "7BB3EBBA3AF25A0F84CDCE48BCB3A03723D004AF224981968205FC3AD8D72F49",
+            "evidence": "D:/dev/stfc-workspace/artifacts/settings-search-navigation-20261101/runtime-verification.json",
+            "scope": "AAI/UI Lab source-bound41/41 build, ordinary full-frame boot and unchanged four TOML hashes; no live search/menu/Back acceptance"
+          }
         }
       ],
       "branchObservations": [
