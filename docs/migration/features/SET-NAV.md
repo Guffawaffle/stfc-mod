@@ -112,3 +112,13 @@ confirmed destruction;163 typed-binding steps and41 clean native build steps
 pass. It is built locally with AAI/UI Lab but deployment/native-after checks are
 held by Guff's explicit no-cycle request during a wave. Earlier unassigned-cause
 statements above describe the prior observation, not the current diagnosis.
+
+After Guff finished the wave and authorized deployment, sourcef53b07ea (unchanged
+guard/tests207becc9) was built and delivered through one guarded AX Zig cycle.
+Installed SHA25687455393F134ACBC6D8C8186E84303CB711C347721A237A324F709C6AC07535E;
+AAI4bece2e5/UI Lab retained. Native Windows client273 focus/typing `zoom`, single
+Open -> Camera, Back retaining results, Clear, and close/reopen pass. Both
+publications report179 pages; one root is visible. Full fresh-session log has no
+error entries or GetComponent diagnostic. Four root TOML hashes are unchanged.
+Evidence: artifacts/ui-lookup-20261101/final-native-observations.json and linked
+investigation. This supersedes the wave hold, with no Mac or all-control claim.

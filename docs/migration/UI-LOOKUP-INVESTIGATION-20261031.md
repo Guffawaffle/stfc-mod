@@ -1,5 +1,40 @@
 # Contained UI component lookup error
 
+## Guarded build deployed and checked — 2026-11-01
+
+Guff finished the wave and explicitly authorized deployment and the in-game
+check. This supersedes the historical hold below. One normal guarded AX Zig
+cycle stopped PID2500 and started PID27260/start134380312972477042 in the ordinary
+C-game installation. Clean, stable source f53b07ea94a62aad4a7364616ab6ba029cc16f9f
+contains the unchanged production fix/tests from207becc9. The native build and
+proxy verification pass; clean AAI4bece2e5 and UI Lab remain enabled.
+Installed/build SHA256:
+`87455393F134ACBC6D8C8186E84303CB711C347721A237A324F709C6AC07535E`.
+Embedded build is ax-zig-20261101T182606-4e62a1bd. Runtime observation resolves
+the intended process/module path and current disk artifact; this is not an
+independent measurement of every in-memory byte. Frame delivery is ready.
+
+Agent-observed native Windows client273 check: profile -> Settings -> Mod
+Settings displays one root; focus search and type `zoom` yields33 results
+(first32 shown). A single Open click opens Camera. Back retains `zoom` and its
+results; Clear restores categories. Back closes through Settings to profile;
+reopening Settings/Mod Settings restores categories with one root. The game is
+returned to its normal station view. No settings were edited or reset.
+
+The complete fresh session snapshot, including interaction and final close,
+has no error entries, GetComponent exception or typed component diagnostic.
+Both Settings publications report179 pages. All four game-root TOML hashes
+match before/after. This qualifies the reproduced sequence on this Windows
+build; it does not establish all callers, long-session frequency, player
+acceptance or Mac behavior. Real live-object lookup failures still report.
+
+Evidence in artifacts/ui-lookup-20261101: final-deploy-cycle.log and
+final-deploy-cycle-command.json bind command/cwd/source/duration/exit;
+final-deployed-runtime.json, final-native-session.log,
+final-native-observations.json and final-deploy-config-comparison.json retain
+runtime identity, bounded observations and preference comparison. The earlier
+deployment-hold.json/completion.json remain historical pre-deployment records.
+
 ## Diagnosis and correction — 2026-11-01
 
 The current reproduced occurrence is a stale native selection, not an established
@@ -55,7 +90,7 @@ proxy check, retaining clean AAI4bece2e5/UI Lab. Candidate DLL SHA256:
 Exact receipt and DLL/PDB are in final-build-receipt.json/final-candidate.
 Final build command/cwd/source/duration/exit: final-build-command.json.
 
-**Not deployed or native-after qualified.** Guff entered a wave and explicitly
+**Historical pre-deployment hold (superseded above).** Guff entered a wave and explicitly
 requested no cycling. All subsequent work was local build/evidence only; no UI
 input, deployment or cycle followed that request. The live DLL remains diagnostic
 17e378d0, SHA256 F0C2720E7D51C989B6499A2FD77D0A772E8184CFC92C5D4367BEA4256C8EE145,
