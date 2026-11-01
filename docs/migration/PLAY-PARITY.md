@@ -2,12 +2,18 @@
 
 ## Settings lifecycle continuation — 2026-11-01
 
+The [defaults/alias cohort](FEATURE-COHORT-20261101-DEFAULTS-ALIASES.md) qualifies
+190 selected product defaults and canonical/legacy precedence, and fixes a
+reproduced focus-search alias leak into generated settings. Separate frozen claim
+diagnostic/recovery discovery is inventoried without implementation. Native
+interaction, diagnostics and whole-refactor acceptance remain distinct.
+
 The [save/state cohort](FEATURE-COHORT-20261101-SETTINGS-STATE.md) now reconciles
 CFG-WRITER and STATE-STORE against frozen source and verifies the already-present
 STATE-QUIT improvement. Windows lifecycle checks and the new real-file state
 drain/veto/failure check pass. Production code and the deployed DLL are unchanged;
-exact-client native quit and Mac coverage remain open. Continue complete settings
-key/default/alias reconciliation next.
+exact-client native quit and Mac coverage remain open. Product-default and alias
+reconciliation is recorded by the later cohort above.
 
 The mission-marker right-click and pin border/click-drag corrections have player
 acceptance on Windows. Continue with the existing settings/state owners. The first

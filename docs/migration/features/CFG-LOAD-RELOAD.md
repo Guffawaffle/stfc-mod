@@ -1,7 +1,7 @@
 # CFG-LOAD-RELOAD — settings activation and reload
 
-Contract version: 1. Status: bounded startup/reload correction; complete key-by-key
-configuration parity remains open.
+Contract version: 1. Status: selected product defaults/aliases and bounded reload
+corrections qualified locally; native interaction and excluded diagnostics remain open.
 
 ## Inputs and scope
 
@@ -75,7 +75,7 @@ Logs, commands, base SHA, durations and exit codes are in the evidence directory
 `before.log` preserves the failing startup-gap assertion; `after-*.log` and
 `reload-modes.json` preserve the corrected results. Native delivery is recorded
 below. Current Mac SDK is absent; this correction is
-not Mac-qualified. Key-by-key defaults/alias reconciliation remains open. The later
+not Mac-qualified. The later
 [save/state assessment](../FEATURE-COHORT-20261101-SETTINGS-STATE.md) qualifies the
 core writer/store and retained state quit-drain improvement through Windows
 fixtures; native quit and Mac coverage stay open. Accepted pin click/drag behavior
@@ -98,3 +98,20 @@ Generated vars are expected startup output, not primary edits. This is native
 compilation and boot smoke, not an exact-client external-edit or native quit test.
 `native-cycle-command.json` records command/cwd/source/duration/exit code;
 `native-cycle.log` and `runtime-verification.json` retain the bounded evidence.
+
+## Product defaults and aliases — 2026-11-01
+
+The [defaults/alias cohort](../FEATURE-COHORT-20261101-DEFAULTS-ALIASES.md)
+compares 190 actual frozen loader defaults against production Parse with absent
+and wrong-type input, plus the conditional experimental read. A five-pair alias
+matrix covers missing/legacy/both/malformed input, including explicit false and
+zero. This is a selected product-default assessment, not all diagnostic or native
+workflow acceptance. Frozen scopes and exact branch observations above remain;
+the new target base is 4865af29 and changed inputs are hash-bound in the cohort.
+
+One generated-output mismatch was reproduced: the cross-section focussearch alias
+was recorded even when absent. ReadRenamed now supports the old section directly,
+retains canonical precedence and records only ui.focus_search. Existing canonical
+and same-section behavior remain qualified. No defaults or primary-file edits.
+System orbit stays parked. DIAG-CLAIM-TRACE is newly inventoried as a separate
+unassessed owner; it is not silently treated as missing product behavior or ported.

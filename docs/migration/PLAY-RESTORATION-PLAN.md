@@ -21,7 +21,10 @@ The later [save/state assessment](FEATURE-COHORT-20261101-SETTINGS-STATE.md)
 qualifies the preserved writer/store and existing shared state quit drain through
 Windows fixtures, including a real-file drain/failure/veto recovery sequence.
 No production changes or deployment were needed. Native quit/Mac acceptance stays
-open; complete configuration-key/default/alias reconciliation is next.
+open. The later [defaults/alias cohort](FEATURE-COHORT-20261101-DEFAULTS-ALIASES.md)
+qualifies 190 selected product defaults and legacy/canonical precedence, with a
+narrow generated-settings correction. Continue the remaining Settings interaction
+and shortcut-editing workflows; do not expand parked diagnostics or orbit work.
 
 ## Current completion direction — 2026-10-31
 

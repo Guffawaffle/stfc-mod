@@ -13,7 +13,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <set>
@@ -507,9 +509,88 @@ void UpstreamSettings()
         "Haven validation and new UI settings");
 }
 
+void FrozenSettingsDefaults()
+{
+  // Both immutable default fixtures live beside one another. No game settings are opened.
+  const auto expected = toml::parse_file(
+      (std::filesystem::path(STFC_SHORTCUT_DEFAULTS).parent_path() / "config_defaults_frozen.toml").string());
+  const auto matches = [](const toml::node& wanted, const toml::node* actual) {
+    if (!actual)
+      return false;
+    if (wanted.is_boolean())
+      return actual->value<bool>() == wanted.value<bool>();
+    if (wanted.is_string())
+      return actual->value<std::string>() == wanted.value<std::string>();
+    const auto number = wanted.value<double>();
+    const auto value  = actual->value<double>();
+    // Frozen double literals and target float members have the same numeric default.
+    return number && value && std::abs(*number - *value) <= 1e-6 * std::max(1.0, std::abs(*number));
+  };
+  toml::table invalid;
+  for (const auto& [section, values] : expected) {
+    toml::table fields;
+    for (const auto& [key, value] : *values.as_table())
+      fields.insert(key, toml::array{}); // A present wrong type must use the default, not a neighboring key.
+    invalid.insert(section, std::move(fields));
+  }
+  for (const auto& input : {toml::table{}, invalid}) {
+    toml::table effective;
+    const auto  candidate = Config::Parse(input, effective, false);
+    for (const auto& [section, values] : expected)
+      for (const auto& [key, wanted] : *values.as_table()) {
+        const bool same = matches(wanted, effective[section][key].node());
+        if (!same)
+          std::cerr << "frozen settings default differs: " << section << '.' << key << '\n';
+        Check(same, "actual frozen loader defaults survive missing and mistyped settings");
+      }
+    Check(!candidate->graphics.galaxy_overlays[1] && candidate->graphics.galaxy_overlays[0]
+              && !candidate->patches.navigationorbithooks,
+          "source overlay fallback and deliberately parked orbit stay distinct");
+  }
+  toml::table effective;
+  const auto  experimental = Config::Parse(toml::parse("[control]\nenable_experimental=true"), effective, false);
+  Check(experimental->graphics.system_pan_momentum == 0.4f
+            && effective["graphics"]["system_pan_momentum"].value<double>() == double(0.4f),
+        "conditional source momentum default appears only when its experimental read is enabled");
+}
+
 // Settings that were renamed still read their old names, and the new name wins when both are set.
 void RenamedSettings()
 {
+  const auto check_alias = []<typename T>(const char* section, const char* key, const char* old_section,
+                                          const char* old_key, T fallback, T legacy, T canonical) {
+    for (int mode = 0; mode < 5; ++mode) {
+      toml::table input;
+      if (mode) {
+        toml::table old;
+        if (mode == 4)
+          old.insert(old_key, toml::array{});
+        else
+          old.insert(old_key, legacy);
+        input.insert(old_section, std::move(old));
+      }
+      if (mode == 2 || mode == 3) {
+        auto& values = *input.emplace<toml::table>(section).first->second.as_table();
+        if (mode == 3)
+          values.insert(key, toml::array{});
+        else
+          values.insert(key, canonical);
+      }
+      toml::table effective;
+      const auto  parsed   = Config::Parse(input, effective, false);
+      const auto  expected = mode == 1 ? legacy : mode == 2 ? canonical : fallback;
+      Check(effective[section][key].value<T>() == expected,
+            "aliases preserve missing, legacy-only, explicit canonical and malformed precedence");
+      if (effective[old_section][old_key])
+        std::cerr << "obsolete alias in effective settings: " << old_section << '.' << old_key << '\n';
+      Check(!effective[old_section][old_key], "effective settings contain the canonical key, never its alias");
+    }
+  };
+  check_alias("graphics", "ui_scale_step", "graphics", "ui_scale_adjust", 0.05f, 0.1f, 0.0f);
+  check_alias("ui", "format_cargo_values", "ui", "cargo_format", true, false, true);
+  check_alias("ui", "disable_exchange_all", "ui", "hide_artifact_exchange_all", false, true, false);
+  check_alias("ui", "focus_search", "patches", "focussearch", true, false, true);
+  check_alias("sync", "officers", "sync", "officer", false, true, false);
   toml::table effective;
   const auto  old_names = Config::Parse(toml::parse(R"(
     [graphics]
@@ -702,6 +783,7 @@ int main()
   NotificationAudio();
   DailyFactionSettings();
   UpstreamSettings();
+  FrozenSettingsDefaults();
   RenamedSettings();
   ParseDoesNotActivateSettings();
   LegacySyncTargets();

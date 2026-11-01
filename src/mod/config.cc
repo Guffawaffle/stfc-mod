@@ -250,11 +250,16 @@ public:
   // A renamed setting: `key`, or `old_key` when only the old name is set. The vars file records `key`.
   template <typename T>
   void ReadRenamed(std::string_view section, std::string_view key, std::string_view old_key, T& value)
+  { ReadRenamed(section, key, section, old_key, value); }
+
+  template <typename T>
+  void ReadRenamed(std::string_view section, std::string_view key, std::string_view old_section,
+                   std::string_view old_key, T& value)
   {
-    if (Node(section, key) || !Node(section, old_key))
+    if (Node(section, key) || !Node(old_section, old_key))
       return Read(section, key, value);
-    spdlog::warn("deprecated config value {}.{}; use {}.{}", section, old_key, section, key);
-    value = Convert(section, old_key, value);
+    spdlog::warn("deprecated config value {}.{}; use {}.{}", old_section, old_key, section, key);
+    value = Convert(old_section, old_key, value);
     Record(section, key, value);
   }
 
@@ -981,10 +986,8 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   u.pinned_ships = ReadShipFilter(r, "pinned_ships").names;
   r.Read("ui", "double_click_to_assign_ship", u.double_click_to_assign_ship);
   r.Read("ui", "dock_syncmanagement", u.dock_syncmanagement);
-  // PLAY accepted the older cross-section key. A present canonical key wins even when malformed.
-  if (!r.Node("ui", "focus_search"))
-    u.focus_search = r.Get<bool>("patches", "focussearch", u.focus_search);
-  r.Read("ui", "focus_search", u.focus_search);
+  // A present canonical key wins even when malformed; vars record only the canonical name.
+  r.ReadRenamed("ui", "focus_search", "patches", "focussearch", u.focus_search);
   r.ReadRenamed("ui", "format_cargo_values", "cargo_format", u.format_cargo_values);
   r.Read("ui", "highlight_opc_fleets", u.highlight_opc_fleets);
   r.Read("ui", "fleet_hud_opc_eta", u.fleet_hud_opc_eta);

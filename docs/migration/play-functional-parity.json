@@ -6911,7 +6911,10 @@
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
           "settings-lifecycle-20261101: 230/230 Windows lifecycle/model build/run steps; isolated config reload modes pass",
-          "tests/config_reload.cc startup-before-first-poll: startup-gap assertion reproduced against base, corrected production path passes; preserves primary bytes and restart-only patches"
+          "tests/config_reload.cc startup-before-first-poll: startup-gap assertion reproduced against base, corrected production path passes; preserves primary bytes and restart-only patches",
+          "tests/config_defaults_frozen.toml + FrozenSettingsDefaults: 190 actual frozen loader defaults, missing/wrong-type input; conditional momentum separately",
+          "tests/mod_logic.cc RenamedSettings: five-pair/five-case alias precedence and canonical output matrix; obsolete focussearch output reproduces before and passes after",
+          "settings-defaults-aliases-20261101: build build-tests test-mod, final270/270 Windows steps"
         ],
         "exactCandidateRuntime": "Windows boot/frame readiness verified on signed fb615d48 / DLL A416FA2A; live external-edit and native quit trials not performed",
         "playerVerifiedFinalCandidate": false
@@ -6920,7 +6923,7 @@
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/CFG-LOAD-RELOAD.md",
-      "catalogStatus": "Startup-gap correction tested; Windows boot verified; full key parity and live reload trial pending",
+      "catalogStatus": "190 product defaults and alias/reload checks pass; focus alias output correction; native/Mac limits recorded",
       "userEntryPoint": "Load settings at startup; edit the primary TOML for automatic reload or use Reload Settings",
       "migrationAssessments": [
         {
@@ -6941,6 +6944,19 @@
             "evidence": "D:/dev/stfc-workspace/artifacts/settings-lifecycle-20261101/runtime-verification.json",
             "scope": "AAI/UI Lab native build, exact ordinary process/path, full frame readiness; no live settings edits"
           }
+        },
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "4865af29ad1fbc8d5499a42a177c1a4e391c813b",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-defaults-aliases-20261101/candidate-inputs.json",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-DEFAULTS-ALIASES.md",
+          "scope": "Selected product defaults/alias precedence; narrow canonical generated-output correction",
+          "remaining": [
+            "Exact-client native Settings/reload/quit interactions",
+            "Mac correction qualification",
+            "DIAG-CLAIM-TRACE separate discovery; parked orbit unchanged"
+          ]
         }
       ],
       "branchObservations": [
@@ -7001,6 +7017,24 @@
             {
               "path": "src/mod/config.cc",
               "symbol": "Get/Parse/Activate/Reload/ReloadIfChanged; correction bound by manifest"
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "refactor",
+          "revision": "4865af29ad1fbc8d5499a42a177c1a4e391c813b",
+          "presence": "consumer-only",
+          "evidenceKind": "production parser source and new source-bound fixtures; correction hashed separately",
+          "evidence": [
+            {
+              "path": "src/mod/config.cc",
+              "symbol": "Reader::ReadRenamed and Config::Read/Parse"
+            },
+            {
+              "path": "tests/config_defaults_frozen.toml",
+              "symbol": "190 source-derived defaults"
             }
           ]
         }
@@ -9193,6 +9227,44 @@
           "execution": "Direct tooling; no Runner execution"
         }
       ]
+    },
+    {
+      "id": "DIAG-CLAIM-TRACE",
+      "name": "Claim diagnostics and opt-in navigation recovery",
+      "classification": "Discovered, unassessed",
+      "parentCapabilities": [
+        "CFG-LOAD-RELOAD",
+        "PLAY-CLAIM"
+      ],
+      "baseline": {
+        "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+        "path": "mods/src/patches/parts/claim_trace.cc",
+        "symbolOrWorkflow": "Claim trace owner; ui.claim_navigation_recovery gates at lines1475/1491/1583; patches.claimtracehooks reader"
+      },
+      "migration": {
+        "path": "not migrated or fully assessed in this slice",
+        "symbolOrWorkflow": "No implementation authorized by this discovery"
+      },
+      "expectedBehavior": "Preserve discovery of the separate diagnostic/recovery owner; determine full behavior before any future migration decision.",
+      "verificationProcedure": "Discovery only: inspect complete owner, startup registration, environment/debug gates, workers, observations and recovery authorization before qualification.",
+      "validation": {
+        "staticSourceInspection": false,
+        "localAutomatedEvidence": [],
+        "exactCandidateRuntime": "not assessed",
+        "playerVerifiedFinalCandidate": false
+      },
+      "dependenciesAndLimitations": "Two frozen settings readers are present but outside the current product-default fixture. Full claim diagnostic/recovery workflow remains unassessed. Discovery does not authorize implementing or activating science probes.",
+      "restorationCommits": [],
+      "activationAndDependencies": "Frozen patches.claimtracehooks and ui.claim_navigation_recovery; complete gating remains unassessed.",
+      "discovery": {
+        "date": "2026-11-01",
+        "targetBase": "4865af29ad1fbc8d5499a42a177c1a4e391c813b",
+        "sourceEvidence": [
+          "mods/src/config.cc: installClaimTraceHooks and claim_navigation_recovery readers",
+          "mods/src/patches/claim_trace.h: local diagnostic and shared cloud-load observer",
+          "mods/src/patches/parts/claim_trace.cc: native recovery gates"
+        ]
+      }
     }
   ],
   "sourceCoverage": {
