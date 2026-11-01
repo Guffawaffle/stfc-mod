@@ -620,6 +620,25 @@ int main()
             && std::get<std::string>(saved.at(save_key)) == "LCTRL-G | F8 | SHIFT-F14",
         "explicit confirmation verifies the live replacement before registering the canonical save");
 
+  const auto accepted_before_cancel = Shortcut::Read(action).alternatives;
+  const auto saves_before_cancel    = save_calls;
+  ShortcutRow(action, "type").invoke(0);
+  Check(editor && editor->commit("F15"), "a cancellable proposal stages");
+  editor.reset();
+  ShortcutRow(action, "cancel").invoke(0);
+  Check(Shortcut::Read(action).alternatives == accepted_before_cancel && save_calls == saves_before_cancel
+            && !ShortcutRow(action, "confirm").Read(0).visible,
+        "explicit proposal cancellation preserves live bindings and performs no save");
+  ShortcutRow(action, "type").invoke(0);
+  Check(editor && editor->commit("F15"), "a page-owned proposal stages");
+  editor.reset();
+  const auto delayed_confirm = ShortcutRow(action, "confirm").invoke;
+  const auto proposal_page   = std::ranges::find(catalog.RegisteredPages(), shortcuts->id(), &PageCatalog::Page::id);
+  proposal_page->leave();
+  delayed_confirm(0);
+  Check(Shortcut::Read(action).alternatives == accepted_before_cancel && save_calls == saves_before_cancel
+            && !ShortcutRow(action, "confirm").Read(0).visible,
+        "page departure revokes a staged proposal and its delayed confirm without saving");
   ShortcutRow(action, "type").invoke(0);
   Check(editor && editor->commit("F15"), "a second proposal stages");
   editor.reset();

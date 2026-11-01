@@ -26,6 +26,12 @@ qualifies 190 selected product defaults and legacy/canonical precedence, with a
 narrow generated-settings correction. Continue the remaining Settings interaction
 and shortcut-editing workflows; do not expand parked diagnostics or orbit work.
 
+The [reset/shortcut assessment](FEATURE-COHORT-20261101-RESET-SHORTCUTS.md) now
+maps those existing controllers and qualifies preserved models, real reset
+conflict/retry, revoked shortcut proposals and typed callback fixtures. No
+production changes or game cycle were needed. Remaining native Settings
+interaction and platform acceptance remain distinct from source/model coverage.
+
 ## Current completion direction — 2026-10-31
 
 Finish on `play-dev-ripper` in this existing checkout. Preserve selected existing

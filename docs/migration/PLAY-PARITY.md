@@ -2,6 +2,12 @@
 
 ## Settings lifecycle continuation — 2026-11-01
 
+The [reset/shortcut cohort](FEATURE-COHORT-20261101-RESET-SHORTCUTS.md) records the
+preserved reset/draft/Undo models and existing native controller wiring. New real
+file reset conflict/retry and actual shortcut cancellation/departure checks pass,
+along with current model and typed adapter suites. This slice changes tests and
+evidence only; native presentation/interaction and Mac remain separately open.
+
 The [defaults/alias cohort](FEATURE-COHORT-20261101-DEFAULTS-ALIASES.md) qualifies
 190 selected product defaults and canonical/legacy precedence, and fixes a
 reproduced focus-search alias leak into generated settings. Separate frozen claim

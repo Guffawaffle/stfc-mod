@@ -6431,21 +6431,103 @@
       },
       "migration": {
         "path": "src/mod/settings/maintenance_pages.cc",
-        "symbolOrWorkflow": "No native consumer"
+        "symbolOrWorkflow": "RegisterMaintenanceTools/RegisterMaintenancePages -> native TextEntry -> PrepareReset/RetrySave"
       },
       "expectedBehavior": "Defaults, reset, conflicts and retry UI",
       "verificationProcedure": "Confirm page/individual reset, external-file conflict, retry, failed-save notice and refresh observer.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
+          "settings-reset-shortcuts-20261101: 54/54 settings-model/runtime steps, 163/163 controlled IL2CPP binding steps",
+          "tests/settings_persistence_integration_test.cc: canceled/stale reset, actual file conflict/explicit retry/reopen; tests/config_settings_test.cc: proposal cancel/page leave/delayed confirm produce no binding/save change"
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Canonical reset/help/retry/save-notice actions restored; preserving writer and stale model/page checks retained. Actual failure/retry UI trial pending.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/SET-RESET-SAVE.md",
+      "catalogStatus": "Frozen reset model and Windows controller/file checks pass; native UI/Mac open",
+      "userEntryPoint": "Existing Mod Settings Defaults & Help: page/individual reset and save retry",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "2195077fcc996bea332ef22baaf5c7d0108a4c64",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-reset-shortcuts-20261101/candidate-inputs.json",
+          "scope": "Preserved models/current controller workflow and Windows fixtures; no production changes or deployment",
+          "supersededMigrationDescription": "No native consumer",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-RESET-SHORTCUTS.md",
+          "remaining": [
+            "Exact-client native reset/record/confirm/Undo UX",
+            "Hardware/focus and current Mac acceptance"
+          ]
+        }
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "named control owner absent",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/maintenance.h",
+              "symbol": "RegisterMaintenancePages",
+              "filePresent": false
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "control present",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/maintenance.h",
+              "symbol": "RegisterMaintenancePages",
+              "filePresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "control present",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/maintenance.h",
+              "symbol": "RegisterMaintenancePages",
+              "filePresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "refactor",
+          "revision": "2195077fcc996bea332ef22baaf5c7d0108a4c64",
+          "presence": "control present",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "src/mod/settings/maintenance.h",
+              "symbol": "RegisterMaintenancePages",
+              "filePresent": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "SET-SHORTCUT-EDITOR",
@@ -6458,21 +6540,103 @@
       },
       "migration": {
         "path": "src/mod/settings/shortcut_settings.cc",
-        "symbolOrWorkflow": "Parser/dispatch only"
+        "symbolOrWorkflow": "RegisterShortcutPages -> production dispatcher/model/draft/Undo -> native text-entry/page-confirm/capture"
       },
       "expectedBehavior": "Interactive binding capture, conflict, undo/defaults",
       "verificationProcedure": "Add/change/remove/unbind, capture/confirm/cancel, conflict, undo, restore, focus loss and held-key release.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
+          "settings-reset-shortcuts-20261101: 54/54 settings-model/runtime steps, 163/163 controlled IL2CPP binding steps",
+          "tests/settings_persistence_integration_test.cc: canceled/stale reset, actual file conflict/explicit retry/reopen; tests/config_settings_test.cc: proposal cancel/page leave/delayed confirm produce no binding/save change"
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Uses existing parser/dispatcher and exact generation guards; recording, alternatives, remove/default/undo, overlaps and release/cancel implemented. Recording stages then confirms on the page; native trial pending.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/SET-SHORTCUT-EDITOR.md",
+      "catalogStatus": "Frozen workflow mapped; Windows editor/dispatcher/capture checks pass; native UX/Mac open",
+      "userEntryPoint": "Existing Mod Settings Shortcuts: record/exact entry, Stage/Confirm, remove/default/Undo/unbind",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "2195077fcc996bea332ef22baaf5c7d0108a4c64",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-reset-shortcuts-20261101/candidate-inputs.json",
+          "scope": "Preserved models/current controller workflow and Windows fixtures; no production changes or deployment",
+          "supersededMigrationDescription": "Parser/dispatch only",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-RESET-SHORTCUTS.md",
+          "remaining": [
+            "Exact-client native reset/record/confirm/Undo UX",
+            "Hardware/focus and current Mac acceptance"
+          ]
+        }
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "named control owner absent",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/shortcut_settings.cc",
+              "symbol": "RegisterShortcutPages",
+              "filePresent": false
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "control present",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/shortcut_settings.cc",
+              "symbol": "RegisterShortcutPages",
+              "filePresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "control present",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/shortcut_settings.cc",
+              "symbol": "RegisterShortcutPages",
+              "filePresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "refactor",
+          "revision": "2195077fcc996bea332ef22baaf5c7d0108a4c64",
+          "presence": "control present",
+          "evidenceKind": "named control source/registration, not player acceptance",
+          "evidence": [
+            {
+              "path": "src/mod/settings/shortcut_settings.cc",
+              "symbol": "RegisterShortcutPages",
+              "filePresent": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "SET-AUDIO-PICKER",

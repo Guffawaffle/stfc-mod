@@ -121,10 +121,21 @@ int main()
     assert(toml::parse(saved)["ui"]["allow_officer_preset_reordering"].value<bool>() == true);
     assert(runtime_config::CaptureReload().empty());
 
+    // Preparing/canceling a reset does not touch the live preference or disk.
+    {
+      const auto cancelled = PrepareReset(setting);
+      assert(cancelled.current());
+    }
+    assert(live && ReadConfigText(path) == saved);
+    const auto stale_reset = PrepareReset(setting);
+    setting.InvalidateSession();
+    assert(!stale_reset.current() && !stale_reset.apply() && live && ReadConfigText(path) == saved);
+    const auto reset = PrepareReset(setting);
+
     // A conflicting external edit must not be overwritten or turn a verified
-    // session change into a false successful disk-save claim.
+    // reset into a false successful disk-save claim.
     ReplaceConfigText(path, "# external\n[ui]\nallow_officer_preset_reordering = 'external'\nother=42\n");
-    assert(setting.SetFromUser(false, setting.Observe()).outcome == Outcome::AppliedVerified && !live);
+    assert(reset.current() && reset.apply() && !live);
     Wait(setting, SaveState::Conflict);
     assert(toml::parse(ReadConfigText(path))["ui"]["allow_officer_preset_reordering"].value<std::string>()
            == "external");
@@ -167,5 +178,6 @@ int main()
   }
   assert(toml::parse(ReadConfigText(path))["ui"]["allow_officer_preset_reordering"].value<bool>() == false);
   std::cout << "Settings persistence: production value model -> runtime adapter -> background worker -> preserving "
-               "TOML edit -> checked replacement -> receipt -> reopen passed; native UI/quit delivery simulated\n";
+               "TOML edit -> checked replacement -> receipt -> reopen passed, including canceled/stale reset and "
+               "reset conflict/retry; native UI/quit delivery simulated\n";
 }
