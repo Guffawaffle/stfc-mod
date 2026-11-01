@@ -7023,13 +7023,99 @@
       "verificationProcedure": "Comments/unknowns, external conflicts, retry, nested/vetoed quit, force deadline and worker exit before resume.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "settings-save-state-20261101: final 37/37 Windows lifecycle build/run steps; commands and input hashes retained",
+          "tests/mod_state_transaction_test.cc: real-file three-group drain, admission closure, failed version2 receipt, unchanged future bytes and veto/retry recovery"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Comments/unknowns, external conflicts, retry, nested/vetoed quit, force deadline and worker exit before resume.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/CFG-WRITER.md",
+      "catalogStatus": "Frozen writer reconciled; Windows model/adapter/file checks pass; native quit/Mac open",
+      "userEntryPoint": "Existing persisted setting or shortcut; ordinary quit",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "300dcab47ed2f0d0b1a0141e8f6478299b8c5399",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-save-state-20261101/candidate-inputs.json",
+          "scope": "Source reconciliation and Windows fixture qualification; no production changes or deployment",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-SETTINGS-STATE.md",
+          "remaining": [
+            "Exact-client native quit/UI delivery",
+            "Current Mac qualification"
+          ]
+        }
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "absent for named workflow",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/runtime_config.cc",
+              "symbol": "WantsQuit",
+              "filePresent": false,
+              "symbolPresent": false
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "consumer-only",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/runtime_config.cc",
+              "symbol": "WantsQuit",
+              "filePresent": true,
+              "symbolPresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "consumer-only",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/patches/parts/runtime_config.cc",
+              "symbol": "WantsQuit",
+              "filePresent": true,
+              "symbolPresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "refactor",
+          "revision": "300dcab47ed2f0d0b1a0141e8f6478299b8c5399",
+          "presence": "consumer-only",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "src/mod/runtime_config.cc",
+              "symbol": "WantsQuit",
+              "filePresent": true,
+              "symbolPresent": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "STATE-STORE",
@@ -7045,16 +7131,102 @@
         "symbolOrWorkflow": "PrepareAsync"
       },
       "expectedBehavior": "Versioned state merge and atomic replacement",
-      "verificationProcedure": "Absent/v1/version2/malformed, unknown nested keys, two writers and group receipts; no format migration.",
+      "verificationProcedure": "Absent/missing-version/v1/version2/future/malformed policy, unknown nested fields, two-process latest-file merge, exact group receipts, paired pin fields, state quit drain and recovery; no format migration.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "settings-save-state-20261101: final 37/37 Windows lifecycle build/run steps; commands and input hashes retained",
+          "tests/mod_state_transaction_test.cc: real-file three-group drain, admission closure, failed version2 receipt, unchanged future bytes and veto/retry recovery"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Absent/v1/version2/malformed, unknown nested keys, two writers and group receipts; no format migration.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/STATE-STORE.md",
+      "catalogStatus": "Frozen store reconciled; Windows real-file/group checks pass; native/Mac open",
+      "userEntryPoint": "Pin order and officer order saves through existing feature owners",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "300dcab47ed2f0d0b1a0141e8f6478299b8c5399",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-save-state-20261101/candidate-inputs.json",
+          "scope": "Source reconciliation and Windows fixture qualification; no production changes or deployment",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-SETTINGS-STATE.md",
+          "remaining": [
+            "Exact-client native quit/UI delivery",
+            "Current Mac qualification"
+          ]
+        }
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "absent for named workflow",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/mod_state.cc",
+              "symbol": "update_state",
+              "filePresent": false,
+              "symbolPresent": false
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "consumer-only",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/mod_state.cc",
+              "symbol": "update_state",
+              "filePresent": true,
+              "symbolPresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "consumer-only",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/mod_state.cc",
+              "symbol": "update_state",
+              "filePresent": true,
+              "symbolPresent": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "refactor",
+          "revision": "300dcab47ed2f0d0b1a0141e8f6478299b8c5399",
+          "presence": "consumer-only",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "src/mod/mod_state.cc",
+              "symbol": "update_state",
+              "filePresent": true,
+              "symbolPresent": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "STATE-QUIT",
@@ -7070,21 +7242,107 @@
         "symbolOrWorkflow": "WantsQuit/Update + mod_state::{BeginQuitDrain,QuitDrained,ResumeAfterQuitVeto}"
       },
       "expectedBehavior": "Pending state writer on normal quit",
-      "verificationProcedure": "Normal quit currently drains TOML only; pending pin changes apply only after Saved. Define/test pending request drain without claiming acknowledged state lost.",
+      "verificationProcedure": "Verify the shared RuntimeConfig owner waits for both TOML worker exit and admitted state settlement; test idle TOML, three state groups, closed admission, version2 failure, nested/resumed veto and later save recovery. Native quit remains unqualified.",
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
           "tests/runtime_config_test.cc: idle TOML + pending state + resumed native veto",
           "tests/mod_state_writer_test.cc: paused commit, debounce bypass, admission rejection, failure settlement and resume",
           "settings-state-build-2.log: mods test-mod test-il2cpp, 193/193 steps (before later Settings recovery/entry-check delta)",
-          "settings-core-registered-build.log: final registered-core candidate, 205/205 steps"
+          "settings-core-registered-build.log: final registered-core candidate, 205/205 steps",
+          "settings-save-state-20261101: final 37/37 Windows lifecycle build/run steps; commands and input hashes retained",
+          "tests/mod_state_transaction_test.cc: real-file three-group drain, admission closure, failed version2 receipt, unchanged future bytes and veto/retry recovery"
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Existing sole RuntimeConfig quit owner drains admitted state edits without main-thread file I/O or joins; state admission resumes with TOML after a native veto. Failed receipts remain Failed. Requires installed RuntimeConfig quit delivery; disabled/missing delivery and actual native shutdown remain unqualified. Forced termination is not normal quit.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/STATE-QUIT.md",
+      "catalogStatus": "Retained shared drain verified by Windows adapter and real-file checks; native/Mac open",
+      "userEntryPoint": "Ordinary quit with pending state; native veto resumes saving",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "300dcab47ed2f0d0b1a0141e8f6478299b8c5399",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-save-state-20261101/candidate-inputs.json",
+          "scope": "Source reconciliation and Windows fixture qualification; no production changes or deployment",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-SETTINGS-STATE.md",
+          "remaining": [
+            "Exact-client native quit/UI delivery",
+            "Current Mac qualification"
+          ],
+          "supersededVerificationProcedure": "Normal quit currently drains TOML only; pending pin changes apply only after Saved. Define/test pending request drain without claiming acknowledged state lost."
+        }
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "absent for named workflow",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/mod_state.cc",
+              "symbol": "BeginQuitDrain",
+              "filePresent": false,
+              "symbolPresent": false
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "absent for named workflow",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/mod_state.cc",
+              "symbol": "BeginQuitDrain",
+              "filePresent": true,
+              "symbolPresent": false
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "absent for named workflow",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/mod_state.cc",
+              "symbol": "BeginQuitDrain",
+              "filePresent": true,
+              "symbolPresent": false
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "refactor",
+          "revision": "300dcab47ed2f0d0b1a0141e8f6478299b8c5399",
+          "presence": "consumer-only",
+          "evidenceKind": "named implementation/API source inspection, not native acceptance",
+          "evidence": [
+            {
+              "path": "src/mod/mod_state.cc",
+              "symbol": "BeginQuitDrain",
+              "filePresent": true,
+              "symbolPresent": true
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "SYNC-RECORDS",

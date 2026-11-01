@@ -61,6 +61,9 @@ and player-confirmed behavior are separate evidence.
 | [AT-STORE-CURRENCY — Alliance Games store currency refresh](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
 | [AT-STORE-ROWS — Alliance Games purchase refresh visibility](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
 | [CFG-LOAD-RELOAD — Existing config defaults, aliases and activation](features/CFG-LOAD-RELOAD.md) | Load settings at startup; edit the primary TOML for automatic reload or use Reload Settings | consumer-only @ `ff179589` | consumer-only @ `cad98ef7` | consumer-only @ `1baa55fe` | consumer-only @ `71e49f9d` | Startup-gap correction tested; Windows boot verified; full key parity and live reload trial pending |
+| [CFG-WRITER — Registered-key preserving saves and quit](features/CFG-WRITER.md) | Existing persisted setting or shortcut; ordinary quit | absent for named workflow @ `ff179589` | consumer-only @ `cad98ef7` | consumer-only @ `1baa55fe` | consumer-only @ `300dcab4` | Frozen writer reconciled; Windows model/adapter/file checks pass; native quit/Mac open |
+| [STATE-STORE — Versioned state merge and atomic replacement](features/STATE-STORE.md) | Pin order and officer order saves through existing feature owners | absent for named workflow @ `ff179589` | consumer-only @ `cad98ef7` | consumer-only @ `1baa55fe` | consumer-only @ `300dcab4` | Frozen store reconciled; Windows real-file/group checks pass; native/Mac open |
+| [STATE-QUIT — Pending state writer on normal quit](features/STATE-QUIT.md) | Ordinary quit with pending state; native veto resumes saving | absent for named workflow @ `ff179589` | absent for named workflow @ `cad98ef7` | absent for named workflow @ `1baa55fe` | consumer-only @ `300dcab4` | Retained shared drain verified by Windows adapter and real-file checks; native/Mac open |
 
 Full pinned paths, symbols, differences and history are in each inventory entry.
 Frozen play-dev remains `1baa55fedf1758b19f843cc59707b8901a0b4998`.
@@ -115,9 +118,6 @@ when their migration is deferred.
 | SET-SEARCH | Settings search with contextual return | Implemented, unverified | mods/src/settings/native/settings_search.cc |
 | SET-RESET-SAVE | Defaults, reset, conflicts and retry UI | Implemented, unverified | mods/src/settings/maintenance.h |
 | SET-SHORTCUT-EDITOR | Interactive binding capture, conflict, undo/defaults | Implemented, unverified | mods/src/settings/shortcut_settings.cc |
-| CFG-WRITER | Registered-key preserving saves and quit | Implemented, unverified | mods/src/patches/parts/runtime_config.cc |
-| STATE-STORE | Versioned state merge and atomic replacement | Implemented, unverified | mods/src/mod_state.cc |
-| STATE-QUIT | Pending state writer on normal quit | Implemented, unverified | mods/src/mod_state.cc |
 | SYNC-RECORDS | Owned per-target sync and session lifecycle | Implemented, unverified | mods/src/patches/parts/sync.cc |
 | SYNC-BATTLES | Battle fetch, journals and participant resolution | Implemented, unverified | mods/src/patches/parts/sync.cc |
 | SYNC-RESTART | Legacy attempted-ID suppression is not delivery ACK | Intentionally excluded | mods/src/patches/parts/sync.cc |

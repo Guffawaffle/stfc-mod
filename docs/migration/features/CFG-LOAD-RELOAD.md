@@ -75,8 +75,10 @@ Logs, commands, base SHA, durations and exit codes are in the evidence directory
 `before.log` preserves the failing startup-gap assertion; `after-*.log` and
 `reload-modes.json` preserve the corrected results. Native delivery is recorded
 below. Current Mac SDK is absent; this correction is
-not Mac-qualified. Key-by-key defaults/alias reconciliation, CFG-WRITER,
-STATE-STORE and STATE-QUIT coverage remain open. Accepted pin click/drag behavior
+not Mac-qualified. Key-by-key defaults/alias reconciliation remains open. The later
+[save/state assessment](../FEATURE-COHORT-20261101-SETTINGS-STATE.md) qualifies the
+core writer/store and retained state quit-drain improvement through Windows
+fixtures; native quit and Mac coverage stay open. Accepted pin click/drag behavior
 does not require an extended pin test round before this work can proceed.
 
 ## Windows delivery — 2026-11-01

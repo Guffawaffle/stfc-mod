@@ -112,6 +112,68 @@ void Finish(const ChildProcess& child)
   Check(GetExitCodeProcess(process.hProcess, &code) && code == 0);
 }
 #endif
+void AwaitDrain()
+{
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (!mod_state::QuitDrained() && std::chrono::steady_clock::now() < deadline)
+    std::this_thread::yield();
+  Check(mod_state::QuitDrained());
+}
+void QuitDrainTransactions()
+{
+  using namespace mod_state;
+  uint64_t pins = 0, officers = 0, opacity = 0;
+  {
+    // An actual OS lock keeps all three admitted groups from committing before
+    // the shared quit API closes admission. No game process or native quit is involved.
+    StateFileLock held(fixture_path, 1);
+    Check(held.acquired());
+    pins     = QueueShipPins({8, 7}, {"unresolved-after-quit"});
+    officers = QueueOfficerOrder({1, 2});
+    opacity  = QueueConsoleOpacity(71);
+    Check(pins && officers && opacity);
+    BeginQuitDrain();
+    Check(!QuitDrained());
+    Check(!QueueShipPins({99}, {}) && !QueueOfficerOrder({99}) && !QueueConsoleOpacity(99));
+  }
+  AwaitDrain();
+  for (const auto [group, revision] :
+       {std::pair{Group::ShipPins, pins}, {Group::OfficerOrder, officers}, {Group::ConsoleOpacity, opacity}}) {
+    const auto status = Status(group);
+    Check(status.revision == revision && status.outcome == SaveOutcome::Saved);
+  }
+  const auto saved = Read();
+  Check(saved && saved->at("pinned_ship_ids") == nlohmann::json::array({"8", "7"})
+        && saved->at("legacy_pinned_ship_names") == nlohmann::json::array({"unresolved-after-quit"})
+        && saved->at("officer_preset_order") == nlohmann::json::array({"1", "2"})
+        && saved->at("dev_console").at("background_opacity_percent") == 71);
+  Check(saved->at("writerA") == 30 && saved->at("writerB") == 30 && saved->at("unrelated").at("external") == "preserve"
+        && saved->at("dev_console").at("other") == "keep");
+
+  // A native veto reopens the existing owner. A refused future-version write
+  // settles as Failed, remains byte-identical, and must not block the quit drain.
+  ResumeAfterQuitVeto();
+  const std::string future = R"({"version":2,"unrelated":"future"})";
+  Write(future);
+  const auto failed = QueueShipPins({9}, {});
+  Check(failed > pins);
+  BeginQuitDrain();
+  AwaitDrain();
+  Check(Status(Group::ShipPins).revision == failed && Status(Group::ShipPins).outcome == SaveOutcome::Failed);
+  Check(Bytes(fixture_path) == future);
+
+  ResumeAfterQuitVeto();
+  Write(saved->dump());
+  const auto retried = QueueShipPins({9}, {});
+  Check(retried > failed);
+  BeginQuitDrain();
+  AwaitDrain();
+  Check(Status(Group::ShipPins).revision == retried && Status(Group::ShipPins).outcome == SaveOutcome::Saved);
+  const auto retried_state = Read();
+  Check(retried_state && retried_state->at("pinned_ship_ids") == nlohmann::json::array({"9"}));
+  ResumeAfterQuitVeto();
+  std::cout << "State quit drain: real file groups, closed admission, failed receipt and veto recovery passed\n";
+}
 void RunTransaction()
 {
   ConfigSaveFixtureDirectory fixture;
@@ -189,6 +251,7 @@ void RunTransaction()
   Check(!saved->at("dev_console").contains("background_opacity"));
   Check(saved->at("officer_preset_order") == nlohmann::json::array({"2", "1"}));
   Check(saved->at("pinned_ship_ids") == nlohmann::json::array({"7", "8"}));
+  QuitDrainTransactions();
   Check(!mod_state::Update([](auto& data) { data["version"] = 999; }));
   std::ofstream(fixture_path) << R"({"version":999,"unrelated":"future"})";
   Check(!mod_state::Update([](auto& data) { data["new"] = 1; }));

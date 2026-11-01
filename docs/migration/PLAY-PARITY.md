@@ -2,6 +2,13 @@
 
 ## Settings lifecycle continuation — 2026-11-01
 
+The [save/state cohort](FEATURE-COHORT-20261101-SETTINGS-STATE.md) now reconciles
+CFG-WRITER and STATE-STORE against frozen source and verifies the already-present
+STATE-QUIT improvement. Windows lifecycle checks and the new real-file state
+drain/veto/failure check pass. Production code and the deployed DLL are unchanged;
+exact-client native quit and Mac coverage remain open. Continue complete settings
+key/default/alias reconciliation next.
+
 The mission-marker right-click and pin border/click-drag corrections have player
 acceptance on Windows. Continue with the existing settings/state owners. The first
 bounded [CFG-LOAD-RELOAD correction](features/CFG-LOAD-RELOAD.md) fixes an edit

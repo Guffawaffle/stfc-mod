@@ -13,9 +13,15 @@ The [pin presentation correction](features/PLAY-PINS-INPUT.md) is deployed from
 settings loading/saving and state lifecycle reconciliation. The first bounded
 [reload correction](features/CFG-LOAD-RELOAD.md) fixes settings edits missed between
 startup and the first frame, with isolated before/after evidence. Complete
-configuration-key, writer and state/quit coverage remains open. Frozen source,
+configuration-key and native lifecycle qualification remain open. Frozen source,
 typed safeguards, optional-host selection and prior scope decisions stay unchanged.
 Older test-artifact and pending-candidate statements below are historical.
+
+The later [save/state assessment](FEATURE-COHORT-20261101-SETTINGS-STATE.md)
+qualifies the preserved writer/store and existing shared state quit drain through
+Windows fixtures, including a real-file drain/failure/veto recovery sequence.
+No production changes or deployment were needed. Native quit/Mac acceptance stays
+open; complete configuration-key/default/alias reconciliation is next.
 
 ## Current completion direction — 2026-10-31
 
