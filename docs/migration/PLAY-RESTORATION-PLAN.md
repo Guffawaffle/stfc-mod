@@ -32,6 +32,11 @@ conflict/retry, revoked shortcut proposals and typed callback fixtures. No
 production changes or game cycle were needed. Remaining native Settings
 interaction and platform acceptance remain distinct from source/model coverage.
 
+The [search assessment](FEATURE-COHORT-20261101-SEARCH.md) now maps result/Back
+ownership and restores full source query retention where the target cut UTF-8 by
+bytes. Settings/model/typed adapter checks pass. Native publication/menu and actual
+search/result/Back interaction remain open; this does not close SET-NAV globally.
+
 ## Current completion direction — 2026-10-31
 
 Finish on `play-dev-ripper` in this existing checkout. Preserve selected existing

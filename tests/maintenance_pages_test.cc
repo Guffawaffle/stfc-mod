@@ -183,6 +183,19 @@ int main()
   results.invoke(0);
   Check(SettingsSearchQuery().empty() && results.Count() == 0 && FilterMaintenanceSearch(pages.front(), "camera"),
         "Clear restores normal navigation without changing settings");
+  for (const std::string codepoint :
+       {std::string("\xc3\xa9"), std::string("\xe2\x82\xac"), std::string("\xf0\x9f\x98\x80")}) {
+    // These fit the native 128-character limit but their UTF-8 bytes exceed it.
+    const auto text = std::string(SettingsSearch::QueryLimit - (codepoint.size() == 4 ? 2 : 1), 'a') + codepoint;
+    SetSettingsSearchQuery(text);
+    Check(SettingsSearchQuery() == text, "Back/reopen retains complete native UTF-8 input, not a byte prefix");
+    const auto revision = SettingsSearchRevision();
+    SetSettingsSearchQuery(text);
+    Check(SettingsSearchRevision() == revision, "unchanged native query does not manufacture a new revision");
+  }
+  SetSettingsSearchQuery(std::string(SettingsSearch::QueryLimit, 'a'));
+  Check(SettingsSearchQuery() == std::string(SettingsSearch::QueryLimit, 'a'), "ASCII query budget is unchanged");
+  SetSettingsSearchQuery({});
   SetSettingsSearchError("The native search field could not open. Reopen Settings to try again.");
   Check(results.Count() == 1 && results.Read(0).label == "Search unavailable"
             && results.Read(0).value.find("Reopen Settings") != std::string::npos && results.Read(0).button == "Dismiss"

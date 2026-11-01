@@ -6409,7 +6409,9 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
           "tests/maintenance_pages_test.cc: absent duplicate root row; search results/navigation/Clear preserved; empty-query error visibility and Dismiss refresh. See cohort Search-row correction.",
-          "D:/dev/stfc-workspace/.ax/play-dev-ripper-8aa5f2ac-receipt.json: source-bound 210/210 test/build steps, 37/37 full DLL and explicit maintenance fixture re-execution."
+          "D:/dev/stfc-workspace/.ax/play-dev-ripper-8aa5f2ac-receipt.json: source-bound 210/210 test/build steps, 37/37 full DLL and explicit maintenance fixture re-execution.",
+          "settings-search-navigation-20261101: initial controller partial-UTF8 reproduction against base; final full-query retention204/204 Windows Settings/model/typed-adapter steps",
+          "tests/maintenance_pages_test.cc: complete2/3/4-byte native input retention, unchanged query revision, ASCII and existing queue/Clear/failure/Dismiss paths"
         ],
         "exactCandidateRuntime": "Correction 8aa5f2ac, main ordinary Windows client273 PID48852/filetime134375441138301477: exact disk artifact/module path, FrameTick ready, zero startup errors and four unchanged TOML files. Native search interaction not yet rechecked.",
         "playerVerifiedFinalCandidate": false
@@ -6418,7 +6420,83 @@
       "restorationCommits": [
         "8aa5f2ac1ca63c2453e69de624af7f61f7ca498d"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/SET-SEARCH.md",
+      "catalogStatus": "Frozen search model retained; full UTF-8 query correction tested; native interaction/Mac open",
+      "userEntryPoint": "Existing Mod Settings root search field, result Open/Clear and contextual Back",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "d2851fee96858bcef1d01a5fecb8b3a9f89fa350",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-search-navigation-20261101/candidate-inputs.json",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-SEARCH.md",
+          "scope": "Search model/current native owner trace; remove extra stored-query byte cap to retain complete source text. Supporting navigation is bounded assessment, not complete SET-NAV.",
+          "remaining": [
+            "Exact-client menu/search/result/Back/focus interaction",
+            "Full SET-NAV publication qualification",
+            "Current Mac correction execution"
+          ]
+        }
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "named control owner absent",
+          "evidenceKind": "named native control source, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/native/settings_search.cc",
+              "symbol": "InstallSettingsSearch"
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "control present",
+          "evidenceKind": "named native control source, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/native/settings_search.cc",
+              "symbol": "InstallSettingsSearch"
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "control present",
+          "evidenceKind": "named native control source, not player acceptance",
+          "evidence": [
+            {
+              "path": "mods/src/settings/native/settings_search.cc",
+              "symbol": "InstallSettingsSearch"
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "refRole": "refactor",
+          "revision": "d2851fee96858bcef1d01a5fecb8b3a9f89fa350",
+          "presence": "control present",
+          "evidenceKind": "named native control source, not player acceptance",
+          "evidence": [
+            {
+              "path": "src/mod/features/settings_search.cc",
+              "symbol": "InstallNativeSearch"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "SET-RESET-SAVE",

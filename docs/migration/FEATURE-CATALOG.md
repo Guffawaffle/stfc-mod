@@ -66,6 +66,7 @@ and player-confirmed behavior are separate evidence.
 | [STATE-QUIT — Pending state writer on normal quit](features/STATE-QUIT.md) | Ordinary quit with pending state; native veto resumes saving | absent for named workflow @ `ff179589` | absent for named workflow @ `cad98ef7` | absent for named workflow @ `1baa55fe` | consumer-only @ `300dcab4` | Retained shared drain verified by Windows adapter and real-file checks; native/Mac open |
 | [SET-RESET-SAVE — Defaults, reset, conflicts and retry UI](features/SET-RESET-SAVE.md) | Existing Mod Settings Defaults & Help: page/individual reset and save retry | named control owner absent @ `ff179589` | control present @ `cad98ef7` | control present @ `1baa55fe` | control present @ `2195077f` | Frozen reset model and Windows controller/file checks pass; native UI/Mac open |
 | [SET-SHORTCUT-EDITOR — Interactive binding capture, conflict, undo/defaults](features/SET-SHORTCUT-EDITOR.md) | Existing Mod Settings Shortcuts: record/exact entry, Stage/Confirm, remove/default/Undo/unbind | named control owner absent @ `ff179589` | control present @ `cad98ef7` | control present @ `1baa55fe` | control present @ `2195077f` | Frozen workflow mapped; Windows editor/dispatcher/capture checks pass; native UX/Mac open |
+| [SET-SEARCH — Settings search with contextual return](features/SET-SEARCH.md) | Existing Mod Settings root search field, result Open/Clear and contextual Back | named control owner absent @ `ff179589` | control present @ `cad98ef7` | control present @ `1baa55fe` | control present @ `d2851fee` | Frozen search model retained; full UTF-8 query correction tested; native interaction/Mac open |
 
 Full pinned paths, symbols, differences and history are in each inventory entry.
 Frozen play-dev remains `1baa55fedf1758b19f843cc59707b8901a0b4998`.
@@ -117,7 +118,6 @@ when their migration is deferred.
 | SET-NAV | Mod pages and native back/navigation | Partial | mods/src/settings/native/page_navigation.cc |
 | SET-VALUES | Boolean, exact numeric, choices and slider controls | Partial | mods/src/settings/native/value_widgets.cc |
 | SET-FC-CONFIRM | Restore FC confirmation after do-not-show | Implemented, unverified | mods/src/patches/parts/fc_confirmation_reset.cc |
-| SET-SEARCH | Settings search with contextual return | Implemented, unverified | mods/src/settings/native/settings_search.cc |
 | SYNC-RECORDS | Owned per-target sync and session lifecycle | Implemented, unverified | mods/src/patches/parts/sync.cc |
 | SYNC-BATTLES | Battle fetch, journals and participant resolution | Implemented, unverified | mods/src/patches/parts/sync.cc |
 | SYNC-RESTART | Legacy attempted-ID suppression is not delivery ACK | Intentionally excluded | mods/src/patches/parts/sync.cc |

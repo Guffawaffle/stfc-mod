@@ -2,6 +2,11 @@
 
 ## Settings lifecycle continuation — 2026-11-01
 
+The [search cohort](FEATURE-COHORT-20261101-SEARCH.md) maps existing metadata,
+root-input and contextual navigation owners and fixes extra byte truncation of
+retained UTF-8 queries. Source model/matching stays intact; full native menu,
+typing, result/Back and platform acceptance remain separately open.
+
 The [reset/shortcut cohort](FEATURE-COHORT-20261101-RESET-SHORTCUTS.md) records the
 preserved reset/draft/Undo models and existing native controller wiring. New real
 file reset conflict/retry and actual shortcut cancellation/departure checks pass,

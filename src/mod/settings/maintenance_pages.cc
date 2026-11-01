@@ -139,8 +139,8 @@ void SetSettingsSearchError(std::string text)
 }
 void SetSettingsSearchQuery(std::string text)
 {
-  if (text.size() > SettingsSearch::QueryLimit)
-    text.resize(SettingsSearch::QueryLimit);
+  // The native field limits input characters; Find separately bounds matching.
+  // Retain its complete UTF-8 text for Back/reopen, as the frozen source does.
   if (text == Tools().query)
     return;
   Tools().query = std::move(text);
