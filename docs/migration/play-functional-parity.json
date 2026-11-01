@@ -1859,7 +1859,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "2026-11-01: core/build-tests 196/196 steps, binding/gameplay 312/312 steps, production presentation/reset fixture passed. Rendered group, native drag/drop and persistence not qualified by those fixtures.",
+        "Windows": "2026-11-01: core/build-tests 196/196 steps, binding/gameplay 312/312 steps, production presentation/reset fixture passed. Rendered group, native drag/drop and persistence not qualified by those fixtures. Clean 5235a65d native build deployed; source/hash/module and frame ready. Exact-artifact pin visual/gesture trial pending.",
         "macOS": "Shared source implemented. Prior c27cc6bf platform CI passed; current presentation correction not built locally because Mac SDK remains absent; native Mac gameplay unqualified."
       },
       "branchObservations": [
@@ -2044,7 +2044,7 @@
           "verification": {
             "sourceComparison": "Complete frozen pin input and supporting ship-tech presentation scanned; retained own-card geometry and target owners compared. Current client273 MaskableGraphic.set_maskable(bool) present.",
             "automated": "Windows core/build-tests 196/196 steps; binding/gameplay 312/312; production native-presentation helper fixture passed group transitions, tile reset, cue layout/replacement, custody and maskability failures. Does not execute native pointers or persistence.",
-            "nativeRuntime": "Pending exact-artifact visual/gesture trial.",
+            "nativeRuntime": "Clean 5235a65db6d59566e1ef12f8ed12a22ef54a0e90 AAI/UI Lab Windows build deployed through AX. Installed/build SHA256 FD7E1F04C9A0597D12A5CA76AE38D7975157BC899F628E0E4BCFB0BE88BA8A57 match; ordinary C-game PID24532, embedded source/module path and full frame readiness verified; no fresh errors at startup observation. Native visual/gesture trial pending. No agent TOML edits; settings file changed while the previous session was still running, so no blanket unchanged-config claim.",
             "macOS": "SDK unavailable locally; current correction unqualified."
           },
           "remaining": [

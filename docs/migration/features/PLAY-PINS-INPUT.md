@@ -105,3 +105,14 @@ they were not game crashes. Evidence and hashed inputs are retained in
 `D:/dev/stfc-workspace/artifacts/pin-presentation-20261101/`. The test mode is local;
 no CI registration was added. Native visual/gesture and current Mac results remain
 pending.
+
+## Native delivery - 2026-11-01
+
+Clean signed source `5235a65db6d59566e1ef12f8ed12a22ef54a0e90` was built with
+existing AAI/UI Lab selection and deployed through one AX cycle. Installed/build
+SHA256 `FD7E1F04C9A0597D12A5CA76AE38D7975157BC899F628E0E4BCFB0BE88BA8A57`
+match. Ordinary Windows process 24532 loads the target module and reaches full
+frame readiness, with no fresh startup errors at observation. Rendered pin and
+gesture trials remain pending. No agent TOML edits were made; the settings file
+changed while the old session was still running, before this DLL was activated,
+so whole-configuration hash preservation is not claimed.

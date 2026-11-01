@@ -652,3 +652,17 @@ The [pin input contract](features/PLAY-PINS-INPUT.md#own-card-geometry-correctio
 records a further own-card geometry correction: descendants no longer determine
 the group/drop rectangle. Adapter fixtures and Windows builds qualify that layer;
 rendered results and the frozen group rim/hover/cue presentation remain open.
+
+## Pin presentation restoration - 2026-11-01
+
+The [pin contract](features/PLAY-PINS-INPUT.md) now records restored frozen group
+margins, fills/rims, card highlights and the compact labeled first-pin cue/reset.
+Source `5235a65d` passed the affected binding/gameplay suite (312/312 steps), local
+production-presentation and retained geometry/mission/fleet fixtures, and its
+clean AAI/UI Lab Windows DLL is deployed with matching hashes and full startup.
+Actual rendered group, native drag/drop and Mac qualification remain open; this
+does not close I4 or overall pin parity. Exact inputs, logs, DLLs and runtime
+verification are under `D:/dev/stfc-workspace/artifacts/pin-presentation-20261101/`.
+The full catalog renderer still rejects three pre-existing revision-plus-manifest
+observations; only the pin row was regenerated. A documentation-only follow-up
+preserves UTF-8 bytes in all other catalog rows.
