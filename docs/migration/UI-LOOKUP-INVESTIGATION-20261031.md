@@ -1,5 +1,49 @@
 # Contained UI component lookup error
 
+## Diagnosis and correction — 2026-11-01
+
+The current reproduced occurrence is a stale native selection, not an established
+thread race. Unity's EventSystem returns a non-null managed GameObject wrapper
+whose native Unity object has already been destroyed. Keyboard focus detection
+treated the non-null pointer as usable and called GetComponent<TMP_InputField>.
+That throws and returns the binding's default null, making focus read false.
+It is contained, but is a real failed read and possible repeated exception work;
+the once-per-method log cannot establish frequency or harmlessness.
+
+Signed diagnostic936aeb0f reproduced by selecting the Mod Settings search field
+on client273 at11:58:27.517 local. Exact DLL/PDB native stack resolves to
+unity::Key::IsInputFocused -> TryInvoke<TMP_InputField*,Il2CppReflectionType*>
+from the shared ScreenManager frame. It does not point to the Settings tree
+builder, a store/AAI caller or row scrolling. See native-trace.log and
+native-trace-symbols.json under artifacts/ui-lookup-20261101. The first lifecycle
+attempt built successfully but refused deployment because the game process
+changed; nothing was stopped by that attempt. Retargeted guarded cycle succeeded.
+
+Signed diagnostic17e378d0 then measured the receiver around the same lookup,
+without skipping it. At12:07:53.627/.628 local, liveness succeeded with **false**
+both before and after the thrown lookup, and selection identity remained the
+same. lifetime-observation.log binds the report; focus-state-build.json and
+focus-state-symbols retain the exact code/DLL/PDB. Thus the object was already
+destroyed before lookup; destruction racing that particular call is unnecessary
+to explain the exception. How long EventSystem retains it has not been measured.
+
+The correction changes only shared input-focus detection: use existing checked
+Unity liveness, and skip a confirmed-destroyed selection. Unknown liveness keeps
+the previous lookup path; it is not silently classified as destruction. Live
+objects and genuine lookup failures retain their existing behavior/reporting.
+No binding ABI, hook, shortcut mapping, setting or native selection is changed.
+Temporary stack/state probes are removed from the final code.
+
+The controlled runtime exercises actual production Key::IsInputFocused and
+ClearInputFocus. New destroyed-wrapper regression fails against17e378d0 because
+GetComponent is still called; the final case requires no component lookup and no
+clear-selection callback. It also checks next-frame live selection recovery,
+unknown liveness preserving the lookup, and a genuine live lookup exception
+remaining contained. This fixture recreates the observed lifetime condition;
+the separate native trial establishes its real-client occurrence.
+
+Final test/build and deployed runtime identities are appended after verification.
+
 ## Current investigation — 2026-11-01
 
 User requested investigation of whether this is a race or inconsequential noise.

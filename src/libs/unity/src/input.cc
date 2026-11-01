@@ -38,23 +38,12 @@ namespace
   bool InputFocused(EventSystem* event_system)
   {
     auto* selected = event_system ? event_system->currentSelectedGameObject() : nullptr;
-    if (!selected)
+    // EventSystem can retain a non-null managed wrapper after Unity destroys its native GameObject.
+    // Only confirmed destruction skips the lookup; an unavailable liveness read preserves the existing path.
+    const auto alive = TryAlive(selected);
+    if (alive && !alive.value)
       return false;
-    auto* type = TMP_InputField::Class::TypeObject();
-    if (!type)
-      return false;
-    const auto before = TryAlive(selected);
-    const auto lookup = selected->TryCall<"GetComponent", TMP_InputField*>(type);
-    if (!lookup) {
-      static bool reported = false;
-      if (!std::exchange(reported, true)) {
-        const auto after = TryAlive(selected);
-        const auto same = event_system->currentSelectedGameObject() == selected;
-        il2cpp::Report(std::format("[UnityInputFocus] lookup failed: alive before={}/{} after={}/{} selection_same={}",
-                                  before.succeeded, before.value, after.succeeded, after.value, same));
-      }
-    }
-    auto* field = lookup.value;
+    auto* field = selected ? selected->GetComponent<TMP_InputField>() : nullptr;
     return field && field->isFocused();
   }
 } // namespace

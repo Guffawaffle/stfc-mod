@@ -311,15 +311,16 @@ const MethodInfo*          chat_set_data_method = nullptr;
 Il2CppObject visual_renderer{}, visual_material{}, visual_shader{}, visual_components{}, visual_materials{};
 bool         visual_alive = true, visual_active = true, visual_enabled = true, visual_throws = false;
 bool         visual_property = true, visual_set_throws = false;
+Il2CppObject* visual_dead_object = nullptr;
 int32_t      visual_id    = -17;
 float        visual_depth = 0.0f;
 int          visual_calls = 0;
-bool         VisualAlive(Il2CppObject*, const MethodInfo*)
+bool         VisualAlive(Il2CppObject* object, const MethodInfo*)
 {
   ++visual_calls;
   if (visual_throws)
     throw std::runtime_error("unavailable Unity observation");
-  return visual_alive;
+  return visual_alive && object != visual_dead_object;
 }
 int32_t VisualId(Il2CppObject*, const MethodInfo*)
 {
@@ -358,6 +359,7 @@ unity::GameObject*    selected         = &selected_object;
 bool                  has_event_system = true, has_input_field = true, redirect_selection = false;
 bool                  component_lookup_throws = false;
 int                   event_system_reads      = 0;
+int                   component_lookup_calls  = 0;
 
 unity::EventSystem* EventSystem_get_current(const MethodInfo*)
 {
@@ -370,6 +372,7 @@ void EventSystem_set_selected(unity::EventSystem*, unity::GameObject* value, con
 { selected = redirect_selection ? &selected_object : value; }
 unity::TMP_InputField* GameObject_get_component(unity::GameObject*, Il2CppObject*, const MethodInfo*)
 {
+  ++component_lookup_calls;
   if (component_lookup_throws) {
     static Il2CppException exception{};
     throw Il2CppExceptionWrapper(&exception);
@@ -403,6 +406,36 @@ void InputFocus()
   Require(!Key::IsInputFocused(), "a selected object without a text field is not text focus");
   Key::ClearInputFocus();
   Require(selected == &selected_object, "clearing text focus preserves a selected non-text object");
+
+  // Unity's event system may retain a non-null wrapper after its native GameObject was destroyed.
+  visual_dead_object = &selected_object;
+  component_lookup_throws = true;
+  const auto lookups_before_destroyed = component_lookup_calls;
+  ++input_frame;
+  Key::Poll();
+  Require(!Key::IsInputFocused(), "a destroyed selected GameObject has no text focus");
+  Key::ClearInputFocus();
+  Require(component_lookup_calls == lookups_before_destroyed && selected == &selected_object,
+          "destroyed selection is neither queried for components nor sent a clear-selection callback");
+  visual_dead_object = nullptr;
+  component_lookup_throws = false;
+  has_input_field = true;
+  ++input_frame;
+  Key::Poll();
+  Require(Key::IsInputFocused() && component_lookup_calls == lookups_before_destroyed + 1,
+          "a later live text selection is detected instead of caching destroyed selection indefinitely");
+  visual_throws = true;
+  ++input_frame;
+  Key::Poll();
+  Require(Key::IsInputFocused() && component_lookup_calls == lookups_before_destroyed + 2,
+          "unavailable liveness does not impersonate confirmed destruction or suppress a live focus read");
+  visual_throws = false;
+  component_lookup_throws = true;
+  ++input_frame;
+  Key::Poll();
+  Require(!Key::IsInputFocused() && component_lookup_calls == lookups_before_destroyed + 3,
+          "a genuine live-object lookup failure stays contained rather than being hidden by the lifetime guard");
+  component_lookup_throws = false;
 
   has_event_system = false;
   ++input_frame;
