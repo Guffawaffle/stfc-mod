@@ -1842,7 +1842,17 @@
             "ec617aca85fdab23c19f162c247b63e6874185937697a359c8d6bd70a7e5842a"
           ],
           "scope": "Pinning feels different but cleaner and accepted during cohort trial. Exact session for each observation not independently established; not itemized proof of all gestures, ordering or persistence. Group boundary visual issue reported; rest of testing held."
-        }
+        },
+        "additionalPlayerConfirmations": [
+          {
+            "reporter": "Guff",
+            "date": "2026-11-01",
+            "quote": "border is better - click and drag works -- looks good to me",
+            "sourceRevision": "5235a65db6d59566e1ef12f8ed12a22ef54a0e90",
+            "artifactSha256": "FD7E1F04C9A0597D12A5CA76AE38D7975157BC899F628E0E4BCFB0BE88BA8A57",
+            "scope": "Actual Windows rendered border improvement and basic click-and-drag accepted. Not itemized proof of every pin/reorder/unpin, no-pin cue, cancellation/focus/rebind, persistence or Mac path."
+          }
+        ]
       },
       "dependenciesAndLimitations": "See current cohort numbered source contract, retained target safety differences, focused automated checks and pending native/macOS qualification.",
       "restorationCommits": [
@@ -1859,7 +1869,7 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "2026-11-01: core/build-tests 196/196 steps, binding/gameplay 312/312 steps, production presentation/reset fixture passed. Rendered group, native drag/drop and persistence not qualified by those fixtures. Clean 5235a65d native build deployed; source/hash/module and frame ready. Exact-artifact pin visual/gesture trial pending.",
+        "Windows": "2026-11-01: core/build-tests 196/196 steps, binding/gameplay 312/312 steps, production presentation/reset fixture passed. Rendered group, native drag/drop and persistence not qualified by those fixtures. Clean 5235a65d native build deployed; source/hash/module and frame ready. Exact-artifact pin visual/gesture trial pending. Guff accepted rendered border improvement and basic click-and-drag on the exact deployed artifact.",
         "macOS": "Shared source implemented. Prior c27cc6bf platform CI passed; current presentation correction not built locally because Mac SDK remains absent; native Mac gameplay unqualified."
       },
       "branchObservations": [
@@ -1965,10 +1975,10 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "Frozen presentation workflow restored with retained checked geometry; native trial pending",
+        "state": "Frozen presentation restored; Windows border/basic drag accepted; extended native and platform qualification remain open",
         "recordedImmediately": true
       },
-      "catalogStatus": "Source group/drag/cue presentation restored and locally checked; native rendered/gesture trial pending",
+      "catalogStatus": "Windows border and basic click-drag accepted; extended lifecycle/persistence and macOS remain open",
       "parsedOnlySettings": [
         "patches.pinnedshipclicktoggle; source and target actual owner is pinnedshiphooks"
       ],
@@ -2044,20 +2054,28 @@
           "verification": {
             "sourceComparison": "Complete frozen pin input and supporting ship-tech presentation scanned; retained own-card geometry and target owners compared. Current client273 MaskableGraphic.set_maskable(bool) present.",
             "automated": "Windows core/build-tests 196/196 steps; binding/gameplay 312/312; production native-presentation helper fixture passed group transitions, tile reset, cue layout/replacement, custody and maskability failures. Does not execute native pointers or persistence.",
-            "nativeRuntime": "Clean 5235a65db6d59566e1ef12f8ed12a22ef54a0e90 AAI/UI Lab Windows build deployed through AX. Installed/build SHA256 FD7E1F04C9A0597D12A5CA76AE38D7975157BC899F628E0E4BCFB0BE88BA8A57 match; ordinary C-game PID24532, embedded source/module path and full frame readiness verified; no fresh errors at startup observation. Native visual/gesture trial pending. No agent TOML edits; settings file changed while the previous session was still running, so no blanket unchanged-config claim.",
+            "nativeRuntime": "Clean 5235a65db6d59566e1ef12f8ed12a22ef54a0e90 AAI/UI Lab Windows build deployed through AX. Installed/build SHA256 FD7E1F04C9A0597D12A5CA76AE38D7975157BC899F628E0E4BCFB0BE88BA8A57 match; ordinary C-game PID24532, embedded source/module path and full frame readiness verified; no fresh errors at startup observation. Native visual/gesture trial pending. No agent TOML edits; settings file changed while the previous session was still running, so no blanket unchanged-config claim. Guff subsequently confirms border is better and click-and-drag works on this exact installed artifact.",
             "macOS": "SDK unavailable locally; current correction unqualified."
           },
           "remaining": [
-            "Rendered group dimensions/rims and native viewport clipping",
-            "Real hold/drag, pin/reorder/unpin, cancel/focus/rebind cleanup and persistence trial",
+            "Extended hover/viewport clipping and no-pin cue states not individually confirmed",
+            "Itemized reorder/unpin, cancellation/focus/rebind and persistence qualification",
             "Mac build/gameplay qualification; overall pin parity not closed"
-          ]
+          ],
+          "playerConfirmation": {
+            "reporter": "Guff",
+            "date": "2026-11-01",
+            "quote": "border is better - click and drag works -- looks good to me",
+            "sourceRevision": "5235a65db6d59566e1ef12f8ed12a22ef54a0e90",
+            "artifactSha256": "FD7E1F04C9A0597D12A5CA76AE38D7975157BC899F628E0E4BCFB0BE88BA8A57",
+            "scope": "Actual Windows rendered border improvement and basic click-and-drag accepted. Not itemized proof of every pin/reorder/unpin, no-pin cue, cancellation/focus/rebind, persistence or Mac path."
+          }
         }
       ],
       "knownIssues": [
         {
           "id": "PIN-GROUP-VISUAL",
-          "status": "open; source presentation restored locally after own-card correction; exact-artifact rendered/gesture trial pending",
+          "status": "Basic Windows border improvement accepted by Guff on 5235a65d; extended visual/gesture states not individually qualified",
           "evidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-02/pinned-group-feedback.png",
           "description": "Group rectangle unclear and spills beyond cards; screenshot is actual usability evidence."
         },

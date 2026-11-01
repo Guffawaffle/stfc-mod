@@ -116,3 +116,12 @@ frame readiness, with no fresh startup errors at observation. Rendered pin and
 gesture trials remain pending. No agent TOML edits were made; the settings file
 changed while the old session was still running, before this DLL was activated,
 so whole-configuration hash preservation is not claimed.
+
+## Windows player acceptance - 2026-11-01
+
+Guff confirms on deployed source `5235a65d` / DLL `FD7E1F04`:
+"border is better - click and drag works -- looks good to me".
+This accepts the observed border improvement and basic click-and-drag workflow.
+Extended hover/clipping, no-pin cue, individually enumerated drop/cancel/rebind
+and persistence cases, and Mac gameplay remain separately unqualified. No new
+build, cycle or configuration change was made to record this feedback.
