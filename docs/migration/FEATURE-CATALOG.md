@@ -60,6 +60,7 @@ and player-confirmed behavior are separate evidence.
 | [AT-STORE-RESEARCH — Alliance Games store native Research Lookup](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
 | [AT-STORE-CURRENCY — Alliance Games store currency refresh](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
 | [AT-STORE-ROWS — Alliance Games purchase refresh visibility](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
+| [CFG-LOAD-RELOAD — Existing config defaults, aliases and activation](features/CFG-LOAD-RELOAD.md) | Load settings at startup; edit the primary TOML for automatic reload or use Reload Settings | consumer-only @ `ff179589` | consumer-only @ `cad98ef7` | consumer-only @ `1baa55fe` | consumer-only @ `71e49f9d` | Startup-gap reload correction tested; full key parity and native trial pending |
 
 Full pinned paths, symbols, differences and history are in each inventory entry.
 Frozen play-dev remains `1baa55fedf1758b19f843cc59707b8901a0b4998`.
@@ -114,7 +115,6 @@ when their migration is deferred.
 | SET-SEARCH | Settings search with contextual return | Implemented, unverified | mods/src/settings/native/settings_search.cc |
 | SET-RESET-SAVE | Defaults, reset, conflicts and retry UI | Implemented, unverified | mods/src/settings/maintenance.h |
 | SET-SHORTCUT-EDITOR | Interactive binding capture, conflict, undo/defaults | Implemented, unverified | mods/src/settings/shortcut_settings.cc |
-| CFG-LOAD-RELOAD | Existing config defaults, aliases and activation | Implemented, unverified | mods/src/config.cc |
 | CFG-WRITER | Registered-key preserving saves and quit | Implemented, unverified | mods/src/patches/parts/runtime_config.cc |
 | STATE-STORE | Versioned state merge and atomic replacement | Implemented, unverified | mods/src/mod_state.cc |
 | STATE-QUIT | Pending state writer on normal quit | Implemented, unverified | mods/src/mod_state.cc |

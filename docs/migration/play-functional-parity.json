@@ -6909,13 +6909,96 @@
       "verificationProcedure": "Malformed primary stays byte-identical, missing file creation, alias precedence, pending intents and atomic reload.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "settings-lifecycle-20261101: 230/230 Windows lifecycle/model build/run steps; isolated config reload modes pass",
+          "tests/config_reload.cc startup-before-first-poll: startup-gap assertion reproduced against base, corrected production path passes; preserves primary bytes and restart-only patches"
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Malformed primary stays byte-identical, missing file creation, alias precedence, pending intents and atomic reload.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/CFG-LOAD-RELOAD.md",
+      "catalogStatus": "Startup-gap reload correction tested; full key parity and native trial pending",
+      "userEntryPoint": "Load settings at startup; edit the primary TOML for automatic reload or use Reload Settings",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "71e49f9dacd94916396d5e326521fa1c4231610d",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-lifecycle-20261101/candidate-inputs.json",
+          "scope": "Bounded startup-to-first-frame polling correction; not complete key/default/alias reconciliation",
+          "evidence": "docs/migration/features/CFG-LOAD-RELOAD.md",
+          "remaining": [
+            "Complete key-by-key source reconciliation",
+            "Exact-client activation trial",
+            "Mac qualification"
+          ]
+        }
+      ],
+      "branchObservations": [
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/netniv/stfc-mod",
+          "ref": "origin/dev",
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "consumer-only",
+          "evidenceKind": "bounded source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/config.cc",
+              "symbol": "Config::Load: symbol presence only"
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "origin/play",
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "consumer-only",
+          "evidenceKind": "bounded source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/config.cc",
+              "symbol": "Config::Load: symbol presence only"
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-mod",
+          "ref": "frozen/play-dev-20261026",
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "consumer-only",
+          "evidenceKind": "bounded source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "mods/src/config.cc",
+              "symbol": "Load/Save/Get lifecycle"
+            }
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "repository": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+          "ref": "play-dev-ripper",
+          "refRole": "refactor",
+          "revision": "71e49f9dacd94916396d5e326521fa1c4231610d",
+          "presence": "consumer-only",
+          "evidenceKind": "bounded source inspection, not runtime equivalence",
+          "evidence": [
+            {
+              "path": "src/mod/config.cc",
+              "symbol": "Get/Parse/Activate/Reload/ReloadIfChanged; correction bound by manifest"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "CFG-WRITER",

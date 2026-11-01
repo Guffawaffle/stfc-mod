@@ -455,17 +455,24 @@ void ReadSyncTargets(Reader& reader, std::map<std::string, SyncTargetConfig>& sy
 std::unique_ptr<Config> current_config;
 // The vars document follows accepted settings, never a rejected parse or the primary editor's write queue.
 std::optional<toml::table> accepted_effective;
-std::optional<uint64_t>    saved_keyboard_generation;
-bool                       reported_keyboard_save_failure = false;
+// Anchor polling to the file read at startup, rather than the first frame's later observation.
+std::optional<std::filesystem::file_time_type> checked_settings_time;
+std::optional<uint64_t>                        saved_keyboard_generation;
+bool                                           reported_keyboard_save_failure = false;
 // Detached sync workers can still read during static teardown, so the publication slot lives until process exit.
 auto& sync_config = *new std::shared_ptr<const Config::Sync>{std::make_shared<const Config::Sync>()};
 
 // The settings file, or nullopt after a warning that says why it could not be read and what happens `instead`.
-std::optional<toml::table> ReadSettingsFile(std::string_view instead)
+std::optional<toml::table> ReadSettingsFile(std::string_view                                instead,
+                                            std::optional<std::filesystem::file_time_type>& observed_time)
 {
   try {
+    const auto      settings_path = File::Path(File::Config());
+    std::error_code error;
+    const auto      time = std::filesystem::last_write_time(settings_path, error);
+    observed_time        = error ? std::nullopt : std::optional{time};
     // The toml++ library is built without its char8_t overloads, so the UTF-8 path goes in as chars.
-    const auto path = File::Path(File::Config()).u8string();
+    const auto path = settings_path.u8string();
     return toml::parse_file(std::string_view(reinterpret_cast<const char*>(path.data()), path.size()));
   } catch (const toml::parse_error& e) {
     spdlog::warn("could not parse {}: {}; {}", File::Config(), e.description(), instead);
@@ -743,7 +750,7 @@ Config& Config::Get()
   // only logged when they came from the file.
   if (!current_config) {
     File::MigrateLegacyFiles();
-    auto        file   = ReadSettingsFile("using the default settings");
+    auto        file   = ReadSettingsFile("using the default settings", checked_settings_time);
     const bool  loaded = file.has_value();
     toml::table effective;
     auto        config  = Parse(file.value_or(toml::table{}), effective, loaded);
@@ -760,13 +767,14 @@ Config& Config::Get()
 
 bool Config::Reload()
 {
-  std::unique_ptr<Config> next;
-  toml::table             effective;
+  std::unique_ptr<Config>                        next;
+  toml::table                                    effective;
+  std::optional<std::filesystem::file_time_type> observed_time;
   try {
     // Capture before opening/parsing: acknowledgement crossing the read must
     // not let older file bytes replace a pending/session-only live intent.
     const auto snapshot = runtime_config::CaptureReload();
-    auto       file     = ReadSettingsFile("keeping the current settings");
+    auto       file     = ReadSettingsFile("keeping the current settings", observed_time);
     if (!file)
       return false;
     runtime_config::ApplyReloadSnapshot(*file, snapshot);
@@ -785,7 +793,8 @@ bool Config::Reload()
     return false;
   }
   Activate(std::move(next));
-  accepted_effective = std::move(effective);
+  checked_settings_time = observed_time;
+  accepted_effective    = std::move(effective);
   RefreshKeyboardDiagnostics();
   return true;
 }
@@ -796,7 +805,7 @@ void Config::ReloadIfChanged()
   // the file has kept the same modification time for a whole check.
   using Clock = std::chrono::steady_clock;
   static Clock::time_point                              next_check{};
-  static std::optional<std::filesystem::file_time_type> applied, pending;
+  static std::optional<std::filesystem::file_time_type> pending;
 
   const auto now = Clock::now();
   if (now < next_check)
@@ -808,9 +817,7 @@ void Config::ReloadIfChanged()
   const auto      time = std::filesystem::last_write_time(File::Path(File::Config()), error);
   if (error)
     return;
-  // The first check only learns the time of the file Get already read.
-  if (!applied || time == *applied) {
-    applied = time;
+  if (checked_settings_time == time) {
     pending.reset();
     return;
   }
@@ -818,7 +825,9 @@ void Config::ReloadIfChanged()
     pending = time;
     return;
   }
-  applied = time;
+  // Remember failed attempts too: malformed files are retried after another edit,
+  // rather than logging the same rejection every frame check.
+  checked_settings_time = time;
   pending.reset();
   Reload();
 }

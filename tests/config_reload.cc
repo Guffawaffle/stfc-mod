@@ -133,8 +133,45 @@ int StartupPrimaryCase(bool malformed)
   return result;
 }
 
+int StartupWatcherCase()
+{
+  try {
+    Write("[patches]\nuiscalehooks = false\n[graphics]\nui_scale = 1.25\n[shortcuts]\nquit = 'F1'\n");
+    const auto path         = directory / config_name;
+    const auto initial_time = std::filesystem::file_time_type::clock::now() - std::chrono::seconds(10);
+    std::filesystem::last_write_time(path, initial_time);
+    Check(Config::Get().graphics.ui_scale == 1.25f && Shortcut::Describe(Action::kQuit) == "F1",
+          "startup watcher fixture activates its initial file");
+    Write("# External edit before the first frame must remain byte-identical\n"
+          "[patches]\nuiscalehooks = true\n[graphics]\nui_scale = 1.5\n[shortcuts]\nquit = 'F2'\n");
+    std::filesystem::last_write_time(path, initial_time + std::chrono::seconds(3));
+    std::ifstream     input(path, std::ios::binary);
+    const std::string edited(std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{});
+    input.close();
+    Config::ReloadIfChanged();
+    Check(Config::Get().graphics.ui_scale == 1.25f, "first poll keeps the stable-file debounce");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+    Config::ReloadIfChanged();
+    Check(Config::Get().graphics.ui_scale == 1.5f && Shortcut::Describe(Action::kQuit) == "F2"
+              && !Config::Get().patches.uiscalehooks,
+          "an edit after initial loading but before the first frame is eventually applied without another edit");
+    std::ifstream after(path, std::ios::binary);
+    Check(std::string(std::istreambuf_iterator<char>{after}, std::istreambuf_iterator<char>{}) == edited,
+          "automatic activation must not rewrite the externally edited primary");
+    std::cout << "Startup-to-first-frame config edit reload passed\n";
+    return 0;
+  } catch (const std::exception& error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+  }
+}
+
 int main(int argc, char** argv)
 {
+  if (argc == 2 && std::string_view(argv[1]) == "startup-before-first-poll") {
+    spdlog::set_level(spdlog::level::off);
+    return StartupWatcherCase();
+  }
   const bool fail_startup_output = argc == 2 && std::string_view(argv[1]) == "startup-output-failure";
   const bool malformed_primary   = argc == 2 && std::string_view(argv[1]) == "startup-invalid-primary";
   const bool missing_primary     = argc == 2 && std::string_view(argv[1]) == "startup-missing-primary";

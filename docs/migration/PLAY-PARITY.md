@@ -1,5 +1,14 @@
 # Downstream play preservation target
 
+## Settings lifecycle continuation — 2026-11-01
+
+The mission-marker right-click and pin border/click-drag corrections have player
+acceptance on Windows. Continue with the existing settings/state owners. The first
+bounded [CFG-LOAD-RELOAD correction](features/CFG-LOAD-RELOAD.md) fixes an edit
+missed between startup loading and the first frame; isolated before/after evidence
+and existing lifecycle checks pass. Complete configuration-key reconciliation and
+writer/state/quit coverage remain open; this is not whole-refactor acceptance.
+
 ## Preset save/Mac feedback — 2026-10-30
 
 [The preset continuation](OFFICER-PRESETS-MAC-20261030.md) reproduces and corrects

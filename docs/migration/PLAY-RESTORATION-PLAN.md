@@ -8,12 +8,14 @@ mission-marker primary-action correction `cba6fc11` is deployed and Guff confirm
 right-click travel works. That Windows result does not close other workflows or
 Mac qualification.
 
-The next bounded restoration is the [pin presentation contract](features/PLAY-PINS-INPUT.md):
-source group margin, normal/drag/hover fill and rims, tile feedback and compact
-first-pin cue/reset. Local production-presentation checks and binding/gameplay
-suites pass; native rendered/gesture trial remains pending. Frozen source,
-existing typed safeguards, optional-host selection and prior scope decisions stay
-unchanged. Older test-artifact and pending-candidate statements below are historical.
+The [pin presentation correction](features/PLAY-PINS-INPUT.md) is deployed from
+`5235a65d`; Guff accepts the improved border and working click/drag. Continue with
+settings loading/saving and state lifecycle reconciliation. The first bounded
+[reload correction](features/CFG-LOAD-RELOAD.md) fixes settings edits missed between
+startup and the first frame, with isolated before/after evidence. Complete
+configuration-key, writer and state/quit coverage remains open. Frozen source,
+typed safeguards, optional-host selection and prior scope decisions stay unchanged.
+Older test-artifact and pending-candidate statements below are historical.
 
 ## Current completion direction — 2026-10-31
 
