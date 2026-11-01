@@ -1,5 +1,26 @@
 # Contained UI component lookup error
 
+## Current investigation — 2026-11-01
+
+User requested investigation of whether this is a race or inconsequential noise.
+Base536b907e on existing play-dev-ripper is clean. Installed source0f9ad5a5,
+Windows client273, ordinary C-game, records the same exception message at
+11:19:35.888 local during native Settings use (log566), after publication179
+pages at11:19:27.367. Search typing/result/Back and close/reopen still worked.
+The typed helper's caller/type diagnostic is absent, although its format string
+is present in the installed DLL. Direct callers and nested native behavior remain
+possibilities; identical text is not evidence of identical cause or harmlessness.
+
+A bounded Windows `_MODDBG` diagnostic captures up to24 native frames at this
+specific contained error through the existing error handler. It logs module
+basenames and relative offsets once, without changing invocation, exception
+containment or object lifetime behavior. Symbol resolution uses the exact DLL/PDB
+offline; no debugger/symbol session is initialized inside the game. Pending next
+occurrence, no root cause, race, frequency or negligible-impact conclusion follows.
+Evidence: `D:/dev/stfc-workspace/artifacts/ui-lookup-20261101/`.
+
+## Earlier investigation
+
 The local `ee112729` Windows startup log records a contained
 `UnityEngine.GameObject.GetComponent` `System.NullReferenceException` at
 2026-10-31 13:20:16.191 America/Chicago, after frame delivery became ready at

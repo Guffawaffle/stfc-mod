@@ -25,6 +25,8 @@
 #include <unity/input.h>
 
 #include <array>
+#include <atomic>
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -44,6 +46,34 @@
 namespace
 {
 // --- Logging ---
+
+void LogUiLookupTrace(std::string_view message)
+{
+#if _WIN32 && defined(_MODDBG)
+  if (!message.starts_with("[IL2CPP] UnityEngine.GameObject.GetComponent threw"))
+    return;
+  static std::atomic_flag reported;
+  if (reported.test_and_set(std::memory_order_relaxed))
+    return;
+  // Capture at the contained failure, before its native caller returns. Resolve symbols offline from the exact
+  // DLL/PDB; do not initialize a second debugger/symbol session inside the game or inspect managed object data.
+  std::array<void*, 24> frames{};
+  const auto count = CaptureStackBackTrace(0, static_cast<DWORD>(frames.size()), frames.data(), nullptr);
+  spdlog::error("[UiLookupTrace] {} native frames; module offsets require this build's DLL/PDB", count);
+  for (USHORT i = 0; i < count; ++i) {
+    HMODULE module = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(frames[i]), &module))
+      continue;
+    std::array<wchar_t, MAX_PATH> path{};
+    const auto length = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
+    if (!length || length >= path.size())
+      continue;
+    const auto offset = reinterpret_cast<std::uintptr_t>(frames[i]) - reinterpret_cast<std::uintptr_t>(module);
+    spdlog::error("[UiLookupTrace] {} {}+0x{:x}", i, std::filesystem::path(path.data()).filename().string(), offset);
+  }
+#endif
+}
 
 // Opens the session log, keeping the previous five as <log>.1 (newest) to <log>.5.
 void StartLogging()
@@ -98,7 +128,10 @@ void StartLogging()
     spdlog::warn("could not rotate the log history; appending to the existing log: {}", rotation_error);
   if (!log_error.empty())
     spdlog::warn("preferred ordinary log unavailable; using legacy file or console logging: {}", log_error);
-  il2cpp::SetErrorHandler([](std::string_view message) { spdlog::error("{}", message); });
+  il2cpp::SetErrorHandler([](std::string_view message) {
+    spdlog::error("{}", message);
+    LogUiLookupTrace(message);
+  });
 }
 
 // Between the banner, the settings and the install log.
