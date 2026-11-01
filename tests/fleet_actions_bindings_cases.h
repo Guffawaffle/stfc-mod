@@ -40,6 +40,99 @@ bool FleetNativeRequest(FleetLocalViewController*, il2cpp::Object*, ActionType, 
   fleet_native_requests.push_back(behaviour);
   return behaviour == ActionBehaviour::Default ? fleet_native_default_result : true;
 }
+struct FleetMissionButton {
+  Il2CppObject header;
+  bool         interactable = true;
+};
+struct FleetMissionListener {
+  Il2CppObject        header;
+  FleetMissionButton* button = nullptr;
+};
+struct FleetMissionWidget {
+  Il2CppObject          header;
+  bool                  visible  = true;
+  FleetMissionListener* listener = nullptr;
+};
+struct FleetMissionNavigation {
+  Il2CppObject        header;
+  FleetMissionWidget* mission = nullptr;
+  FleetNativeViewer*  course  = nullptr;
+};
+bool fleet_mission_active  = true;
+int  fleet_mission_presses = 0, fleet_normal_presses = 0;
+bool FleetMissionActive(Il2CppObject*, const MethodInfo*)
+{ return fleet_mission_active; }
+SemaphoreButtonListener* FleetMissionListenerFor(FleetMissionWidget* widget, const MethodInfo*)
+{ return reinterpret_cast<SemaphoreButtonListener*>(widget->listener); }
+void FleetMissionPress(FleetMissionButton* button, const MethodInfo*)
+{
+  // Stand-in for the native Button.Press body, which owns its eligibility checks.
+  if (button->interactable)
+    ++fleet_mission_presses;
+}
+void FleetNormalPress(Il2CppObject*, const MethodInfo*)
+{ ++fleet_normal_presses; }
+
+void FleetMissionCases()
+{
+  auto&       behaviour = Define("UnityEngine", "Behaviour", IL2CPP_TYPE_CLASS, &component_class);
+  const auto& active =
+      AddMethod(behaviour, "get_isActiveAndEnabled", reinterpret_cast<void*>(&FleetMissionActive), T(bool_class), {});
+  AddProperty(behaviour, "isActiveAndEnabled", &active);
+  auto& button = Define("UnityEngine.UI", "Button", IL2CPP_TYPE_CLASS, &behaviour);
+  AddMethod(button, "Press", reinterpret_cast<void*>(&FleetMissionPress), T(void_class), {});
+  auto& listener = Define("Digit.Client.UI", "SemaphoreButtonListener", IL2CPP_TYPE_CLASS, &component_class);
+  AddField(listener, "_button", button, offsetof(FleetMissionListener, button));
+  auto& mission = Define("Digit.Prime.Navigation", "MissionLocationWidget", IL2CPP_TYPE_CLASS, &behaviour);
+  AddField(mission, "_isVisible", bool_class, offsetof(FleetMissionWidget, visible));
+  const auto& getter =
+      AddMethod(mission, "get_SetCourseButton", reinterpret_cast<void*>(&FleetMissionListenerFor), T(listener), {});
+  AddProperty(mission, "SetCourseButton", &getter);
+  auto& visibility = Define("Digit.Client.UI", "VisibilityController", IL2CPP_TYPE_CLASS, &object_class);
+  AddField(visibility, "_state", int_class, offsetof(FleetNativeVisibility, state));
+  auto& course = Define("Digit.Prime.Navigation", "SetCourseWidget", IL2CPP_TYPE_CLASS, &behaviour);
+  AddField(course, "_visibilityController", visibility, offsetof(FleetNativeViewer, visibility));
+  auto& navigation =
+      Define("Digit.Prime.Navigation", "NavigationInteractionUIViewController", IL2CPP_TYPE_CLASS, &component_class);
+  AddField(navigation, "_missionLocationWidget", mission, offsetof(FleetMissionNavigation, mission));
+  AddField(navigation, "_setCourseWidget", course, offsetof(FleetMissionNavigation, course));
+  AddMethod(navigation, "OnSetCourseButtonClick", reinterpret_cast<void*>(&FleetNormalPress), T(void_class), {});
+  FleetMissionButton     native_button{{&button.klass}};
+  FleetMissionListener   native_listener{{&listener.klass}, &native_button};
+  FleetMissionWidget     native_mission{{&mission.klass}, true, &native_listener};
+  FleetNativeVisibility  native_visibility{{&visibility.klass}, VisibilityState::Hidden};
+  FleetNativeViewer      native_course{{&course.klass}, &native_visibility};
+  FleetMissionNavigation native_navigation{{&navigation.klass}, &native_mission, &native_course};
+  fleet_native_widgets[&navigation.klass]               = {&native_navigation.header};
+  auto* fleet                                           = reinterpret_cast<FleetPlayerData*>(&identity_fleet);
+  Config::Get().control.primary_requires_visible_target = true;
+  Require(ActOnViewer({.primary = true}, fleet) && fleet_mission_presses == 1 && fleet_normal_presses == 0,
+          "visible mission GO uses its native button while the ordinary set-course card is hidden");
+  Require(!ActOnViewer({.secondary = true}, fleet) && fleet_mission_presses == 1,
+          "secondary action does not fly to a mission marker");
+  native_button.interactable = false;
+  Require(ActOnViewer({.primary = true}, fleet) && fleet_mission_presses == 1 && fleet_normal_presses == 0,
+          "native rejection of mission GO cannot fall through to ordinary navigation");
+  native_button.interactable = true;
+  native_mission.listener    = nullptr;
+  Require(ActOnViewer({.primary = true}, fleet) && fleet_mission_presses == 1 && fleet_normal_presses == 0,
+          "visible mission without a button cannot reuse a stale ordinary destination");
+  native_mission.listener = &native_listener;
+  native_mission.visible  = false;
+  Require(!ActOnViewer({.primary = true}, fleet) && fleet_mission_presses == 1,
+          "hidden mission widget does not activate its retained GO button");
+  native_mission.visible = true;
+  fleet_mission_active   = false;
+  Require(!ActOnViewer({.primary = true}, fleet) && fleet_mission_presses == 1,
+          "inactive mission widget does not activate its retained GO button");
+  fleet_mission_active    = true;
+  native_mission.visible  = false;
+  native_visibility.state = VisibilityState::Visible;
+  Require(ActOnViewer({.primary = true}, fleet) && fleet_normal_presses == 1 && fleet_mission_presses == 1,
+          "ordinary visible set-course navigation keeps its own native handler");
+  std::cout << "Mission marker primary action and ordinary navigation passed\n";
+}
+
 void FleetNativeCases()
 {
   auto& panel  = Define("Digit.Prime.Ships", "FleetLocalViewController", IL2CPP_TYPE_CLASS, &object_class);

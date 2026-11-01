@@ -27,3 +27,21 @@ No new combat or repair mechanics. The historical stale-instant-repair interlock
 is a separate [discovery](PLAY-REPAIR-INTERLOCK.md). C++ dependent-template
 disambiguation added while compiling the complete adapter into the fixture is
 syntax only; it does not change retained warp behavior.
+
+## Mission-marker primary action — 2026-11-01
+
+An in-system mission-location popup owns a separate native GO button. Primary
+action previously tested the ordinary set-course widget and called its handler,
+so a visible mission popup with that widget hidden could do nothing. The typed
+consumer now reads the navigation controller's mission widget and presses its
+native button only while the mission widget is shown and active. The button
+retains native eligibility; an unavailable or rejected mission action cannot
+fall through to an ordinary destination. Secondary action is unchanged.
+
+The current Windows client 273 assembly, metadata and dump match their recorded
+hashes. The production-dispatch fixture reproduces the failure before correction
+and passes afterwards, including hidden/inactive cards, missing buttons, native
+rejection and ordinary navigation. Binding/gameplay checks pass 312/312 build/run
+steps. This is local controlled-runtime evidence; live mission-marker travel is
+pending. Both local Mac builds stop at missing SDK discovery. No hook, setting,
+configuration or CI registration was added.

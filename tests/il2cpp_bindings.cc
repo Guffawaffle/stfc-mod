@@ -2032,6 +2032,10 @@ try {
     return 0;
   }
 #endif
+  if (argc == 2 && std::string_view(argv[1]) == "fleet-mission-primary") {
+    FleetMissionCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "fleet-native") {
     FleetNativeCases();
     return 0;

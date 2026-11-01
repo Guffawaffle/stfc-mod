@@ -348,6 +348,15 @@ struct SetCourseWidget : unity::Behaviour {
   { return Field<"_visibilityController", VisibilityController*>(); }
 };
 
+struct MissionLocationWidget : Widget<NavigationInteractionUIContext> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "MissionLocationWidget">;
+
+  bool IsShown()
+  { return Field<"_isVisible", bool>() && isActiveAndEnabled(); }
+  SemaphoreButtonListener* SetCourseButton()
+  { return Get<"SetCourseButton", SemaphoreButtonListener*>(); }
+};
+
 struct NavigationInteractionUIViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationInteractionUIViewController">;
 
@@ -359,6 +368,8 @@ struct NavigationInteractionUIViewController : il2cpp::Object {
   }
   void OnSetCourseButtonClick()
   { Call<"OnSetCourseButtonClick">(); }
+  MissionLocationWidget* MissionLocation()
+  { return Field<"_missionLocationWidget", MissionLocationWidget*>(); }
   il2cpp::CallResult<NavigationInteractionUIContext*> TryContext()
   { return planned_warp_binding::Reference<"get_CanvasContext", NavigationInteractionUIContext>(this); }
   il2cpp::CallResult<FleetNavigationHelper*> TryFleetHelper()

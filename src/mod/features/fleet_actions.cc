@@ -804,6 +804,14 @@ bool ActOnViewer(const FleetPress& pressed, FleetPlayerData* fleet)
   if (!navigation || !pressed.primary)
     return false;
 
+  // Mission markers own a separate GO button and native handler, not the ordinary set-course card.
+  // Button.Press retains native interactability and semaphore checks; a rejected press stays on this card.
+  if (auto* mission = navigation->MissionLocation(); mission && mission->IsShown()) {
+    if (auto* button = mission->SetCourseButton())
+      button->Press();
+    return true;
+  }
+
   auto* armada = unity::Newest<ArmadaObjectViewerWidget>();
   if (!ArmadaViewerShown(armada)) {
     if (Hub::CurrentSection() == SectionID::Navigation_Galaxy && !navigation->IsSetCourseVisible()) {
