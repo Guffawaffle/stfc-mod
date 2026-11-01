@@ -6306,17 +6306,23 @@
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
           "settings-native-navigation-20261101/navigation-tests.log:313/313 build/run steps; model/publication/typed binding/matcher suites, not live search frame"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Windows agent-observed bounded native workflow on0f9ad5a5; runtime-verification.json; not player acceptance or complete lifecycle/platform qualification",
         "playerVerifiedFinalCandidate": false,
         "nativeAgentObservations": [
           {
             "date": "2026-11-01",
             "sourceCommit": "9cb2f6bf6182e803c4e0436d1d7e937bb1429275",
             "result": "Actual native menu with179 pages; Camera/Controls Back and query/result/Back observed. First result click after typing lost; second opens. Agent observation, not player acceptance."
+          },
+          {
+            "date": "2026-11-01",
+            "sourceCommit": "0f9ad5a5f6140c366139b718e1bc163fd141fe36",
+            "artifactSha256": "c3f46902f0e8e4f8fa5d91455a480d2859801c6c0e8f50f22090531dc22a4612",
+            "result": "179-page menu; typed zoom ->one Open enters Camera; Back retains query/results; Clear/categories and full close/reopen succeed. Contained GetComponent diagnostic recurred; caller/cause unassigned. No preferences changed."
           }
         ]
       },
-      "dependenciesAndLimitations": "Native implementation exists but live 0291d40f/11dcf83e menu trials failed during control staging. Slider concrete-type and PLAY choice-identifier omissions corrected in source; a successful published-menu/navigation trial remains required. Current 9cb2f6bf native trial successfully publishes179 pages; older failed staging observations are historical. See SET-NAV contract for bounded navigation/focus corrections and remaining lifecycle/platform checks.",
+      "dependenciesAndLimitations": "Historical 0291d40f/11dcf83e staging trials failed; later slider concrete-type and PLAY choice-identifier corrections are preserved. Current0f9ad5a5 publishes179 pages and passes bounded native menu/search/Back/close-reopen trial. Extended lifecycle/platform and contained GetComponent diagnostic remain separate; no player acceptance claim.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/SET-NAV.md",
@@ -6346,7 +6352,7 @@
           "evidence": "src/mod/features/settings_pages.cc"
         }
       ],
-      "catalogStatus": "Windows native menu/child Back observed; first-click/heading fixes awaiting final DLL trial; extended lifecycle/Mac open",
+      "catalogStatus": "Windows native menu/child Back/search/close-reopen observed on0f9ad5a5; extended lifecycle/Mac and contained lookup diagnostic open",
       "userEntryPoint": "Player profile > Settings > Mod Settings, categories, root search Open/Clear and native Back",
       "migrationAssessments": [
         {
@@ -6357,9 +6363,10 @@
           "evidence": "docs/migration/features/SET-NAV.md",
           "scope": "Existing off-screen publication and native navigation assessment; retain search capture through pointer-up and restore exact-parent/same-tree heading refusal. Native before/after trial required for click correction.",
           "remaining": [
-            "Final corrected DLL native trial",
-            "Live session/context replacement and failure injection",
-            "Shift-S route and current Mac execution"
+            "Extended native replacement/session/failure cases",
+            "Exact target-row scrolling and keyboard shortcut/caret/Alt-Tab behavior",
+            "Current Mac execution",
+            "Previously tracked contained component lookup diagnostic; caller/cause still unassigned"
           ]
         }
       ]
@@ -6474,7 +6481,7 @@
       ],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/SET-SEARCH.md",
-      "catalogStatus": "Frozen search model/full UTF-8 retention qualified; Windows boot verified; native result/Back/Mac open",
+      "catalogStatus": "Frozen model/full UTF-8 retention qualified; Windows native typing/one-click result/Back/Clear observed on0f9ad5a5; extended focus/Mac open",
       "userEntryPoint": "Existing Mod Settings root search field, result Open/Clear and contextual Back",
       "migrationAssessments": [
         {
@@ -6495,6 +6502,19 @@
             "evidence": "D:/dev/stfc-workspace/artifacts/settings-search-navigation-20261101/runtime-verification.json",
             "scope": "AAI/UI Lab source-bound41/41 build, ordinary full-frame boot and unchanged four TOML hashes; no live search/menu/Back acceptance"
           }
+        },
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "d65616bc1a75c12be50960a04a2249ec770ad402",
+          "candidateCommit": "0f9ad5a5f6140c366139b718e1bc163fd141fe36",
+          "evidence": "docs/migration/features/SET-NAV.md",
+          "scope": "Bounded actual Windows search typing/result/Back/Clear and menu close/reopen; fixes immediate capture release on blur that lost first result click.",
+          "remaining": [
+            "Exact scrolling/caret/Alt-Tab and replacement cases",
+            "Current Mac execution",
+            "Contained component lookup error unassigned; see SET-NAV"
+          ]
         }
       ],
       "branchObservations": [

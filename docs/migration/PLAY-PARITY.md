@@ -2,6 +2,14 @@
 
 ## Settings lifecycle continuation — 2026-11-01
 
+The [native menu/navigation assessment](features/SET-NAV.md) now verifies actual
+Windows publication, child/Back, retained search results and complete close/reopen.
+It fixes a reproduced first-click loss after search typing and restores exact
+parent/tree checks for heading callbacks. Signed0f9ad5a5 is deployed with AAI/UI
+Lab;313 regression steps and41 native build steps pass. Preferences unchanged.
+Extended replacement/platform coverage and the pre-existing contained component
+lookup investigation remain distinct from this bounded result.
+
 The [search cohort](FEATURE-COHORT-20261101-SEARCH.md) maps existing metadata,
 root-input and contextual navigation owners and fixes extra byte truncation of
 retained UTF-8 queries. Source model/matching stays intact; full native menu,

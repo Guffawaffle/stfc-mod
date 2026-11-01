@@ -37,6 +37,15 @@ ownership and restores full source query retention where the target cut UTF-8 by
 bytes. Settings/model/typed adapter checks pass. Native publication/menu and actual
 search/result/Back interaction remain open; this does not close SET-NAV globally.
 
+The subsequent [native menu/navigation trial](features/SET-NAV.md) closes the
+basic Windows publication/child/Back/search/close-reopen uncertainty. Deployed
+0f9ad5a5 also fixes a first result click lost on field blur and restores exact
+parent/tree heading refusal. No preferences changed. The catalog's collapsed
+section adapter is support code without selected current collapsible registrations;
+do not invent a live fold acceptance requirement. Extended lifecycle/platform
+checks and the previously tracked contained component lookup error remain open.
+Continue another bounded existing-owner slice; no new test gate is imposed.
+
 ## Current completion direction — 2026-10-31
 
 Finish on `play-dev-ripper` in this existing checkout. Preserve selected existing

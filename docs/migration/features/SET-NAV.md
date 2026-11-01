@@ -45,7 +45,7 @@ Native SelectedOption, Back, release/bind and event delivery stay native.
 | N1 | InstallPages/AddPages publish one identified root, preserve other native settings | Existing shared appender and off-screen construction; publication state fixture covers partial return, unknown observations, duplicates and exact-root cleanup. Real installed 9cb2f6bf publishes 179 pages and displays one Mod Settings root. |
 | N2 | AddHeadingRow/control adapters retain native parent/child ownership and catalog order | Existing typed appenders, ordered presentation and IList rebind. Actual Camera and Controls rows rendered. No native ownership list rewriting. |
 | N3 | PageSelectedHook calls original once; heading toggle stays on current selected parent | Existing typed navigation; restore missing same-tree and exact checked-parent refusal before section mutation. Recheck current visit after the parent call. Old/reparented heading refusal is source-qualified, not live stale-event injection. |
-| N4 | Visit-local sections begin collapsed; refresh failure restores accessible controls | Existing PageSections and panel repair, no second native selection. Model/publication/typed fixtures cover their layers; exact section interaction to be checked on final DLL. |
+| N4 | Visit-local sections begin collapsed; refresh failure restores accessible controls | Existing PageSections and panel repair, no second native selection. Model/publication/typed fixtures cover their layers. Selected frozen/target catalog producers register no collapsible headings; this adapter branch is support code, not a current player-facing fold workflow. |
 | N5 | Category/title overrides are released before native pooled rebind/destroy | Existing weak widget/context/label identity, checked restoration and native hooks. Real category/Back transitions render correct titles; extended replacement/failure injection is not claimed. |
 | N6 | Native child Back returns to parent; search Back returns to retained query without reparenting | Existing visit-local weak search return and deferred same-tree queue. On 9cb2f6bf Camera/Controls Back and search result/Back/query retention work. Search's first result click after typing was lost. |
 | N7 | Search input owns gameplay through focused input release while result actions remain usable | Frozen InputRelease retains search activity through pointer-up. Target released its capture immediately on field blur, revoking the result exception during the click. Reuse InputRelease to retain that exact search token through held input and the first free frame; shared capture drain still owns gameplay after release. Escape/close continue releasing through the shared guard. |
@@ -74,5 +74,33 @@ PID3212/start134380254273316375. Publication logged at 2026-11-01
 results capped to32; first Open click did not navigate, second did; Back retained
 the query/results and Clear restored normal categories. No preference writes.
 
-Final build/deploy/native verification will be appended with exact identity;
-unobserved lifecycle/platform obligations remain separate from this bounded slice.
+## Windows delivery and native trial
+
+Signed source `0f9ad5a5f6140c366139b718e1bc163fd141fe36` passed the clean,
+stable 41/41-step AX build with AAI4bece2e5/UI Lab retained. One guarded ordinary
+C-game cycle stopped PID3212 and started PID48260/start134380271165629261.
+Installed/build DLL SHA256:
+`C3F46902F0E8E4F8FA5D91455A480D2859801C6C0E8F50F22090531DC22A4612`.
+Embedded build: ax-zig-20261101T171603-fef9e375. Exact source, intended loaded
+module path, disk hash and full frame readiness are observed. Command/cwd/source,
+duration and exit are retained in native-cycle-command.json/native-cycle.log.
+
+Actual corrected client trial publishes179 pages and displays one Mod Settings
+root. Typing `zoom` and clicking Open **once** opens Camera. Native Back restores
+`zoom` and its results; Clear restores categories. Back closes to native Settings
+and then the player profile. Reopening Settings publishes179 pages again, shows
+one Mod Settings entry and opens its ordinary categories. This is agent-observed
+native interaction, not player acceptance or every-control/platform qualification.
+No preferences were changed; all four root TOML hashes match before/after.
+
+Startup had no fresh errors. During menu interaction the previously tracked
+contained GameObject.GetComponent NullReferenceException message recurred at
+11:19:35.888 local (community_patch.log:566). Its caller/cause remain unassigned;
+there is no additional typed GetComponent caller diagnostic. Do not attribute it
+to search or claim a clean complete interaction log. The same-message historical
+[lookup investigation](../UI-LOOKUP-INVESTIGATION-20261031.md) remains unresolved;
+identical text is not proof of identical cause. Search/navigation observations
+above succeeded. Exact row scrolling, stale/replaced objects, session changes,
+failure injection, Shift-S and Mac remain separate; they do not prevent moving
+to the next bounded refactor slice. runtime-verification.json and
+native-log-observations.json bind the observations to this installed artifact.

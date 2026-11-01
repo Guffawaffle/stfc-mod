@@ -1,8 +1,15 @@
 # SET-SEARCH — metadata search and contextual return
 
-Contract version:1. Status: search source/model and bounded controller correction
-qualified locally; native interaction and full SET-NAV acceptance remain open.
+Contract version:1. Status: source/model and bounded Windows native search
+qualified; extended focus, lifecycle and platform acceptance remain open.
 Exact inputs, observations and receipts: [search cohort](../FEATURE-COHORT-20261101-SEARCH.md).
+
+Later [SET-NAV trial](SET-NAV.md): actual Windows field typing, one-click result
+navigation, retained query/results on Back, Clear and menu close/reopen succeed
+on0f9ad5a5. This restores search capture through pointer-up where the initial
+9cb2f6bf trial needed a second click. Earlier pending native statements below are
+historical. Exact scrolling/caret/Alt-Tab, extended replacement and Mac stay open;
+the separate contained component lookup diagnostic is recorded in SET-NAV.
 
 Frozen1baa55fe retains metadata-only indexing, inline root input, deferred results,
 query retention and contextual Back. Target base d2851fee reuses the exact search
