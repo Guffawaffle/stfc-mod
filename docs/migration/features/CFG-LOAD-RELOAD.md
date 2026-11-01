@@ -73,8 +73,26 @@ the final production/test bytes. No test registration was changed.
 
 Logs, commands, base SHA, durations and exit codes are in the evidence directory.
 `before.log` preserves the failing startup-gap assertion; `after-*.log` and
-`reload-modes.json` preserve the corrected results. Native delivery will be recorded
-after the source-bound build/cycle. Current Mac SDK is absent; this correction is
+`reload-modes.json` preserve the corrected results. Native delivery is recorded
+below. Current Mac SDK is absent; this correction is
 not Mac-qualified. Key-by-key defaults/alias reconciliation, CFG-WRITER,
 STATE-STORE and STATE-QUIT coverage remain open. Accepted pin click/drag behavior
 does not require an extended pin test round before this work can proceed.
+
+## Windows delivery — 2026-11-01
+
+Signed clean source `fb615d48b852f1b3a1d35e864c10f969900a6f1e` passed the
+source-bound AX native build (41/41 steps) with AAI/UI Lab retained. Source stayed
+stable through the build. One guarded cycle replaced ordinary process 24532 with
+28436. Installed/build SHA256:
+`A416FA2A03C8E3FC5E5307D6F1183BDFC5F350B6FE7D38AFEF73D9D9ACAEAE4A`.
+Embedded build `ax-zig-20261101T151921-f3c5f490` identifies that signed source;
+the exact ordinary target process loads the intended module path and reaches
+`FrameTick delivery: ready`. No fresh startup errors were observed. The known
+working 5235a65d DLL is retained in the evidence directory.
+
+No agent TOML edits; all four game-root TOML hashes match their pre-cycle values.
+Generated vars are expected startup output, not primary edits. This is native
+compilation and boot smoke, not an exact-client external-edit or native quit test.
+`native-cycle-command.json` records command/cwd/source/duration/exit code;
+`native-cycle.log` and `runtime-verification.json` retain the bounded evidence.

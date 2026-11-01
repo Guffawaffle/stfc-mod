@@ -6913,14 +6913,14 @@
           "settings-lifecycle-20261101: 230/230 Windows lifecycle/model build/run steps; isolated config reload modes pass",
           "tests/config_reload.cc startup-before-first-poll: startup-gap assertion reproduced against base, corrected production path passes; preserves primary bytes and restart-only patches"
         ],
-        "exactCandidateRuntime": "pending",
+        "exactCandidateRuntime": "Windows boot/frame readiness verified on signed fb615d48 / DLL A416FA2A; live external-edit and native quit trials not performed",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Malformed primary stays byte-identical, missing file creation, alias precedence, pending intents and atomic reload.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/CFG-LOAD-RELOAD.md",
-      "catalogStatus": "Startup-gap reload correction tested; full key parity and native trial pending",
+      "catalogStatus": "Startup-gap correction tested; Windows boot verified; full key parity and live reload trial pending",
       "userEntryPoint": "Load settings at startup; edit the primary TOML for automatic reload or use Reload Settings",
       "migrationAssessments": [
         {
@@ -6932,9 +6932,15 @@
           "evidence": "docs/migration/features/CFG-LOAD-RELOAD.md",
           "remaining": [
             "Complete key-by-key source reconciliation",
-            "Exact-client activation trial",
+            "Exact-client external-edit and native quit trials",
             "Mac qualification"
-          ]
+          ],
+          "nativeDelivery": {
+            "commit": "fb615d48b852f1b3a1d35e864c10f969900a6f1e",
+            "sha256": "A416FA2A03C8E3FC5E5307D6F1183BDFC5F350B6FE7D38AFEF73D9D9ACAEAE4A",
+            "evidence": "D:/dev/stfc-workspace/artifacts/settings-lifecycle-20261101/runtime-verification.json",
+            "scope": "AAI/UI Lab native build, exact ordinary process/path, full frame readiness; no live settings edits"
+          }
         }
       ],
       "branchObservations": [
