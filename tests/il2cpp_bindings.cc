@@ -1876,6 +1876,7 @@ void PlannedWarpBindingObservations()
 #include "notification_consumer_cases.h"
 #include "hud_owner_cases.h"
 #include "pin_geometry_cases.h"
+#include "pin_presentation_cases.h"
 // Registered active HUD owners and shared station radii are exercised in separate runtime processes.
 // clang-format on
 
@@ -1883,6 +1884,10 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]) == "pin-presentation") {
+    pin_presentation_fixture::Run();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "anomaly-owners") {
     HudOwnerCases();
     return 0;

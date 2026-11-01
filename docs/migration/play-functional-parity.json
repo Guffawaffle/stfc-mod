@@ -1829,7 +1829,8 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished."
+          "docs/migration/FEATURE-COHORT-20261026-02.md; D:/dev/stfc-workspace/.ax/feature-cohort-02-e979f692-receipt.json; 212/212 steps, seven explicit fixture re-executions; layers distinguished.",
+          "2026-11-01: D:/dev/stfc-workspace/artifacts/pin-presentation-20261101/; 312/312 binding/gameplay steps and pin-presentation production helper/reset mode. No new CI registrations."
         ],
         "exactCandidateRuntime": "Cohort e979f692 main ordinary client273 PID50172/filetime134375473141348824; exact installed disk hash/module path, FrameTick ready, four TOML files unchanged. One contained GetComponent exception during interactive trial; caller not established. Further testing held.",
         "playerVerifiedFinalCandidate": false,
@@ -1858,8 +1859,8 @@
         "macOS"
       ],
       "platformQualification": {
-        "Windows": "212/212 test/build steps and 37/37 DLL build; native boot. Pin interaction partially accepted, visual issue and unattributed contained GetComponent exception retained; remaining tests held.",
-        "macOS": "CI builds and Mcohall native testing; no local SDK or runtime claim."
+        "Windows": "2026-11-01: core/build-tests 196/196 steps, binding/gameplay 312/312 steps, production presentation/reset fixture passed. Rendered group, native drag/drop and persistence not qualified by those fixtures.",
+        "macOS": "Shared source implemented. Prior c27cc6bf platform CI passed; current presentation correction not built locally because Mac SDK remains absent; native Mac gameplay unqualified."
       },
       "branchObservations": [
         {
@@ -1964,10 +1965,10 @@
         "cohort": "20261026-02",
         "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
         "targetBase": "f4f64180543a9231234cd2b3d3f547dfa580476b",
-        "state": "source scan and bounded corrections qualified offline; partial native trial; further testing on hold",
+        "state": "Frozen presentation workflow restored with retained checked geometry; native trial pending",
         "recordedImmediately": true
       },
-      "catalogStatus": "Partial player acceptance; pinned-group visual issue open; testing held",
+      "catalogStatus": "Source group/drag/cue presentation restored and locally checked; native rendered/gesture trial pending",
       "parsedOnlySettings": [
         "patches.pinnedshipclicktoggle; source and target actual owner is pinnedshiphooks"
       ],
@@ -2002,39 +2003,67 @@
             "Contained GetComponent exception caller/cause unresolved; occurrence count unknown",
             "Remaining geometry/dispatch/rebind/focus failure paths and macOS unqualified; further testing held"
           ]
+        },
+        {
+          "version": 2,
+          "date": "2026-10-31",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
           },
-          {
-            "version": 2,
-            "date": "2026-10-31",
-            "source": {
-              "ref": "frozen/play-dev-20261026",
-              "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
-            },
-            "target": {
-              "branch": "play-dev-ripper",
-              "base": "203bc90fed6631468440458f411b25bec9802bad"
-            },
-            "contract": "docs/migration/features/PLAY-PINS-INPUT.md",
-            "migrationStatus": "Partial",
-            "correctiveDelta": "Restore source own-card rectangle projection instead of descendant-inclusive bounds. Existing simpler group rim/hover/cue presentation remains a separate source gap; this geometry correction does not close I4.",
-            "verification": "Windows core compile and build-tests passed 196/196 steps; affected binding/mod suites passed 312/312 steps. Five explicit production geometry adapter modes plus station, diagnostic and timer-owner regressions passed. No new CI registration. Evidence: D:/dev/stfc-workspace/artifacts/integration-audit-20261031/pin-geometry-verification.json.",
-            "remaining": [
-              "Frozen group margin, fill/rim hover and drag styles, unmasked edges, cue presentation and reset behavior remain to reconcile",
-              "Rendered band, hit testing, native pooled ScrollRect dispatch and Mac gameplay are unqualified",
-              "Live GetComponent caller and cause remain unresolved; new bounded instrumentation is built separately from the current ee112729 user trial"
-            ]
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "203bc90fed6631468440458f411b25bec9802bad"
+          },
+          "contract": "docs/migration/features/PLAY-PINS-INPUT.md",
+          "migrationStatus": "Partial",
+          "correctiveDelta": "Restore source own-card rectangle projection instead of descendant-inclusive bounds. Existing simpler group rim/hover/cue presentation remains a separate source gap; this geometry correction does not close I4.",
+          "verification": "Windows core compile and build-tests passed 196/196 steps; affected binding/mod suites passed 312/312 steps. Five explicit production geometry adapter modes plus station, diagnostic and timer-owner regressions passed. No new CI registration. Evidence: D:/dev/stfc-workspace/artifacts/integration-audit-20261031/pin-geometry-verification.json.",
+          "remaining": [
+            "Frozen group margin, fill/rim hover and drag styles, unmasked edges, cue presentation and reset behavior remain to reconcile",
+            "Rendered band, hit testing, native pooled ScrollRect dispatch and Mac gameplay are unqualified",
+            "Live GetComponent caller and cause remain unresolved; new bounded instrumentation is built separately from the current ee112729 user trial"
+          ]
+        },
+        {
+          "version": 3,
+          "date": "2026-11-01",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "cba6fc110f37afc4ab9198ade09e1c6ca059679d",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/pin-presentation-20261101/input-manifest.json",
+            "inputManifestSha256": "58d430c13951da94bfda3acd286f539c4f5c6e2b418aba5e0c607e090c1973c3"
+          },
+          "contract": "docs/migration/features/PLAY-PINS-INPUT.md",
+          "migrationStatus": "Partial",
+          "correctiveDelta": "Restore ten-unit group margin; source normal/drag/hover fills, unmasked rims; source/target/unpin card edges; compact labeled first-pin cue and separate leading edge; gesture-owned weak custody and reset. Existing checked geometry, layout exclusion, durable state and pointer policy retained. Green preview does not expand existing checked drop authorization when geometry is unavailable.",
+          "verification": {
+            "sourceComparison": "Complete frozen pin input and supporting ship-tech presentation scanned; retained own-card geometry and target owners compared. Current client273 MaskableGraphic.set_maskable(bool) present.",
+            "automated": "Windows core/build-tests 196/196 steps; binding/gameplay 312/312; production native-presentation helper fixture passed group transitions, tile reset, cue layout/replacement, custody and maskability failures. Does not execute native pointers or persistence.",
+            "nativeRuntime": "Pending exact-artifact visual/gesture trial.",
+            "macOS": "SDK unavailable locally; current correction unqualified."
+          },
+          "remaining": [
+            "Rendered group dimensions/rims and native viewport clipping",
+            "Real hold/drag, pin/reorder/unpin, cancel/focus/rebind cleanup and persistence trial",
+            "Mac build/gameplay qualification; overall pin parity not closed"
+          ]
         }
       ],
       "knownIssues": [
         {
           "id": "PIN-GROUP-VISUAL",
-            "status": "open; own-card geometry correction under validation; native visual and remaining frozen styling pending",
+          "status": "open; source presentation restored locally after own-card correction; exact-artifact rendered/gesture trial pending",
           "evidence": "D:/dev/stfc-workspace/artifacts/feature-cohort-20261026-02/pinned-group-feedback.png",
           "description": "Group rectangle unclear and spills beyond cards; screenshot is actual usability evidence."
         },
         {
           "id": "PIN-COMPONENT-EXCEPTION",
-            "status": "observed; caller/cause unresolved; bounded native caller/type diagnostic built at 203bc90f, not deployed during ee112729 user trial",
+          "status": "historical contained exception; instrumented cba6fc11 deployed; native caller/cause still unresolved, not addressed by this presentation batch",
           "description": "GameObject.GetComponent NullReferenceException in trial log, contained by binding; later reports suppressed, occurrence count unknown."
         }
       ]

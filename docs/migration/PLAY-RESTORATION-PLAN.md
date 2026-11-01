@@ -1,5 +1,20 @@
 # Full downstream play restoration plan
 
+## Current checkpoint — 2026-11-01
+
+Continue on the existing `play-dev-ripper` worktree. The station lifecycle and
+own-card pin geometry corrections are integrated through `c27cc6bf`. The later
+mission-marker primary-action correction `cba6fc11` is deployed and Guff confirms
+right-click travel works. That Windows result does not close other workflows or
+Mac qualification.
+
+The next bounded restoration is the [pin presentation contract](features/PLAY-PINS-INPUT.md):
+source group margin, normal/drag/hover fill and rims, tile feedback and compact
+first-pin cue/reset. Local production-presentation checks and binding/gameplay
+suites pass; native rendered/gesture trial remains pending. Frozen source,
+existing typed safeguards, optional-host selection and prior scope decisions stay
+unchanged. Older test-artifact and pending-candidate statements below are historical.
+
 ## Current completion direction — 2026-10-31
 
 Finish on `play-dev-ripper` in this existing checkout. Preserve selected existing

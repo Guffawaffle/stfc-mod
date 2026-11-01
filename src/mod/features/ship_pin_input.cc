@@ -20,10 +20,16 @@
 
 namespace
 {
-namespace pointer                = ship_pin_pointer;
-constexpr const char*  kPinBadge = "CommunityMod_SwapShipPinBadge";
-constexpr const char*  kPinBand  = "CommunityMod_SwapShipPinGroup";
-constexpr const char*  kPinCue   = "CommunityMod_FirstPinDropCue";
+namespace pointer                   = ship_pin_pointer;
+constexpr const char*  kPinBadge    = "CommunityMod_SwapShipPinBadge";
+constexpr const char*  kPinBand     = "CommunityMod_SwapShipPinGroup";
+constexpr const char*  kPinCue      = "CommunityMod_FirstPinDropCue";
+constexpr const char*  kPinCueLabel = "CommunityMod_FirstPinDropLabel";
+constexpr const char*  kPinCueEdge  = "CommunityMod_FirstPinDropEdge";
+constexpr const char*  kPinGroupEdges[]{"CommunityMod_PinGroupTop", "CommunityMod_PinGroupBottom",
+                                        "CommunityMod_PinGroupLeft", "CommunityMod_PinGroupRight"};
+constexpr const char*  kPinDragEdges[]{"CommunityMod_PinDragTop", "CommunityMod_PinDragBottom",
+                                       "CommunityMod_PinDragLeft", "CommunityMod_PinDragRight"};
 constexpr unity::Color kPinnedColor{0.97f, 0.84f, 0.48f, 1.0f};
 constexpr unity::Color kUnpinnedColor{0.54f, 0.63f, 0.66f, 0.94f};
 struct PinTile {
@@ -35,7 +41,9 @@ struct PinInputState {
   std::vector<PinTile> tiles;
   uint64_t             generation = 0;
   pointer::Policy      policy;
-  il2cpp::GcHandle     source, scroll, cue, target;
+  il2cpp::GcHandle     source, scroll, cue, target, band, cue_viewport;
+  bool                 group_hovered      = false;
+  bool                 source_highlighted = false;
   bool                 installed = false, attempted = false;
   int                  group_refresh_frames = 0;
 };
@@ -183,6 +191,65 @@ unity::RectTransform* PinDrawBadge(unity::Transform* parent, const char* name, u
     PinVisible(PinChild(badge, part), !pinned);
   return badge;
 }
+bool PinEdge(unity::Transform* parent, const char* name, unity::Vector2 anchor_min, unity::Vector2 anchor_max,
+             unity::Vector2 pivot, unity::Vector2 size, unity::Vector2 position, unity::Color color, bool visible,
+             bool unmasked = false, bool exclude_from_layout = false)
+{
+  if (!visible) {
+    PinVisible(PinChild(parent, name), false);
+    return true;
+  }
+  auto* edge  = PinSurface(parent, name, anchor_min, pivot, size, position, color, exclude_from_layout);
+  auto* image = PinImage(edge);
+  if (!edge || !image || (unmasked && !image->TrySetMaskable(false))) {
+    PinVisible(edge, false);
+    return false;
+  }
+  edge->Place(anchor_min, anchor_max, pivot, size, position);
+  return true;
+}
+bool PinStyleBand(unity::RectTransform* band, bool active, bool hovered)
+{
+  auto* image = PinImage(band);
+  if (!image)
+    return false;
+  const auto  fill  = hovered  ? unity::Color{0.13f, 0.35f, 0.32f, 0.90f}
+                      : active ? unity::Color{0.12f, 0.24f, 0.25f, 0.78f}
+                               : unity::Color{0.06f, 0.17f, 0.20f, 0.72f};
+  const auto  rim   = hovered  ? unity::Color{0.26f, 0.96f, 0.77f, 1.0f}
+                      : active ? unity::Color{1.0f, 0.76f, 0.16f, 1.0f}
+                               : unity::Color{0.83f, 0.67f, 0.32f, 0.82f};
+  const float width = hovered ? 5.0f : active ? 4.5f : 3.0f;
+  image->SetColor(fill);
+  // Keep the fill clipped to the viewport, while the frozen outer rim remains complete below the cards.
+  const bool ready =
+      PinEdge(band, kPinGroupEdges[0], {0, 1}, {1, 1}, {0.5f, 1}, {0, width}, {}, rim, true, true)
+      && PinEdge(band, kPinGroupEdges[1], {0, 0}, {1, 0}, {0.5f, 0}, {0, width}, {}, rim, true, true)
+      && PinEdge(band, kPinGroupEdges[2], {0, 0}, {0, 1}, {0, 0.5f}, {width, -2 * width}, {}, rim, true, true)
+      && PinEdge(band, kPinGroupEdges[3], {1, 0}, {1, 1}, {1, 0.5f}, {width, -2 * width}, {}, rim, true, true);
+  if (!ready)
+    PinVisible(band, false);
+  return ready;
+}
+enum class PinHighlightKind { None, Source, Target, UnpinTarget };
+void PinStyleTile(unity::RectTransform* rect, PinHighlightKind highlight)
+{
+  if (auto* image = PinImage(PinChild(rect, kPinBadge)))
+    image->SetColor(highlight == PinHighlightKind::Source        ? unity::Color{0.52f, 0.27f, 0.02f, 0.98f}
+                    : highlight == PinHighlightKind::Target      ? unity::Color{0.03f, 0.40f, 0.34f, 0.95f}
+                    : highlight == PinHighlightKind::UnpinTarget ? unity::Color{0.42f, 0.14f, 0.07f, 0.95f}
+                                                                 : unity::Color{0.06f, 0.10f, 0.12f, 0.82f});
+  const bool  source  = highlight == PinHighlightKind::Source;
+  const bool  visible = highlight != PinHighlightKind::None;
+  const float width   = source ? 4.5f : 2.5f;
+  const auto  color   = source                                       ? unity::Color{1.0f, 0.76f, 0.16f, 1.0f}
+                        : highlight == PinHighlightKind::UnpinTarget ? unity::Color{1.0f, 0.43f, 0.25f, 0.95f}
+                                                                     : unity::Color{0.10f, 0.82f, 0.66f, 0.9f};
+  (void)PinEdge(rect, kPinDragEdges[0], {0, 1}, {1, 1}, {0.5f, 1}, {-8, width}, {0, -3}, color, visible, false, true);
+  (void)PinEdge(rect, kPinDragEdges[1], {0, 0}, {1, 0}, {0.5f, 0}, {-8, width}, {0, 3}, color, visible, false, true);
+  (void)PinEdge(rect, kPinDragEdges[2], {0, 0}, {0, 1}, {0, 0.5f}, {width, -8}, {3, 0}, color, visible, false, true);
+  (void)PinEdge(rect, kPinDragEdges[3], {1, 0}, {1, 1}, {1, 0.5f}, {width, -8}, {-3, 0}, color, visible, false, true);
+}
 PinTile* PinRecord(ShipTileWidget* tile)
 {
   auto&      rows  = PinInput().tiles;
@@ -210,13 +277,20 @@ void PinHideCue()
 {
   auto& state = PinInput();
   PinVisible(state.cue.Get<unity::RectTransform>(), false);
+  PinVisible(PinChild(state.cue_viewport.Get<unity::RectTransform>(), kPinCueEdge), false);
   state.cue.Reset();
+  state.cue_viewport.Reset();
 }
 void PinRefreshTile(ShipTileWidget* tile);
 void PinReleaseRoots()
 {
   auto& state = PinInput();
   PinHideCue();
+  if (auto* band = state.band.Get<unity::RectTransform>())
+    (void)PinStyleBand(band, false, false);
+  state.band.Reset();
+  state.group_hovered      = false;
+  state.source_highlighted = false;
   if (auto* target = state.target.Get<ShipTileWidget>(); target && target->isActiveAndEnabled())
     PinRefreshTile(target);
   if (auto* source = state.source.Get<ShipTileWidget>(); source && source->isActiveAndEnabled())
@@ -246,15 +320,23 @@ template <typename Fn> bool PinUiAttempt(Fn&& work) noexcept
     return false;
   }
 }
-void PinHighlight(ShipTileWidget* tile, unity::Color color)
+void PinHighlight(ShipTileWidget* tile, PinHighlightKind highlight)
 {
-  if (auto* image = PinImage(PinBadge(tile)))
-    image->SetColor(color);
+  if (PinIdentity(tile))
+    PinStyleTile(PinRect(tile), highlight);
+}
+void PinHighlightSource(ShipTileWidget* tile)
+{
+  if (!PinInput().source_highlighted && PinIdentity(tile)) {
+    PinHighlight(tile, PinHighlightKind::Source);
+    PinInput().source_highlighted = true;
+  }
 }
 void PinRefreshTile(ShipTileWidget* tile)
 {
   auto*      rect     = PinRect(tile);
   const auto identity = PinIdentity(tile);
+  PinStyleTile(rect, PinHighlightKind::None);
   if (!ship_pins::InputReady() || !identity) {
     PinVisible(PinChild(rect, kPinBadge), false);
     return;
@@ -380,17 +462,90 @@ unity::RectTransform* PinRefreshBand(unity::ScrollRect* scroll, ShipManagementVi
   const auto pivot = content->TryCall<"get_pivot", unity::Vector2>();
   if (!pivot)
     return nullptr;
-  auto* band = PinSurface(content, kPinBand, pivot.value, {0.5f, 0.5f}, {right - left + 8, top - bottom + 8},
-                          {(left + right) * 0.5f, (top + bottom) * 0.5f}, {0.16f, 0.40f, 0.45f, 0.22f}, true);
-  if (band)
-    band->SetAsFirstSibling();
+  auto* band = PinSurface(content, kPinBand, pivot.value, {0.5f, 0.5f}, {right - left + 20, top - bottom + 20},
+                          {(left + right) * 0.5f, (top + bottom) * 0.5f}, {}, true);
+  if (!band
+      || !PinStyleBand(band, PinInput().band.Get() == band && PinInput().policy.Dragging(),
+                       PinInput().band.Get() == band && PinInput().group_hovered))
+    return nullptr;
+  band->SetAsFirstSibling();
   return band;
+}
+void PinDrawCue(unity::RectTransform* viewport, bool hovered)
+{
+  auto&      state = PinInput();
+  const auto rect  = viewport ? viewport->TryCall<"get_rect", unity::Rect>() : il2cpp::CallResult<unity::Rect>{};
+  if (!rect || !std::isfinite(rect.value.width) || !std::isfinite(rect.value.height) || rect.value.width < 16
+      || rect.value.height < 16) {
+    PinHideCue();
+    return;
+  }
+  if (state.cue_viewport.Get() != viewport)
+    PinHideCue();
+  if (!state.cue_viewport)
+    state.cue_viewport = il2cpp::GcHandle::Weak(viewport);
+  if (!state.cue_viewport)
+    return;
+  const unity::Vector2 size{std::min(90.0f, rect.value.width - 8), std::min(90.0f, rect.value.height - 8)};
+  auto*                cue =
+      PinSurface(viewport, kPinCue, {0, 0.5f}, {0, 0.5f}, size, {4, 0},
+                 hovered ? unity::Color{0.39f, 0.30f, 0.03f, 0.98f} : unity::Color{0.25f, 0.20f, 0.05f, 0.88f}, true);
+  auto* label_rect = PinChild(cue, kPinCueLabel);
+  if (!label_rect && cue) {
+    il2cpp::GcHandle root;
+    label_rect   = unity::CreateUiObject(kPinCueLabel, cue, root);
+    auto* object = label_rect ? label_rect->gameObject() : nullptr;
+    if (!object || !object->AddComponent<unity::TextMeshProUGUI>()) {
+      if (object)
+        unity::Destroy(object);
+      label_rect = nullptr;
+    }
+  }
+  auto* object = label_rect ? label_rect->gameObject() : nullptr;
+  auto* label  = object ? object->GetComponent<unity::TextMeshProUGUI>() : nullptr;
+  if (!cue || !label || !label_rect) {
+    PinVisible(cue, false);
+    PinHideCue();
+    return;
+  }
+  label_rect->Place({0.5f, 0.5f}, {0.5f, 0.5f}, {0.5f, 0.5f}, {size.x - 8, size.y - 8}, {});
+  label->SetText("Pin here");
+  label->SetFontSize(13);
+  label->SetAlignment(unity::TMP_Text::Alignment::Center);
+  label->SetRaycastTarget(false);
+  label->SetEnableWordWrapping(false);
+  label->SetColor(hovered ? unity::Color{1.0f, 0.96f, 0.72f, 1.0f} : unity::Color{0.98f, 0.87f, 0.56f, 0.98f});
+  PinVisible(label_rect, true);
+  state.cue = il2cpp::GcHandle::Weak(cue);
+  if (!state.cue
+      || !PinEdge(viewport, kPinCueEdge, {0, 0.5f}, {0, 0.5f}, {0, 0.5f}, {3, size.y}, {1, 0},
+                  hovered ? unity::Color{1.0f, 0.94f, 0.57f, 1.0f} : unity::Color{0.96f, 0.78f, 0.34f, 0.9f}, true,
+                  false, true)) {
+    PinVisible(cue, false);
+    PinHideCue();
+    return;
+  }
+  cue->Call<"SetAsLastSibling">();
+  if (auto* edge = PinChild(viewport, kPinCueEdge))
+    edge->Call<"SetAsLastSibling">();
 }
 ShipTileWidget* PinSource()
 {
   auto*      tile     = PinInput().source.Get<ShipTileWidget>();
   const auto expected = PinInput().policy.Source();
   return tile && expected && PinIdentity(tile) == expected ? tile : nullptr;
+}
+bool PinHasGroup(unity::ScrollRect* scroll, ShipManagementViewContext* context)
+{
+  for (const auto& row : PinInput().tiles) {
+    auto* tile = row.tile.Get<ShipTileWidget>();
+    if (!tile || row.context.Get() != context || PinScroll(tile) != scroll || !PinIdentity(tile))
+      continue;
+    const auto fleet = tile->TryCall<"get_Context", FleetPlayerData*>();
+    if (!fleet || ship_pins::IsPinned(fleet.value))
+      return true; // Missing geometry/data must not turn an existing group into a first-pin invitation.
+  }
+  return false;
 }
 void PinPreview(unity::Vector2 position)
 {
@@ -400,27 +555,42 @@ void PinPreview(unity::Vector2 position)
   if (!source || !scroll)
     return;
   auto* band = PinRefreshBand(scroll, source->PinContext());
-  if (!band) {
-    auto*      viewport = PinViewport(scroll);
-    const auto size     = viewport ? viewport->TryCall<"get_rect", unity::Rect>() : il2cpp::CallResult<unity::Rect>{};
-    if (size && std::isfinite(size.value.height) && size.value.height > 8) {
-      auto* cue = PinSurface(viewport, kPinCue, {0, 0.5f}, {0, 0.5f}, {32, size.value.height - 8}, {4, 0},
-                             {0.15f, 0.65f, 0.64f, 0.45f}, true);
-      state.cue = il2cpp::GcHandle::Weak(cue);
-      if (cue)
-        (void)PinDrawBadge(cue, "PinIndicator", {0.5f, 0.5f}, {17, -12}, true);
-    }
+  if (state.band.Get() != band) {
+    if (auto* previous = state.band.Get<unity::RectTransform>())
+      (void)PinStyleBand(previous, false, false);
+    state.band = il2cpp::GcHandle::Weak(band);
+  }
+  if (band && !state.band) {
+    (void)PinStyleBand(band, false, false);
+    state.policy.Cancel();
+    PinReleaseRoots();
+    return;
+  }
+  auto* target = PinTileAt(position, false, scroll);
+  if (target && target->PinContext() != source->PinContext())
+    target = nullptr;
+  const auto target_data =
+      target ? target->TryCall<"get_Context", FleetPlayerData*>() : il2cpp::CallResult<FleetPlayerData*>{};
+  // Keep preview eligibility aligned with the existing checked band/drop rule when geometry is unavailable.
+  state.group_hovered = PinContains(band, position).value_or(false);
+  if (band)
+    (void)PinStyleBand(band, true, state.group_hovered);
+  if (!band && !PinHasGroup(scroll, source->PinContext())) {
+    PinDrawCue(PinViewport(scroll), PinContains(state.cue.Get<unity::RectTransform>(), position).value_or(false));
   } else {
     PinHideCue();
   }
-  PinHighlight(source, {0.52f, 0.27f, 0.02f, 0.98f});
+  PinHighlightSource(source);
   if (auto* previous = state.target.Get<ShipTileWidget>(); previous && previous != source)
     PinRefreshTile(previous);
-  auto* target = PinAnyTileAt(position, scroll, source->PinContext());
+  const auto source_data   = source->TryCall<"get_Context", FleetPlayerData*>();
+  const bool source_pinned = source_data && ship_pins::IsPinned(source_data.value);
+  if ((state.group_hovered && (!target_data || !ship_pins::IsPinned(target_data.value)))
+      || (!state.group_hovered && !source_pinned))
+    target = nullptr;
   state.target = il2cpp::GcHandle::Weak(target);
   if (target && target != source)
-    PinHighlight(target, PinContains(band, position).value_or(false) ? unity::Color{0.03f, 0.40f, 0.34f, 0.95f}
-                                                                     : unity::Color{0.42f, 0.14f, 0.07f, 0.95f});
+    PinHighlight(target, state.group_hovered ? PinHighlightKind::Target : PinHighlightKind::UnpinTarget);
 }
 void PinDrop(ShipTileWidget* source, unity::ScrollRect* scroll, unity::Vector2 position, pointer::Identity expected)
 {
@@ -684,7 +854,7 @@ void Tick()
       RefreshVisible();
     }
     if (state.policy.Source() && state.policy.Armed(now))
-      PinHighlight(PinSource(), {0.52f, 0.27f, 0.02f, 0.98f});
+      PinHighlightSource(PinSource());
     else if (!state.policy.Source())
       PinReleaseRoots();
   });

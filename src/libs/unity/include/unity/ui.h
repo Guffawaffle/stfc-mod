@@ -51,6 +51,8 @@ struct Image : Behaviour {
   { Set<"color">(value); }
   void SetRaycastTarget(bool value)
   { Set<"raycastTarget">(value); }
+  bool TrySetMaskable(bool value)
+  { return static_cast<bool>(TryCall<"set_maskable", void(bool)>(value)); }
   void SetVerticesDirty()
   { Call<"SetVerticesDirty">(); }
 };

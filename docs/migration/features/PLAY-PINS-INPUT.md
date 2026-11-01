@@ -65,3 +65,43 @@ normal/active/hover fill and rim colors/widths, unmasked rim edges and correspon
 reset behavior; the target's existing simpler decoration is not equivalent.
 This bounded geometry correction does not close I4 or overall pin input parity.
 Native screenshot/drag/drop qualification and Mac gameplay remain pending.
+
+## Group and drag presentation restoration — 2026-11-01
+
+Source remains frozen `1baa55fe`; target base is the player-verified mission-marker
+correction `cba6fc110f37afc4ab9198ade09e1c6ca059679d`. This batch re-reads the
+complete frozen pin-input workflow and the supporting ship-tech presentation
+helpers and compares them with the existing typed owners. Pin state, durable
+receipts, double-click/hold thresholds and shared hook ownership stay with their
+current implementations. No new hooks, configuration settings or UI framework.
+
+| Obligation | Source operation and typed adaptation | Verification |
+| --- | --- | --- |
+| V1 | Ten-unit group margin; normal/drag/hover fill, four rim edges and widths; fill stays masked while rim edges are unmasked. Existing own-card bounds remain the producer. | Production presentation adapter fixture and native visual trial pending. |
+| V2 | Armed/dragged source has gold card edges; eligible pinned target has green edges, and an outside-group unpin target has red edges. Unpinned source outside the group has no target highlight. | Production helper transitions and real gesture trial pending. |
+| V3 | Empty-group cue is capped at 90x90, fits the viewport minus eight units, includes centered 13-point "Pin here" text and a separate leading edge, with source hover colors. | Native creation/layout/cleanup fixture and first-pin trial pending. |
+| V4 | Cancellation, rebind and normal release restore source/target badges and edges, normal group style, and hide both cue and separate edge. Active group/cue custody stays weak and gesture-owned. | Reset and replaced-viewport fixture; focus/rebind/drop trial pending. |
+| V5 | Decorations under native layout owners remain excluded from layout and non-raycasting. Failed maskability or custody cannot leave an actionable first-pin cue; missing geometry is not proof that no pinned group exists. | Failure injection plus native trial pending. |
+
+Windows and macOS share the implementation. Fixtures qualify presentation helper
+calls against a controlled managed runtime, not real rendering, ScrollRect input,
+account persistence or native platform behavior. Current local Mac SDK absence
+remains a separate build limitation. I4 and overall pin parity stay open until the
+rendered and gesture workflow is tested on the delivered artifact.
+
+Intentional retained safeguard: green reorder preview and group drops both require
+the existing checked band geometry. Frozen source could infer group membership
+from a pinned tile alone; this batch does not expand the typed drop authorization
+when geometry is unavailable. A known pinned group with failed geometry also does
+not become an empty-group cue. These failure differences are not claimed equivalent.
+
+Local results: Windows core/build-tests passed 196/196 steps; the binding/gameplay
+suites passed 312/312 steps. `pin-presentation` executes production group/tile/cue
+helpers and release cleanup using the existing controlled Unity scene, including
+viewport replacement, small/invalid viewports, missing weak custody and contained
+maskability failure. It does not simulate actual pointer dispatch or durable pin
+publication. The initial fixture setup/rectangle-return failures were corrected;
+they were not game crashes. Evidence and hashed inputs are retained in
+`D:/dev/stfc-workspace/artifacts/pin-presentation-20261101/`. The test mode is local;
+no CI registration was added. Native visual/gesture and current Mac results remain
+pending.
