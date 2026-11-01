@@ -6390,7 +6390,8 @@
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
-          "docs/migration/SETTINGS-PRECISION-20261028.md:source-preserving readout/late-slider-label correction;400/400 steps plus exact source/binary receipt at artifacts/settings-precision-20261028/qualification.json"
+          "docs/migration/SETTINGS-PRECISION-20261028.md:source-preserving readout/late-slider-label correction;400/400 steps plus exact source/binary receipt at artifacts/settings-precision-20261028/qualification.json",
+          "settings-exact-entry-20261101/model-tests.log:152/152 existing test-mod build/run steps; see exact-entry assessment scope."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false,
@@ -6401,6 +6402,22 @@
             "artifactSha256": "5d4918bd8492a468074ba3c4e424a27b64aa2b7eca1ddd5610157b4dcd597284",
             "platform": "Windows client273 main ordinary",
             "result": "Looks good: basic Settings precision presentation after cycle; not full control/lifecycle/platform qualification."
+          }
+        ],
+        "nativeAgentObservations": [
+          {
+            "date": "2026-11-01",
+            "targetBase": "572d81a7f97b76657081ba9b06f065a8ca9adc2c",
+            "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+            "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+            "evidence": "docs/migration/FEATURE-COHORT-20261101-EXACT-ENTRY.md",
+            "scope": "Existing exact numeric editor: Windows opening, invalid feedback/disabled Apply, Cancel, reopen, Escape and subsequent native Back; no live Apply or preference write.",
+            "localChecks": "Existing test-mod:152/152 build/run steps; production session/catalog with controlled host/persistence boundaries.",
+            "remaining": [
+              "Successful live Apply/save/restart",
+              "Other control families and extended focus/hardware lifecycle",
+              "Mac execution"
+            ]
           }
         ]
       },
@@ -6416,7 +6433,23 @@
         "implementationCommit": "e04dc3bfc031648a7b7a30a76b900fa26826102f",
         "artifactSha256": "5d4918bd8492a468074ba3c4e424a27b64aa2b7eca1ddd5610157b4dcd597284",
         "receipt": "D:/dev/stfc-workspace/artifacts/settings-precision-20261028/qualification.json"
-      }
+      },
+      "exactEntryAssessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "572d81a7f97b76657081ba9b06f065a8ca9adc2c",
+          "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+          "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-EXACT-ENTRY.md",
+          "scope": "Existing exact numeric editor: Windows opening, invalid feedback/disabled Apply, Cancel, reopen, Escape and subsequent native Back; no live Apply or preference write.",
+          "localChecks": "Existing test-mod:152/152 build/run steps; production session/catalog with controlled host/persistence boundaries.",
+          "remaining": [
+            "Successful live Apply/save/restart",
+            "Other control families and extended focus/hardware lifecycle",
+            "Mac execution"
+          ]
+        }
+      ]
     },
     {
       "id": "SET-FC-CONFIRM",

@@ -2,6 +2,14 @@
 
 ## Current checkpoint — 2026-11-01
 
+Latest [exact-value editor assessment](FEATURE-COHORT-20261101-EXACT-ENTRY.md)
+qualifies the existing Windows invalid-draft/Cancel/reopen/Escape/Back workflow
+on installed f53b07ea, with unchanged preferences and passing local models.
+No production change or cycle was needed. Successful live Apply/save, other
+value families and Mac remain separate. The preceding lookup guard is deployed
+and its native search/navigation check passes; see the updated investigation.
+Next bounded owner slice: existing audio/image picker cancellation and path entry.
+
 Continue on the existing `play-dev-ripper` worktree. The station lifecycle and
 own-card pin geometry corrections are integrated through `c27cc6bf`. The later
 mission-marker primary-action correction `cba6fc11` is deployed and Guff confirms
