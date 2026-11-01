@@ -6303,14 +6303,66 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures"
+          "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
+          "settings-native-navigation-20261101/navigation-tests.log:313/313 build/run steps; model/publication/typed binding/matcher suites, not live search frame"
         ],
         "exactCandidateRuntime": "pending",
-        "playerVerifiedFinalCandidate": false
+        "playerVerifiedFinalCandidate": false,
+        "nativeAgentObservations": [
+          {
+            "date": "2026-11-01",
+            "sourceCommit": "9cb2f6bf6182e803c4e0436d1d7e937bb1429275",
+            "result": "Actual native menu with179 pages; Camera/Controls Back and query/result/Back observed. First result click after typing lost; second opens. Agent observation, not player acceptance."
+          }
+        ]
       },
-      "dependenciesAndLimitations": "Native implementation exists but live 0291d40f/11dcf83e menu trials failed during control staging. Slider concrete-type and PLAY choice-identifier omissions corrected in source; a successful published-menu/navigation trial remains required.",
+      "dependenciesAndLimitations": "Native implementation exists but live 0291d40f/11dcf83e menu trials failed during control staging. Slider concrete-type and PLAY choice-identifier omissions corrected in source; a successful published-menu/navigation trial remains required. Current 9cb2f6bf native trial successfully publishes179 pages; older failed staging observations are historical. See SET-NAV contract for bounded navigation/focus corrections and remaining lifecycle/platform checks.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/SET-NAV.md",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "ff179589f834b95331b4d7e38b1054fb6ff5ace9",
+          "presence": "absent at named path",
+          "evidence": "src/mod/features/settings_pages.cc"
+        },
+        {
+          "refRole": "play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "presence": "control",
+          "evidence": "mods/src/settings/native/page_navigation.cc"
+        },
+        {
+          "refRole": "play-dev",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "presence": "control",
+          "evidence": "mods/src/settings/native/page_navigation.cc"
+        },
+        {
+          "refRole": "refactor",
+          "revision": "d65616bc1a75c12be50960a04a2249ec770ad402",
+          "presence": "control",
+          "evidence": "src/mod/features/settings_pages.cc"
+        }
+      ],
+      "catalogStatus": "Windows native menu/child Back observed; first-click/heading fixes awaiting final DLL trial; extended lifecycle/Mac open",
+      "userEntryPoint": "Player profile > Settings > Mod Settings, categories, root search Open/Clear and native Back",
+      "migrationAssessments": [
+        {
+          "date": "2026-11-01",
+          "sourceRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "targetBase": "d65616bc1a75c12be50960a04a2249ec770ad402",
+          "candidateInputs": "D:/dev/stfc-workspace/artifacts/settings-native-navigation-20261101/candidate-inputs.json",
+          "evidence": "docs/migration/features/SET-NAV.md",
+          "scope": "Existing off-screen publication and native navigation assessment; retain search capture through pointer-up and restore exact-parent/same-tree heading refusal. Native before/after trial required for click correction.",
+          "remaining": [
+            "Final corrected DLL native trial",
+            "Live session/context replacement and failure injection",
+            "Shift-S route and current Mac execution"
+          ]
+        }
+      ]
     },
     {
       "id": "SET-VALUES",

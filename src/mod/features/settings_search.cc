@@ -2,6 +2,7 @@
 // maintenance_pages. Search result navigation is deferred through the existing native page owner.
 #include "game/settings_search.h"
 #include "features/features.h"
+#include "settings/input_release.h"
 #include "settings/maintenance_pages.h"
 #include "settings/native_controls.h"
 #include "shortcuts.h"
@@ -18,6 +19,7 @@ using namespace mod_settings::native;
 struct NativeSearchState {
   SettingsSearchSurface  surface;
   Shortcut::CaptureToken capture = 0;
+  InputRelease           release;
   PageVisitToken         visit = 0, attempted = 0;
   std::uint64_t          revision = 0;
   std::thread::id        thread;
@@ -82,6 +84,7 @@ void ArmSearchInput()
     throw std::runtime_error("native search owner unavailable");
   auto* back    = owner.Get<SettingsPageController>()->Field<"_backButtonViewController", SettingsEditorBack*>();
   state.capture = Shortcut::ClaimCapture();
+  state.release.Hold();
   state.surface.navigation.HoldInput(back);
 }
 bool OpenSearch(SettingsPageController* controller, PageVisitToken token)
@@ -147,8 +150,10 @@ void NativeSearchFrame()
       OpenSearch(controller, token);
     if (!state.surface.object || !IsPageVisitCurrent(state.visit) || TextEntryActive())
       return;
-    if (!unity::Application::isFocused())
+    if (!unity::Application::isFocused()) {
+      state.release.Tick(false, false);
       return; // Keep field/query while unfocused; input ownership waits too.
+    }
     unity::Key::Poll();
     if (state.revision != SettingsSearchRevision()) {
       state.surface.Write(SettingsSearchQuery());
@@ -162,12 +167,15 @@ void NativeSearchFrame()
     }
     if (state.surface.Focused()) {
       ArmSearchInput();
+      state.release.Hold();
       if (state.capture && Shortcut::CaptureOwnedBy(state.capture) && unity::Key::Down(unity::KeyCode::Escape)) {
         unity::Key::ClearInputFocus();
         Shortcut::ReleaseCapture(state.capture);
         state.capture = 0;
       }
-    } else if (state.capture) {
+    } else if (state.capture && state.release.Tick(true, unity::Input::anyKey())) {
+      // Keep the search-only action allowance through pointer-up. Releasing capture on blur can disable the
+      // result button between its pointer-down and click callbacks. Gameplay still waits for the shared drain.
       Shortcut::ReleaseCapture(state.capture);
       state.capture = 0;
     }

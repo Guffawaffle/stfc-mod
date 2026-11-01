@@ -450,8 +450,11 @@ void SettingsPageController_OnCategorySelected_Hook(auto original, SettingsPageC
     auto        visit   = NativePages().visit;
     const auto* heading = binding->tree->bindings[binding->index].heading;
     if (!heading->collapsible || !CurrentVisit(visit) || visit->refreshing || visit->controller.Get() != controller
-        || visit->page != binding->tree->bindings[binding->index].page)
+        || visit->tree != binding->tree || visit->page != binding->tree->bindings[binding->index].page)
       return;
+    const auto parent = settings_pages_binding::Parent(context);
+    if (!parent || parent.value != visit->context.Get() || !CurrentVisit(visit))
+      return; // A pooled heading from a different or reparented context cannot fold the current page.
     const auto before = visit->sections.Snapshot();
     visit->sections.Toggle(*heading);
     if (!RefreshPageVisit(visit) && CurrentVisit(visit)) {
