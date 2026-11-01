@@ -42,9 +42,32 @@ unknown liveness preserving the lookup, and a genuine live lookup exception
 remaining contained. This fixture recreates the observed lifetime condition;
 the separate native trial establishes its real-client occurrence.
 
-Final test/build and deployed runtime identities are appended after verification.
+Final production guard/tests are signed207becc9c9c4befdbf77133ecda2e75508ec10ce.
+`zig build test-il2cpp -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast
+-Dtest-optimize=Debug -Dmoddbg=true -j4 --summary all` passes163/163 build/run
+steps. Before/final command, cwd, base, duration and exit are retained in
+destroyed-before-command.json/destroyed-final-command.json, with bounded logs.
+final-inputs.json hashes the actual changed production/fixture inputs.
 
-## Current investigation — 2026-11-01
+The clean, stable local Windows AX releasedbg build passes41/41 steps and the
+proxy check, retaining clean AAI4bece2e5/UI Lab. Candidate DLL SHA256:
+`C086DD0760FDC70CD52F3D4393230044DCDB38B5473B94726D1304A42B789AF3`.
+Exact receipt and DLL/PDB are in final-build-receipt.json/final-candidate.
+Final build command/cwd/source/duration/exit: final-build-command.json.
+
+**Not deployed or native-after qualified.** Guff entered a wave and explicitly
+requested no cycling. All subsequent work was local build/evidence only; no UI
+input, deployment or cycle followed that request. The live DLL remains diagnostic
+17e378d0, SHA256 F0C2720E7D51C989B6499A2FD77D0A772E8184CFC92C5D4367BEA4256C8EE145,
+PID2500/start134380300047161782 at its last process observation. The on-disk live
+DLL hash is unchanged after the final local build. deployment-hold.json records
+the distinction. Do not resume a cycle/deploy until Guff lifts the hold. Then
+recheck exact runtime identity, deploy the guarded source and repeat selection,
+typing/result/Back/close-reopen with a fresh complete log; confirm the prior
+GetComponent exception is absent while normal focus/navigation still work.
+No Mac execution or universal elimination of all GetComponent failures is claimed.
+
+## Initial continuation evidence — 2026-11-01
 
 User requested investigation of whether this is a race or inconsequential noise.
 Base536b907e on existing play-dev-ripper is clean. Installed source0f9ad5a5,

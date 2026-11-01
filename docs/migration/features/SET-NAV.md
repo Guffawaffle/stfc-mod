@@ -104,3 +104,11 @@ above succeeded. Exact row scrolling, stale/replaced objects, session changes,
 failure injection, Shift-S and Mac remain separate; they do not prevent moving
 to the next bounded refactor slice. runtime-verification.json and
 native-log-observations.json bind the observations to this installed artifact.
+
+Later [lookup investigation](../UI-LOOKUP-INVESTIGATION-20261031.md) identifies
+the reproduced error as the shared keyboard-focus check querying a selected
+GameObject whose native object is already destroyed. Signed207becc9 skips only
+confirmed destruction;163 typed-binding steps and41 clean native build steps
+pass. It is built locally with AAI/UI Lab but deployment/native-after checks are
+held by Guff's explicit no-cycle request during a wave. Earlier unassigned-cause
+statements above describe the prior observation, not the current diagnosis.
