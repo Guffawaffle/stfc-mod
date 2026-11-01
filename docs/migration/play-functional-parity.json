@@ -6916,14 +6916,14 @@
           "tests/mod_logic.cc RenamedSettings: five-pair/five-case alias precedence and canonical output matrix; obsolete focussearch output reproduces before and passes after",
           "settings-defaults-aliases-20261101: build build-tests test-mod, final270/270 Windows steps"
         ],
-        "exactCandidateRuntime": "Windows boot/frame readiness verified on signed fb615d48 / DLL A416FA2A; live external-edit and native quit trials not performed",
+        "exactCandidateRuntime": "Signed4498a8b8 / DLL3E845314: Windows ordinary process/module/full-frame verified; existing legacy-only primary resolves unchanged and generated vars are canonical-only; native UI/reload/quit interactions and Mac remain separate",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Malformed primary stays byte-identical, missing file creation, alias precedence, pending intents and atomic reload.",
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/CFG-LOAD-RELOAD.md",
-      "catalogStatus": "190 product defaults and alias/reload checks pass; focus alias output correction; native/Mac limits recorded",
+      "catalogStatus": "190 product defaults and aliases qualified; focus output correction verified on Windows; native UI/Mac open",
       "userEntryPoint": "Load settings at startup; edit the primary TOML for automatic reload or use Reload Settings",
       "migrationAssessments": [
         {
@@ -6956,7 +6956,13 @@
             "Exact-client native Settings/reload/quit interactions",
             "Mac correction qualification",
             "DIAG-CLAIM-TRACE separate discovery; parked orbit unchanged"
-          ]
+          ],
+          "nativeDelivery": {
+            "commit": "4498a8b8987e3d3263cba773c730d9838ea1ea1e",
+            "sha256": "3E845314CFCF6CCDA9F229282A5942E2A5FBE7F2113442741BD340A77260CF03",
+            "evidence": "D:/dev/stfc-workspace/artifacts/settings-defaults-aliases-20261101/runtime-verification.json",
+            "scope": "AAI/UI Lab source-bound build, ordinary Windows full-frame boot, actual legacy-only input/canonical generated output and preserved preference; no agent config edits"
+          }
         }
       ],
       "branchObservations": [

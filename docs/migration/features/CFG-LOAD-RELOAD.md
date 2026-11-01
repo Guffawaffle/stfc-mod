@@ -115,3 +115,10 @@ retains canonical precedence and records only ui.focus_search. Existing canonica
 and same-section behavior remain qualified. No defaults or primary-file edits.
 System orbit stays parked. DIAG-CLAIM-TRACE is newly inventoried as a separate
 unassessed owner; it is not silently treated as missing product behavior or ported.
+
+Signed source4498a8b8 is now deployed on Windows with AAI/UI Lab. The native build
+passes41/41 steps, exact DLL/source/path and full frame readiness are verified.
+The existing legacy-only primary resolves to the same preference while generated
+vars now contain only the canonical key; four root TOML hashes remain unchanged.
+See the cohort for exact hashes/processes and limits. No full native UI/quit or
+Mac acceptance is inferred from this generated-output observation.

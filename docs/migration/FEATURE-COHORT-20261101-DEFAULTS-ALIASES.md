@@ -63,5 +63,26 @@ Debug tests, moddbg=true, four jobs:
 steps. Step count is not test count. These are production parser/owner paths with
 isolated files and controlled host boundaries, not native UI/quit acceptance.
 Commands, cwd, base, duration and exit codes are retained with hashed inputs.
-Current Mac SDK is absent; this correction is not Mac-qualified. Native delivery
-will be recorded after the clean source-bound build/cycle.
+Current Mac SDK is absent; this correction is not Mac-qualified.
+
+## Windows delivery and generated-output observation
+
+Clean signed source `4498a8b8987e3d3263cba773c730d9838ea1ea1e` passed the
+41/41-step source-bound AX build, retaining clean AAI4bece2e5 and UI Lab. Source
+remained stable during the build. One guarded ordinary-game cycle stopped PID28436
+and started PID47028. Embedded build `ax-zig-20261101T160322-3446894a` identifies
+that source; intended loaded module path, installed/build hash and full frame
+readiness are verified. DLL SHA256:
+`3E845314CFCF6CCDA9F229282A5942E2A5FBE7F2113442741BD340A77260CF03`.
+No fresh startup errors observed. Known-working fb615d48 DLL is retained.
+
+The existing primary file already uses the legacy focus key without the canonical
+key. Before deployment, runtime vars contained both names. After deployment, vars
+contain only ui.focus_search, and its resolved preference matches the existing
+legacy value. This establishes the native generated-output correction for that
+observed input without editing live settings. All four root TOML hashes match the
+pre-cycle values; no agent TOML edits. No configuration values/tokens are printed
+in these observation records. Native Settings interaction/quit and Mac coverage
+remain separate. Exact cycle command, cwd, source, duration, exit and runtime
+evidence are retained in native-cycle-command.json/native-cycle.log and
+runtime-verification.json. Next: existing Settings/reset and shortcut-edit workflows.
