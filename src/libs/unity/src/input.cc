@@ -38,7 +38,23 @@ namespace
   bool InputFocused(EventSystem* event_system)
   {
     auto* selected = event_system ? event_system->currentSelectedGameObject() : nullptr;
-    auto* field    = selected ? selected->GetComponent<TMP_InputField>() : nullptr;
+    if (!selected)
+      return false;
+    auto* type = TMP_InputField::Class::TypeObject();
+    if (!type)
+      return false;
+    const auto before = TryAlive(selected);
+    const auto lookup = selected->TryCall<"GetComponent", TMP_InputField*>(type);
+    if (!lookup) {
+      static bool reported = false;
+      if (!std::exchange(reported, true)) {
+        const auto after = TryAlive(selected);
+        const auto same = event_system->currentSelectedGameObject() == selected;
+        il2cpp::Report(std::format("[UnityInputFocus] lookup failed: alive before={}/{} after={}/{} selection_same={}",
+                                  before.succeeded, before.value, after.succeeded, after.value, same));
+      }
+    }
+    auto* field = lookup.value;
     return field && field->isFocused();
   }
 } // namespace
