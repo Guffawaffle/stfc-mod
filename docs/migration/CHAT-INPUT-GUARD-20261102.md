@@ -64,7 +64,7 @@ final inputs, signed checkpoints, native receipt and preserved DLL/PDB.
 
 ## Delivery and next check
 
-Correction and candidate remain local/unpushed/undeployed. No game input, cycle,
+At local assessment, correction and candidate remained local/unpushed/undeployed. No game input, cycle,
 TOML edit, chat message or resource action occurred. Published signed preview
 `ripper-preview-20261102.1` and the installed development DLL are unchanged.
 New correction has no Mac build/runtime qualification yet.
@@ -75,3 +75,14 @@ the configured faction shortcut and Enter, leave/reopen chat and repeat. Do not
 send a message merely for validation. Native reproduction/confirmation remains
 open; collect narrowly scoped focus-state evidence if the symptom persists.
 Settings passes and unrelated parked work remain stopped.
+
+Guff subsequently requested the DLL in the game folder before switching PC
+accounts. Read-only runtime context resolved the ordinary installation at
+`C:/Games/Star Trek Fleet Command/default/game` with no running game process.
+Normal AX deploy used the preserved candidate with explicit artifact path and
+expected hash; copy/readback matched
+`F58B8BAA710E82D65046A77A15112329E03F19513045EADF87047FAB701C7547`.
+The installed DLL identifies source `777a6336`; no game stop/start, input or TOML
+edit was needed. AX updated normal install/sidecar metadata. Source remains
+unpushed and the published preview is unchanged. This is deployment only, not
+startup or chat behavior qualification; the game was left closed.
