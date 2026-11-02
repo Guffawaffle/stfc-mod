@@ -304,7 +304,7 @@
         "P02",
         "P05"
       ],
-      "status": "in-progress-claims-and-confirmation-guards-local-qualified",
+      "status": "in-progress-hud-cargo-restoration-local-qualified",
       "steps": [
         "Verify existing claim drawer/filter/toggle, four HUD Auto/Always/Never and restoration.",
         "Check cargo formatting/instant counters/defaults and FT/Excelsior/reveal/warp confirmations.",
@@ -340,6 +340,21 @@
             "Exact-candidate live reveal/warp workflow qualification without spending resources just for testing",
             "Remaining P19 HUD/cargo restoration sweep",
             "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "272410c86873bf436aa6d4af1975e25f6c5f9045",
+          "implementationCommit": "ac2314ba965d03ef55bcfa219add530b8e5063e6",
+          "candidateSha256": "4e54052323f2a400bcae74428662c7fa7250c5d52f927504a302dfb943e74a3b",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-HUD-CARGO-RESTORATION.md",
+          "scope": "Missions Auto restoration requeues known unconfirmed baselines through the existing weak-owner deferred queue, including temporarily unavailable buttons. Forced modes do not schedule perpetual restoration. Windows instant cargo retains an operation-local strong widget handle through native rendering and prior snap-flag restoration; unavailable rooting keeps native handling. Counter arithmetic and formatting policy are unchanged.",
+          "localChecks": "Baseline hud-restoration-retry fails at missing frame retry; baseline cargo-custody fails at absent render root. Ten explicit corrected/related modes pass; existing test-il2cpp test-mod312/312 build/run steps, clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit or resource/reward action. Cargo custody is controlled lifetime hardening, not a reproduced live collection crash.",
+          "remaining": [
+            "Exact-candidate live HUD and cargo presentation qualification",
+            "Broader P19 native workflow acceptance remains open",
+            "Mac build/runtime qualification; instant cargo remains Windows-only pending hook-fit qualification"
           ]
         }
       ]

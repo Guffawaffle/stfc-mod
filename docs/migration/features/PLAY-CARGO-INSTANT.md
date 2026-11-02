@@ -30,8 +30,10 @@ It computes no alternate cargo amount and does not change the game's model.
 
 ## Ownership and adaptations
 
-The native hook receiver remains live for the synchronous original call; the scope
-does not outlive it or retain it across frames. Field adapters belong to game
+The scope now retains a temporary strong GC handle through the synchronous
+original call and prior snap-flag restoration, including C++ unwind. Failed root
+acquisition keeps one native call without changing snap. It does not retain the
+widget across frames. Field adapters belong to game
 bindings, installation to the existing centralized Feature/HookSet registry.
 The native library owns exception containment; the RAII fixture's C++ unwind only
 tests restoration semantics and is not a claim that a real managed exception
@@ -56,3 +58,7 @@ In-game: compare the cargo counter with the option enabled/disabled; open and
 reopen multiple target cards and unrelated reward/progress UI. Totals, colors and
 ordinary noncargo interpolation must stay native. No repair/resource action is
 required. macOS availability remains false as in the frozen source.
+
+Operation-local custody correction and current local evidence:
+[HUD/cargo restoration](../FEATURE-COHORT-20261101-HUD-CARGO-RESTORATION.md).
+This is controlled lifetime hardening, not a reproduced live collection crash.

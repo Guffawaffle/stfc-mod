@@ -1013,7 +1013,8 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim.",
+          "hud-cargo-restoration-20261101: actual HUD Auto retry and cargo-root baseline modes independently exit1; ten corrected/related modes pass;312/312 suites and41/41 clean stable Windows build. Controlled managed host only; real GC, native visuals and Mac are unqualified."
         ],
         "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
         "playerVerifiedFinalCandidate": false,
@@ -1081,6 +1082,21 @@
           "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
           "historicalRestorationNotes": []
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "272410c86873bf436aa6d4af1975e25f6c5f9045",
+          "implementationCommit": "ac2314ba965d03ef55bcfa219add530b8e5063e6",
+          "candidateSha256": "4e54052323f2a400bcae74428662c7fa7250c5d52f927504a302dfb943e74a3b",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-HUD-CARGO-RESTORATION.md",
+          "scope": "Missions Auto restoration requeues known unconfirmed baselines through the existing weak-owner deferred queue, including temporarily unavailable buttons. Forced modes do not schedule perpetual restoration. Windows instant cargo retains an operation-local strong widget handle through native rendering and prior snap-flag restoration; unavailable rooting keeps native handling. Counter arithmetic and formatting policy are unchanged.",
+          "localChecks": "Baseline hud-restoration-retry fails at missing frame retry; baseline cargo-custody fails at absent render root. Ten explicit corrected/related modes pass; existing test-il2cpp test-mod312/312 build/run steps, clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit or resource/reward action. Cargo custody is controlled lifetime hardening, not a reproduced live collection crash.",
+          "remaining": [
+            "Exact-candidate live HUD and cargo presentation qualification",
+            "Broader P19 native workflow acceptance remains open",
+            "Mac build/runtime qualification; instant cargo remains Windows-only pending hook-fit qualification"
+          ]
         }
       ]
     },
@@ -6098,7 +6114,8 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
+          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "hud-cargo-restoration-20261101: actual HUD Auto retry and cargo-root baseline modes independently exit1; ten corrected/related modes pass;312/312 suites and41/41 clean stable Windows build. Controlled managed host only; real GC, native visuals and Mac are unqualified."
         ],
         "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
         "playerVerifiedFinalCandidate": false,
@@ -6165,6 +6182,21 @@
           "limits": "Native gameplay and platform qualification remain separate.",
           "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "272410c86873bf436aa6d4af1975e25f6c5f9045",
+          "implementationCommit": "ac2314ba965d03ef55bcfa219add530b8e5063e6",
+          "candidateSha256": "4e54052323f2a400bcae74428662c7fa7250c5d52f927504a302dfb943e74a3b",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-HUD-CARGO-RESTORATION.md",
+          "scope": "Missions Auto restoration requeues known unconfirmed baselines through the existing weak-owner deferred queue, including temporarily unavailable buttons. Forced modes do not schedule perpetual restoration. Windows instant cargo retains an operation-local strong widget handle through native rendering and prior snap-flag restoration; unavailable rooting keeps native handling. Counter arithmetic and formatting policy are unchanged.",
+          "localChecks": "Baseline hud-restoration-retry fails at missing frame retry; baseline cargo-custody fails at absent render root. Ten explicit corrected/related modes pass; existing test-il2cpp test-mod312/312 build/run steps, clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit or resource/reward action. Cargo custody is controlled lifetime hardening, not a reproduced live collection crash.",
+          "remaining": [
+            "Exact-candidate live HUD and cargo presentation qualification",
+            "Broader P19 native workflow acceptance remains open",
+            "Mac build/runtime qualification; instant cargo remains Windows-only pending hook-fit qualification"
+          ]
         }
       ]
     },
