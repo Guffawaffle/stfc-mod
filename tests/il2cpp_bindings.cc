@@ -2077,7 +2077,8 @@ try {
   }
   if (argc == 2 && (std::string_view(argv[1]) == "shop-claims-native"
                     || std::string_view(argv[1]) == "shop-claims-filter"
-                    || std::string_view(argv[1]) == "confirmation-targeting")) {
+                    || std::string_view(argv[1]) == "confirmation-targeting"
+                    || std::string_view(argv[1]) == "hud-restoration-retry")) {
     ShopClaimsCases(argv[1]);
     return 0;
   }

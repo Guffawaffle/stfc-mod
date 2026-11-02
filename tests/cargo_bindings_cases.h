@@ -79,6 +79,52 @@ void CargoNativeCases(std::string_view mode)
 
   Require(TextLocalizer::CargoFormatFieldsAvailable() && LegacyComparableProgressBar::CargoFieldsAvailable(),
           "canonical cargo field contracts qualify complete metadata");
+  if (mode == "cargo-custody") {
+    const auto roots_before = warp_roots.size();
+    int        originals    = 0;
+    const auto rooted       = [&] {
+      Require(std::ranges::any_of(warp_roots, [&](const auto& root) { return root.second == &bar.header; }),
+              "instant cargo must retain managed bar custody through the native render");
+    };
+    for (const bool previous : {false, true}) {
+      bar.snap = previous;
+      LegacyComparableProgressBar_SetWidgetData_Hook(
+          [&](auto* receiver) {
+            Require(receiver == native_bar && bar.snap, "qualified native render sees the existing snap policy");
+            rooted();
+            ++originals;
+          },
+          native_bar);
+      Require(bar.snap == previous && warp_roots.size() == roots_before,
+              "snap state and managed custody restore after rendering");
+    }
+    bar.snap = false;
+    try {
+      LegacyComparableProgressBar_SetWidgetData_Hook(
+          [&](auto*) {
+            rooted();
+            ++originals;
+            throw std::runtime_error("controlled cargo unwind");
+          },
+          native_bar);
+    } catch (const std::runtime_error& error) {
+      Require(std::string_view(error.what()) == "controlled cargo unwind", "original failure propagates unchanged");
+    }
+    Require(!bar.snap && warp_roots.size() == roots_before && originals == 3,
+            "unwinding restores snap and releases custody after one native invocation");
+    warp_root_failure = true;
+    LegacyComparableProgressBar_SetWidgetData_Hook(
+        [&](auto* receiver) {
+          Require(receiver == native_bar && !bar.snap, "unavailable custody leaves the cargo counter native");
+          ++originals;
+        },
+        native_bar);
+    warp_root_failure = false;
+    Require(originals == 4 && !bar.snap && warp_roots.size() == roots_before,
+            "root failure preserves one original invocation without changing the prefab flag");
+    std::cout << "Cargo custody: snap baselines, native render, unwind and unavailable roots passed\n";
+    return;
+  }
   int        format_originals = 0;
   const auto format           = [&](auto* receiver, bool parse, void* args) {
     Require(receiver == native_text && parse && args == nullptr, "format preserves original receiver and arguments");

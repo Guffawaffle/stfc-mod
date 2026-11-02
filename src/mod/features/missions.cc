@@ -85,6 +85,22 @@ HudInstance* HudFind(MissionsHudViewController* controller)
       std::ranges::find_if(instances, [&](const auto& row) { return row.controller.Get() == controller; });
   return found == instances.end() ? nullptr : &*found;
 }
+struct HudRestorationRetry {
+  MissionsHudViewController* controller;
+
+  ~HudRestorationRetry() noexcept
+  {
+    try {
+      // Auto must keep servicing unconfirmed restoration, including an early
+      // return while the current button is temporarily unavailable.
+      auto* known = HudFind(controller);
+      if (known && known->restoration.Pending() && Config::Get().ui.hud_missions == MissionHudVisibility::kAuto)
+        HudDefer(controller);
+    } catch (...) {
+      HudReportFailure();
+    }
+  }
+};
 HudInstance* HudTrack(MissionsHudViewController* controller, unity::GameObject* missions)
 {
   auto& state = HudState();
@@ -177,8 +193,9 @@ void ApplyHudVisibility(MissionsHudViewController* controller) noexcept
     auto owner = il2cpp::GcHandle::Strong(controller);
     if (!owner || !unity::Alive(owner.Get()))
       return;
-    auto* missions = HudButtonObject(controller, kHudButtons[3]);
-    auto* instance = missions ? HudTrack(controller, missions) : nullptr;
+    HudRestorationRetry retry{owner.Get<MissionsHudViewController>()};
+    auto*               missions = HudButtonObject(controller, kHudButtons[3]);
+    auto*               instance = missions ? HudTrack(controller, missions) : nullptr;
     if (!instance)
       return;
     const auto modes = HudModes();

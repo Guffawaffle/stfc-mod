@@ -27,7 +27,10 @@ std::unordered_map<Il2CppObject*, std::vector<Il2CppObject*>> batch_lists;
 std::function<void(Il2CppObject*, int32_t)>                   batch_item_callback;
 Il2CppObject*                                                 batch_unknown_count = nullptr;
 
-bool BatchAlive(Il2CppObject* value, const MethodInfo*)
+Il2CppObject *batch_hud_read_failed = nullptr, *batch_hud_write_failed = nullptr;
+bool          batch_hud_mutate_before_failure = false;
+int           batch_hud_reads = 0, batch_hud_writes = 0;
+bool          BatchAlive(Il2CppObject* value, const MethodInfo*)
 { return value && !batch_dead.contains(value); }
 Il2CppObject* BatchContext(BatchObject* value, const MethodInfo*)
 {
@@ -66,9 +69,22 @@ Il2CppObject* BatchNoTransform(Il2CppObject*, const MethodInfo*)
 Il2CppObject* BatchGameObject(BatchObject* value, const MethodInfo*)
 { return value->first; }
 bool BatchActive(BatchObject* value, const MethodInfo*)
-{ return value->value; }
+{
+  ++batch_hud_reads;
+  if (&value->header == batch_hud_read_failed)
+    throw Il2CppExceptionWrapper(&thrown);
+  return value->value;
+}
 void BatchSetActive(BatchObject* value, bool visible, const MethodInfo*)
-{ value->value = visible; }
+{
+  ++batch_hud_writes;
+  if (&value->header == batch_hud_write_failed) {
+    if (batch_hud_mutate_before_failure)
+      value->value = visible;
+    throw Il2CppExceptionWrapper(&thrown);
+  }
+  value->value = visible;
+}
 bool BatchHudEnabled(Il2CppObject*, const MethodInfo*)
 { return true; }
 void BatchRefresh(BatchHud* hud, const MethodInfo*)
@@ -340,6 +356,71 @@ void ShopClaimsCases(std::string_view mode = "shop-claims-native")
   for (int i = 0; i < 1000; ++i)
     MissionHudFrame();
   Require(!hud_objects[4].value, "idle HUD frame work does not overwrite the native baseline");
+  if (mode == "hud-restoration-retry") {
+    const auto force = [&] {
+      Config::Get().ui.hud_missions = MissionHudVisibility::kAlways;
+      ApplyHudVisibility(hud_owner);
+      Require(hud_objects[4].value && HudFind(hud_owner)->restoration.Pending(),
+              "forced visibility retains the exact false native baseline");
+    };
+    force();
+    Config::Get().ui.hud_missions = MissionHudVisibility::kAuto;
+    batch_hud_read_failed         = &hud_objects[4].header;
+    ApplyHudVisibility(hud_owner);
+    Require(hud_objects[4].value && HudFind(hud_owner)->restoration.Pending(),
+            "unavailable Auto observation retains the restoration debt");
+    batch_hud_read_failed = nullptr;
+    MissionHudFrame();
+    Require(!hud_objects[4].value && !HudFind(hud_owner)->restoration.Pending(),
+            "frame must retry HUD restoration after a transient unavailable read");
+    const auto reads_after_restore  = batch_hud_reads;
+    const auto writes_after_restore = batch_hud_writes;
+    for (int i = 0; i < 100; ++i)
+      MissionHudFrame();
+    Require(batch_hud_reads == reads_after_restore && batch_hud_writes == writes_after_restore,
+            "completed restoration leaves idle frames free of native scans and writes");
+    force();
+    Config::Get().ui.hud_missions = MissionHudVisibility::kAuto;
+    batch_hud_write_failed        = &hud_objects[4].header;
+    ApplyHudVisibility(hud_owner);
+    Require(hud_objects[4].value && HudFind(hud_owner)->restoration.Pending(), "failed restore retains its baseline");
+    batch_hud_write_failed = nullptr;
+    MissionHudFrame();
+    Require(!hud_objects[4].value && !HudFind(hud_owner)->restoration.Pending(),
+            "failed write resumes on the next frame");
+    force();
+    Config::Get().ui.hud_missions   = MissionHudVisibility::kAuto;
+    batch_hud_write_failed          = &hud_objects[4].header;
+    batch_hud_mutate_before_failure = true;
+    ApplyHudVisibility(hud_owner);
+    Require(!hud_objects[4].value && !HudFind(hud_owner)->restoration.Pending(),
+            "verified restore retires debt even when the setter mutated before failure");
+    batch_hud_write_failed          = nullptr;
+    batch_hud_mutate_before_failure = false;
+    force();
+    const auto forced_idle_reads = batch_hud_reads;
+    MissionHudFrame();
+    Require(batch_hud_reads == forced_idle_reads, "an intentional forced mode is not a perpetual restore retry");
+    Config::Get().ui.hud_missions = MissionHudVisibility::kAuto;
+    batch_hud_read_failed         = &hud_objects[4].header;
+    ApplyHudVisibility(hud_owner);
+    batch_hud_read_failed = nullptr;
+    hud.buttons[3]        = nullptr;
+    MissionHudFrame();
+    hud.buttons[3] = &hud_components[4];
+    MissionHudFrame();
+    Require(!hud_objects[4].value && !HudFind(hud_owner)->restoration.Pending(),
+            "temporarily missing button cannot discard requested restoration");
+    force();
+    Config::Get().ui.hud_missions = MissionHudVisibility::kAuto;
+    batch_hud_read_failed         = &hud_objects[4].header;
+    ApplyHudVisibility(hud_owner);
+    batch_hud_read_failed = nullptr;
+    hud.buttons[3]        = &hud_components[3];
+    MissionHudFrame();
+    Require(hud_objects[3].value && hud_objects[4].value && !HudFind(hud_owner)->restoration.Pending(),
+            "replacement button keeps its native baseline and retires detached restoration custody");
+  }
   HudState().instances.clear();
   HudState().installed = false;
 

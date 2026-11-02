@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <string_view>
+#include <utility>
 
 namespace
 {
@@ -59,11 +60,13 @@ bool IsCargoText(LegacyComparableProgressBar* bar)
 }
 
 struct CargoSnapScope {
+  il2cpp::GcHandle             owner;
   LegacyComparableProgressBar* bar;
   bool                         previous;
-  explicit CargoSnapScope(LegacyComparableProgressBar* value)
-      : bar(value)
-      , previous(value->snapToValue())
+  explicit CargoSnapScope(il2cpp::GcHandle value)
+      : owner(std::move(value))
+      , bar(owner.Get<LegacyComparableProgressBar>())
+      , previous(bar->snapToValue())
   { bar->SetSnapToValue(true); }
   ~CargoSnapScope()
   { bar->SetSnapToValue(previous); }
@@ -75,9 +78,14 @@ void LegacyComparableProgressBar_SetWidgetData_Hook(auto original, LegacyCompara
     original(_this);
     return;
   }
+  auto owner = il2cpp::GcHandle::Strong(_this);
+  if (!owner) {
+    original(_this);
+    return;
+  }
   // Render the current total through the game's own formatting with the prefab's snap flag set, then restore
-  // the flag so reward updates and interpolation carry on normally.
-  CargoSnapScope scope(_this);
+  // the flag so reward updates and interpolation carry on normally. Retain the widget through restoration.
+  CargoSnapScope scope(std::move(owner));
   original(_this);
 }
 
