@@ -6648,7 +6648,8 @@
           "settings-reset-shortcuts-20261101: 54/54 settings-model/runtime steps, 163/163 controlled IL2CPP binding steps",
           "tests/settings_persistence_integration_test.cc: canceled/stale reset, actual file conflict/explicit retry/reopen; tests/config_settings_test.cc: proposal cancel/page leave/delayed confirm produce no binding/save change",
           "settings-actions-20261101/final-tests.log:312/312 existing binding/Settings steps; explicit actual action/choice/slider consumers pass; native Windows41/41. No live action/reset/save acceptance.",
-          "settings-action-cleanup-20261101/final-tests.log:312/312 binding/Settings steps; explicit cleanup/action/choice/slider consumers pass; native Windows41/41. Controlled components, no native pooling/editor acceptance."
+          "settings-action-cleanup-20261101/final-tests.log:312/312 binding/Settings steps; explicit cleanup/action/choice/slider consumers pass; native Windows41/41. Controlled components, no native pooling/editor acceptance.",
+          "settings-action-rebind-20261101/final-tests.log:312/312 binding/Settings steps; explicit rebind/cleanup/action/choice/slider modes pass; native Windows41/41. Controlled components, no native pooling/editor acceptance."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
@@ -6764,6 +6765,21 @@
           "remaining": [
             "Native Windows pooling/editor interaction after separately requested deployment",
             "Render/rebind recovery after deferred cleanup",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "032795f810defa926514281d3e5bb5e631596587",
+          "implementationCommit": "bb5fef8bba733e0c36dd45cb2231315cdd77ef09",
+          "candidateSha256": "76f1d8b89eac8b0742cc8fd8e886a184d9331a361e97aad0891aeac1d5d44e5d",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-REBIND.md",
+          "scope": "Actual Settings SetWidgetData/frame recovery retains a pending row binding through deferred cleanup, then renders a fresh view without replaying native original. Request/view/row/page/epoch identities reject superseded bindings; native release and invalidation cancel pending requests.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit rebind/cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Render-time attached-component ownership during managed observations",
+            "Native Windows pooling/editor interaction after separately requested deployment",
             "Mac build/runtime qualification"
           ]
         }

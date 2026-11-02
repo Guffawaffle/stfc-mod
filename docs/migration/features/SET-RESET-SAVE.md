@@ -13,6 +13,11 @@ The [action cleanup continuation](../FEATURE-COHORT-20261101-ACTION-CLEANUP.md)
 qualifies component ownership, retry progress and deferred release in controlled
 consumers. Live pooling/editor and Mac qualification remain open.
 
+The [deferred rebind continuation](../FEATURE-COHORT-20261101-ACTION-REBIND.md)
+recovers a fresh rendered action view after cleanup waits for a callback. It
+qualifies retry and stale-request cancellation in controlled consumers; native
+Windows interaction and Mac qualification remain open.
+
 Frozen source: mods/src/settings/maintenance.h and value_settings.h; original
 native page_navigation.cc registers maintenance pages. Target base2195077f keeps
 both headers byte-identical and registers through BuildModPages ->
