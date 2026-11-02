@@ -21,7 +21,9 @@ struct AllianceStoreWork {
   uint64_t          epoch   = 0;
   bool              pending = false, currency = false, refreshing_currency = false, layout = false;
   Clock::time_point due{};
-} alliance_store_work;
+};
+// Retained managed handles must not be freed by process static destructors after IL2CPP shuts down.
+auto& alliance_store_work = *new AllianceStoreWork;
 
 enum class ResearchUpdate { Unchanged, Upgraded, Restored, Unavailable, Failed };
 
@@ -42,7 +44,7 @@ struct OwnedStoreTooltip {
   bool             bound = false, plain_enabled = true, retiring = false;
   uint64_t         generation = 0;
 };
-std::vector<std::shared_ptr<OwnedStoreTooltip>> alliance_store_tooltips;
+auto& alliance_store_tooltips = *new std::vector<std::shared_ptr<OwnedStoreTooltip>>;
 
 std::shared_ptr<OwnedStoreTooltip> OwnedTooltip(StoreInventoryTooltip* tooltip)
 {

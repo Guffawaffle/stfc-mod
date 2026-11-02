@@ -142,7 +142,8 @@ struct ShipNameRow {
     return nullptr;
   }
 };
-std::vector<ShipNameRow> ship_name_rows;
+// Pruning releases handles during normal UI work; process teardown must not call back into a stopped runtime.
+auto& ship_name_rows = *new std::vector<ShipNameRow>;
 
 // Hides the row of the widget's panel, if it has one.
 void HideShipNameRow(ForbiddenTechInventoryItemWidget* widget)

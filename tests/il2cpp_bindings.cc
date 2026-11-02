@@ -256,6 +256,7 @@ int64_t                                           warp_seen_fleet = 0, warp_seen
 unity::Vector3                                    warp_seen_position{};
 std::unordered_map<Il2CppGCHandle, Il2CppObject*> warp_roots;
 uintptr_t                                         warp_next_root = 1;
+bool                                              gc_runtime_available = true;
 FakeClass&                                        long_class = Define("System", "Int64", IL2CPP_TYPE_I8, nullptr, 8);
 FakeClass& ship_model_class    = Define("Digit.PrimeServer.Models", "IShipModel", IL2CPP_TYPE_CLASS, &object_class);
 FakeClass& base_ship_class     = Define("Digit.PrimeServer.Models", "BaseShip", IL2CPP_TYPE_CLASS, &ship_model_class);
@@ -1145,7 +1146,13 @@ API(Il2CppObject*, il2cpp_gchandle_get_target, (Il2CppGCHandle handle))
 { return warp_roots.contains(handle) ? warp_roots.at(handle) : nullptr; }
 END_API
 API(void, il2cpp_gchandle_free, (Il2CppGCHandle handle))
-{ warp_roots.erase(handle); }
+{
+  if (!gc_runtime_available) {
+    std::fputs("late GC-handle release after managed runtime shutdown\n", stderr);
+    std::_Exit(86);
+  }
+  warp_roots.erase(handle);
+}
 END_API
 API(void, il2cpp_format_exception, (const Il2CppException*, char* message, int size))
 { std::snprintf(message, size, "NullReferenceException"); }
@@ -1910,6 +1917,7 @@ void PlannedWarpBindingObservations()
 #include "hud_owner_cases.h"
 #include "pin_geometry_cases.h"
 #include "pin_presentation_cases.h"
+#include "managed_owner_exit_cases.h"
 // Registered active HUD owners and shared station radii are exercised in separate runtime processes.
 // clang-format on
 
@@ -1917,6 +1925,10 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("owner-exit-")) {
+    ManagedOwnerExitCases(argv[1]);
+    return 0; // The registered runtime-shutdown callback runs before process static destructors.
+  }
   if (argc == 2 && std::string_view(argv[1]) == "pin-presentation") {
     pin_presentation_fixture::Run();
     return 0;
