@@ -156,3 +156,12 @@ the explicit diagnostic mode passed alongside station and earlier timer/notifica
 regressions. Exact input and executable hashes are retained in
 `artifacts/integration-audit-20261031/station-lifecycle-verification.json`
 outside the checkout. No runtime disappearance claim follows from these fixtures.
+
+## Subsequent text-input guard correction — 2026-11-02
+
+A later chat report exposed a matching fail-open path when live focus observations
+are unavailable. The local correction preserves unknown focus and reserves keys
+for native input instead of authorizing gameplay shortcuts. It retains the
+confirmed-destroyed-selection guard and does not establish the live report's
+cause. See [chat input guard evidence](CHAT-INPUT-GUARD-20261102.md). This local
+candidate has not replaced the installed game or the signed preview.
