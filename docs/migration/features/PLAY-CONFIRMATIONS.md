@@ -30,3 +30,9 @@ requires the callback's actual closed target class to match its method's
 declaring closure. Controlled unrelated/sibling/unknown receivers retain the
 native popup, while FT Confirm1 and alliance Yes3 remain intact. No live
 upgrade/contribution/reveal action or Mac qualification is added.
+
+The [reveal/warp continuation](../FEATURE-COHORT-20261101-REVEAL-WARP-CONFIRMATION.md)
+retains reveal callback/manager custody and rechecks live opt-in plus callback
+identity/shape after native type lookup. Controlled disable/replacement/unknown
+cases preserve the exact native fallback, including TimeSpan. Static Actions
+remain supported. Candidate live ability actions and Mac qualification stay open.

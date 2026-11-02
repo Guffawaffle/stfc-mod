@@ -75,3 +75,10 @@ and Ctrl/Command-modified travel; change selected ship while planning; verify
 normal unavailable/toll/wormhole paths remain native. Do not spend jump resources
 only to test this migration. Windows player testing and macOS CI/Mcohall testing
 remain separate from source inspection and fixture success.
+
+The [reveal/warp continuation](../FEATURE-COHORT-20261101-REVEAL-WARP-CONFIRMATION.md)
+rejects an earlier automatic decision if mode/filter values change during final
+native reads. Final widget binding and availability are observed after the last
+context getter. Controlled stale-policy/availability cases pass; modified-click
+intent and exact course-fleet recovery remain intact. The candidate is local
+and undeployed; native workflow and Mac qualification remain separate.

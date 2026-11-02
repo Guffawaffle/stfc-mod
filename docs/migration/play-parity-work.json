@@ -304,7 +304,7 @@
         "P02",
         "P05"
       ],
-      "status": "in-progress-claim-filter-and-confirmation-targeting-local-qualified",
+      "status": "in-progress-claims-and-confirmation-guards-local-qualified",
       "steps": [
         "Verify existing claim drawer/filter/toggle, four HUD Auto/Always/Never and restoration.",
         "Check cargo formatting/instant counters/defaults and FT/Excelsior/reveal/warp confirmations.",
@@ -324,6 +324,21 @@
           "remaining": [
             "Exact-artifact live filtering and confirmation workflow qualification",
             "Remaining P19 HUD/cargo and reveal/warp confirmation sweep",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "d19bbdcc09663ced90ec742672331aa622076d8b",
+          "implementationCommit": "a05b40173480baf0e41c69885fbe4dc59032ac3f",
+          "candidateSha256": "035db379fb7f97ba07fc20fddf40ea5b2c2afa1d0353a7d50b4c453b63dc3035",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-REVEAL-WARP-CONFIRMATION.md",
+          "scope": "Reveal retains callback/manager custody and rechecks live opt-in and Action identity/shape after native ability lookup. Instant warp compares the exact copied mode/filter policy after final native observations and reads availability/widget binding after final context observation. Changed or unavailable qualification stays native; no action retry or new travel/ability policy.",
+          "localChecks": "Both new baseline modes fail independently; corrected reveal/warp-targeting plus native warp/label and previous claim/confirmation modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit, travel/resource spend or ability activation.",
+          "remaining": [
+            "Exact-candidate live reveal/warp workflow qualification without spending resources just for testing",
+            "Remaining P19 HUD/cargo restoration sweep",
             "Mac build/runtime qualification"
           ]
         }

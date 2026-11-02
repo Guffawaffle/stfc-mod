@@ -2483,7 +2483,8 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim."
+          "D:/dev/stfc-workspace/.ax/travel-cargo-cohort-20261027/tests-4.log:347/347 Windows build/run/install steps, including actual warp/cargo adapters, original mining poll fixture, legacy queue/Settings/preset and AAI host checks. No native-gameplay claim.",
+          "reveal-warp-confirmation-20261101: baseline reveal-confirmation and instant-warp-targeting exit1 at stale-policy assertions; six explicit corrected modes pass;312/312 suites and41/41 clean stable Windows build. Counted actions only, no native travel/resource or ability trial."
         ],
         "exactCandidateRuntime": "10477fd1 / Windows client 273 / main ordinary PID 14228: all 71 groups and frame ready; five tracked stores unchanged at post-cycle check. Basic player report: all work. Contained GetComponent exception remains unattributed/rate-limited.",
         "playerVerifiedFinalCandidate": false,
@@ -2552,6 +2553,21 @@
           "artifactSha256": "c0f1d6077aecedad8481c435792bda552f92508e26c395e1671a5227d98d4a18",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/travel-cargo-cohort-20261027/qualification.json",
           "historicalRestorationNotes": []
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "d19bbdcc09663ced90ec742672331aa622076d8b",
+          "implementationCommit": "a05b40173480baf0e41c69885fbe4dc59032ac3f",
+          "candidateSha256": "035db379fb7f97ba07fc20fddf40ea5b2c2afa1d0353a7d50b4c453b63dc3035",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-REVEAL-WARP-CONFIRMATION.md",
+          "scope": "Reveal retains callback/manager custody and rechecks live opt-in and Action identity/shape after native ability lookup. Instant warp compares the exact copied mode/filter policy after final native observations and reads availability/widget binding after final context observation. Changed or unavailable qualification stays native; no action retry or new travel/ability policy.",
+          "localChecks": "Both new baseline modes fail independently; corrected reveal/warp-targeting plus native warp/label and previous claim/confirmation modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit, travel/resource spend or ability activation.",
+          "remaining": [
+            "Exact-candidate live reveal/warp workflow qualification without spending resources just for testing",
+            "Remaining P19 HUD/cargo restoration sweep",
+            "Mac build/runtime qualification"
+          ]
         }
       ]
     },
@@ -6196,7 +6212,8 @@
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
-          "claim-confirm-targeting-20261101: baseline filter/confirmation modes exit1 at wrong-row/wrong-target assertions; corrected explicit modes and shop-claims-native pass;312/312 suite steps and41/41 clean stable Windows native build. No live reward/upgrade/action evidence."
+          "claim-confirm-targeting-20261101: baseline filter/confirmation modes exit1 at wrong-row/wrong-target assertions; corrected explicit modes and shop-claims-native pass;312/312 suite steps and41/41 clean stable Windows native build. No live reward/upgrade/action evidence.",
+          "reveal-warp-confirmation-20261101: baseline reveal-confirmation and instant-warp-targeting exit1 at stale-policy assertions; six explicit corrected modes pass;312/312 suites and41/41 clean stable Windows build. Counted actions only, no native travel/resource or ability trial."
         ],
         "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
         "playerVerifiedFinalCandidate": false
@@ -6267,6 +6284,21 @@
           "remaining": [
             "Exact-artifact live filtering and confirmation workflow qualification",
             "Remaining P19 HUD/cargo and reveal/warp confirmation sweep",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "d19bbdcc09663ced90ec742672331aa622076d8b",
+          "implementationCommit": "a05b40173480baf0e41c69885fbe4dc59032ac3f",
+          "candidateSha256": "035db379fb7f97ba07fc20fddf40ea5b2c2afa1d0353a7d50b4c453b63dc3035",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-REVEAL-WARP-CONFIRMATION.md",
+          "scope": "Reveal retains callback/manager custody and rechecks live opt-in and Action identity/shape after native ability lookup. Instant warp compares the exact copied mode/filter policy after final native observations and reads availability/widget binding after final context observation. Changed or unavailable qualification stays native; no action retry or new travel/ability policy.",
+          "localChecks": "Both new baseline modes fail independently; corrected reveal/warp-targeting plus native warp/label and previous claim/confirmation modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit, travel/resource spend or ability activation.",
+          "remaining": [
+            "Exact-candidate live reveal/warp workflow qualification without spending resources just for testing",
+            "Remaining P19 HUD/cargo restoration sweep",
             "Mac build/runtime qualification"
           ]
         }
