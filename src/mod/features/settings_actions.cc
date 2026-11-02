@@ -31,15 +31,23 @@ struct SettingsActionPlan {
   size_t           index;
   uint64_t         epoch;
 };
+struct SettingsActionRebind {
+  std::weak_ptr<SettingsActionRow> row;
+  PageVisitToken                   visit    = 0;
+  uint64_t                         epoch    = 0;
+  bool                             prepared = false;
+};
 struct SettingsActionView {
-  il2cpp::GcHandle                widget, context, token, button, button_object;
-  std::array<il2cpp::GcHandle, 3> labels;
-  std::array<std::string, 3>      applied;
-  std::array<bool, 3>             label_owned{};
-  ActionSetting*                  action = nullptr;
-  size_t                          index  = 0;
-  PageVisitToken                  visit  = 0;
-  std::optional<bool>             interactable, hidden_before;
+  il2cpp::GcHandle                      widget, context, token, button, button_object;
+  std::array<il2cpp::GcHandle, 3>       labels;
+  std::array<std::string, 3>            applied;
+  std::array<bool, 3>                   label_owned{};
+  ActionSetting*                        action = nullptr;
+  size_t                                index  = 0;
+  PageVisitToken                        visit  = 0;
+  std::optional<bool>                   interactable, hidden_before;
+  std::shared_ptr<SettingsActionRebind> rebind;
+  bool                                  cleanup_complete = false;
   bool revoked = false, rendering = false, invoking = false, ready = false, restoring = false;
 };
 struct NativeActionsState {
@@ -429,7 +437,9 @@ void ReleaseAction(SettingsActionWidget* widget) noexcept
     { flag = false; }
   } done{view->restoring};
   try {
-    if (RestoreAction(view) && ActionView(widget) == view)
+    if (!view->cleanup_complete)
+      view->cleanup_complete = RestoreAction(view);
+    if (view->cleanup_complete && !view->rebind && ActionView(widget) == view)
       Actions().views.erase(widget);
   } catch (...) {
     ActionWarning();
@@ -507,48 +517,145 @@ void RenderAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsAc
   else
     view->ready = SameAction(widget, view);
 }
+void CancelActionRebind(SettingsActionWidget* widget, const std::shared_ptr<SettingsActionView>& retired,
+                        const std::shared_ptr<SettingsActionRebind>& request)
+{
+  if (ActionView(widget) != retired || retired->rebind != request)
+    return;
+  retired->rebind.reset();
+  ReleaseAction(widget);
+}
+void ResumeActionBind(SettingsActionWidget* widget, const std::shared_ptr<SettingsActionView>& retired)
+{
+  const auto request = retired->rebind;
+  if (!request || !request->prepared || !retired->cleanup_complete || retired->restoring || retired->rendering
+      || retired->invoking || ActionView(widget) != retired)
+    return;
+  const auto row     = request->row.lock();
+  const auto current = [&] {
+    if (!row || ActionView(widget) != retired || retired->rebind != request || !retired->revoked
+        || request->epoch != Actions().epoch || !IsPageVisitCurrent(request->visit))
+      return false;
+    auto*      context = row->context.Get<SettingsOptionContext>();
+    const auto found   = Actions().rows.find(context);
+    return context && found != Actions().rows.end() && found->second == row;
+  };
+  if (!current()) {
+    CancelActionRebind(widget, retired, request);
+    return;
+  }
+  auto       context_root = il2cpp::GcHandle::Strong(row->context.Get());
+  const auto context      = widget->TryCall<"get_Context", SettingsActionContext*>();
+  if (!context)
+    return; // Unknown observations retain the prepared request for the next frame.
+  if (context.value != context_root.Get() || !current()) {
+    CancelActionRebind(widget, retired, request);
+    return;
+  }
+  if (ActionRow(context_root.Get<SettingsOptionContext>()) != row)
+    return;
+  auto view     = std::make_shared<SettingsActionView>();
+  view->widget  = il2cpp::GcHandle::Weak(widget);
+  view->context = il2cpp::GcHandle::Weak(context_root.Get());
+  view->token   = il2cpp::GcHandle::Weak(row->token.Get());
+  view->action  = row->action;
+  view->index   = row->index;
+  view->visit   = request->visit;
+  const std::array labels{widget->Label(), widget->ButtonLabel(), widget->ValueLabel()};
+  for (size_t i = 0; i < labels.size(); ++i)
+    if (!(view->labels[i] = il2cpp::GcHandle::Weak(labels[i])))
+      return;
+  auto       button = il2cpp::GcHandle::Strong(widget->Button());
+  const auto object =
+      button ? button.Get<SettingsActionButton>()->TryObject() : il2cpp::CallResult<unity::GameObject*>{};
+  view->button        = il2cpp::GcHandle::Weak(button.Get());
+  view->button_object = il2cpp::GcHandle::Weak(object ? object.value : nullptr);
+  const auto checked  = widget->TryCall<"get_Context", SettingsActionContext*>();
+  if (!checked)
+    return;
+  if (checked.value != context_root.Get() || !current()) {
+    CancelActionRebind(widget, retired, request);
+    return;
+  }
+  if (!view->widget || !view->context || !view->token || !view->button || !view->button_object
+      || widget->Label() != labels[0] || widget->ButtonLabel() != labels[1] || widget->ValueLabel() != labels[2]
+      || widget->Button() != button.Get())
+    return;
+  retired->rebind.reset();
+  Actions().views.insert_or_assign(widget, view);
+  try {
+    RenderAction(widget, view);
+  } catch (...) {
+    if (ActionView(widget) == view)
+      ReleaseAction(widget);
+    throw;
+  }
+}
 void SettingsActionWidget_SetWidgetData_Hook(auto original, SettingsActionWidget* _this)
 {
-  if (ActionsThread())
-    ReleaseAction(_this);
+  std::shared_ptr<SettingsActionView>   retired;
+  std::shared_ptr<SettingsActionRebind> request;
+  if (ActionsThread()) {
+    try {
+      retired = ActionView(_this);
+      if (!retired) {
+        // An inert reservation gives first binds the same nested-bind ordering
+        // as a row whose old presentation still needs cleanup.
+        retired                   = std::make_shared<SettingsActionView>();
+        retired->widget           = il2cpp::GcHandle::Weak(_this);
+        retired->cleanup_complete = true;
+        Actions().views.emplace(_this, retired);
+      }
+      request        = std::make_shared<SettingsActionRebind>();
+      request->visit = CurrentPageVisit();
+      request->epoch = Actions().epoch;
+      // Reserve before any managed cleanup/native bind: a nested bind supersedes this request.
+      retired->rebind = request;
+      ReleaseAction(_this);
+    } catch (...) {
+      if (retired)
+        CancelActionRebind(_this, retired, request);
+      ActionWarning();
+    }
+  }
+  struct Completion {
+    SettingsActionWidget*                 widget;
+    std::shared_ptr<SettingsActionView>   retired;
+    std::shared_ptr<SettingsActionRebind> request;
+    bool                                  returned = false;
+    ~Completion()
+    {
+      if (!returned && retired)
+        CancelActionRebind(widget, retired, request);
+    }
+  } completion{_this, retired, request};
   original(_this);
-  if (!ActionsThread() || ActionView(_this))
+  completion.returned = true;
+  if (!ActionsThread() || !retired || !request || ActionView(_this) != retired || retired->rebind != request)
     return;
   try {
-    auto context_root = il2cpp::GcHandle::Strong(_this->Context());
-    auto row          = ActionRow(context_root.Get<SettingsOptionContext>());
-    if (!row)
+    const auto context      = _this->TryCall<"get_Context", SettingsActionContext*>();
+    auto       context_root = il2cpp::GcHandle::Strong(context ? context.value : nullptr);
+    auto       row          = ActionRow(context_root.Get<SettingsOptionContext>());
+    if (!row) {
+      CancelActionRebind(_this, retired, request);
       return;
-    auto view     = std::make_shared<SettingsActionView>();
-    view->widget  = il2cpp::GcHandle::Weak(_this);
-    view->context = il2cpp::GcHandle::Weak(context_root.Get());
-    view->token   = il2cpp::GcHandle::Weak(row->token.Get());
-    view->action  = row->action;
-    view->index   = row->index;
-    view->visit   = CurrentPageVisit();
-    const std::array labels{_this->Label(), _this->ButtonLabel(), _this->ValueLabel()};
-    for (size_t i = 0; i < labels.size(); ++i)
-      if (!(view->labels[i] = il2cpp::GcHandle::Weak(labels[i])))
-        return;
-    auto       button = il2cpp::GcHandle::Strong(_this->Button());
-    const auto object =
-        button ? button.Get<SettingsActionButton>()->TryObject() : il2cpp::CallResult<unity::GameObject*>{};
-    view->button        = il2cpp::GcHandle::Weak(button.Get());
-    view->button_object = il2cpp::GcHandle::Weak(object ? object.value : nullptr);
-    if (!view->widget || !view->context || !view->token || !view->button || !view->button_object
-        || !IsPageVisitCurrent(view->visit) || _this->Context() != context_root.Get())
-      return;
-    Actions().views.insert_or_assign(_this, view);
-    RenderAction(_this, view);
+    }
+    request->row      = row;
+    request->prepared = true;
+    ResumeActionBind(_this, retired);
   } catch (...) {
-    ReleaseAction(_this);
+    CancelActionRebind(_this, retired, request);
     ActionWarning();
   }
 }
 void SettingsActionWidget_OnAboutToReleaseContext_Hook(auto original, SettingsActionWidget* _this)
 {
-  if (ActionsThread())
+  if (ActionsThread()) {
+    if (auto view = ActionView(_this))
+      view->rebind.reset();
     ReleaseAction(_this);
+  }
   original(_this);
 }
 void InvokeAction(Il2CppObject* token, const MethodInfo*)
@@ -599,8 +706,11 @@ void InvalidateActions()
   std::vector<SettingsActionWidget*> widgets;
   for (const auto& [widget, view] : Actions().views)
     widgets.push_back(widget);
-  for (auto* widget : widgets)
+  for (auto* widget : widgets) {
+    if (auto view = ActionView(widget))
+      view->rebind.reset();
     ReleaseAction(widget);
+  }
   Actions().rows.clear();
 }
 void ActionsFrame()
@@ -626,12 +736,16 @@ void ActionsFrame()
       continue;
     }
     try {
-      if (!SameAction(widget, view))
+      if (!SameAction(widget, view)) {
+        if (ActionView(widget) != view)
+          continue;
         ReleaseAction(widget);
-      else
+        ResumeActionBind(widget, view);
+      } else
         RenderAction(widget, view);
     } catch (...) {
-      ReleaseAction(widget);
+      if (ActionView(widget) == view)
+        ReleaseAction(widget);
       ActionWarning();
     }
   }
