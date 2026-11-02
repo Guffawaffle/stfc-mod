@@ -4,6 +4,11 @@ Contract version: 1. Status: retained target improvement verified through Window
 adapter/worker/real-file fixtures; exact-client native quit and Mac remain open.
 Exact inputs, branch observations and receipts: [settings/state cohort](../FEATURE-COHORT-20261101-SETTINGS-STATE.md).
 
+The separate [Mac Command-Q investigation](../MAC-COMMAND-Q-20261101.md) corrects
+three retained managed owners that could release handles during process static
+teardown. Controlled exit cases pass; the reported Apple Silicon quit warning
+and native shutdown sequence remain unqualified. The drain owner below is unchanged.
+
 The frozen1baa55fe process-lifetime state worker has no normal-quit drain. Its
 RuntimeConfig WantsQuit/Update coordinates TOML only. Target base300dcab4 already
 adds BeginQuitDrain/QuitDrained/ResumeAfterQuitVeto in mod_state and coordinates
