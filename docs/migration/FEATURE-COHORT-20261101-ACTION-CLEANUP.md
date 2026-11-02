@@ -71,8 +71,8 @@ the page-owned text-entry files are hashed and unchanged.
 
 ## Qualification and next slice
 
-Candidate is local and undeployed. No native Windows or Mac build/runtime
-qualification is claimed for this correction. SET-RESET-SAVE and P23/P24 stay
+Candidate is local and undeployed. Native Windows interaction and Mac build/runtime
+qualification remain open for this correction. SET-RESET-SAVE and P23/P24 stay
 open; component-model evidence does not establish complete live pooling/editor
 acceptance. No installed artifact or published prerelease was changed by this work.
 
