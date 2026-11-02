@@ -24,6 +24,7 @@
 #include <chrono>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -98,6 +99,15 @@ bool ConsumeWarpChoice(CourseData* course)
 }
 
 // --- Course prompt ---
+
+auto SnapshotInstantWarpPolicy()
+{
+  const auto& ui = Config::Get().ui;
+  return std::tuple{ui.auto_confirm_instant_warp,
+                    std::pair{ui.instant_warp_always_ask.all, ui.instant_warp_always_ask.names},
+                    std::pair{ui.instant_warp_auto_jump.all, ui.instant_warp_auto_jump.names},
+                    std::pair{ui.instant_warp_auto_warp.all, ui.instant_warp_auto_warp.names}};
+}
 
 // The action auto-confirm takes for `fleet`: always-ask wins, then auto-jump, then auto-warp, then the default.
 InstantWarpConfirmation ResolveConfirmation(FleetPlayerData* fleet)
@@ -182,14 +192,14 @@ void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromp
   auto source = ReadInstantWarpCourseFleet(course.Get<CourseData>());
   if (!source.fleet)
     return;
+  const auto policy = SnapshotInstantWarpPolicy();
   const auto action = ResolveConfirmation(source.fleet.Get<FleetPlayerData>());
   spdlog::debug("[InstantWarp] policy action={}", kInstantWarpNames[std::to_underlying(action)]);
   if (action == InstantWarpConfirmation::kNone)
     return;
   // Localization and managed getters can reenter. Never answer a different
   // popup, rebound context, course or fleet using the earlier decision.
-  auto       current_fleet   = ReadInstantWarpCourseFleet(course.Get<CourseData>());
-  const auto current_instant = context.Get<CoursePromptPopupDataContext>()->TryHasInstantWarp();
+  auto       current_fleet = ReadInstantWarpCourseFleet(course.Get<CourseData>());
   const auto current_id = source.recovered_id ? course.Get<CourseData>()->TryFleetId() : il2cpp::CallResult<int64_t>{};
   const auto current_fleet_id           = source.recovered_id && current_fleet.fleet
                                               ? current_fleet.fleet.Get<FleetPlayerData>()->TryId()
@@ -199,15 +209,16 @@ void CoursePromptPopupViewController_AboutToShow_Hook(auto original, CoursePromp
                                               && current_fleet_id.value == source.recovered_id);
   // The recovery lookup can itself reenter. Observe the popup's binding after
   // all policy/fleet lookups, not before them.
-  const auto current_widget = owner.Get<CoursePromptPopupViewController>()->TryPopupWidget();
   const auto current_context =
       widget.Get<CoursePromptPopupWidget>()->TryCall<"get_Context", CoursePromptPopupDataContext*>();
-  const auto current_course = context.Get<CoursePromptPopupDataContext>()->TryCourseData();
+  const auto current_widget  = owner.Get<CoursePromptPopupViewController>()->TryPopupWidget();
+  const auto current_course  = context.Get<CoursePromptPopupDataContext>()->TryCourseData();
+  const auto current_instant = context.Get<CoursePromptPopupDataContext>()->TryHasInstantWarp();
   if (!current_widget || current_widget.value != widget.Get<CoursePromptPopupWidget>() || !current_context
       || current_context.value != context.Get<CoursePromptPopupDataContext>() || !current_course
       || current_course.value != course.Get<CourseData>() || !current_fleet.fleet
       || current_fleet.fleet.Get() != source.fleet.Get() || !recovered_identity_matches || !current_instant
-      || !current_instant.value) {
+      || !current_instant.value || SnapshotInstantWarpPolicy() != policy) {
     spdlog::debug("[InstantWarp] popup changed during policy resolution; keeping native choice");
     return;
   }

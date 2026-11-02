@@ -47,6 +47,7 @@ Il2CppString*         instant_warp_name = nullptr;
 int  instant_warp_regular = 0, instant_warp_jump = 0, instant_warp_overrides = 0, instant_warp_clears = 0;
 bool instant_warp_text_throws = false, instant_warp_set_throws = false;
 std::function<void()> instant_warp_name_read;
+std::function<void()> instant_warp_context_read;
 Il2CppObject*         InstantWarpFleet(Il2CppObject*, const MethodInfo*)
 {
   if (instant_warp_fleet_throws)
@@ -87,7 +88,13 @@ Il2CppString* InstantWarpLocalise(LocaleTextContext*, bool, int32_t, const Metho
   return instant_warp_name;
 }
 CoursePromptPopupDataContext* InstantWarpContext(CoursePromptPopupWidget* widget, const MethodInfo*)
-{ return reinterpret_cast<CoursePromptPopupDataContext*>(reinterpret_cast<InstantWarpWidgetObject*>(widget)->context); }
+{
+  auto* context =
+      reinterpret_cast<CoursePromptPopupDataContext*>(reinterpret_cast<InstantWarpWidgetObject*>(widget)->context);
+  if (instant_warp_context_read)
+    instant_warp_context_read();
+  return context;
+}
 void InstantWarpRegular(CoursePromptPopupWidget*, const MethodInfo*)
 { ++instant_warp_regular; }
 void InstantWarpJump(CoursePromptPopupWidget*, const MethodInfo*)
@@ -183,7 +190,7 @@ void InstantWarpNativeCases(std::string_view mode)
     Require(warp_roots.size() == initial_roots, "unavailable label storage releases temporary roots");
     return;
   }
-  Require(mode == "instant-warp-native", "unknown instant warp fixture mode");
+  Require(mode == "instant-warp-native" || mode == "instant-warp-targeting", "unknown instant warp fixture mode");
   Require(ResolveConfirmation(fleet) == InstantWarpConfirmation::kJump,
           "valid native ship uses the configured default");
   ui.instant_warp_auto_warp.names = {ShipNameWords("Enterprise-D")};
@@ -213,6 +220,58 @@ void InstantWarpNativeCases(std::string_view mode)
   show();
   Require(originals == 1 && instant_warp_jump == 1 && instant_warp_regular == 0,
           "production popup invokes original once before its qualified configured action");
+  if (mode == "instant-warp-targeting") {
+    constexpr int64_t exact_fleet = 9007199254740993LL;
+    fleet_identity_value = warp_course_fleet_id = exact_fleet;
+    instant_warp_indexed_fleet                  = instant_warp_fleet;
+    instant_warp_fleet                          = nullptr;
+    const auto changed_policy                   = [&](auto change) {
+      reset_policy();
+      const auto final_lookup  = instant_warp_lookup_calls + 2;
+      instant_warp_lookup_read = [&] {
+        if (instant_warp_lookup_calls == final_lookup)
+          change();
+      };
+      const auto before_original = originals;
+      show();
+      instant_warp_lookup_read = {};
+      Require(instant_warp_jump == 1 && instant_warp_regular == 0 && originals == before_original + 1,
+              "policy changed during final fleet lookup must leave the warp prompt unanswered");
+    };
+    changed_policy([&] { ui.auto_confirm_instant_warp = InstantWarpConfirmation::kNone; });
+    changed_policy([&] { ui.instant_warp_always_ask.all = true; });
+    changed_policy([&] { ui.instant_warp_always_ask.names = {ShipNameWords("Enterprise-D")}; });
+    changed_policy([&] { ui.auto_confirm_instant_warp = InstantWarpConfirmation::kWarp; });
+    changed_policy([&] { ui.instant_warp_auto_jump.all = true; });
+    changed_policy([&] { ui.instant_warp_auto_warp.names = {ShipNameWords("Enterprise-D")}; });
+    reset_policy();
+    int context_reads         = 0;
+    instant_warp_context_read = [&] {
+      if (++context_reads == 2)
+        ui.auto_confirm_instant_warp = InstantWarpConfirmation::kNone;
+    };
+    show();
+    instant_warp_context_read = {};
+    Require(instant_warp_jump == 1 && instant_warp_regular == 0,
+            "final context observation cannot dispatch an invalidated policy");
+    reset_policy();
+    context_reads             = 0;
+    instant_warp_context_read = [&] {
+      if (++context_reads == 2)
+        context.instant = false;
+    };
+    show();
+    instant_warp_context_read = {};
+    Require(instant_warp_jump == 1 && instant_warp_regular == 0,
+            "instant-warp availability lost in the final context observation stays native");
+    context.instant = true;
+    reset_policy();
+    show();
+    Require(instant_warp_jump == 2 && instant_warp_regular == 0, "later stable policy can answer its own prompt once");
+    Require(warp_roots.size() == initial_roots, "warp targeting rejects and success release temporary custody");
+    std::cout << "Instant warp targeting: live mode/filters, final lookup/context changes and retry passed\n";
+    return;
+  }
   context.course = nullptr;
   show();
   Require(instant_warp_jump == 1, "missing course does not authorize configured jump");

@@ -1911,6 +1911,7 @@ void PlannedWarpBindingObservations()
 #if _WIN32
 #include "cargo_bindings_cases.h"
 #include "shop_claims_cases.h"
+#include "reveal_confirmation_cases.h"
 #endif
 #include "shop_limits_cases.h"
 #include "navigation_ui_cases.h"
@@ -2070,6 +2071,10 @@ try {
     return 0;
   }
 #if _WIN32
+  if (argc == 2 && std::string_view(argv[1]) == "reveal-confirmation") {
+    RevealConfirmationCases();
+    return 0;
+  }
   if (argc == 2 && (std::string_view(argv[1]) == "shop-claims-native"
                     || std::string_view(argv[1]) == "shop-claims-filter"
                     || std::string_view(argv[1]) == "confirmation-targeting")) {

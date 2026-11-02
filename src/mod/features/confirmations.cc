@@ -81,16 +81,40 @@ void GameMessageBox_ShowWithCallback_Hook(auto original, MessageBoxContext* cont
 // The U.S.S. Excelsior's Decloaking Deflector is the only free ability of this type.
 bool IsExcelsiorDecloak(int64_t ability_id)
 {
-  auto* manager = ActivatedAbilityManager::Instance();
-  return manager && manager->GetActivatedAbilityType(ability_id) == ActivatedAbilityManager::kRevealHostileVger;
+  auto manager = il2cpp::GcHandle::Strong(ActivatedAbilityManager::Instance());
+  return manager
+         && manager.Get<ActivatedAbilityManager>()->GetActivatedAbilityType(ability_id)
+                == ActivatedAbilityManager::kRevealHostileVger;
+}
+
+bool RevealActionAvailable(const Il2CppDelegate* action)
+{
+  const auto* method = action ? action->method : nullptr;
+  if (!method || method->parameters_count != 0 || !method->return_type || method->return_type->byref
+      || method->return_type->type != IL2CPP_TYPE_VOID)
+    return false;
+  const bool is_static = (method->flags & METHOD_ATTRIBUTE_STATIC) != 0;
+  if (!is_static && !action->target)
+    return false;
+  // Fully shared callbacks use the runtime invoker rather than a direct entry.
+  return method->has_full_generic_sharing_signature
+         || (is_static ? method->methodPointer != nullptr : method->virtualMethodPointer != nullptr);
 }
 
 void MessageUtility_ShowFreeAbilityConfirmationPopup_Hook(auto original, int64_t ability_id, unity::TimeSpan cooldown,
                                                           Il2CppDelegate* action)
 {
-  if (Config::Get().ui.auto_confirm_reveal_ability && action && action->method && IsExcelsiorDecloak(ability_id)
-      && AnswerConfirmation("RevealConfirm", action))
-    return;
+  if (Config::Get().ui.auto_confirm_reveal_ability && RevealActionAvailable(action)) {
+    auto        callback = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(action));
+    const auto* method   = action->method;
+    auto*       target   = action->target;
+    // The native type lookup can reenter. Keep its original Action alive and
+    // recheck both the live preference and callback before bypassing the popup.
+    if (callback && IsExcelsiorDecloak(ability_id) && Config::Get().ui.auto_confirm_reveal_ability
+        && action->method == method && action->target == target && RevealActionAvailable(action)
+        && AnswerConfirmation("RevealConfirm", action))
+      return;
+  }
   original(ability_id, cooldown, action);
 }
 
