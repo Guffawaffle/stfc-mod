@@ -6649,7 +6649,8 @@
           "tests/settings_persistence_integration_test.cc: canceled/stale reset, actual file conflict/explicit retry/reopen; tests/config_settings_test.cc: proposal cancel/page leave/delayed confirm produce no binding/save change",
           "settings-actions-20261101/final-tests.log:312/312 existing binding/Settings steps; explicit actual action/choice/slider consumers pass; native Windows41/41. No live action/reset/save acceptance.",
           "settings-action-cleanup-20261101/final-tests.log:312/312 binding/Settings steps; explicit cleanup/action/choice/slider consumers pass; native Windows41/41. Controlled components, no native pooling/editor acceptance.",
-          "settings-action-rebind-20261101/final-tests.log:312/312 binding/Settings steps; explicit rebind/cleanup/action/choice/slider modes pass; native Windows41/41. Controlled components, no native pooling/editor acceptance."
+          "settings-action-rebind-20261101/final-tests.log:312/312 binding/Settings steps; explicit rebind/cleanup/action/choice/slider modes pass; native Windows41/41. Controlled components, no native pooling/editor acceptance.",
+          "settings-action-render-20261101/final-tests.log:312/312 steps; six explicit Settings modes pass; native Windows41/41. Exact-artifact Windows smoke is bounded by runtime-check.json; timing races remain controlled evidence."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
@@ -6780,6 +6781,20 @@
           "remaining": [
             "Render-time attached-component ownership during managed observations",
             "Native Windows pooling/editor interaction after separately requested deployment",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "37ca2c77c3593cc6b1a2518ae8c91182a67a198d",
+          "implementationCommit": "223c2534f14669ebdf01f8d270cb8b8d39a12871",
+          "candidateSha256": "2a66be66b32e9c88257a7403b3529f4e23c8bc2fbb5a01eefa54db3d8438ff37",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-RENDER.md",
+          "scope": "Actual Settings action rendering rechecks attached labels/button/button object after managed observations. Confirmed drift revokes and uses the deferred-binding path; unknown observations remain non-actionable for retry. Controlled baseline detached-label write fails, corrected render/rebind/cleanup/action/choice/slider modes pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; six explicit Settings modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "One authorized AX Zig cycle loaded the exact combined Windows DLL; native navigation and reused rows, keyboard zoom slider500->600->500 via exact editor, collection editor cancel, Notifications reset-confirmation cancel/help commands, and Q Trials choiceAlways->Auto->Always passed. Settings TOML is byte-identical before/after. Returned to station; no further input. No binding/presentation errors in1961 current-process log lines; only beta notice and existing deprecated-key warnings. Timing-specific replacement/deferred-cleanup races remain controlled evidence, not live-induced.",
+          "remaining": [
+            "Live timing-specific component replacement/deferred-cleanup reproduction",
             "Mac build/runtime qualification"
           ]
         }

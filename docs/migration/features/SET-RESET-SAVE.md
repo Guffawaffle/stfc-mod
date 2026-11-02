@@ -18,6 +18,11 @@ recovers a fresh rendered action view after cleanup waits for a callback. It
 qualifies retry and stale-request cancellation in controlled consumers; native
 Windows interaction and Mac qualification remain open.
 
+The [rendering continuation](../FEATURE-COHORT-20261101-ACTION-RENDER.md)
+checks attached components after native reads and records an exact-artifact
+combined Windows smoke of sliders, choices, editor cancellation and reset/help
+actions. Timing-specific races and Mac qualification remain open.
+
 Frozen source: mods/src/settings/maintenance.h and value_settings.h; original
 native page_navigation.cc registers maintenance pages. Target base2195077f keeps
 both headers byte-identical and registers through BuildModPages ->
