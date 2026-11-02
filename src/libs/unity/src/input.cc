@@ -35,16 +35,31 @@ namespace
     }
   } frame;
 
-  bool InputFocused(EventSystem* event_system)
+  std::optional<bool> InputFocused(EventSystem* event_system)
   {
-    auto* selected = event_system ? event_system->currentSelectedGameObject() : nullptr;
+    if (!event_system)
+      return false;
+    const auto selection = event_system->TryCall<"get_currentSelectedGameObject", GameObject*>();
+    if (!selection)
+      return {};
+    auto* selected = selection.value;
+    if (!selected)
+      return false;
     // EventSystem can retain a non-null managed wrapper after Unity destroys its native GameObject.
     // Only confirmed destruction skips the lookup; an unavailable liveness read preserves the existing path.
     const auto alive = TryAlive(selected);
     if (alive && !alive.value)
       return false;
-    auto* field = selected ? selected->GetComponent<TMP_InputField>() : nullptr;
-    return field && field->isFocused();
+    auto* type = TMP_InputField::Class::TypeObject();
+    if (!type)
+      return {};
+    const auto field = selected->TryCall<"GetComponent", TMP_InputField*>(type);
+    if (!field)
+      return {};
+    if (!field.value)
+      return false;
+    const auto focused = field.value->TryCall<"get_isFocused", bool>();
+    return focused ? std::optional{focused.value} : std::nullopt;
   }
 } // namespace
 
@@ -78,16 +93,20 @@ namespace Key
 
   bool IsInputFocused()
   {
-    if (!frame.focused)
-      frame.focused = InputFocused(EventSystem::current());
+    if (!frame.focused) {
+      const auto event_system = EventSystem::Class::TryCall<"get_current", EventSystem*>();
+      // An unavailable observation cannot release typed keys to gameplay shortcuts.
+      // Reserve this frame for native input and retry on the next frame.
+      frame.focused = !event_system || InputFocused(event_system.value).value_or(true);
+    }
     return *frame.focused;
   }
 
   void ClearInputFocus()
   {
-    auto* event_system = EventSystem::current();
-    if (InputFocused(event_system))
-      event_system->SetSelectedGameObject(nullptr);
+    const auto event_system = EventSystem::Class::TryCall<"get_current", EventSystem*>();
+    if (event_system && InputFocused(event_system.value).value_or(false))
+      event_system.value->SetSelectedGameObject(nullptr);
     // Selection callbacks can focus another field. Re-read the actual focus on the next query this frame.
     frame.focused.reset();
   }

@@ -359,16 +359,28 @@ unity::TMP_InputField input_field{};
 unity::GameObject*    selected         = &selected_object;
 bool                  has_event_system = true, has_input_field = true, redirect_selection = false;
 bool                  component_lookup_throws = false;
+bool                  event_system_lookup_throws = false, selected_lookup_throws = false;
+bool                  input_focus_throws = false, input_field_focused = true;
 int                   event_system_reads      = 0;
 int                   component_lookup_calls  = 0;
 
 unity::EventSystem* EventSystem_get_current(const MethodInfo*)
 {
   ++event_system_reads;
+  if (event_system_lookup_throws) {
+    static Il2CppException exception{};
+    throw Il2CppExceptionWrapper(&exception);
+  }
   return has_event_system ? &event_system : nullptr;
 }
 unity::GameObject* EventSystem_get_selected(unity::EventSystem*, const MethodInfo*)
-{ return selected; }
+{
+  if (selected_lookup_throws) {
+    static Il2CppException exception{};
+    throw Il2CppExceptionWrapper(&exception);
+  }
+  return selected;
+}
 void EventSystem_set_selected(unity::EventSystem*, unity::GameObject* value, const MethodInfo*)
 { selected = redirect_selection ? &selected_object : value; }
 unity::TMP_InputField* GameObject_get_component(unity::GameObject*, Il2CppObject*, const MethodInfo*)
@@ -381,7 +393,13 @@ unity::TMP_InputField* GameObject_get_component(unity::GameObject*, Il2CppObject
   return has_input_field ? &input_field : nullptr;
 }
 bool InputField_get_focused(unity::TMP_InputField*, const MethodInfo*)
-{ return true; }
+{
+  if (input_focus_throws) {
+    static Il2CppException exception{};
+    throw Il2CppExceptionWrapper(&exception);
+  }
+  return input_field_focused;
+}
 
 void InputFocus()
 {
@@ -434,8 +452,8 @@ void InputFocus()
   component_lookup_throws = true;
   ++input_frame;
   Key::Poll();
-  Require(!Key::IsInputFocused() && component_lookup_calls == lookups_before_destroyed + 3,
-          "a genuine live-object lookup failure stays contained rather than being hidden by the lifetime guard");
+  Require(Key::IsInputFocused() && component_lookup_calls == lookups_before_destroyed + 3,
+          "a contained live-object lookup failure reserves native input rather than releasing shortcut keys");
   component_lookup_throws = false;
 
   has_event_system = false;
@@ -2064,6 +2082,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "hotkey-screen-order") {
     HotkeyOrderNativeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "chat-focus-unavailable") {
+    HotkeyFocusNativeCases();
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "shop-limits-native") {

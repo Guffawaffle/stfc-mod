@@ -470,6 +470,7 @@ namespace Key
   bool IsModified();
 
   // A TextMeshPro input field has keyboard focus, so typing must not trigger shortcuts.
+  // Unavailable focus observations also reserve keys for native input until the next frame.
   bool IsInputFocused();
   // Takes keyboard focus away from the focused input field. Unity UI only does this on a click elsewhere.
   void ClearInputFocus();

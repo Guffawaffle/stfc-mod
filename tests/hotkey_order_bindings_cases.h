@@ -7,6 +7,46 @@
 namespace
 {
 int  hotkey_order_scale = 0;
+void HotkeyFocusNativeCases()
+{
+  ScreenActionsNativeCases("screen-actions-dispatch", [] {
+    hotkeys_installed = true;
+    selected          = &selected_object;
+    has_event_system = has_input_field = input_field_focused = true;
+    const auto navigations                                   = screen_actions_navigations;
+    const auto sample                                        = [] {
+      ++input_frame;
+      unity::Key::Poll();
+    };
+    for (bool* failure :
+         {&component_lookup_throws, &input_focus_throws, &selected_lookup_throws, &event_system_lookup_throws}) {
+      *failure          = true;
+      fleet_native_keys = {Action::kShowFactions};
+      sample();
+      Require(!HandleShortcuts() && screen_actions_navigations == navigations,
+              "unavailable text focus must not dispatch the faction-store shortcut or consume native Update");
+      unity::Key::ClearInputFocus();
+      Require(selected == &selected_object, "unknown text focus must not clear native selection");
+      fleet_native_keys.clear();
+      Require(!HandleShortcuts(), "unavailable text focus leaves ordinary native input delivery available");
+      *failure          = false;
+      fleet_native_keys = {Action::kShowFactions};
+      sample();
+      Require(!HandleShortcuts() && screen_actions_navigations == navigations,
+              "a later known focused field continues to own typed shortcut keys");
+    }
+    input_field_focused = false;
+    sample();
+    Require(HandleShortcuts() && screen_actions_navigations == navigations + 1,
+            "confirmed unfocused text field restores one ordinary faction-store navigation");
+    fleet_native_keys.clear();
+    input_field_focused = true;
+    selected            = nullptr;
+    sample();
+  });
+  std::cout
+      << "Actual shortcut dispatcher: unavailable text focus preserves native input and blocks faction navigation\n";
+}
 void HotkeyOrderNativeCases()
 {
   ScreenActionsNativeCases("screen-actions-dispatch", [] {
