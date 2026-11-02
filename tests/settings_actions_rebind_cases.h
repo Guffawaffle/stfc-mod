@@ -11,8 +11,19 @@ void ActionRebindText(ActionCleanupLabel* label, Il2CppString* text, const Metho
 }
 void ActionRebindEnabled(ActionCleanupButton* button, bool enabled, const MethodInfo*)
 { button->enabled = enabled; }
+std::function<void()> action_render_on_object;
+bool                  action_render_object_fails = false;
+unity::GameObject*    ActionRenderObject(ActionCleanupButton* button, const MethodInfo* method)
+{
+  if (action_render_object_fails)
+    throw Il2CppExceptionWrapper(&thrown);
+  auto* object = ActionCleanupButtonObject(button, method);
+  if (action_render_on_object)
+    std::exchange(action_render_on_object, {})();
+  return object;
+}
 
-void SettingsActionRebindCases()
+void SettingsActionRebindCases(bool rendering = false)
 {
   auto& option        = ValuesClass("Digit.Prime.GameSettings", "OptionContext");
   auto& container     = ValuesClass("Digit.Prime.GameSettings", "ContainerOptionContext", &option);
@@ -44,8 +55,7 @@ void SettingsActionRebindCases()
   AddMethod(button_class, "OverrideInteractable", reinterpret_cast<void*>(&ActionRebindEnabled), T(void_class),
             {T(bool_class)});
   AddMethod(button_class, "ClearInteractable", reinterpret_cast<void*>(&ActionCleanupClearButton), T(void_class), {});
-  AddMethod(button_class, "get_gameObject", reinterpret_cast<void*>(&ActionCleanupButtonObject), T(game_object_class),
-            {});
+  AddMethod(button_class, "get_gameObject", reinterpret_cast<void*>(&ActionRenderObject), T(game_object_class), {});
   AddMethod(game_object_class, "get_activeSelf", reinterpret_cast<void*>(&ActionCleanupActive), T(bool_class), {});
   AddMethod(game_object_class, "SetActive", reinterpret_cast<void*>(&ActionCleanupSetActive), T(void_class),
             {T(bool_class)});
@@ -67,8 +77,9 @@ void SettingsActionRebindCases()
   std::array<int, 2>                           invoked{};
   std::function<void()>                        on_read;
   std::function<void()>                        on_invoke;
-  state.active = true;
-  state.thread = std::this_thread::get_id();
+  bool                                         hide_button = false;
+  state.active                                             = true;
+  state.thread                                             = std::this_thread::get_id();
   for (size_t i = 0; i < actions.size(); ++i) {
     const auto delegate = [&](Il2CppDelegate& value, const MethodInfo* method) {
       reinterpret_cast<Il2CppObject*>(&value)->klass = &delegate_base.klass;
@@ -90,7 +101,8 @@ void SettingsActionRebindCases()
     actions[i].read           = [&, i](size_t) {
       if (on_read)
         std::exchange(on_read, {})();
-      return ActionSetting::Presentation{i ? "New row" : "Old row", "Run", i ? "New value" : "Old value"};
+      return ActionSetting::Presentation{i ? "New row" : "Old row", hide_button ? "" : "Run",
+                                         i ? "New value" : "Old value"};
     };
     actions[i].invoke = [&, i](size_t) {
       ++invoked[i];
@@ -135,6 +147,81 @@ void SettingsActionRebindCases()
   Require(old && old->ready && label.text == "Old row", "ordinary bind renders owned action");
   InvokeAction(&tokens[0], nullptr);
   Require(invoked[0] == 1, "ordinary bound action invokes");
+  if (rendering) {
+    const auto frame = [&] {
+      std::this_thread::sleep_for(std::chrono::milliseconds(260));
+      ActionsFrame();
+    };
+    ActionCleanupLabel  replacement_label{{&label_class.klass}};
+    ActionCleanupObject replacement_object{{&game_object_class.klass}, true};
+    ActionCleanupButton replacement_button{{&button_class.klass}, &replacement_object, true};
+    label.text             = "native";
+    label.overridden       = false;
+    action_cleanup_on_text = [&] { widget.label = &replacement_label; };
+    RenderAction(native_widget, old);
+    Require(label.text == "native" && !old->ready,
+            "render must not write a label detached during its text observation");
+    frame();
+    Require(ActionView(native_widget) && ActionView(native_widget) != old && ActionView(native_widget)->ready
+                && replacement_label.text == "Old row" && originals == 1,
+            "detached presentation recovers current labels without replaying native bind");
+    widget.label = &label;
+    bind(0);
+    old                      = ActionView(native_widget);
+    button.enabled           = false;
+    action_cleanup_on_button = [&] { widget.button = &replacement_button; };
+    RenderAction(native_widget, old);
+    Require(!button.enabled && !old->ready,
+            "render must not override a button detached during interactability observation");
+    frame();
+    Require(ActionView(native_widget) && ActionView(native_widget) != old && ActionView(native_widget)->ready
+                && ActionView(native_widget)->button.Get() == reinterpret_cast<Il2CppObject*>(&replacement_button),
+            "detached presentation recovers the current button");
+    widget.button = &button;
+    bind(0);
+    old                      = ActionView(native_widget);
+    hide_button              = true;
+    action_cleanup_on_active = [&] { button.object = &replacement_object; };
+    RenderAction(native_widget, old);
+    Require(object.active && !old->ready,
+            "render must not hide an object detached during its active-state observation");
+    frame();
+    Require(ActionView(native_widget) && ActionView(native_widget) != old && ActionView(native_widget)->ready
+                && !replacement_object.active && object.active,
+            "recovered view applies visibility only to its current button object");
+    hide_button = false;
+    old         = ActionView(native_widget);
+    RenderAction(native_widget, old);
+    Require(old->ready && replacement_object.active, "current button visibility restores after presentation changes");
+    action_render_object_fails = true;
+    RenderAction(native_widget, old);
+    Require(!old->ready && ActionView(native_widget) == old,
+            "unknown button association cannot authorize presentation");
+    action_render_object_fails = false;
+    RenderAction(native_widget, old);
+    Require(old->ready, "known button association allows a later render retry");
+    hide_button = true;
+    RenderAction(native_widget, old);
+    Require(!replacement_object.active && old->ready, "visibility restoration case starts with an owned hidden object");
+    hide_button             = false;
+    action_render_on_object = [&] { button.object = &object; };
+    RenderAction(native_widget, old);
+    Require(!replacement_object.active && !old->ready,
+            "stale gameObject getter result must not restore an object detached inside that getter");
+    frame();
+    old = ActionView(native_widget);
+    Require(old && old->ready && object.active, "latest confirmed button object recovers after a stale getter");
+    InvokeAction(&tokens[0], nullptr);
+    Require(invoked[0] == 2, "only recovered current presentation remains actionable");
+    ReleaseAction(native_widget);
+    old.reset();
+    state.views.clear();
+    state.rows.clear();
+    state.active = false;
+    Require(warp_roots.size() == roots_before, "render fixture releases every managed root");
+    std::cout << "Settings action rendering: attached labels/buttons/objects, retry, rebind and roots passed\n";
+    return;
+  }
   on_read = [&] { bind(1); };
   RenderAction(native_widget, old);
   Require(old->revoked && !old->ready && originals == 2,

@@ -446,6 +446,22 @@ void ReleaseAction(SettingsActionWidget* widget) noexcept
   }
 }
 
+void RebindActionPresentation(SettingsActionWidget* widget, const std::shared_ptr<SettingsActionView>& view)
+{
+  if (ActionView(widget) != view || view->revoked)
+    return;
+  const auto found = Actions().rows.find(view->context.Get<SettingsOptionContext>());
+  if (found != Actions().rows.end() && found->second->action == view->action && found->second->index == view->index
+      && found->second->token.Get() == view->token.Get() && IsPageVisitCurrent(view->visit)) {
+    auto request      = std::make_shared<SettingsActionRebind>();
+    request->row      = found->second;
+    request->visit    = view->visit;
+    request->epoch    = Actions().epoch;
+    request->prepared = true;
+    view->rebind      = std::move(request);
+  }
+  ReleaseAction(widget);
+}
 void RenderAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsActionView>& view)
 {
   if (!SameAction(widget, view) || view->rendering || view->invoking)
@@ -457,8 +473,17 @@ void RenderAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsAc
     ~Done()
     { flag = false; }
   } done{view->rendering};
+  const auto current = [&] {
+    if (!SameAction(widget, view))
+      return false;
+    if (widget->Label() == view->labels[0].Get() && widget->ButtonLabel() == view->labels[1].Get()
+        && widget->ValueLabel() == view->labels[2].Get() && widget->Button() == view->button.Get())
+      return true;
+    RebindActionPresentation(widget, view);
+    return false;
+  };
   const auto presentation = view->action->Read(view->index);
-  if (!SameAction(widget, view))
+  if (!current())
     return;
   const std::array text{presentation.label, presentation.button, presentation.value};
   for (size_t index = 0; index < text.size(); ++index) {
@@ -466,8 +491,11 @@ void RenderAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsAc
     auto* label = root.Get<TextLocalizer>();
     if (!label)
       return;
+    const auto alive = unity::TryAlive(label);
+    if (!current() || !alive || !alive.value)
+      return;
     const auto before = label->TryCall<"CurrentText", Il2CppString*>();
-    if (!SameAction(widget, view))
+    if (!current())
       return;
     if (view->label_owned[index] && view->applied[index] == text[index] && before
         && il2cpp::ToUtf8(before.value) == text[index] && label->textOverride())
@@ -479,7 +507,7 @@ void RenderAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsAc
     const auto observed = label->TryCall<"CurrentText", Il2CppString*>();
     if (!observed || il2cpp::ToUtf8(observed.value) != text[index])
       return;
-    if (!SameAction(widget, view))
+    if (!current())
       return;
   }
   auto  button_root = il2cpp::GcHandle::Strong(view->button.Get());
@@ -488,24 +516,42 @@ void RenderAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsAc
   auto* object      = object_root.Get<unity::GameObject>();
   if (!button || !object)
     return;
+  const auto attached = [&] {
+    if (!current())
+      return false;
+    const auto observed = button->TryObject();
+    if (!current() || !observed)
+      return false;
+    const auto confirmed = button->TryObject();
+    if (!current() || !confirmed)
+      return false;
+    if (observed.value == object && confirmed.value == object)
+      return true;
+    RebindActionPresentation(widget, view);
+    return false;
+  };
+  if (!attached())
+    return;
   if (view->hidden_before && !presentation.button.empty()) {
     if (!object->TryCall<"SetActive", void(bool)>(*view->hidden_before))
+      return;
+    if (!attached())
       return;
     view->hidden_before.reset();
   } else if (!view->hidden_before && presentation.button.empty()) {
     const auto value = object->TryCall<"get_activeSelf", bool>();
-    if (!value)
+    if (!attached() || !value)
       return;
     view->hidden_before = value.value;
     if (!object->TryCall<"SetActive", void(bool)>(false))
       return;
   }
-  if (!SameAction(widget, view))
+  if (!attached())
     return;
   const bool enabled  = presentation.actionable() && bool(view->action->invoke)
                         && (!Shortcut::CaptureBlocksShortcuts() || AllowsSettingsSearchAction(view->action->id()));
   const auto previous = button->TryInteractable();
-  if (!SameAction(widget, view))
+  if (!attached())
     return;
   const bool apply   = !view->interactable || *view->interactable != enabled || !previous || previous.value != enabled;
   view->interactable = enabled;
@@ -515,7 +561,7 @@ void RenderAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsAc
   if (!observed || observed.value != enabled)
     ActionWarning();
   else
-    view->ready = SameAction(widget, view);
+    view->ready = attached();
 }
 void CancelActionRebind(SettingsActionWidget* widget, const std::shared_ptr<SettingsActionView>& retired,
                         const std::shared_ptr<SettingsActionRebind>& request)
