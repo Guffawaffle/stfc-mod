@@ -39,6 +39,10 @@ bool IsRequestActionCallback(const Il2CppDelegate* callback, std::string_view ow
 {
   if (!callback || !callback->target || !callback->method || callback->method->parameters_count != 1)
     return false;
+  // A familiar method name cannot authorize a different closed target. The
+  // generated RequestAction closure must own both the receiver and the method.
+  if (!callback->target->klass || callback->target->klass != callback->method->klass)
+    return false;
   const auto name  = il2cpp::Method(callback->method).Name();
   const auto found = name.find(std::string(owner) + "/");
   return found != std::string::npos && (found == 0 || name[found - 1] == '.') && name.ends_with(".<RequestAction>b__0");

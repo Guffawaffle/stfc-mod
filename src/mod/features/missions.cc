@@ -349,20 +349,46 @@ std::string FactionOf(DailyGoal* daily)
 
 DailyGoalList* MissionViewController_GetClaimableDailiesList_Hook(auto original, MissionViewController* _this)
 {
-  auto* list = original(_this);
+  DailyGoalList* list      = original(_this);
+  auto           list_root = il2cpp::GcHandle::Strong(list);
   ShowClaimedFactionIcons(_this);
-  if (!list || Config::Get().ui.daily_bulk_claim_factions.empty())
+  if (!list_root || Config::Get().ui.daily_bulk_claim_factions.empty())
     return list;
 
   // Only the three main factions' dailies are filtered; anything else is always claimed.
-  const auto total = list->Count();
+  const auto count = list->TryCall<"get_Count", int32_t>();
+  if (!count || count.value <= 0)
+    return list;
+  const auto total     = count.value;
+  auto       remaining = total;
   for (int32_t i = total - 1; i >= 0; --i) {
-    const auto faction = FactionOf((*list)[i]);
+    const auto item = list->TryCall<"get_Item", DailyGoal*(int32_t)>(i);
+    if (!item)
+      break;
+    auto daily = il2cpp::GcHandle::Strong(item.value);
+    if (item.value && !daily)
+      break;
+    const auto faction = FactionOf(daily.Get<DailyGoal>());
     const bool main    = std::ranges::any_of(kFactions, [&](const Faction& f) { return faction == f.name; });
-    if (main && !Claimed(faction))
-      list->RemoveAt(i);
+    if (!main || Claimed(faction))
+      continue;
+    // Reward observations may change the list. Never apply the old row's
+    // exclusion to a replacement at its index; unknown observations stop here.
+    const auto current_count = list->TryCall<"get_Count", int32_t>();
+    if (!current_count || current_count.value != remaining)
+      break;
+    const auto current = list->TryCall<"get_Item", DailyGoal*(int32_t)>(i);
+    if (!current || current.value != daily.Get())
+      break;
+    if (!Claimed(faction)) {
+      if (!list->TryCall<"RemoveAt", void(int32_t)>(i))
+        break;
+      --remaining;
+    }
   }
-  spdlog::debug("[DailyClaimFilter] claiming {} of {} dailies", list->Count(), total);
+  const auto after = list->TryCall<"get_Count", int32_t>();
+  if (after)
+    spdlog::debug("[DailyClaimFilter] claiming {} of {} dailies", after.value, total);
   return list;
 }
 

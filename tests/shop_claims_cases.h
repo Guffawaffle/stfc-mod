@@ -24,6 +24,8 @@ int32_t                           batch_answer     = 0;
 bool                              batch_throw_read = false, batch_throw_answer = false;
 std::unordered_set<Il2CppObject*> batch_dead;
 std::unordered_map<Il2CppObject*, std::vector<Il2CppObject*>> batch_lists;
+std::function<void(Il2CppObject*, int32_t)>                   batch_item_callback;
+Il2CppObject*                                                 batch_unknown_count = nullptr;
 
 bool BatchAlive(Il2CppObject* value, const MethodInfo*)
 { return value && !batch_dead.contains(value); }
@@ -82,16 +84,25 @@ void BatchAnswer(Il2CppObject*, MessageBoxResult result, const MethodInfo*)
   batch_answer = static_cast<int32_t>(result);
 }
 int32_t BatchCount(Il2CppObject* value, const MethodInfo*)
-{ return static_cast<int32_t>(batch_lists.at(value).size()); }
+{
+  if (value == batch_unknown_count)
+    throw Il2CppExceptionWrapper(&thrown);
+  return static_cast<int32_t>(batch_lists.at(value).size());
+}
 Il2CppObject* BatchItem(Il2CppObject* value, int32_t index, const MethodInfo*)
-{ return batch_lists.at(value).at(index); }
+{
+  auto* item = batch_lists.at(value).at(index);
+  if (batch_item_callback)
+    batch_item_callback(value, index);
+  return item;
+}
 void BatchRemove(Il2CppObject* value, int32_t index, const MethodInfo*)
 {
   auto& items = batch_lists.at(value);
   items.erase(items.begin() + index);
 }
 
-void ShopClaimsCases()
+void ShopClaimsCases(std::string_view mode = "shop-claims-native")
 {
   auto& drawer_context =
       Define("Prime.SharedFeatures.Scripts.UI.Widgets", "DrawerContext", IL2CPP_TYPE_CLASS, &object_class);
@@ -232,6 +243,52 @@ void ShopClaimsCases()
   batch_lists[&dailies.header] = {&goals[0].header, &goals[1].header, &goals[2].header};
   (void)MissionViewController_GetClaimableDailiesList_Hook(claimable, mission_owner);
   Require(batch_lists[&dailies.header].size() == 3, "empty selection preserves all native claimable dailies");
+  if (mode == "shop-claims-filter") {
+    const auto filter = [&] { return MissionViewController_GetClaimableDailiesList_Hook(claimable, mission_owner); };
+    Config::Get().ui.daily_bulk_claim_factions = {"federation"};
+    batch_lists[&dailies.header]               = {&goals[0].header, &goals[1].header};
+    batch_item_callback                        = [&](Il2CppObject* list, int32_t) {
+      if (list == &rewards[1].header)
+        batch_lists[&dailies.header][1] = &goals[0].header;
+    };
+    Require(filter() == reinterpret_cast<DailyGoalList*>(&dailies)
+                && batch_lists[&dailies.header] == std::vector<Il2CppObject*>({&goals[0].header, &goals[0].header}),
+            "daily filter must not remove a selected replacement using an old excluded row's index");
+    batch_lists[&dailies.header] = {&goals[0].header, &goals[1].header};
+    batch_item_callback          = [&](Il2CppObject* list, int32_t) {
+      if (list == &rewards[1].header)
+        batch_unknown_count = &dailies.header;
+    };
+    filter();
+    Require(batch_lists[&dailies.header].size() == 2,
+            "unavailable list observation after reward inspection cannot authorize removal");
+    batch_unknown_count = nullptr;
+    batch_item_callback = [&](Il2CppObject* list, int32_t) {
+      if (list == &rewards[1].header)
+        Config::Get().ui.daily_bulk_claim_factions.clear();
+    };
+    filter();
+    Require(batch_lists[&dailies.header].size() == 2, "live removal of the faction filter preserves every daily");
+    Config::Get().ui.daily_bulk_claim_factions = {"federation"};
+    batch_item_callback                        = [&](Il2CppObject* list, int32_t) {
+      if (list == &rewards[1].header) {
+        const auto rooted = [](Il2CppObject* object) {
+          return std::ranges::any_of(warp_roots, [object](const auto& root) { return root.second == object; });
+        };
+        Require(rooted(&dailies.header) && rooted(&goals[1].header),
+                "native list and inspected daily retain local custody through reward observations");
+      }
+    };
+    filter();
+    Require(batch_lists[&dailies.header] == std::vector<Il2CppObject*>({&goals[0].header}),
+            "confirmed excluded daily is still removed from the original native list");
+    batch_item_callback          = {};
+    batch_lists[&dailies.header] = {&goals[1].header, &goals[1].header, &goals[0].header, &goals[2].header};
+    filter();
+    Require(batch_lists[&dailies.header] == std::vector<Il2CppObject*>({&goals[0].header, &goals[2].header}),
+            "verified multiple removals retain selected and unknown rows in native order");
+    Config::Get().ui.daily_bulk_claim_factions.clear();
+  }
 
   auto&       hud_type = Define("Digit.Prime.HUD", "MissionsHudViewController", IL2CPP_TYPE_CLASS, &component_class);
   const char* fields[] = {"_challengesButton", "_achievementsButton", "_outpostsButton", "_missionsButton"};
@@ -300,6 +357,38 @@ void ShopClaimsCases()
   Config::Get().ui.auto_confirm_ft_upgrade = true;
   Require(ConfirmForbiddenTechUpgrade(&callback) && batch_answers == 1 && batch_answer == 1,
           "exact FT closure retains its native confirm result");
+  if (mode == "confirmation-targeting") {
+    Il2CppObject other_target{&object_class.klass};
+    callback.target            = &other_target;
+    const auto answered_before = batch_answers;
+    int        native_popups   = 0;
+    auto       original        = [&](MessageBoxContext*, Il2CppDelegate* passed) {
+      Require(passed == &callback, "native popup retains its original callback");
+      ++native_popups;
+    };
+    GameMessageBox_ShowWithCallback_Hook(original, nullptr, &callback);
+    Require(native_popups == 1 && batch_answers == answered_before,
+            "FT method metadata on an unrelated target must preserve the native popup");
+    auto& other_closure               = Define("Fixture", "OtherClosure", IL2CPP_TYPE_CLASS, &object_class);
+    other_closure.klass.declaringType = &ft.klass;
+    other_target.klass                = &other_closure.klass;
+    GameMessageBox_ShowWithCallback_Hook(original, nullptr, &callback);
+    Require(native_popups == 2 && batch_answers == answered_before,
+            "a sibling closure cannot borrow another closure's RequestAction method");
+    other_target.klass = nullptr;
+    GameMessageBox_ShowWithCallback_Hook(original, nullptr, &callback);
+    Require(native_popups == 3 && batch_answers == answered_before,
+            "unknown callback target class cannot authorize confirmation");
+    callback.target                                     = &target;
+    ft.klass.name                                       = "AllianceContributionViewController";
+    Config::Get().ui.auto_confirm_alliance_contribution = true;
+    callback.target                                     = &other_target;
+    Require(!ConfirmAllianceContribution(&callback) && batch_answers == answered_before,
+            "alliance confirmation also requires the bound method's actual target class");
+    callback.target                                     = &target;
+    ft.klass.name                                       = "ForbiddenTechManager";
+    Config::Get().ui.auto_confirm_alliance_contribution = false;
+  }
   Config::Get().ui.auto_confirm_ft_upgrade = false;
   Require(!ConfirmForbiddenTechUpgrade(&callback) && batch_answers == 1, "disabled confirmation stays native");
   Config::Get().ui.auto_confirm_ft_upgrade = true;

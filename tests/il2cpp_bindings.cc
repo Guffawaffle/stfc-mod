@@ -2070,8 +2070,10 @@ try {
     return 0;
   }
 #if _WIN32
-  if (argc == 2 && std::string_view(argv[1]) == "shop-claims-native") {
-    ShopClaimsCases();
+  if (argc == 2 && (std::string_view(argv[1]) == "shop-claims-native"
+                    || std::string_view(argv[1]) == "shop-claims-filter"
+                    || std::string_view(argv[1]) == "confirmation-targeting")) {
+    ShopClaimsCases(argv[1]);
     return 0;
   }
 #endif
