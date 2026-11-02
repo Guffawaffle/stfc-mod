@@ -120,8 +120,16 @@ bool SameAction(SettingsActionWidget* widget, const std::shared_ptr<SettingsActi
     return false;
   const auto context = widget->TryCall<"get_Context", SettingsActionContext*>();
   auto       row     = context ? ActionRow(context.value) : nullptr;
-  return row && context.value == view->context.Get() && row->token.Get() == view->token.Get()
-         && row->action == view->action && row->index == view->index && !view->revoked && ActionView(widget) == view;
+  if (!row || context.value != view->context.Get() || row->token.Get() != view->token.Get()
+      || row->action != view->action || row->index != view->index)
+    return false;
+  // Managed ownership reads may replace a context or depart its page. Recheck
+  // the native context and both registrations after those observations.
+  const auto checked   = widget->TryCall<"get_Context", SettingsActionContext*>();
+  const auto confirmed = Actions().rows.find(context.value);
+  return checked && checked.value == context.value && confirmed != Actions().rows.end() && confirmed->second == row
+         && !view->revoked && IsPageVisitCurrent(view->visit) && view->context.Get() == context.value
+         && view->widget.Get() == widget && ActionView(widget) == view;
 }
 
 struct ActionInsertionHost {

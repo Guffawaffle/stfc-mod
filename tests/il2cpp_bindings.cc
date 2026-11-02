@@ -1900,6 +1900,7 @@ void PlannedWarpBindingObservations()
 #include "opc_indicators_bindings_cases.h"
 #include "ship_tech_bindings_cases.h"
 #include "settings_values_consumer_cases.h"
+#include "settings_actions_consumer_cases.h"
 #include "haven_native_cases.h"
 #include "haven_visual_events_cases.h"
 #include "ui_scale_bindings_cases.h"
@@ -2010,6 +2011,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "settings-choice-consumer") {
     SettingsChoiceConsumerCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "settings-action-consumer") {
+    SettingsActionConsumerCases();
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]).starts_with("fleet-presentation-")) {
