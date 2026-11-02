@@ -5927,7 +5927,8 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
+          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "claim-confirm-targeting-20261101: baseline filter/confirmation modes exit1 at wrong-row/wrong-target assertions; corrected explicit modes and shop-claims-native pass;312/312 suite steps and41/41 clean stable Windows native build. No live reward/upgrade/action evidence."
         ],
         "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
         "playerVerifiedFinalCandidate": false,
@@ -5996,6 +5997,21 @@
           "limits": "Native gameplay and platform qualification remain separate.",
           "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "828095b945d08dd0ac32aa618a471450efe057e5",
+          "implementationCommit": "604091667c45d9b41244773789342823ed2163e9",
+          "candidateSha256": "81cf2afb7c2d358690163dc5715b16959935ac589686294ae31dc861df188fd9",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-CLAIM-CONFIRM-TARGETING.md",
+          "scope": "Daily filtering retains local list/row custody and rechecks native count/item identity before removal; unknown observations stop further filtering. FT/alliance RequestAction bypass requires the actual callback target class to match the method declaring class. Existing source preferences, native list identity and Confirm1/Yes3 answers retained.",
+          "localChecks": "Both new baseline modes fail independently; corrected filter/confirmation/combined actual-consumer modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, config edit, reward claim, purchase, upgrade or live ability action.",
+          "remaining": [
+            "Exact-artifact live filtering and confirmation workflow qualification",
+            "Remaining P19 HUD/cargo and reveal/warp confirmation sweep",
+            "Mac build/runtime qualification"
+          ]
         }
       ]
     },
@@ -6179,7 +6195,8 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification."
+          "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/tests-2.log:418/418 Windows build/run/install steps with Debug assertions; actual production shop/claims/HUD/confirmation consumers and previous mod/AAI-host regressions; no real purchases, rendering or Mac qualification.",
+          "claim-confirm-targeting-20261101: baseline filter/confirmation modes exit1 at wrong-row/wrong-target assertions; corrected explicit modes and shop-claims-native pass;312/312 suite steps and41/41 clean stable Windows native build. No live reward/upgrade/action evidence."
         ],
         "exactCandidateRuntime": "6664e54d Windows client273 main ordinary PID35396; 418/418 Windows controlled-runtime steps;41/41 native steps;73 installed groups/frame ready;five stores unchanged;Guff basic combined UI trial:seems good to me. Optional FT/reveal actions, extended lifecycle and macOS remain unqualified. Known contained GetComponent diagnostic recurred; caller/cause unknown.",
         "playerVerifiedFinalCandidate": false
@@ -6237,6 +6254,21 @@
           "limits": "Alliance-contribution callback is an existing target consumer, not a frozen-source restoration.",
           "artifactSha256": "6c71eb602d54ff30c85a42a498b8cbd92d574620de4a3dc96edd98f7053dc769",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/haven-entry-shop-hud-20261028/qualification.json"
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "828095b945d08dd0ac32aa618a471450efe057e5",
+          "implementationCommit": "604091667c45d9b41244773789342823ed2163e9",
+          "candidateSha256": "81cf2afb7c2d358690163dc5715b16959935ac589686294ae31dc861df188fd9",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-CLAIM-CONFIRM-TARGETING.md",
+          "scope": "Daily filtering retains local list/row custody and rechecks native count/item identity before removal; unknown observations stop further filtering. FT/alliance RequestAction bypass requires the actual callback target class to match the method declaring class. Existing source preferences, native list identity and Confirm1/Yes3 answers retained.",
+          "localChecks": "Both new baseline modes fail independently; corrected filter/confirmation/combined actual-consumer modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, config edit, reward claim, purchase, upgrade or live ability action.",
+          "remaining": [
+            "Exact-artifact live filtering and confirmation workflow qualification",
+            "Remaining P19 HUD/cargo and reveal/warp confirmation sweep",
+            "Mac build/runtime qualification"
+          ]
         }
       ]
     },

@@ -27,3 +27,9 @@ linkage gaps cannot establish which unclassified rewards would be claimed.
 Installers retain the existing transactional hook sets; show/hide remain the
 native lifecycle and the frame callback only services a requested toggle.
 No global scanner, source deduplication, state migration or automatic purchase.
+
+The [filter-targeting continuation](../FEATURE-COHORT-20261101-CLAIM-CONFIRM-TARGETING.md)
+adds local list/daily custody and count/item identity checks before removal.
+Changed or unknown observations stop further filtering; completed removals stay
+applied. Controlled replacement/unknown/live-preference cases pass. Gift-drawer
+behavior is unchanged; exact-candidate live and Mac qualification remain open.

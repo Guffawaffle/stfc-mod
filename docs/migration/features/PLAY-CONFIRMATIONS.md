@@ -24,3 +24,9 @@ before throwing; no transactional game-action guarantee is invented here.
 Fixtures invoke counted substitutes and never spend currency or activate a live
 ability. Mac builds/native actions are separately qualified. Exact source refs
 and evidence: [cohort03](../FEATURE-COHORT-20261028-03.md).
+
+The [targeting continuation](../FEATURE-COHORT-20261101-CLAIM-CONFIRM-TARGETING.md)
+requires the callback's actual closed target class to match its method's
+declaring closure. Controlled unrelated/sibling/unknown receivers retain the
+native popup, while FT Confirm1 and alliance Yes3 remain intact. No live
+upgrade/contribution/reveal action or Mac qualification is added.

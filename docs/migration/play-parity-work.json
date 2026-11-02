@@ -304,13 +304,30 @@
         "P02",
         "P05"
       ],
-      "status": "queued",
+      "status": "in-progress-claim-filter-and-confirmation-targeting-local-qualified",
       "steps": [
         "Verify existing claim drawer/filter/toggle, four HUD Auto/Always/Never and restoration.",
         "Check cargo formatting/instant counters/defaults and FT/Excelsior/reveal/warp confirmations.",
         "Fix observed/source-proven deltas in existing owners; do not port obsolete example-only hud_daily_goals or disable_first_popup."
       ],
-      "trial": "Representative native screens and on/off/reload; no background auto-claim or wrong-target actions."
+      "trial": "Representative native screens and on/off/reload; no background auto-claim or wrong-target actions.",
+      "assessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "828095b945d08dd0ac32aa618a471450efe057e5",
+          "implementationCommit": "604091667c45d9b41244773789342823ed2163e9",
+          "candidateSha256": "81cf2afb7c2d358690163dc5715b16959935ac589686294ae31dc861df188fd9",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-CLAIM-CONFIRM-TARGETING.md",
+          "scope": "Daily filtering retains local list/row custody and rechecks native count/item identity before removal; unknown observations stop further filtering. FT/alliance RequestAction bypass requires the actual callback target class to match the method declaring class. Existing source preferences, native list identity and Confirm1/Yes3 answers retained.",
+          "localChecks": "Both new baseline modes fail independently; corrected filter/confirmation/combined actual-consumer modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, config edit, reward claim, purchase, upgrade or live ability action.",
+          "remaining": [
+            "Exact-artifact live filtering and confirmation workflow qualification",
+            "Remaining P19 HUD/cargo and reveal/warp confirmation sweep",
+            "Mac build/runtime qualification"
+          ]
+        }
+      ]
     },
     {
       "id": "P20",
