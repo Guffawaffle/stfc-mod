@@ -428,6 +428,20 @@
             "Audible preview and native exact-fallback routing",
             "Mac interaction; independent Mac Command-Q retest"
           ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "2d03621d92adeb4f0ab68e6e6998953a55b8a11d",
+          "implementationCommit": "83369f3ba89facfa7bce2a1fc27ecb54469519f2",
+          "candidateSha256": "6a5c55427ffeba9e621c452718b0b1fb9db9a54af978b4bedeed2c22a1d6f61a",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-CHOICE-SLIDER.md",
+          "scope": "Shared native choice/slider row identity rechecked after managed ownership reads; controlled stale-context choice regression fails before and passes after. Retained model/save/reset presentation assessed locally.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit actual choice consumer passes; clean/stable native Windows releasedbg41/41 and proxy verification.",
+          "nativeInteraction": "None: Guff retains game control; no deployment, cycle, config edit or live test.",
+          "remaining": [
+            "Operator-driven choice/slider/save/reset normal-flow check after deployment",
+            "Actual native reentrant/pooling lifecycle and Mac build/runtime qualification"
+          ]
         }
       ]
     },

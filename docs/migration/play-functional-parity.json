@@ -6391,7 +6391,8 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
           "docs/migration/SETTINGS-PRECISION-20261028.md:source-preserving readout/late-slider-label correction;400/400 steps plus exact source/binary receipt at artifacts/settings-precision-20261028/qualification.json",
-          "settings-exact-entry-20261101/model-tests.log:152/152 existing test-mod build/run steps; see exact-entry assessment scope."
+          "settings-exact-entry-20261101/model-tests.log:152/152 existing test-mod build/run steps; see exact-entry assessment scope.",
+          "settings-choice-slider-20261101/final-tests.log:312/312 existing binding/Settings build/run steps plus explicit production choice-consumer regression; native Windows41/41; no live qualification."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false,
@@ -6447,6 +6448,22 @@
             "Successful live Apply/save/restart",
             "Other control families and extended focus/hardware lifecycle",
             "Mac execution"
+          ]
+        }
+      ],
+      "valueControlAssessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "2d03621d92adeb4f0ab68e6e6998953a55b8a11d",
+          "implementationCommit": "83369f3ba89facfa7bce2a1fc27ecb54469519f2",
+          "candidateSha256": "6a5c55427ffeba9e621c452718b0b1fb9db9a54af978b4bedeed2c22a1d6f61a",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-CHOICE-SLIDER.md",
+          "scope": "Shared native choice/slider row identity rechecked after managed ownership reads; controlled stale-context choice regression fails before and passes after. Retained model/save/reset presentation assessed locally.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit actual choice consumer passes; clean/stable native Windows releasedbg41/41 and proxy verification.",
+          "nativeInteraction": "None: Guff retains game control; no deployment, cycle, config edit or live test.",
+          "remaining": [
+            "Operator-driven choice/slider/save/reset normal-flow check after deployment",
+            "Actual native reentrant/pooling lifecycle and Mac build/runtime qualification"
           ]
         }
       ]
