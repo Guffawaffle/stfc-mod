@@ -119,8 +119,14 @@ bool SameValue(il2cpp::Object* widget, const std::shared_ptr<SettingsValueView>&
   if (!view || view->revoked || !IsPageVisitCurrent(view->visit))
     return false;
   const auto current = widget->TryCall<"get_Context", SettingsOptionContext*>();
-  return current && current.value == view->context.Get() && view->widget.Get() == widget && ValueView(widget) == view
-         && ValueRow(current.value);
+  if (!current || current.value != view->context.Get() || view->widget.Get() != widget || ValueView(widget) != view
+      || !ValueRow(current.value))
+    return false;
+  // Context and callback ownership reads can reenter native code. Qualify the
+  // same row/page again after those reads, before accepting an input or render.
+  const auto checked = widget->TryCall<"get_Context", SettingsOptionContext*>();
+  return checked && checked.value == current.value && !view->revoked && IsPageVisitCurrent(view->visit)
+         && view->context.Get() == current.value && view->widget.Get() == widget && ValueView(widget) == view;
 }
 TextLocalizer* CurrentValueLabel(il2cpp::Object* widget, bool slider, bool number)
 {

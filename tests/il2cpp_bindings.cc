@@ -2008,6 +2008,10 @@ try {
     SettingsSliderConsumerCases();
     return 0;
   }
+  if (argc == 2 && std::string_view(argv[1]) == "settings-choice-consumer") {
+    SettingsChoiceConsumerCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("fleet-presentation-")) {
     FleetPresentationCases(argv[1]);
     return 0;
