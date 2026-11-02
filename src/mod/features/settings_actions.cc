@@ -300,51 +300,115 @@ bool RestoreAction(const std::shared_ptr<SettingsActionView>& view)
   auto* widget      = widget_root.Get<SettingsActionWidget>();
   if (!widget)
     return true;
-  const auto current = widget->TryCall<"get_Context", SettingsActionContext*>();
-  if (!current)
-    return false;
-  if (current.value && current.value != view->context.Get())
-    return true; // A pooled replacement owns the component now.
+  // Cleanup may outlive the page visit, but must still own this exact widget.
+  // Unknown observations retain custody for retry; a confirmed replacement ends it.
+  const auto current = [&]() -> std::optional<bool> {
+    if (ActionView(widget) != view || view->widget.Get() != widget)
+      return false;
+    const auto context = widget->TryCall<"get_Context", SettingsActionContext*>();
+    if (!context)
+      return {};
+    return (!context.value || context.value == view->context.Get()) && ActionView(widget) == view
+           && view->widget.Get() == widget;
+  };
+  auto same = current();
+  if (!same || !*same)
+    return same.has_value();
+  const auto label_at = [&](size_t index) {
+    return index == 0 ? widget->Label() : index == 1 ? widget->ButtonLabel() : widget->ValueLabel();
+  };
   bool restored = true;
   for (size_t index = 0; index < view->labels.size(); ++index) {
     if (!view->label_owned[index])
       continue;
-    auto       root  = il2cpp::GcHandle::Strong(view->labels[index].Get());
-    auto*      label = root.Get<TextLocalizer>();
-    const auto alive = label ? unity::TryAlive(label) : il2cpp::CallResult<bool>{true, false};
+    auto  root  = il2cpp::GcHandle::Strong(view->labels[index].Get());
+    auto* label = root.Get<TextLocalizer>();
+    if (!label || label_at(index) != label) {
+      view->label_owned[index] = false;
+      continue;
+    }
+    const auto alive = unity::TryAlive(label);
+    same             = current();
+    if (!same || !*same)
+      return same.has_value();
     if (!alive) {
       restored = false;
       continue;
     }
-    if (!alive.value)
+    if (!alive.value) {
+      view->label_owned[index] = false;
       continue;
+    }
     const auto text = label->TryCall<"CurrentText", Il2CppString*>();
+    same            = current();
+    if (!same || !*same)
+      return same.has_value();
+    if (label_at(index) != label) {
+      view->label_owned[index] = false;
+      continue;
+    }
     if (!text) {
       restored = false;
       continue;
     }
-    if (il2cpp::ToUtf8(text.value) == view->applied[index])
-      restored = (label->TryCall<"ClearTextOverride", void>().succeeded && !label->textOverride()) && restored;
+    if (il2cpp::ToUtf8(text.value) != view->applied[index]) {
+      view->label_owned[index] = false;
+      continue;
+    }
+    if (label->TryCall<"ClearTextOverride", void>() && !label->textOverride())
+      view->label_owned[index] = false;
+    else
+      restored = false;
   }
+  same = current();
+  if (!same || !*same)
+    return same.has_value();
   auto  button_root = il2cpp::GcHandle::Strong(view->button.Get());
   auto* button      = button_root.Get<SettingsActionButton>();
-  if (button && view->interactable) {
+  if (!button || widget->Button() != button) {
+    view->interactable.reset();
+    view->hidden_before.reset();
+    return restored;
+  }
+  if (view->interactable) {
     const auto value = button->TryInteractable();
-    if (!value)
+    same             = current();
+    if (!same || !*same)
+      return same.has_value();
+    if (widget->Button() != button) {
+      view->interactable.reset();
+      view->hidden_before.reset();
+      return restored;
+    }
+    if (!value) {
       restored = false;
-    else if (value.value == *view->interactable)
-      restored = button->TryClear().succeeded && restored;
+    } else if (value.value != *view->interactable || button->TryClear()) {
+      view->interactable.reset();
+    } else {
+      restored = false;
+    }
   }
   auto  object_root = il2cpp::GcHandle::Strong(view->button_object.Get());
   auto* object      = object_root.Get<unity::GameObject>();
   if (object && view->hidden_before) {
-    const auto value = object->TryCall<"get_activeSelf", bool>();
-    if (!value)
+    const auto attached = button->TryObject();
+    const auto value    = object->TryCall<"get_activeSelf", bool>();
+    same                = current();
+    if (!same || !*same)
+      return same.has_value();
+    if (widget->Button() != button || (attached && attached.value != object)) {
+      view->hidden_before.reset();
+    } else if (!attached || !value) {
       restored = false;
-    else if (!value.value) {
+    } else if (!value.value) {
       const auto written  = object->TryCall<"SetActive", void(bool)>(*view->hidden_before);
       const auto observed = object->TryCall<"get_activeSelf", bool>();
-      restored            = written && observed && observed.value == *view->hidden_before && restored;
+      if (written && observed && observed.value == *view->hidden_before)
+        view->hidden_before.reset();
+      else
+        restored = false;
+    } else {
+      view->hidden_before.reset();
     }
   }
   return restored;
@@ -356,7 +420,7 @@ void ReleaseAction(SettingsActionWidget* widget) noexcept
     return;
   view->revoked = true;
   view->ready   = false;
-  if (view->restoring)
+  if (view->restoring || view->rendering || view->invoking)
     return;
   view->restoring = true;
   struct Done {
