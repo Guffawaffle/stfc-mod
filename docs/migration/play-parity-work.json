@@ -396,6 +396,21 @@
             "Full action rendering/restoration/pooling lifecycle",
             "Mac build/runtime qualification"
           ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "0a20d452bff77eb57b4b9b0058100d6c675029fe",
+          "implementationCommit": "0a20b50e3c8047f793fc1fd4a76b916a0316290a",
+          "candidateSha256": "c9aaf51c2db146e3ea32d7dea764ea83c3efda01f2b5e7698e8952343cddddcd",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-CLEANUP.md",
+          "scope": "Actual Settings ReleaseAction/RestoreAction cleanup retains component/context/view ownership, retires completed claims, and defers restoration during render/invocation. Baseline detached-label case fails; corrected controlled lifecycle cases pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows pooling/editor interaction after separately requested deployment",
+            "Render/rebind recovery after deferred cleanup",
+            "Mac build/runtime qualification"
+          ]
         }
       ]
     },
@@ -472,6 +487,21 @@
           "remaining": [
             "Native Windows operator check after separately requested deployment",
             "Full action rendering/restoration/pooling lifecycle",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "0a20d452bff77eb57b4b9b0058100d6c675029fe",
+          "implementationCommit": "0a20b50e3c8047f793fc1fd4a76b916a0316290a",
+          "candidateSha256": "c9aaf51c2db146e3ea32d7dea764ea83c3efda01f2b5e7698e8952343cddddcd",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-CLEANUP.md",
+          "scope": "Actual Settings ReleaseAction/RestoreAction cleanup retains component/context/view ownership, retires completed claims, and defers restoration during render/invocation. Baseline detached-label case fails; corrected controlled lifecycle cases pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows pooling/editor interaction after separately requested deployment",
+            "Render/rebind recovery after deferred cleanup",
             "Mac build/runtime qualification"
           ]
         }

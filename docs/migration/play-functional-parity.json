@@ -6647,7 +6647,8 @@
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
           "settings-reset-shortcuts-20261101: 54/54 settings-model/runtime steps, 163/163 controlled IL2CPP binding steps",
           "tests/settings_persistence_integration_test.cc: canceled/stale reset, actual file conflict/explicit retry/reopen; tests/config_settings_test.cc: proposal cancel/page leave/delayed confirm produce no binding/save change",
-          "settings-actions-20261101/final-tests.log:312/312 existing binding/Settings steps; explicit actual action/choice/slider consumers pass; native Windows41/41. No live action/reset/save acceptance."
+          "settings-actions-20261101/final-tests.log:312/312 existing binding/Settings steps; explicit actual action/choice/slider consumers pass; native Windows41/41. No live action/reset/save acceptance.",
+          "settings-action-cleanup-20261101/final-tests.log:312/312 binding/Settings steps; explicit cleanup/action/choice/slider consumers pass; native Windows41/41. Controlled components, no native pooling/editor acceptance."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
@@ -6748,6 +6749,21 @@
           "remaining": [
             "Native Windows operator check after separately requested deployment",
             "Full action rendering/restoration/pooling lifecycle",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "0a20d452bff77eb57b4b9b0058100d6c675029fe",
+          "implementationCommit": "0a20b50e3c8047f793fc1fd4a76b916a0316290a",
+          "candidateSha256": "c9aaf51c2db146e3ea32d7dea764ea83c3efda01f2b5e7698e8952343cddddcd",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-CLEANUP.md",
+          "scope": "Actual Settings ReleaseAction/RestoreAction cleanup retains component/context/view ownership, retires completed claims, and defers restoration during render/invocation. Baseline detached-label case fails; corrected controlled lifecycle cases pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows pooling/editor interaction after separately requested deployment",
+            "Render/rebind recovery after deferred cleanup",
             "Mac build/runtime qualification"
           ]
         }

@@ -9,6 +9,10 @@ corrects stale command dispatch after reentrant ownership observations. Controll
 production action/choice/slider cases pass; controller policy is unchanged. No
 native interaction or reset/save acceptance is added while Guff retains game control.
 
+The [action cleanup continuation](../FEATURE-COHORT-20261101-ACTION-CLEANUP.md)
+qualifies component ownership, retry progress and deferred release in controlled
+consumers. Live pooling/editor and Mac qualification remain open.
+
 Frozen source: mods/src/settings/maintenance.h and value_settings.h; original
 native page_navigation.cc registers maintenance pages. Target base2195077f keeps
 both headers byte-identical and registers through BuildModPages ->
