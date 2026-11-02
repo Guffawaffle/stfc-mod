@@ -6646,7 +6646,8 @@
         "localAutomatedEvidence": [
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
           "settings-reset-shortcuts-20261101: 54/54 settings-model/runtime steps, 163/163 controlled IL2CPP binding steps",
-          "tests/settings_persistence_integration_test.cc: canceled/stale reset, actual file conflict/explicit retry/reopen; tests/config_settings_test.cc: proposal cancel/page leave/delayed confirm produce no binding/save change"
+          "tests/settings_persistence_integration_test.cc: canceled/stale reset, actual file conflict/explicit retry/reopen; tests/config_settings_test.cc: proposal cancel/page leave/delayed confirm produce no binding/save change",
+          "settings-actions-20261101/final-tests.log:312/312 existing binding/Settings steps; explicit actual action/choice/slider consumers pass; native Windows41/41. No live action/reset/save acceptance."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
@@ -6731,6 +6732,23 @@
               "symbol": "RegisterMaintenancePages",
               "filePresent": true
             }
+          ]
+        }
+      ],
+      "actionAdapterAssessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "a5f9c142ff3657b1b7249b705cbeeee762f3cb8a",
+          "implementationCommit": "8bb7c00571aa2af9144f2d530b0ecf92bb762219",
+          "candidateSha256": "34ee3eb7207e31bfa065100bc9a5a144abca31ca12d25241474b4ef6648bca38",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-OWNERSHIP.md",
+          "scope": "Typed Settings command dispatch rechecks page/context/row and view registrations after ownership reads. Actual production action consumer fails before and passes after controlled reentrant page departure.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit action/choice/slider consumers pass; clean stable native Windows41/41 plus proxy verification.",
+          "nativeInteraction": "None: Guff retains game control and reinforced no cycle during a wave; no deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows operator check after separately requested deployment",
+            "Full action rendering/restoration/pooling lifecycle",
+            "Mac build/runtime qualification"
           ]
         }
       ]

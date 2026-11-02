@@ -4,6 +4,11 @@ Contract version: 1. Status: preserved source/controller and Windows fixture
 qualification complete; actual native interaction and Mac acceptance remain open.
 Exact revisions, branch observations and receipts: [reset/editor cohort](../FEATURE-COHORT-20261101-RESET-SHORTCUTS.md).
 
+The later [action ownership continuation](../FEATURE-COHORT-20261101-ACTION-OWNERSHIP.md)
+corrects stale command dispatch after reentrant ownership observations. Controlled
+production action/choice/slider cases pass; controller policy is unchanged. No
+native interaction or reset/save acceptance is added while Guff retains game control.
+
 Frozen source: mods/src/settings/maintenance.h and value_settings.h; original
 native page_navigation.cc registers maintenance pages. Target base2195077f keeps
 both headers byte-identical and registers through BuildModPages ->
