@@ -57,7 +57,15 @@ if the warning persists. Existing state/TOML quit-drain qualification remains as
 recorded in [STATE-QUIT](features/STATE-QUIT.md); this correction concerns later
 managed-owner teardown and does not close its native-quit obligations.
 
-The fix is a local signed checkpoint. No game deployment, cycle, config edit,
-push or new release occurred. The published prerelease and its immutable source
-039a6204 are unchanged and do not contain this correction. The refactor queue
-remains paused at Guff's request.
+At assessment completion the fix was a local signed checkpoint. No game deployment,
+cycle, config edit or new release occurred. The published prerelease and its
+immutable source 039a6204 are unchanged and do not contain this correction.
+At that point the refactor queue remained paused at Guff's request.
+
+Guff subsequently requested commit/push and the next refactor slice. The signed
+fix and this investigation were pushed to `origin/play-dev-ripper` at
+`a4c81d9b7f6886985eef70208851a993025892b2`; remote readback matched. No CI run was
+listed for that head, consistent with the workflow's push-branch filter. This is
+source publication only; the preview still excludes this correction and the Mac
+Command-Q result remains unconfirmed. Refactor work resumes with media-picker
+cancellation/path-entry lifetime.

@@ -6847,7 +6847,8 @@
         "localAutomatedEvidence": [
           "docs/migration/FEATURE-COHORT-20261026-01.md",
           "210/210 test-mod/test-il2cpp Windows build/run steps; step count is not test count",
-          "tests/audio_settings_test.cc"
+          "tests/audio_settings_test.cc",
+          "settings-media-20261101/model-tests.log:152/152 existing test-mod build/run steps; native cancellation scope in media assessment."
         ],
         "exactCandidateRuntime": "Main ordinary client 273, PID 51248/filetime 134375424875951356; exact installed DLL disk hash checked and local module path observed; FrameTick ready, zero startup errors. Boot smoke only.",
         "playerVerifiedFinalCandidate": false,
@@ -6857,7 +6858,23 @@
           "artifactSha256": "916850e10de7fb13ac86e5faf0af9c7db57e8a64a8a8402a61ec3b0fcb183939",
           "implementation": "37e298a397fe4f56f0026e1c9dc6e05612ea69fe",
           "scope": "Seems good response to four-workflow trial request. Basic Windows acceptance; individual controls and edge cases not itemized. Not whole-feature equivalence."
-        }
+        },
+        "nativeAgentObservations": [
+          {
+            "date": "2026-11-01",
+            "targetBase": "a4c81d9b7f6886985eef70208851a993025892b2",
+            "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+            "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+            "evidence": "docs/migration/FEATURE-COHORT-20261101-MEDIA-CANCEL.md",
+            "scope": "Windows native image/audio dialog open, Cancel, reopen; image Escape; audio page departure while chooser pending, delayed Escape and page reopen preserving Off. No file selection or preference write.",
+            "localChecks": "Existing test-mod:152/152 build/run steps; production catalog, audio, image, validator and nonjoining task fixtures. Exact fallback/page rejection controlled, not native.",
+            "remaining": [
+              "Successful live media selection/save/restart, Unicode/network paths and image decoding",
+              "Audible preview and native exact-fallback routing",
+              "Mac interaction; independent Mac Command-Q retest"
+            ]
+          }
+        ]
       },
       "dependenciesAndLimitations": "Complete bounded source contract and target adapters documented in docs/migration/features/SET-AUDIO-PICKER.md. Native host/consumer workflow and macOS qualification remain pending; no whole-product equivalence claim.",
       "restorationCommits": [
@@ -7035,6 +7052,22 @@
           "description": "Add a clearly labeled Clear action for loading-image and sound file selections. Confirmation remains an open UX decision; preserve consumer-specific fallback/save/async ownership semantics.",
           "reference": "docs/migration/features/SET-IMAGE-PICKER.md#deferred-file-selector-clear-action"
         }
+      ],
+      "mediaCancellationAssessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "a4c81d9b7f6886985eef70208851a993025892b2",
+          "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+          "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-MEDIA-CANCEL.md",
+          "scope": "Windows native image/audio dialog open, Cancel, reopen; image Escape; audio page departure while chooser pending, delayed Escape and page reopen preserving Off. No file selection or preference write.",
+          "localChecks": "Existing test-mod:152/152 build/run steps; production catalog, audio, image, validator and nonjoining task fixtures. Exact fallback/page rejection controlled, not native.",
+          "remaining": [
+            "Successful live media selection/save/restart, Unicode/network paths and image decoding",
+            "Audible preview and native exact-fallback routing",
+            "Mac interaction; independent Mac Command-Q retest"
+          ]
+        }
       ]
     },
     {
@@ -7060,7 +7093,8 @@
       "validation": {
         "staticSourceInspection": true,
         "localAutomatedEvidence": [
-          "Frozen play-dev reassessment: docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md; input/model/catalog fixtures qualified at 241372c3efb2e3b1c5f0c9fa5ee336387044cfc6"
+          "Frozen play-dev reassessment: docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md; input/model/catalog fixtures qualified at 241372c3efb2e3b1c5f0c9fa5ee336387044cfc6",
+          "settings-media-20261101/model-tests.log:152/152 existing test-mod build/run steps; native cancellation scope in media assessment."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false,
@@ -7070,7 +7104,23 @@
           "artifactSha256": "66074968bcc1c5718d9ec1c3a5f089a70e7c9de7d1b6468b96afb1320d79d1cc",
           "implementation": "241372c3efb2e3b1c5f0c9fa5ee336387044cfc6",
           "scope": "User reports both requested pilot areas work; individual edge cases not itemized. Not whole-feature equivalence."
-        }
+        },
+        "nativeAgentObservations": [
+          {
+            "date": "2026-11-01",
+            "targetBase": "a4c81d9b7f6886985eef70208851a993025892b2",
+            "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+            "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+            "evidence": "docs/migration/FEATURE-COHORT-20261101-MEDIA-CANCEL.md",
+            "scope": "Windows native image/audio dialog open, Cancel, reopen; image Escape; audio page departure while chooser pending, delayed Escape and page reopen preserving Off. No file selection or preference write.",
+            "localChecks": "Existing test-mod:152/152 build/run steps; production catalog, audio, image, validator and nonjoining task fixtures. Exact fallback/page rejection controlled, not native.",
+            "remaining": [
+              "Successful live media selection/save/restart, Unicode/network paths and image decoding",
+              "Audible preview and native exact-fallback routing",
+              "Mac interaction; independent Mac Command-Q retest"
+            ]
+          }
+        ]
       },
       "dependenciesAndLimitations": "Valid/invalid/Unicode selection, cancel retains prior image, asynchronous completion and truthful restart status.",
       "restorationCommits": [
@@ -7242,6 +7292,22 @@
           "kind": "operator request2026-10-28; no implementation authorized in this pause",
           "description": "Add a clearly labeled Clear action for loading-image and sound file selections. Confirmation remains an open UX decision; preserve consumer-specific fallback/save/async ownership semantics.",
           "reference": "docs/migration/features/SET-IMAGE-PICKER.md#deferred-file-selector-clear-action"
+        }
+      ],
+      "mediaCancellationAssessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "a4c81d9b7f6886985eef70208851a993025892b2",
+          "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+          "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-MEDIA-CANCEL.md",
+          "scope": "Windows native image/audio dialog open, Cancel, reopen; image Escape; audio page departure while chooser pending, delayed Escape and page reopen preserving Off. No file selection or preference write.",
+          "localChecks": "Existing test-mod:152/152 build/run steps; production catalog, audio, image, validator and nonjoining task fixtures. Exact fallback/page rejection controlled, not native.",
+          "remaining": [
+            "Successful live media selection/save/restart, Unicode/network paths and image decoding",
+            "Audible preview and native exact-fallback routing",
+            "Mac interaction; independent Mac Command-Q retest"
+          ]
         }
       ]
     },

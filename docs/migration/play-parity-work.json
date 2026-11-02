@@ -414,6 +414,20 @@
             "Other control families and extended focus/hardware lifecycle",
             "Mac execution"
           ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "a4c81d9b7f6886985eef70208851a993025892b2",
+          "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+          "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-MEDIA-CANCEL.md",
+          "scope": "Windows native image/audio dialog open, Cancel, reopen; image Escape; audio page departure while chooser pending, delayed Escape and page reopen preserving Off. No file selection or preference write.",
+          "localChecks": "Existing test-mod:152/152 build/run steps; production catalog, audio, image, validator and nonjoining task fixtures. Exact fallback/page rejection controlled, not native.",
+          "remaining": [
+            "Successful live media selection/save/restart, Unicode/network paths and image decoding",
+            "Audible preview and native exact-fallback routing",
+            "Mac interaction; independent Mac Command-Q retest"
+          ]
         }
       ]
     },
