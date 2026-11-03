@@ -6,9 +6,11 @@ The [camera/confirmation assessment](FEATURE-COHORT-20261102-CAMERA-CONFIRMATION
 qualifies the shared pan/backdrop corrections and existing FC/queue-switch owners
 through Windows compilation and controlled consumers. Keep one movement path per
 frame; a matched native glide comparison remains separate. The FT ship-name row
-is an already-present upstream feature, not a frozen restoration. Continue with
-the existing Mac C++ loader/directory/entry/build source contract; missing SDK and
-native platform evidence remain explicit. AAI and parked diagnostics stay deferred.
+is an already-present upstream feature, not a frozen restoration. The Mac C++
+loader/directory/entry/build source comparison found no proven gap; its partial
+contract leaves Swift update/rollback and packaging as the next source owners.
+Missing SDK and native platform evidence remain explicit. AAI and parked diagnostics
+stay deferred.
 
 ## Window and cursor checkpoint — 2026-11-02
 

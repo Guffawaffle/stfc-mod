@@ -688,7 +688,19 @@
         "Keep macOS build/signing/notarization/runtime qualification separately pending until real environment available.",
         "Checkpoint full preserved play result before any play-dev/AAI/Kit expansion; no push or promotion by implication."
       ],
-      "trial": "Boot final candidate and repeat high-use gameplay/settings smoke; identify any remaining blocker by exact feature."
+      "trial": "Boot final candidate and repeat high-use gameplay/settings smoke; identify any remaining blocker by exact feature.",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "sourceCheckpoint": "4e7c052a255aa3a0a559471c99c346bf6b181fc6",
+          "evidence": "docs/migration/features/PLAT-MAC-LAUNCH.md",
+          "scope": "Partial C++ loader/Foundation/injection/build source contract only; no proven gap or implementation change.",
+          "remaining": [
+            "Swift updater/rollback and packaging source contract",
+            "Both Mac builds blocked by missing SDK; native qualification separate"
+          ]
+        }
+      ]
     },
     {
       "id": "P26",

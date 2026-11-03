@@ -8362,7 +8362,23 @@
       },
       "dependenciesAndLimitations": "Install/update/cancel/repair/launch, entitlements, failed updater rollback on actual macOS; separate from source/build presence.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAT-MAC-LAUNCH.md",
+      "catalogStatus": "Partial C++ loader/directory/injection/build source contract; Swift updater/rollback/packaging and native Mac acceptance remain open",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "sourceCheckpoint": "4e7c052a255aa3a0a559471c99c346bf6b181fc6",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "scope": "Standalone C++ loader, owning Foundation directory adapter, injected constructor, GameAssembly/bootstrap and Zig registration source-compared without proven gap; no product change.",
+          "evidence": "D:/dev/stfc-workspace/artifacts/camera-confirmation-20261102/mac-source-inputs.json",
+          "qualification": "Static source only. Both Mac build requests stop before compile, missing SDK. Windows fixtures do not qualify native Mac execution.",
+          "remaining": [
+            "Swift install/update/cancel/repair/rollback full source contract",
+            "Bundle/signing and current artifact/platform/runtime qualification"
+          ]
+        }
+      ]
     },
     {
       "id": "DIAG-OVERLAY",
@@ -10326,11 +10342,12 @@
         "PLAY-CAMERA-PAN",
         "PLAY-CAMERA-BACKDROP",
         "SET-FC-CONFIRM",
-        "PLAY-QUEUE-SWITCH"
+        "PLAY-QUEUE-SWITCH",
+        "PLAT-MAC-LAUNCH"
       ],
-      "status": "Shared camera admission/scale/cache corrections and FC/queue source/consumer checks qualified on Windows. Native motion/platform/account preference behavior separate. Older runtime fields remain historical, not target selectors.",
+      "status": "Shared camera admission/scale/cache corrections and FC/queue source/consumer checks qualified on Windows. Native motion/platform/account preference behavior separate. Older runtime fields remain historical, not target selectors. C++ Mac launch source contract is partial and has no proven gap; Swift lifecycle remains open.",
       "scope": "AAI/new upstream/parked diagnostics deferred; FT ship-name existing upstream provenance corrected without feature change. No runtime cycle/config/deploy/preview/remote writes.",
-      "next": "Bounded Mac C++ loader, Foundation directory adapter, dylib entry and build-registration source reconciliation; full Swift updater/rollback separate. SDK/native Mac evidence remains unavailable."
+      "next": "Existing Swift install/update/cancel/repair and rollback source reconciliation; bundle/signing and native Mac evidence separate. SDK/native Mac remain unavailable. AAI/new upstream/parked diagnostics deferred."
     },
     "status": "Audio/notification cohort source-reconciled,428/428 Windows regression and native startup qualified; main ordinary cycle performed. Optional player notification/audio trial pending. Signed84584fa4 basic Mac preset reorder/save-display trial accepted separately.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",

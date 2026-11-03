@@ -74,8 +74,20 @@ absent; per-architecture logs and mac-builds.json retain this limitation. The
 implementation is shared across platforms, with no Windows-only fallback added.
 Mcohall's earlier Mac pre-release testing does not qualify these later local bytes.
 
+Signed source checkpoint `4e7c052a255aa3a0a559471c99c346bf6b181fc6` verifies with
+a good signature (local signer trust unknown). General, hostile and independent
+review lanes found no actionable findings against base `f9e66f24`, diff hash
+`3493935673bce17523442095ac1d785e19e5c2d5`. All24 recorded source/test inputs and
+the executable hash match. The review receipt uses static-persona fallback because
+its CLI memory lookup was unavailable; scoped AXF continuity works separately.
+
+The next [Mac C++ launch slice](features/PLAT-MAC-LAUNCH.md) has also been
+source-compared without a proven regression or product change. Its eight source
+hashes are separate from the Windows executable manifest. That partial contract
+does not close Swift update/rollback, packaging or native Mac acceptance.
+
 No game input/cycle, live TOML/config edit, account/cloud access, deployment,
 pre-release replacement or remote write occurred. Classifications and overall
-migration parity remain open. Next bounded source owner: the existing Mac C++
-loader, Foundation directory adapter, dylib entry and build registration; full
-Swift updater/rollback work remains a separate slice.
+migration parity remain open. Next bounded source owner: the existing Swift
+install/update/cancel/repair and rollback workflow, followed by bundle/signing and
+actual Mac build/runtime evidence.
