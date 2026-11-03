@@ -500,13 +500,28 @@
       "verificationProcedure": "Toggle with outstanding responses and queued targets; reload and restart; preserve native locked result.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/camera-confirmation-20261102/: 423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Toggle with outstanding responses and queued targets; reload and restart; preserve native locked result.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-QUEUE-SWITCH.md",
+      "catalogStatus": "Source and controlled Windows consumers qualified; native/platform acceptance remains separate",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Existing short-circuit, native result, persisted toggle and recovery-only reset source-reconciled; current direct queue/fleet fixtures pass, no new gameplay trial.",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": "Native devices/Unity rendering or real account preferences/current-client ABI fit not qualified. Mac SDK absent. Overall parity stays open; AAI deferred."
+        }
+      ]
     },
     {
       "id": "PLAY-QUEUE-RECOVERY",
@@ -3656,13 +3671,28 @@
       "verificationProcedure": "Cached revisits, both loaders, live scale change and original authored transforms.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/camera-confirmation-20261102/: 423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Cached revisits, both loaders, live scale change and original authored transforms.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CAMERA-BACKDROP.md",
+      "catalogStatus": "Source and controlled Windows consumers qualified; native/platform acceptance remains separate",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Qualified Vector3 observation/setter success and weak per-transform identities preserve authored/cache workflows without clear-all compounding or address reuse.",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": "Native devices/Unity rendering or real account preferences/current-client ABI fit not qualified. Mac SDK absent. Overall parity stays open; AAI deferred."
+        }
+      ]
     },
     {
       "id": "PLAY-CAMERA-PAN",
@@ -3681,7 +3711,9 @@
       "verificationProcedure": "Diagonal/opposed keys, drag/release, tracking/tutorial/modal focus and arrow-chord ownership. Queued user follow-up: matched pan-momentum/glide comparison at equal settings and zoom; distinguish release/coasting from drag speed and inspect legacy double-movement behavior.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/camera-confirmation-20261102/: 423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
@@ -3696,6 +3728,19 @@
           "sourceFinding": "PLAY cad98ef fix_pan.cc can call MoveCamera once in the custom-keyboard branch with no pointer held, then again in the coast branch. Migration camera.cc applies one movement path per frame. This is a static difference, not measured perceptual evidence.",
           "setting": "graphics.system_pan_momentum_falloff (higher retains more movement after release)",
           "acceptance": "Compare matched drags/releases at the same zoom and falloff in PLAY and migration, with mod/native hotkey modes, focus/modal/tracking gates and representative frame rates. Preserve intended control and responsiveness; do not blindly restore duplicate movement. No code/config change or trial requested for this backlog update."
+        }
+      ],
+      "contract": "docs/migration/features/PLAY-CAMERA-PAN.md",
+      "catalogStatus": "Source and controlled Windows consumers qualified; native/platform acceptance remains separate",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Qualified fields/pointer state and live capture/policy gates prevent default-value or stale admission; retained single movement path, native route and matched-feel follow-up.",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": "Native devices/Unity rendering or real account preferences/current-client ABI fit not qualified. Mac SDK absent. Overall parity stays open; AAI deferred."
         }
       ]
     },
@@ -6262,9 +6307,10 @@
       "name": "Equipped ship under Forbidden Tech header",
       "classification": "Implemented, unverified",
       "baseline": {
-        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
-        "path": "mods/src/patches/parts/ship_tech_indicators.cc",
-        "symbolOrWorkflow": "ShipName"
+        "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+        "path": "mods/src/patches/parts/forbidden_tech_ship_name.cc",
+        "symbolOrWorkflow": "EquippedShipName/UpdateRow",
+        "role": "retained-upstream-feature; absent from frozen PLAY"
       },
       "migration": {
         "path": "src/mod/features/forbidden_tech_ship_name.cc",
@@ -6280,7 +6326,37 @@
       },
       "dependenciesAndLimitations": "Docked/unassigned/same-hull ships and missing art/equipment; verify exact instance.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "historicalBaselineAttribution": {
+        "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+        "path": "mods/src/patches/parts/ship_tech_indicators.cc",
+        "symbolOrWorkflow": "ShipName"
+      },
+      "contract": "docs/migration/features/PLAY-FT-SHIP-NAME.md",
+      "catalogStatus": "Retained already-present upstream feature; corrected provenance only, no frozen restoration or new implementation",
+      "sourceIntroduction": "3c8ab85ed9013a542506ce905f56861642b7404a",
+      "branchObservations": [
+        {
+          "refRole": "upstream-dev",
+          "revision": "e884efa7c6ff66d0776b4cd4d6b76ce193296be5",
+          "observation": "Owner, key/default/example and equipped-ship workflow present."
+        },
+        {
+          "refRole": "origin-play",
+          "revision": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+          "observation": "Equipped-ship owner/key/widget workflow absent; ship_tech_indicators.cc is a different tile-art/pin feature."
+        },
+        {
+          "refRole": "origin-play-dev/frozen",
+          "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "observation": "Equipped-ship owner/key/widget workflow absent."
+        },
+        {
+          "refRole": "typed-target-base",
+          "revision": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "observation": "Existing typed feature retained unchanged; this assessment changes provenance only."
+        }
+      ]
     },
     {
       "id": "PLAY-CONFIRMATIONS",
@@ -6631,7 +6707,7 @@
         "symbolOrWorkflow": "HideFleetCommander"
       },
       "migration": {
-        "path": "src/mod/features/settings.cc",
+        "path": "src/mod/settings/confirmation_settings.cc",
         "symbolOrWorkflow": "Registered native FC/FT boolean adapter + confirmation_settings.cc"
       },
       "expectedBehavior": "Restore FC confirmation after do-not-show",
@@ -6642,14 +6718,28 @@
           "settings-core-build-7.log: mods test-mod test-il2cpp, 193/193 steps",
           "tests/il2cpp_bindings.cc: closed receiver ABI routes and noninitializing singleton reads",
           "tests/settings_row_insertion_test.cc and settings_row_quarantine_test.cc: actual recovery policies, not native widget binding",
-          "settings-core-registered-build.log: Profiles-enabled Windows DLL + test-mod/test-il2cpp, 205/205 steps; PE verifier: 18 exports/static CRT/Profiles host/provenance marker"
+          "settings-core-registered-build.log: Profiles-enabled Windows DLL + test-mod/test-il2cpp, 205/205 steps; PE verifier: 18 exports/static CRT/Profiles host/provenance marker",
+          "D:/dev/stfc-workspace/artifacts/camera-confirmation-20261102/: 423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
       "dependenciesAndLimitations": "Checked closed delegates, source-linked native context ownership, noninitializing prefs observation, pending insertion recovery and view restoration implemented. Adapter is now registered in candidate; no native row/runtime claim. Full page navigation remains separate.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/SET-FC-CONFIRM.md",
+      "catalogStatus": "Source and controlled Windows consumers qualified; native/platform acceptance remains separate",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Existing full FC backend qualifies noncreating/noninserting readiness, inverted key/setter, generation rejection, read reentry and session invalidation. No product correction.",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": "Native devices/Unity rendering or real account preferences/current-client ABI fit not qualified. Mac SDK absent. Overall parity stays open; AAI deferred."
+        }
+      ]
     },
     {
       "id": "SET-SEARCH",
@@ -10231,15 +10321,16 @@
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
     "latestContinuation": {
       "date": "2026-11-02",
-      "document": "docs/migration/FEATURE-COHORT-20261102-WINDOW-CURSOR.md",
+      "document": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
       "capabilities": [
-        "PLAY-WINDOW",
-        "PLAY-WINDOW-PROFILE-TITLE",
-        "PLAY-CURSOR"
+        "PLAY-CAMERA-PAN",
+        "PLAY-CAMERA-BACKDROP",
+        "SET-FC-CONFIRM",
+        "PLAY-QUEUE-SWITCH"
       ],
-      "status": "Title source preservation and safe Unity-procedure fallback qualified by Windows compilation and controlled consumers. Cursor unchanged. Native platform/ABI acceptance remains separate; older runtime fields are historical observations, not current-session selectors.",
-      "scope": "AAI and new upstream features deferred. No game input/cycle/config edit/deploy or new pre-release.",
-      "next": "Existing camera pan/backdrop frozen-source reconciliation. Preserve parked diagnostics/orbit decisions; no overall parity claim."
+      "status": "Shared camera admission/scale/cache corrections and FC/queue source/consumer checks qualified on Windows. Native motion/platform/account preference behavior separate. Older runtime fields remain historical, not target selectors.",
+      "scope": "AAI/new upstream/parked diagnostics deferred; FT ship-name existing upstream provenance corrected without feature change. No runtime cycle/config/deploy/preview/remote writes.",
+      "next": "Bounded Mac C++ loader, Foundation directory adapter, dylib entry and build-registration source reconciliation; full Swift updater/rollback separate. SDK/native Mac evidence remains unavailable."
     },
     "status": "Audio/notification cohort source-reconciled,428/428 Windows regression and native startup qualified; main ordinary cycle performed. Optional player notification/audio trial pending. Signed84584fa4 basic Mac preset reorder/save-display trial accepted separately.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",

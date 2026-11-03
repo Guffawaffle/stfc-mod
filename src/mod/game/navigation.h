@@ -31,6 +31,26 @@ struct NavigationLOD : il2cpp::Object {
 struct NavigationPan : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationPan">;
 
+  // A missing gate cannot become permission to move, or a missing delta an observed zero. BlockPan is static;
+  // the other state belongs to this controller, and the aggregate must be Unity's actual Vector2.
+  static bool FieldsAvailable()
+  {
+    static const bool available = [] {
+      const auto* block = il2cpp::detail::ResolveField(Class::Raw(), "BlockPan", il2cpp::detail::SlotOf<bool>(), true);
+      const auto* last =
+          il2cpp::detail::ResolveField(Class::Raw(), "_lastDelta", il2cpp::detail::SlotOf<unity::Vector2>(), false);
+      return block && last
+             && il2cpp::detail::ValueClassMatches(
+                 last->type, il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw(),
+                 sizeof(unity::Vector2))
+             && Class::HasField<"_trackingPOI", void*>() && Class::HasField<"_deltaScaler", float>()
+             && Class::HasField<"_keyboardDeltaScaler", float>()
+             && Class::HasField<"_farMagRadiusRatioSystemNormal", float>()
+             && Class::HasField<"_farMagRadiusRatioSystemExtended", float>();
+    }();
+    return available;
+  }
+
   unity::Vector2 lastDelta()
   { return Field<"_lastDelta", unity::Vector2>(); }
   void SetLastDelta(unity::Vector2 value)

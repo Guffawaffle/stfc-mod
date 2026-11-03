@@ -1,5 +1,16 @@
 # Downstream play preservation target
 
+## Camera and confirmation continuation — 2026-11-02
+
+The [camera/confirmation cohort](FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md)
+fixes unreadable pan gates and scale observations, capture/native pan leakage,
+stale settings across pan gates and cache retirement that could compound scenery
+scales. FC confirmation and queue-switch behavior need no product correction;
+their source and controlled backend checks are recorded. Existing FT ship-name
+upstream provenance is corrected without changing the feature. Shared Windows
+checks pass; Mac builds remain blocked by the missing SDK and native motion feel
+is separately open. AAI stays deferred.
+
 ## Window titles, resize and cursor — 2026-11-02
 
 The [window/cursor cohort](FEATURE-COHORT-20261102-WINDOW-CURSOR.md) reconciles

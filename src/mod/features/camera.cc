@@ -421,26 +421,48 @@ void NavigationZoom_SetDepth_Hook(auto original, NavigationZoom* _this, NodeDept
 bool     authored_backdrop = false;
 uint64_t backdrop_revision = 0;
 
+struct BackdropScale {
+  il2cpp::GcHandle transform;
+  float            applied;
+};
+auto& BackdropScales()
+{
+  // Retire expired identities instead of forgetting still-live transforms. Do not release handles after runtime
+  // teardown; weak custody does not keep scenes alive and distinguishes a recycled managed address.
+  static auto* scaled = new std::unordered_map<unity::Transform*, BackdropScale>;
+  return *scaled;
+}
+
 void ScaleFlatRenderable(unity::Component* renderable, bool authored)
 {
-  // A system has a handful of planets; past this, entries from earlier systems are dropped.
-  constexpr size_t                                    kRemembered = 256;
-  static std::unordered_map<unity::Transform*, float> scaled;
-  const float                                         factor = Config::Get().graphics.fr_scale;
+  const float factor = Config::Get().graphics.fr_scale;
   // Written so a NaN fr_scale, which the reader accepts, skips scaling too.
-  if (!renderable || !(factor > 0.0f) || factor == 1.0f)
+  if (!renderable || !std::isfinite(factor) || !(factor > 0.0f) || factor == 1.0f)
+    return;
+  auto component = il2cpp::GcHandle::Strong(renderable);
+  if (!component)
     return;
   auto* transform = renderable->transform();
   if (!transform)
     return;
-  const auto scale = transform->localScale();
-  if (const auto it = scaled.find(transform); !authored && it != scaled.end() && std::fabs(scale.x - it->second) < 0.1f)
+  auto owner = il2cpp::GcHandle::Strong(transform);
+  if (!owner)
     return;
-  if (scaled.size() >= kRemembered)
-    scaled.clear();
-  const auto new_scale = scale * factor;
-  transform->SetLocalScale(new_scale);
-  scaled.insert_or_assign(transform, new_scale.x);
+  const auto observed = transform->TryLocalScale();
+  if (!observed || !std::isfinite(observed.value.x) || !std::isfinite(observed.value.y)
+      || !std::isfinite(observed.value.z) || Config::Get().graphics.fr_scale != factor)
+    return;
+  auto& scaled = BackdropScales();
+  std::erase_if(scaled, [](const auto& item) { return item.second.transform.Get() != item.first; });
+  if (const auto it = scaled.find(transform);
+      !authored && it != scaled.end() && std::fabs(observed.value.x - it->second.applied) < 0.1f)
+    return;
+  const auto new_scale = observed.value * factor;
+  if (!std::isfinite(new_scale.x) || !std::isfinite(new_scale.y) || !std::isfinite(new_scale.z))
+    return;
+  auto identity = il2cpp::GcHandle::Weak(transform);
+  if (identity && transform->TrySetLocalScale(new_scale))
+    scaled.insert_or_assign(transform, BackdropScale{std::move(identity), new_scale.x});
 }
 
 unity::Component* PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils* _this)
@@ -497,8 +519,28 @@ bool ModMovesCamera()
   return config.control.hotkeys_enabled && !config.control.use_scopely_hotkeys && !config.ui.disable_move_keys;
 }
 
-bool PointerHeld()
-{ return unity::Input::GetMouseButton(0) || unity::Input::touchCount() > 0; }
+struct PanSettings {
+  bool  hotkeys, native_hotkeys, move_disabled, hotkey_hooks, unlock;
+  float falloff;
+  bool  operator==(const PanSettings&) const = default;
+};
+PanSettings ReadPanSettings()
+{
+  const auto& config = Config::Get();
+  return {config.control.hotkeys_enabled,
+          config.control.use_scopely_hotkeys,
+          config.ui.disable_move_keys,
+          config.patches.hotkeyhooks,
+          config.graphics.disable_target_camera_lock,
+          config.graphics.system_pan_momentum_falloff};
+}
+bool KeyboardPanActive(const PanSettings& settings)
+{
+  constexpr std::array kArrows{unity::KeyCode::LeftArrow, unity::KeyCode::RightArrow, unity::KeyCode::UpArrow,
+                               unity::KeyCode::DownArrow};
+  return settings.hotkeys && !settings.move_disabled && !Shortcut::CaptureBlocksShortcuts()
+         && !std::ranges::any_of(kArrows, Shortcut::Owns);
+}
 
 // The game's own tutorial and modal/text-input gates for keyboard panning.
 bool KeyboardPanAllowed()
@@ -514,39 +556,56 @@ bool KeyboardPanAllowed()
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
 {
   unity::Key::Poll();
-  const auto& config                     = Config::Get();
-  const bool  disable_target_camera_lock = config.graphics.disable_target_camera_lock;
-  // Dropping the tracked target before either pan path runs lets the player pan away from it.
-  if (disable_target_camera_lock && _this->trackingPOI())
-    _this->SetTrackingPOI(nullptr);
-  // An arrow held for a CTRL-arrow style shortcut must not pan as well, natively or through the mod.
-  constexpr std::array kArrows{unity::KeyCode::LeftArrow, unity::KeyCode::RightArrow, unity::KeyCode::UpArrow,
-                               unity::KeyCode::DownArrow};
-  const bool           arrow_owned = std::ranges::any_of(kArrows, Shortcut::Owns);
-  const bool           keyboard    = config.control.hotkeys_enabled && !config.ui.disable_move_keys && !arrow_owned;
+  const auto settings = ReadPanSettings();
+  const bool keyboard = KeyboardPanActive(settings);
+  const bool fields   = NavigationPan::FieldsAvailable();
 
   // With the game's own hotkeys, its LateUpdate pans and glides by itself; only the extended range is ours.
-  if (keyboard && (config.control.use_scopely_hotkeys || !config.patches.hotkeyhooks)) {
+  if (keyboard && (settings.native_hotkeys || !settings.hotkey_hooks)) {
+    if (fields && settings.unlock && _this->trackingPOI())
+      _this->SetTrackingPOI(nullptr);
     original(_this);
-    _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
+    if (fields)
+      _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
     return true;
   }
 
+  auto       owner         = il2cpp::GcHandle::Strong(_this);
+  const auto pointer_state = unity::Input::TryPointerHeld();
+  if (!fields || !owner || !pointer_state || ReadPanSettings() != settings)
+    return true;
+  // Dropping the tracked target before either pan path runs lets the player pan away from it.
+  if (settings.unlock && _this->trackingPOI())
+    _this->SetTrackingPOI(nullptr);
   auto       d       = _this->lastDelta();
-  const bool blocked = _this->BlockPan() || (_this->trackingPOI() && !disable_target_camera_lock);
-  const bool pointer = PointerHeld();
+  const auto tracked = _this->trackingPOI();
+  const bool blocked = _this->BlockPan() || (tracked && !settings.unlock);
+  const bool pointer = pointer_state.value;
   bool       by_keys = false;
-  if (keyboard && !blocked && !pointer && KeyboardPanAllowed()) {
+  const bool allowed = keyboard && !blocked && !pointer && KeyboardPanAllowed();
+  if (ReadPanSettings() != settings)
+    return true;
+  const auto current_pointer = unity::Input::TryPointerHeld();
+  if (!current_pointer || current_pointer.value != pointer || _this->trackingPOI() != tracked
+      || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked || !std::isfinite(d.x) || !std::isfinite(d.y)
+      || !std::isfinite(settings.falloff))
+    return true;
+  if (allowed && KeyboardPanActive(settings)) {
     // Opposite bindings cancel; normalize diagonals like the native 2D composite. MoveCamera takes a drag, and
     // dragging left moves the view right, hence the negation.
     const float x = float(Shortcut::IsPressed(Action::kMoveRight)) - float(Shortcut::IsPressed(Action::kMoveLeft));
     const float y = float(Shortcut::IsPressed(Action::kMoveUp)) - float(Shortcut::IsPressed(Action::kMoveDown));
     if (const float length = std::sqrt(x * x + y * y); length > 0.0f) {
       const float speed = _this->keyboardDeltaScaler();
-      d                 = {-x / length * speed, -y / length * speed};
-      by_keys           = true;
       const float scale = _this->deltaScaler();
-      _this->MoveCamera(d * scale, true);
+      if (!std::isfinite(speed) || !std::isfinite(scale))
+        return true;
+      d                   = {-x / length * speed, -y / length * speed};
+      by_keys             = true;
+      const auto movement = d * scale;
+      if (!std::isfinite(movement.x) || !std::isfinite(movement.y))
+        return true;
+      _this->MoveCamera(movement, true);
     }
   }
 
@@ -554,10 +613,13 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
     d = {};
   } else if (!by_keys && !pointer) {
     // Glide: the last drag or key delta shrinks by the falloff every frame.
-    const auto falloff = config.graphics.system_pan_momentum_falloff;
-    d                  = d * falloff;
+    d = d * settings.falloff;
+    if (!std::isfinite(d.x) || !std::isfinite(d.y))
+      return true;
     _this->MoveCamera(d, true);
   }
+  if (ReadPanSettings() != settings || _this->trackingPOI() != tracked)
+    return true;
   _this->SetLastDelta(d);
   _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
   return true;

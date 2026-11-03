@@ -158,6 +158,17 @@
             "Native window/display/cursor and current ABI fit",
             "Existing camera pan/backdrop reconciliation; parked orbit diagnostics and AAI stay deferred"
           ]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Shared camera pan/backdrop correction",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": [
+            "Native platform/current-client ABI and matched motion feel stay separate",
+            "Mac SDK absent; AAI and parked diagnostics remain deferred"
+          ]
         }
       ]
     },
@@ -368,6 +379,17 @@
             "Exact-candidate live HUD and cargo presentation qualification",
             "Broader P19 native workflow acceptance remains open",
             "Mac build/runtime qualification; instant cargo remains Windows-only pending hook-fit qualification"
+          ]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Existing FC confirmation and queue switch source/consumer closure; FT ship-name provenance corrected only",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": [
+            "Native platform/current-client ABI and matched motion feel stay separate",
+            "Mac SDK absent; AAI and parked diagnostics remain deferred"
           ]
         }
       ]

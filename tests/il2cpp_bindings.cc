@@ -44,6 +44,7 @@ void Require(bool condition, const char* what)
 int               input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
 bool              any_held = false, any_down = false;
 bool              instant_mouse_held = false, instant_mouse_released = false;
+Il2CppMethodPointer (*input_icall_override)(const char*, bool& handled) = nullptr;
 const MethodInfo* camera_world_method = nullptr;
 float             camera_delta_time   = 0.25f;
 unity::Vector3    camera_mouse{40, 50, 0}, camera_world{4, 5, 6};
@@ -990,6 +991,12 @@ API(const Il2CppType*, il2cpp_class_get_type, (Il2CppClass * klass))
 END_API
 API(Il2CppMethodPointer, il2cpp_resolve_icall, (const char* name))
 {
+  if (input_icall_override) {
+    bool handled = false;
+    const auto result = input_icall_override(name, handled);
+    if (handled)
+      return result;
+  }
   static constexpr auto answer = +[]() -> int32_t { return 42; };
   static constexpr auto frame  = +[]() -> int32_t {
     ++frame_reads;
@@ -1948,6 +1955,9 @@ void PlannedWarpBindingObservations()
 #include "chat_pointer_cases.h"
 #include "pin_presentation_cases.h"
 #include "managed_owner_exit_cases.h"
+#include "camera_pan_cases.h"
+#include "camera_backdrop_cases.h"
+#include "confirmation_settings_cases.h"
 // Registered active HUD owners and shared station radii are exercised in separate runtime processes.
 // clang-format on
 
@@ -1955,6 +1965,18 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("camera-pan-")) {
+    CameraPanCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("camera-backdrop-")) {
+    CameraBackdropCases(argv[1]);
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("fc-confirm-")) {
+    FcConfirmationCases(argv[1]);
+    return 0;
+  }
 #if _WIN32
   if (argc == 2 && std::string_view(argv[1]).starts_with("window-")) {
     WindowNativeCases(argv[1]);

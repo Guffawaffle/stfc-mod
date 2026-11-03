@@ -198,8 +198,21 @@ struct Transform : il2cpp::Object {
   { return Get<"gameObject", GameObject*>(); }
   Vector3 localScale()
   { return Get<"localScale", Vector3>(); }
+  il2cpp::CallResult<Vector3> TryLocalScale()
+  {
+    static const auto method = Class::Method<Vector3()>("get_localScale");
+    return TryReadVector3(method.Info(), this);
+  }
   void SetLocalScale(Vector3 value)
   { Set<"localScale">(value); }
+  il2cpp::CallResult<void> TrySetLocalScale(Vector3 value)
+  {
+    static const auto method = Class::Method<void(Vector3)>("set_localScale");
+    if (!method || !method.Info()->parameters
+        || !il2cpp::detail::ValueClassMatches(method.Info()->parameters[0], Vector3Class(), sizeof(Vector3)))
+      return {};
+    return TryCall<"set_localScale", void(Vector3)>(value);
+  }
   void SetLocalEulerAngles(Vector3 value)
   { Set<"localEulerAngles">(value); }
 

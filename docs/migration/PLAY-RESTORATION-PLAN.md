@@ -1,5 +1,15 @@
 # Full downstream play restoration plan
 
+## Camera/confirmation checkpoint — 2026-11-02
+
+The [camera/confirmation assessment](FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md)
+qualifies the shared pan/backdrop corrections and existing FC/queue-switch owners
+through Windows compilation and controlled consumers. Keep one movement path per
+frame; a matched native glide comparison remains separate. The FT ship-name row
+is an already-present upstream feature, not a frozen restoration. Continue with
+the existing Mac C++ loader/directory/entry/build source contract; missing SDK and
+native platform evidence remain explicit. AAI and parked diagnostics stay deferred.
+
 ## Window and cursor checkpoint — 2026-11-02
 
 The [window/cursor assessment](FEATURE-COHORT-20261102-WINDOW-CURSOR.md) covers

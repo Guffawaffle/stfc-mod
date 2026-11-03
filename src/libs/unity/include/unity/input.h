@@ -414,6 +414,17 @@ struct Input {
     static const il2cpp::ICall<int32_t()> call{"UnityEngine.Input::get_touchCount()"};
     return call();
   }
+  // Camera gestures must distinguish an idle pointer from unavailable engine calls.
+  static il2cpp::CallResult<bool> TryPointerHeld()
+  {
+    static const il2cpp::ICall<bool(int32_t)> mouse{"UnityEngine.Input::GetMouseButton(System.Int32)"};
+    static const il2cpp::ICall<int32_t()>     touch{"UnityEngine.Input::get_touchCount()"};
+    if (!mouse || !touch)
+      return {};
+    const auto held  = mouse(0);
+    const auto count = touch();
+    return count >= 0 ? il2cpp::CallResult<bool>{true, held || count > 0} : il2cpp::CallResult<bool>{};
+  }
   static Vector3 mousePosition()
   {
     static const il2cpp::ICall<void(Vector3*)> call{
