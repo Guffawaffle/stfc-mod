@@ -303,7 +303,15 @@ void Jobs()
 }
 void HavenRecovery()
 {
-  auto       target  = Target();
+  auto       target     = Target();
+  const auto send_haven = [&] {
+    auto upload = Take(target);
+    Check(upload.stream == Stream::kHaven && upload.first_sync,
+          "every changed Haven building batch retains the frozen full-sync marker");
+    auto records = upload.Records();
+    target.Complete(std::move(upload), true, store.Generation(), now);
+    return records;
+  };
   const auto process = ProcessorFor(EntityGroup::Kind::PlanetaryBaseData);
   process({store.Generation(), "\xff"});
   Check(!target.Next(store, now), "invalid protobuf publishes nothing");
@@ -324,12 +332,18 @@ void HavenRecovery()
   building.set_level(2);
   building.set_status(1);
   building.set_position(42);
+  auto& second_building = (*map.mutable_buildings())[6];
+  second_building       = building;
+  second_building.set_position(43);
   Process(EntityGroup::Kind::PlanetaryMapData, map);
-  Check(Send(target) == json::parse(R"([{"type":"haven","id":5,"sid":8,"level":2,"status":1,"position":42}])"),
+  Check(send_haven() == json::parse(R"([{"type":"haven","id":5,"sid":8,"level":2,"status":1,"position":42},
+                                     {"type":"haven","id":6,"sid":8,"level":2,"status":1,"position":43}])"),
         "Haven buildings include their map identity, status and position");
   building.set_position(99);
   Process(EntityGroup::Kind::PlanetaryMapData, map);
-  Check(Send(target)[0]["position"] == 99, "moving a Haven building updates its record");
+  const auto changed = send_haven();
+  Check(changed.size() == 2 && changed[0]["position"] == 99 && changed[1]["position"] == 43,
+        "full-marked Haven updates retain the canonical snapshot including unchanged buildings");
   Process(EntityGroup::Kind::PlanetaryMapData, map);
   Check(!target.Next(store, now), "unchanged Haven buildings are suppressed");
 
@@ -345,7 +359,7 @@ void HavenRecovery()
   process_map({store.Generation(), response.SerializeAsString()});
   Check(!target.Next(store, now), "owned maps require a captured local identity");
   process_map({store.Generation(), response.SerializeAsString(), "local"});
-  Check(Send(target)[0]["level"] == 3, "local player's Haven response is delivered");
+  Check(send_haven()[0]["level"] == 3, "local player's Haven response is delivered");
 }
 void ShipTolerance()
 {

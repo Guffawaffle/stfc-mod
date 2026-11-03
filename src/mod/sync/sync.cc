@@ -67,23 +67,48 @@ namespace
     if (!OrdinarySessionOpen(generation))
       return;
     try {
-      auto* group = entity_group ? entity_group->Group() : nullptr;
-      if (!group)
+      if (!entity_group)
         return;
-      const auto type        = entity_group->Type();
+      const auto observed_type = entity_group->TryType();
+      if (!observed_type) {
+        SealOrdinarySession(generation);
+        return;
+      }
+      const auto type        = observed_type.value;
       const auto process     = ProcessorFor(type);
       const bool own_profile = type == EntityGroup::Kind::UserProfiles;
       if (!process && !own_profile)
         return;
       required              = (process != CachePlayerNames && process != CacheAllianceNames) || own_profile;
-      const auto    bytes   = group->Span();
       Il2CppString* user_id = nullptr;
       int32_t       level   = 0;
       if (type == EntityGroup::Kind::PlanetaryMapResponse || own_profile) {
-        auto* manager = UserProfileManager::Instance();
-        if (auto* profile = manager ? manager->GetLocalUserProfile() : nullptr) {
-          user_id = profile->UserId();
-          level   = profile->Level();
+        const auto manager = UserProfileManager::TryInstance();
+        if (!manager) {
+          SealOrdinarySession(generation);
+          return;
+        }
+        const auto profile =
+            manager.value ? manager.value->TryLocalUserProfile() : il2cpp::CallResult<UserProfile*>{true, nullptr};
+        if (!profile) {
+          SealOrdinarySession(generation);
+          return;
+        }
+        if (profile.value) {
+          const auto id = profile.value->TryUserId();
+          if (!id) {
+            SealOrdinarySession(generation);
+            return;
+          }
+          user_id = id.value;
+          if (own_profile && user_id && user_id->length > 0) {
+            const auto observed_level = profile.value->TryLevel();
+            if (!observed_level) {
+              SealOrdinarySession(generation);
+              return;
+            }
+            level = observed_level.value;
+          }
         }
       }
       if (user_id && user_id->length < 0) {
@@ -95,6 +120,23 @@ namespace
       // A missing local identity deliberately supplies no owner-qualified map.
       if (type == EntityGroup::Kind::PlanetaryMapResponse && !user_units)
         return;
+      if (!process && !(own_profile && user_units))
+        return;
+      const auto group = entity_group->TryGroup();
+      if (!group) {
+        if (required)
+          SealOrdinarySession(generation);
+        return;
+      }
+      if (!group.value)
+        return;
+      auto payload = group.value->TryPayload();
+      if (!payload) {
+        if (required)
+          SealOrdinarySession(generation);
+        return;
+      }
+      const auto bytes = payload.value.bytes;
       Submit(generation, bytes.size(), user_units, required, [&] {
         return Job{process, own_profile, {generation, {bytes.begin(), bytes.end()}, il2cpp::ToUtf8(user_id), level}};
       });
@@ -104,22 +146,66 @@ namespace
     }
   }
 
+  // Count and each item are observations, not defaults. Successful null/empty collections retain no-content policy.
+  template <typename Group, typename Response, typename Visit> bool VisitEntityGroups(Response* response, Visit&& visit)
+  {
+    const auto observed = response->TryEntityGroups();
+    if (!observed)
+      return false;
+    if (!observed.value)
+      return true;
+    auto owner = il2cpp::GcHandle::Strong(observed.value);
+    if (!owner)
+      return false;
+    auto*      list  = owner.template Get<il2cpp::List<Group*>>();
+    const auto count = list->template TryCall<"get_Count", int32_t>();
+    if (!count || count.value < 0)
+      return false;
+    for (int32_t index = 0; index < count.value; ++index) {
+      const auto item = list->template TryCall<"get_Item", Group*(int32_t)>(index);
+      if (!item || (item.value && !item.value->template Is<Group>()))
+        return false;
+      if (item.value) {
+        auto group = il2cpp::GcHandle::Strong(item.value);
+        if (!group)
+          return false;
+        visit(group.template Get<Group>());
+      }
+    }
+    return true;
+  }
+
   void HandlePlatformResponse(PlatformServiceResponse* response) noexcept
   {
     const auto generation = SessionGeneration();
     if (!OrdinarySessionOpen(generation))
       return;
     try {
-      for (auto* entity_group : il2cpp::Items(response->EntityGroups())) {
-        auto* group = entity_group && entity_group->Type() == PlatformEntityGroup::Kind::StoreOffers
-                          ? entity_group->Group()
-                          : nullptr;
-        if (!group)
-          continue;
-        const auto bytes = group->Span();
-        Submit(generation, bytes.size(), 0, true,
-               [&] { return Job{ProcessStoreOffers, false, {generation, {bytes.begin(), bytes.end()}}}; });
-      }
+      if (!VisitEntityGroups<PlatformEntityGroup>(response, [&](PlatformEntityGroup* entity_group) {
+            const auto type = entity_group->TryType();
+            if (!type) {
+              SealOrdinarySession(generation);
+              return;
+            }
+            if (type.value != PlatformEntityGroup::Kind::StoreOffers)
+              return;
+            const auto group = entity_group->TryGroup();
+            if (!group) {
+              SealOrdinarySession(generation);
+              return;
+            }
+            if (!group.value)
+              return;
+            auto payload = group.value->TryPayload();
+            if (!payload) {
+              SealOrdinarySession(generation);
+              return;
+            }
+            const auto bytes = payload.value.bytes;
+            Submit(generation, bytes.size(), 0, true,
+                   [&] { return Job{ProcessStoreOffers, false, {generation, {bytes.begin(), bytes.end()}}}; });
+          }))
+        SealOrdinarySession(generation);
     } catch (...) {
       SealOrdinarySession(generation);
     }
@@ -136,14 +222,24 @@ namespace
     // the payload out.
     const auto generation = SessionGeneration();
     try {
-      if (OrdinarySessionOpen(generation) && payload && payload->Target() && il2cpp::Equals(payload->DataType(), "0"))
-        if (auto* data = payload->Data()) {
-          if (data->length < 0)
+      if (OrdinarySessionOpen(generation) && payload) {
+        const auto type = payload->TryDataType();
+        if (!type)
+          SealOrdinarySession(generation);
+        else if (il2cpp::Equals(type.value, "0")) {
+          const auto target = payload->TryTarget();
+          if (!target)
             SealOrdinarySession(generation);
-          else
-            Submit(generation, 0, static_cast<size_t>(data->length), true,
-                   [&] { return Job{ProcessRealtimeSlot, false, {generation, il2cpp::ToUtf8(data)}}; });
+          else if (target.value) {
+            const auto data = payload->TryData();
+            if (!data || (data.value && data.value->length < 0))
+              SealOrdinarySession(generation);
+            else if (data.value)
+              Submit(generation, 0, static_cast<size_t>(data.value->length), true,
+                     [&] { return Job{ProcessRealtimeSlot, false, {generation, il2cpp::ToUtf8(data.value)}}; });
+          }
         }
+      }
     } catch (...) {
       SealOrdinarySession(generation);
     }
@@ -156,9 +252,9 @@ namespace
     // The hooked method is shared generic code; PlatformModelRegistry passes its own response type.
     const auto generation = SessionGeneration();
     try {
-      if (service_response && service_response->Is<ServiceResponse>()) {
-        for (auto* group : il2cpp::Items(service_response->EntityGroups()))
-          HandleEntityGroup(group);
+      if (OrdinarySessionOpen(generation) && service_response && service_response->Is<ServiceResponse>()) {
+        if (!VisitEntityGroups<EntityGroup>(service_response, HandleEntityGroup))
+          SealOrdinarySession(generation);
       } else if (service_response && Config::Sync::Get()->options.store_offers) {
         if (auto* platform = service_response->As<PlatformServiceResponse>())
           HandlePlatformResponse(platform);

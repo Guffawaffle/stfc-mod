@@ -8031,7 +8031,25 @@
       },
       "dependenciesAndLimitations": "Replay matching native payloads, headers, two-target failure/retry, target retirement, session seal and diagnostics guard.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/SYNC-RECORDS.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-11-02",
+          "source": {"ref": "frozen/play-dev-20261026", "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"},
+          "target": {"branch": "play-dev-ripper", "base": "5c71cf56e56aaabdabf0f48fdb9287dd4c3d30ea"},
+          "contract": "docs/migration/features/SYNC-RECORDS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-SYNC-RECORDS.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Missing Haven marker and five native intake modes fail before correction. Corrected core/binding/mod/sync/local-uploader command431/431 steps;10 explicit intake modes plus5 retained queue/chat/fleet modes pass. Actual production intake with substituted managed bodies, real encoders/Delivery and production CPR uploader against owned synthetic loopback. Native client/live receiver/Mac remain separate.",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/sync-records-20261102/candidate-cases.json",
+          "intentionalDifferences": [
+            "Restored Haven full-sync marker retains canonical full cached snapshot instead of frozen changed subset.",
+            "Retain accepted valid empty baseline, stronger parsing/loss/ACK/session/restart behavior documented in M8; do not recreate source defects."
+          ]
+        }
+      ]
     },
     {
       "id": "SYNC-BATTLES",
@@ -8056,7 +8074,16 @@
       },
       "dependenciesAndLimitations": "Fetch failures/retry, participant/alliance names, target delivery and cache budgets on exact native hooks.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "followUps": [
+        {
+          "date": "2026-11-02",
+          "status": "confirmed-correction-needed",
+          "scope": "After removing the last target during journal backoff, RunBattleLogs/RequestGameData can still issue journal/name acquisition. Frozen sync.cc594-600 refused acquisition with no targets.",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-SYNC-RECORDS.md",
+          "next": "Recheck current battle interest after wait and before each game-server POST; test remove/re-enable through a synthetic barrier. Uploader retirement fixtures do not close this producer gap."
+        }
+      ]
     },
     {
       "id": "SYNC-RESTART",
@@ -10102,10 +10129,11 @@
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
     "latestContinuation": {
       "date": "2026-11-02",
-      "document": "docs/migration/FEATURE-COHORT-20261102-QUEUE-ADDRESS.md",
-      "capabilities": ["PLAY-QUEUE-ADDRESS"],
-      "status": "Local checked-observation/live-disable correction qualified through Windows production compilation and controlled runtime; native/Mac open. Older currentRuntime fields below are historical observations, not a current-session selector.",
-      "next": "SYNC-RECORDS source/category/config/per-target/session reconciliation using existing synthetic fixtures. Do not infer live sync authorization or overall parity."
+      "document": "docs/migration/FEATURE-COHORT-20261102-SYNC-RECORDS.md",
+      "capabilities": ["SYNC-RECORDS", "PLAY-QUEUE-ADDRESS"],
+      "status": "Sync wire/intake correction and target lifecycle fixtures qualified through Windows core compilation and controlled/local-only checks. Normal queue play/waves/recoveries accepted by Guff on running build. Older currentRuntime fields below are historical observations, not a current-session selector.",
+      "scope": "AAI deferred by Guff; Mcohall tests existing Mac pre-release as work proceeds. No new local source-bound Mac result supplied here.",
+      "next": "SYNC-BATTLES target-interest rechecks during delayed journal acquisition with synthetic barrier evidence. Do not infer live sync authorization or overall parity."
     },
     "status": "Audio/notification cohort source-reconciled,428/428 Windows regression and native startup qualified; main ordinary cycle performed. Optional player notification/audio trial pending. Signed84584fa4 basic Mac preset reorder/save-display trial accepted separately.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",

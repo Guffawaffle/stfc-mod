@@ -382,14 +382,24 @@
         "P17",
         "P18"
       ],
-      "status": "queued",
+      "status": "in-progress-sync-records-source-and-local-qualified",
       "steps": [
         "Check every restored feature's save/reload/default semantics through existing writer/state owners.",
         "Preserve comments/unknown keys/external conflicts and current profile/bootstrap boundaries.",
         "Qualify sync category/config compatibility and accepted per-target ACK/restart resend behavior; no new database/history.",
         "Use synthetic loopback before any explicitly configured live sync; explicit-profile runtime needs its own identified trial."
       ],
-      "trial": "Settings-file edits/reload/save/restart, ordinary and named-profile trials separately, synthetic sync ACK/retry."
+      "trial": "Settings-file edits/reload/save/restart, ordinary and named-profile trials separately, synthetic sync ACK/retry.",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "5c71cf56e56aaabdabf0f48fdb9287dd4c3d30ea",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-SYNC-RECORDS.md",
+          "scope": "Frozen wire/config reconciliation, Haven marker and checked native intake; retained stronger per-target ACK/session semantics; real local uploader configure/retire/re-add fixture.",
+          "localChecks": "431/431 core/binding/mod/sync/local-uploader steps,10 explicit intake modes and5 queue/chat/fleet modes pass.",
+          "remaining": ["SYNC-BATTLES target-interest acquisition correction", "Native/profile/persistence and live receiver qualification stay separate", "Mac reports remain attached to the pre-release tested; AAI deferred"]
+        }
+      ]
     },
     {
       "id": "P22",

@@ -22,3 +22,11 @@ clear body that reenters engagement can create new work after the initial clear,
 and a same-target response has no newly invented server request ID. These are
 preserved source limitations, not proof of a new migration regression. No new
 network protocol or generalized task framework is introduced.
+
+## Normal-play acceptance — 2026-11-02
+
+Guff confirms the described normal queue workflows function properly and adds
+that waves and recoveries have worked as intended. This accepts the ordinary
+queue/recovery gameplay check on the running build. The last deployed source in
+this chat is `46bd5c96`; this report does not establish induced rare failure paths
+on the later local `0057b4a5` correction. No further normal-queue trial is requested.

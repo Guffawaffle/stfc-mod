@@ -35,7 +35,7 @@ namespace
       Spec{Stream::kBuildings, &SyncConfig::buildings, "module"},
       // The emerald chain is the alliance loyalty tier, which sync sites list with the buffs it grants.
       Spec{Stream::kEmerald, &SyncConfig::buffs, "emerald_chain"},
-      Spec{Stream::kHaven, &SyncConfig::haven, "haven"},
+      Spec{Stream::kHaven, &SyncConfig::haven, "haven", FullSync::kAlways},
       Spec{Stream::kHavenPieces, &SyncConfig::haven, "haven_pieces"},
       Spec{Stream::kHavenProsperity, &SyncConfig::haven, "haven_prosperity", FullSync::kAlways},
       Spec{Stream::kInventory, &SyncConfig::inventory, "inventory", FullSync::kInitial},

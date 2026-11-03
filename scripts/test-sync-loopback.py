@@ -20,9 +20,13 @@ def main():
     key = secrets.token_hex(16)
     lock = threading.Lock()
     release = threading.Event()
+    lifecycle_release = {name: threading.Event() for name in ("configure", "retire")}
     records = []
     counters = {"fixture": key, "retry": {"ordinary": 0, "diagnostic": 0},
-                "blocked": {"ordinary": 0, "diagnostic": 0, "entered": False}}
+                "blocked": {"ordinary": 0, "diagnostic": 0, "entered": False},
+                "configure": {"ordinary": 0, "diagnostic": 0, "entered": False},
+                "configured": {"ordinary": 0, "diagnostic": 0},
+                "retire": {"ordinary": 0, "diagnostic": 0, "entered": False}}
 
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -63,7 +67,15 @@ def main():
                 release.set()
                 self.answer(200, {})
                 return
-            if self.path not in ("/retry", "/blocked"):
+            if self.path.startswith("/control/release/"):
+                event = lifecycle_release.get(self.path.rsplit("/", 1)[-1])
+                if event is None:
+                    self.answer(404, {})
+                else:
+                    event.set()
+                    self.answer(200, {})
+                return
+            if self.path not in ("/retry", "/blocked", "/configure", "/configured", "/retire"):
                 self.answer(404, {})
                 return
             length = int(self.headers.get("Content-Length", "0"))
@@ -87,9 +99,15 @@ def main():
                                 "first_sync": self.headers.get("X-PRIME-SYNC")})
                 if path == "blocked" and not diagnostic:
                     counters[path]["entered"] = True
+                if path in lifecycle_release and not diagnostic and ordinal == 1:
+                    counters[path]["entered"] = True
             if path == "blocked" and not diagnostic and not release.wait(10):
                 self.answer(504, {})
                 return
+            if path in lifecycle_release and not diagnostic and ordinal == 1:
+                if not lifecycle_release[path].wait(10):
+                    self.answer(504, {})
+                    return
             status = 500 if path == "retry" and (diagnostic or ordinal == 1) else 200
             self.answer(status, {})
 
@@ -131,11 +149,22 @@ def main():
         tail = [r for r in captured if r["path"] == "blocked" and r["lane"] == "diagnostic"]
         if len(tail) != 1 or tail[0]["body"][0]["sequence"] != "2":
             raise RuntimeError("diagnostic tail did not survive ordinary seal")
-        print("Owned127.0.0.1 listener verified retry, headers, best-effort drop and sealed-response fence; "
+        configured = [r for r in captured if r["path"] in ("configure", "configured")]
+        if ([r["path"] for r in configured] != ["configure", "configured"]
+                or any(r["first_sync"] != "2" or r["body"][0].get("amount") != 30 for r in configured)):
+            raise RuntimeError("configuration change lost its independent unchanged-record baseline")
+        retired = [r for r in captured if r["path"] == "retire"]
+        if (len(retired) != 3 or [r["first_sync"] for r in retired] != ["2", "2", None]
+                or [r["body"][0].get("amount") for r in retired] != [40, 40, 41]):
+            raise RuntimeError("retirement/re-add lost baseline isolation or replacement progress")
+        print("Owned127.0.0.1 listener verified retry, headers, best-effort drop, sealed-response fence, "
+              "reconfiguration and retirement/re-add; "
               f"fixture_sha256={hashlib.sha256(executable.read_bytes()).hexdigest()}")
         print(f"fixture_path={executable}")
     finally:
         release.set()
+        for event in lifecycle_release.values():
+            event.set()
         if child is not None and child.poll() is None:
             child.terminate()
             try:

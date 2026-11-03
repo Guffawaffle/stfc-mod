@@ -59,9 +59,28 @@ public:
     worker_ = std::thread(UploadTarget, std::weak_ptr(destination), path);
   }
 
-  ~Uploader()
+  void Retire()
   {
     {
+      std::scoped_lock lock(state.mutex);
+      destination->delivery.Retire();
+      std::erase_if(state.targets, [&](const auto& entry) { return entry.second == destination; });
+      // Match the registry's ownership release. The in-flight production worker
+      // alone keeps this retired destination alive until its response returns.
+      destination.reset();
+    }
+    state.ready.notify_all();
+  }
+
+  void Join()
+  {
+    if (worker_.joinable())
+      worker_.join();
+  }
+
+  ~Uploader()
+  {
+    if (destination) {
       std::scoped_lock lock(state.mutex);
       destination->unavailable = true;
       destination->delivery.Retire();
@@ -69,8 +88,7 @@ public:
       std::erase_if(state.targets, [&](const auto& entry) { return entry.second == destination; });
     }
     state.ready.notify_all();
-    if (worker_.joinable())
-      worker_.join();
+    Join();
   }
 
 private:
@@ -133,6 +151,53 @@ void SealDuringResponse()
   Check(!Accepted(*upload.destination), "held response acknowledged after the generation was sealed");
   Check(!OrdinarySessionOpen(generation), "sealed ordinary generation reopened");
 }
+
+void ConfigureDuringResponse()
+{
+  sync_fixture::Fresh();
+  Uploader upload("configure");
+  Resource(30);
+  Wait([] { return Control("/control/state").at("configure").at("entered").get<bool>(); },
+       "configuration response barrier not reached");
+  {
+    std::scoped_lock lock(state.mutex);
+    auto             options = upload.destination->delivery.Config();
+    options.url              = base + "/configured";
+    upload.destination->delivery.Configure(options);
+  }
+  state.ready.notify_all();
+  Control("/control/release/configure", true);
+  // Keep the record and version unchanged: accepting the old response into the
+  // new revision would incorrectly suppress this baseline altogether.
+  Wait([] { return Control("/control/state").at("configured").at("ordinary").get<int>() == 1; },
+       "changed target did not receive its own baseline");
+  Wait([&] { return Accepted(*upload.destination); }, "new target configuration was not acknowledged");
+}
+
+void RetireDuringResponse()
+{
+  sync_fixture::Fresh();
+  Uploader retired("retire");
+  Resource(40);
+  Wait([] { return Control("/control/state").at("retire").at("entered").get<bool>(); },
+       "retirement response barrier not reached");
+  const std::weak_ptr<Destination> old = retired.destination;
+  retired.Retire();
+  Check(!old.expired(), "issued request must retain its retired destination until the response returns");
+  Uploader replacement("retire");
+  Wait([] { return Control("/control/state").at("retire").at("ordinary").get<int>() == 2; },
+       "re-added target did not receive a fresh baseline");
+  Wait([&] { return Accepted(*replacement.destination); }, "re-added target baseline was not acknowledged");
+  // The old HTTP attempt was already issued and may finish. It must not keep a
+  // retired worker alive or share acknowledgements with the replacement.
+  Control("/control/release/retire", true);
+  retired.Join();
+  Check(old.expired(), "retired uploader retained its destination after completing the issued request");
+  Resource(41);
+  Wait([] { return Control("/control/state").at("retire").at("ordinary").get<int>() == 3; },
+       "replacement delivery stalled after the retired response returned");
+  Wait([&] { return Accepted(*replacement.destination); }, "replacement delta was not acknowledged");
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -154,6 +219,8 @@ int main(int argc, char** argv)
     Check(Control("/control/state").at("fixture") == key, "listener is not this owned synthetic fixture");
     RetryAndBestEffort();
     SealDuringResponse();
+    ConfigureDuringResponse();
+    RetireDuringResponse();
     Check(state.targets.empty() && state.diagnostic_budget.Count() == 0, "fixture ownership did not drain");
     std::cout << "Production sync uploader loopback checks passed\n";
     return 0;

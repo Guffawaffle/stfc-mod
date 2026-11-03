@@ -9,6 +9,15 @@
 
 #include <cstdint>
 #include <span>
+#include <utility>
+
+// Qualify reference acquisition before using a runtime collection facade. An unbound List<T>* also accepts IntPtr.
+struct ServerManagedReference : il2cpp::Object {
+  struct Class {
+    static Il2CppClass* Raw()
+    { return il2cpp::ObjectClass(); }
+  };
+};
 
 struct ByteString : il2cpp::Object {
   using Class = il2cpp::Class<"Google.Protobuf", "Google.Protobuf", "ByteString">;
@@ -18,6 +27,37 @@ struct ByteString : il2cpp::Object {
   // The payload. This client's ByteString owns its whole array (Length is bytes.Length), so that is all of it.
   std::span<const uint8_t> Span()
   { return il2cpp::Items(bytes()); }
+
+  struct Payload {
+    il2cpp::GcHandle         owner;
+    std::span<const uint8_t> bytes;
+  };
+  // A real byte[0] is an observed empty protobuf. Missing or foreign storage must never manufacture one.
+  il2cpp::CallResult<Payload> TryPayload()
+  {
+    static auto* field =
+        il2cpp::detail::ResolveField(Class::Raw(), "bytes", il2cpp::detail::SlotOf<il2cpp::ArrayObject*>(), false);
+    if (!field || !field->type || field->type->byref || field->type->type != IL2CPP_TYPE_SZARRAY)
+      return {};
+    const auto size = il2cpp_class_instance_size(Class::Raw());
+    if (field->offset < static_cast<int32_t>(sizeof(Il2CppObject)) || size < sizeof(void*)
+        || static_cast<uint32_t>(field->offset) > size - sizeof(void*))
+      return {};
+    const auto* declared = field->type->data.type;
+    if (!declared || declared->byref || declared->type != IL2CPP_TYPE_U1)
+      return {};
+    auto owner = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<il2cpp::ArrayObject*>(field, this));
+    if (!owner)
+      return {};
+    const auto* vector  = il2cpp_class_get_type(owner.Get()->klass);
+    const auto* element = vector && vector->type == IL2CPP_TYPE_SZARRAY && !vector->byref ? vector->data.type : nullptr;
+    if (!element || element->byref || element->type != IL2CPP_TYPE_U1)
+      return {};
+    auto* array = reinterpret_cast<il2cpp::Array<uint8_t>*>(owner.Get());
+    if (array->bounds)
+      return {};
+    return {true, {std::move(owner), {array->data(), array->size()}}};
+  }
 };
 
 struct EntityGroup : il2cpp::Object {
@@ -279,6 +319,10 @@ struct EntityGroup : il2cpp::Object {
   { return Get<"Type", Kind>(); }
   ByteString* Group()
   { return Get<"Group", ByteString*>(); }
+  il2cpp::CallResult<Kind> TryType()
+  { return TryCall<"get_Type", Kind>(); }
+  il2cpp::CallResult<ByteString*> TryGroup()
+  { return TryCall<"get_Group", ByteString*>(); }
 };
 
 struct ServiceResponse : il2cpp::Object {
@@ -287,6 +331,11 @@ struct ServiceResponse : il2cpp::Object {
   // Google.Protobuf.Collections.RepeatedField<EntityGroup>; List resolves Count/get_Item on it.
   il2cpp::List<EntityGroup*>* EntityGroups()
   { return Get<"EntityGroups", il2cpp::List<EntityGroup*>*>(); }
+  il2cpp::CallResult<il2cpp::List<EntityGroup*>*> TryEntityGroups()
+  {
+    const auto result = TryCall<"get_EntityGroups", ServerManagedReference*>();
+    return {result.succeeded, reinterpret_cast<il2cpp::List<EntityGroup*>*>(result.value)};
+  }
 };
 
 // The platform service's responses (store offers among them), Digit.Platform.Models. They pass through the same
@@ -330,6 +379,10 @@ struct PlatformEntityGroup : il2cpp::Object {
   { return Get<"Type", Kind>(); }
   ByteString* Group()
   { return Get<"Group", ByteString*>(); }
+  il2cpp::CallResult<Kind> TryType()
+  { return TryCall<"get_Type", Kind>(); }
+  il2cpp::CallResult<ByteString*> TryGroup()
+  { return TryCall<"get_Group", ByteString*>(); }
 };
 
 struct PlatformServiceResponse : il2cpp::Object {
@@ -337,6 +390,11 @@ struct PlatformServiceResponse : il2cpp::Object {
 
   il2cpp::List<PlatformEntityGroup*>* EntityGroups()
   { return Get<"EntityGroups", il2cpp::List<PlatformEntityGroup*>*>(); }
+  il2cpp::CallResult<il2cpp::List<PlatformEntityGroup*>*> TryEntityGroups()
+  {
+    const auto result = TryCall<"get_EntityGroups", ServerManagedReference*>();
+    return {result.succeeded, reinterpret_cast<il2cpp::List<PlatformEntityGroup*>*>(result.value)};
+  }
 };
 
 // Hands each server response's entity groups to the client's models.
@@ -369,6 +427,12 @@ struct RealtimeDataPayload : il2cpp::Object {
   { return Get<"Target", Il2CppString*>(); }
   Il2CppString* Data()
   { return Get<"Data", Il2CppString*>(); }
+  il2cpp::CallResult<Il2CppString*> TryDataType()
+  { return TryCall<"get_DataType", Il2CppString*>(); }
+  il2cpp::CallResult<Il2CppString*> TryTarget()
+  { return TryCall<"get_Target", Il2CppString*>(); }
+  il2cpp::CallResult<Il2CppString*> TryData()
+  { return TryCall<"get_Data", Il2CppString*>(); }
 };
 
 enum class HullType : int32_t {
@@ -436,6 +500,10 @@ struct UserProfile : il2cpp::Object {
   { return Get<"UserId", Il2CppString*>(); }
   int32_t Level()
   { return Get<"Level", int32_t>(); }
+  il2cpp::CallResult<Il2CppString*> TryUserId()
+  { return TryCall<"get_UserId", Il2CppString*>(); }
+  il2cpp::CallResult<int32_t> TryLevel()
+  { return TryCall<"get_Level", int32_t>(); }
 };
 
 struct UserProfileManager : MonoSingleton<UserProfileManager> {
@@ -443,6 +511,10 @@ struct UserProfileManager : MonoSingleton<UserProfileManager> {
 
   UserProfile* GetLocalUserProfile()
   { return Call<"GetLocalUserProfile", UserProfile*>(); }
+  static il2cpp::CallResult<UserProfileManager*> TryInstance()
+  { return Class::TryCall<"get_Instance", UserProfileManager*>(); }
+  il2cpp::CallResult<UserProfile*> TryLocalUserProfile()
+  { return TryCall<"GetLocalUserProfile", UserProfile*>(); }
 };
 
 enum class BattleType : int32_t {

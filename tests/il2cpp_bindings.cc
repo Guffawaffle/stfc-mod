@@ -1902,6 +1902,7 @@ void PlannedWarpBindingObservations()
 #include "officer_presets_native_cases.h"
 #include "action_queue_bindings_cases.h"
 #include "queue_address_cases.h"
+#include "sync_intake_cases.h"
 #include "fleet_actions_bindings_cases.h"
 #include "fleet_selection_ability_bindings_cases.h"
 #include "discovery_tow_bindings_cases.h"
@@ -2092,6 +2093,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "chat-pointer-primary") {
     ChatPointerCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("sync-intake-")) {
+    SyncIntakeCases(argv[1]);
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "shop-limits-native") {

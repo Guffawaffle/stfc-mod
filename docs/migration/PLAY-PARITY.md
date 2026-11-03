@@ -1,5 +1,14 @@
 # Downstream play preservation target
 
+## Sync continuation and accepted queue play — 2026-11-02
+
+The [sync-records cohort](FEATURE-COHORT-20261102-SYNC-RECORDS.md) restores the
+Haven full-sync marker and prevents unavailable native observations from becoming
+empty/default sync evidence. Core compilation and controlled intake/encoder/
+delivery/local HTTP checks pass; live receivers and current Mac candidates remain
+separate. Guff confirms normal queue play, waves and recovery. AAI is deferred by
+current direction; Mcohall continues testing the existing Mac pre-release.
+
 ## Queue address continuation — 2026-11-02
 
 The [queue-address assessment](FEATURE-COHORT-20261102-QUEUE-ADDRESS.md) adds a

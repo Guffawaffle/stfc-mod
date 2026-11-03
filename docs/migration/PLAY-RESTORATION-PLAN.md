@@ -1,5 +1,19 @@
 # Full downstream play restoration plan
 
+## Sync continuation and scope — 2026-11-02
+
+The [sync-records assessment](FEATURE-COHORT-20261102-SYNC-RECORDS.md) maps frozen
+categories/config/targets, restores the Haven marker and fixes required native
+observation loss. Existing core/fixture and synthetic uploader checks pass. Next
+bounded correction is SYNC-BATTLES target-interest rechecks around delayed journal
+acquisition. Do not send live account data for that regression check.
+
+Guff accepts normal queue play, waves and recovery on the running build. AAI is
+off the active work list; Mcohall is testing the existing Mac pre-release as work
+proceeds. Track reports against their artifacts without requiring repeated normal
+queue trials or treating Mac testing as absent. New local corrections still need
+their own platform/artifact evidence before a broader acceptance claim.
+
 ## Continuation checkpoint — 2026-11-02
 
 The [queue-address slice](FEATURE-COHORT-20261102-QUEUE-ADDRESS.md) reconciles the

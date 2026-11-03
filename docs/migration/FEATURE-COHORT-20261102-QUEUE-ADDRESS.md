@@ -79,10 +79,17 @@ configuration edit, queue/resource action or published-preview replacement is
 part of this assessment. The accepted Windows chat fix stays independently
 qualified on source `46bd5c96`; no installed artifact is silently advanced here.
 
-PLAY-QUEUE-ADDRESS remains Implemented, unverified. A later identified native
-trial should check ordinary queued actions/toggle, moving or recalling another
-ship while the affected deployed fleet keeps its same-system targets, genuine
-recall/removal and a disabled guard. Do not force gameplay actions merely to
-manufacture the race. Mac qualification and full optional-host parity remain open.
+Guff subsequently confirms the normal-game queue workflows described in chat:
+"those are confirmed as functioning properly. I've also done waves and had
+recoveries so it appears to be working as intended". This accepts the normal-play
+queue/recovery trial on the running build; it is not a request for another trial.
+The last deployed source in this chat is `46bd5c96`/DLL `f72cbf2e`; no new runtime
+identity read or deployment was performed for that report. It does not claim the
+undeployed `0057b4a5` failure paths were manually injected in the game.
+
+PLAY-QUEUE-ADDRESS remains Implemented, unverified for complete platform/failure
+coverage, with normal gameplay accepted. Guff reports Mcohall is testing the
+existing Mac pre-release as work proceeds; no new itemized outcome/source identity
+is supplied here. AAI parity is off the active work list at Guff's direction.
 Next source slice: SYNC-RECORDS category/config and per-target/session lifecycle,
 starting with existing synthetic fixtures; new upstream features stay deferred.
