@@ -1,5 +1,14 @@
 # Downstream play preservation target
 
+## Queue address continuation — 2026-11-02
+
+The [queue-address assessment](FEATURE-COHORT-20261102-QUEUE-ADDRESS.md) adds a
+frozen-source contract and corrects three independently reproduced adapter gaps:
+an unchecked second Count, unavailable dock index selecting slot zero, and lost
+live policy checks during native reentry. Existing policies and native handlers
+are retained. Windows build/fixtures pass; native gameplay and Mac acceptance
+remain open. This is a local candidate, separate from the accepted chat build.
+
 ## Settings lifecycle continuation — 2026-11-01
 
 The [native menu/navigation assessment](features/SET-NAV.md) now verifies actual

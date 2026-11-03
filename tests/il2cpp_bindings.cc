@@ -1901,6 +1901,7 @@ void PlannedWarpBindingObservations()
 #include "settings_values_bindings_cases.h"
 #include "officer_presets_native_cases.h"
 #include "action_queue_bindings_cases.h"
+#include "queue_address_cases.h"
 #include "fleet_actions_bindings_cases.h"
 #include "fleet_selection_ability_bindings_cases.h"
 #include "discovery_tow_bindings_cases.h"
@@ -2146,6 +2147,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "fleet-native") {
     FleetNativeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("queue-address-")) {
+    QueueAddressCases(argv[1]);
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]).starts_with("queue-")) {

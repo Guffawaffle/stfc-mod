@@ -346,7 +346,7 @@ struct AddressCheck {
   FleetDeployedData* own_deployment{};
   FleetDeployedData* target{};
 };
-// Set only while the fixes are on, so the hooks that read it need no setting check of their own.
+// Borrowed only during the native comparison. Recheck live policy after managed calls before substituting.
 thread_local AddressCheck* current_address_check = nullptr;
 
 action_queue::Address AddressOf(NodeAddress* address)
@@ -367,10 +367,22 @@ action_queue::Address AddressOf(NodeAddress* address)
 // The fleet's own slot holds its queue, and every queued action names a target.
 bool OwnsNonemptyQueue(ActionQueueManager* manager, FleetPlayerData* fleet, int64_t fleet_id)
 {
-  auto* queue   = il2cpp::At(manager->battleQueue(), fleet->Index());
+  const auto index = fleet->TryCall<"get_Index", int32_t>();
+  if (!index)
+    return false;
+  auto* queue   = il2cpp::At(manager->battleQueue(), index.value);
   auto* actions = fleet_id && queue && queue->PlayerFleetId() == fleet_id ? queue->actionQueue() : nullptr;
-  return actions && actions->Count() > 0
-         && std::ranges::all_of(*actions, [](QueueableAction* action) { return action && action->FleetId(); });
+  if (!actions)
+    return false;
+  const auto count = actions->TryCall<"get_Count", int32_t>();
+  if (!count || count.value <= 0)
+    return false;
+  for (int32_t i = 0; i < count.value; ++i) {
+    const auto action = actions->TryCall<"get_Item", QueueableAction*(int32_t)>(i);
+    if (!action || !action.value || !action.value->Is<QueueableAction>() || !action.value->FleetId())
+      return false;
+  }
+  return true;
 }
 
 bool IsOwnDeployment(FleetDeployedData* deployment, int64_t fleet_id)
@@ -407,7 +419,7 @@ NodeAddress* FleetPlayerData_get_Address_Hook(auto original, FleetPlayerData* _t
 {
   auto* reported = original(_this);
   auto* check    = current_address_check;
-  if (!check || _this != check->fleet || !check->own_deployment || !check->target)
+  if (!check || !QueueFixesEnabled() || _this != check->fleet || !check->own_deployment || !check->target)
     return reported;
   auto*      own            = check->own_deployment;
   auto*      deployed       = own->address();
@@ -430,7 +442,7 @@ NodeAddress* FleetPlayerData_get_Address_Hook(auto original, FleetPlayerData* _t
       .deployed           = AddressOf(deployed),
       .target             = AddressOf(check->target->address()),
   };
-  if (!action_queue::UseDeployedAddress(evidence))
+  if (!QueueFixesEnabled() || !action_queue::UseDeployedAddress(evidence))
     return reported;
   spdlog::debug("[QueueAddressGuard] fleet {} kept its queue: reported in system {}, deployed in system {}",
                 check->fleet_id, evidence.reported.system, evidence.deployed.system);
@@ -441,7 +453,7 @@ NodeAddress* FleetPlayerData_get_Address_Hook(auto original, FleetPlayerData* _t
 FleetDeployedData* DeploymentService_GetDeployedFleet_Hook(auto original, DeploymentService* _this, int64_t fleet_id)
 {
   auto* result = original(_this, fleet_id);
-  if (auto* check = current_address_check; check) {
+  if (auto* check = current_address_check; check && QueueFixesEnabled()) {
     check->target = result;
     if (!std::exchange(check->own_resolved, true))
       check->own_deployment = original(_this, check->fleet_id);

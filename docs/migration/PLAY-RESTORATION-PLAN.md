@@ -1,5 +1,15 @@
 # Full downstream play restoration plan
 
+## Continuation checkpoint — 2026-11-02
+
+The [queue-address slice](FEATURE-COHORT-20261102-QUEUE-ADDRESS.md) reconciles the
+existing guard against frozen source and fixes three proven typed-adapter gaps.
+Windows production compilation and controlled-host regressions pass. Actual queue
+race/native interaction and Mac qualification remain open; the accepted installed
+chat build is a separate artifact. Continue SYNC-RECORDS through existing synthetic
+category/config, per-target ACK and session-lifecycle fixtures. No live sync is
+implied by this source assessment, and new upstream functionality stays deferred.
+
 ## Current checkpoint — 2026-11-01
 
 Latest [exact-value editor assessment](FEATURE-COHORT-20261101-EXACT-ENTRY.md)
