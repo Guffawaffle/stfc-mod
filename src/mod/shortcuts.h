@@ -99,6 +99,8 @@ bool HasBinding(Action action);
 bool IsPressed(Action action);
 // Any binding of `action` went down this frame with its modifiers held.
 bool IsDown(Action action);
+// Keep keyboard alternatives eligible when native UI owns a mouse press.
+bool IsDown(Action action, bool allow_mouse);
 // Ship towing reuses a configured selection chord with an additional held Shift.
 // Bare chords still reject other modifiers and keep the usual physical ownership.
 bool IsDownWithShift(Action action);

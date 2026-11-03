@@ -3,6 +3,7 @@
 // The chat manager, the full-screen and side chat views, and the chat message rows.
 
 #include "ui.h"
+#include "ui_pointer.h"
 
 #include <il2cpp/il2cpp.h>
 
@@ -82,6 +83,38 @@ struct FullScreenChatViewController : il2cpp::Object {
   TabBarViewController* categoriesTabBarViewController()
   { return Field<"_categoriesTabBarViewController", TabBarViewController*>(); }
 };
+
+namespace chat_pointer
+{
+template <typename Owner> il2cpp::CallResult<bool> Under(unity::GameObject* object)
+{
+  auto* type = Owner::Class::TypeObject();
+  if (!type)
+    return {};
+  const auto owner =
+      object->TryCall<"GetComponentInParent", unity::Component*(Il2CppReflectionType*, bool)>(type, false);
+  if (!owner || (owner.value && !owner.value->template Is<Owner>()))
+    return {};
+  return {true, owner.value != nullptr};
+}
+
+inline il2cpp::CallResult<bool> OwnsPointer()
+{
+  auto hit = ui_pointer::TopObject();
+  if (!hit)
+    return {};
+  if (!hit.value)
+    return {true, false};
+  auto*      object   = hit.value.Get<unity::GameObject>();
+  const auto messages = Under<ChatMessageListLocalViewController>(object);
+  if (!messages || messages.value)
+    return messages;
+  const auto preview = Under<ChatPreviewController>(object);
+  if (!preview || preview.value)
+    return preview;
+  return Under<FullScreenChatViewController>(object);
+}
+} // namespace chat_pointer
 
 struct PlayerTitleWidget : unity::Component {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.PlayerAvatars", "PlayerTitleWidget">;

@@ -9,6 +9,7 @@ FleetState                                         fleet_native_state          =
 bool                                               fleet_native_default_result = true;
 std::vector<ActionBehaviour>                       fleet_native_requests;
 std::vector<Action>                                fleet_native_keys;
+bool fleet_native_primary_mouse = false;
 std::map<Il2CppClass*, std::vector<Il2CppObject*>> fleet_native_widgets;
 std::string                                        fleet_native_saved_section, fleet_native_saved_key;
 bool                                               fleet_native_saved_value = true;
@@ -252,6 +253,8 @@ namespace Shortcut
 {
 bool IsDown(Action action)
 { return !fleet_native_capture && std::ranges::contains(fleet_native_keys, action); }
+bool IsDown(Action action, bool allow_mouse)
+{ return IsDown(action) && (allow_mouse || action != Action::kActionPrimary || !fleet_native_primary_mouse); }
 bool IsPressed(Action action)
 { return IsDown(action); }
 bool IsDownWithShift(Action action)

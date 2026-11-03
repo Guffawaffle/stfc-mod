@@ -191,9 +191,12 @@ bool ModifiersHeld(const KeyChord& chord)
       chord.modifiers, [](const auto* modifier) { return std::ranges::any_of(modifier->keys, unity::Key::Pressed); });
 }
 
-template <bool (*KeyState)(unity::KeyCode), bool ExtraShift = false> bool Matches(Action action)
+template <bool (*KeyState)(unity::KeyCode), bool ExtraShift = false>
+bool Matches(Action action, bool allow_mouse = true)
 {
   for (const auto& chord : ChordsOf(action)) {
+    if (!allow_mouse && chord.key >= unity::KeyCode::Mouse0 && chord.key <= unity::KeyCode::Mouse6)
+      continue;
     const auto resolved = keyboard_layout::ResolveChord(chord.key);
     if (resolved.key == unity::KeyCode::None || !KeyState(resolved.key))
       continue;
@@ -524,6 +527,9 @@ bool IsPressed(Action action)
 
 bool IsDown(Action action)
 { return !capture_guard.BlocksShortcuts() && Matches<unity::Key::Down>(action); }
+
+bool IsDown(Action action, bool allow_mouse)
+{ return !capture_guard.BlocksShortcuts() && Matches<unity::Key::Down>(action, allow_mouse); }
 
 bool IsDownWithShift(Action action)
 {

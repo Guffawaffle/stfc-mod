@@ -204,5 +204,18 @@ int main()
   }
   Check(Shortcut::KeyToken(KeyCode::None).empty() && Shortcut::KeyToken(KeyCode::LeftShift).empty(),
         "unsupported and modifier keys cannot become an invented standalone capture token");
-  std::cout << "Keyboard shortcut adapter passed: mapping, towing, capture and atomic per-action editing\n";
+  keyboard_layout::Configure("physical");
+  Bind("[shortcuts]\naction_primary='CTRL-MOUSE1|SPACE'\n");
+  Hold({KeyCode::LeftControl, KeyCode::Mouse1});
+  Check(Shortcut::IsDown(Action::kActionPrimary) && !Shortcut::IsDown(Action::kActionPrimary, false),
+        "UI mouse ownership removes modified mouse alternatives only");
+  Hold({KeyCode::Space});
+  Check(Shortcut::IsDown(Action::kActionPrimary, false), "keyboard primary remains eligible over native UI");
+  Bind("[shortcuts]\naction_primary='MOUSE1|SPACE'\n");
+  Hold({KeyCode::Mouse1, KeyCode::Space});
+  Check(Shortcut::IsDown(Action::kActionPrimary, false), "simultaneous mouse/keyboard keeps the keyboard alternative");
+  Hold({KeyCode::Mouse1});
+  Check(!Shortcut::IsDown(Action::kActionPrimary, false) && Shortcut::IsDown(Action::kActionPrimary, true),
+        "mouse primary is retained outside UI ownership");
+  std::cout << "Keyboard shortcut adapter passed: mapping, towing, capture, mouse eligibility and atomic editing\n";
 }

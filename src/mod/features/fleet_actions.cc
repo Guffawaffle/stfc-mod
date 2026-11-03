@@ -14,6 +14,7 @@
 #include "shortcuts.h"
 
 #include "game/app.h"
+#include "game/chat.h"
 #include "game/fleet.h"
 #include "game/navigation.h"
 #include "game/queues.h"
@@ -1469,12 +1470,22 @@ bool FleetActionShortcuts()
   if (unity::Key::IsInputFocused())
     return false;
 
+  // Side chat leaves the map section active. Its native row/menu click must not also dispatch a mouse-bound
+  // primary action. Keyboard alternatives stay independent; unknown pointer ownership reserves this mouse press.
+  bool primary = Shortcut::IsDown(Action::kActionPrimary, false);
+  if (!primary && Shortcut::IsDown(Action::kActionPrimary)) {
+    const auto chat = chat_pointer::OwnsPointer();
+    primary         = chat && !chat.value;
+    if (!primary)
+      replayed.reset(); // A newly blocked click cannot revive last frame's deferred fleet action.
+  }
+
   if (unity::Key::Pressed(unity::KeyCode::Escape) && TargetViewers::HideFirst())
     return true;
 
   // Escape or the primary action dismisses the golden rewards screen. Down, not Pressed: a held Escape would go
   // back a section every frame while the screen closes.
-  if (Shortcut::IsDown(Action::kActionPrimary) || unity::Key::Down(unity::KeyCode::Escape)) {
+  if (primary || unity::Key::Down(unity::KeyCode::Escape)) {
     if (auto* rewards = unity::Newest<AnimatedRewardsScreenViewController>(); rewards && rewards->IsActive()) {
       rewards->GoBackToLastSection();
       return true;
@@ -1482,7 +1493,7 @@ bool FleetActionShortcuts()
   }
 
   FleetPress pressed{
-      .primary     = Shortcut::IsDown(Action::kActionPrimary),
+      .primary     = primary,
       .secondary   = Shortcut::IsDown(Action::kActionSecondary),
       .queue       = Shortcut::IsDown(Action::kActionQueue),
       .queue_clear = Shortcut::IsDown(Action::kActionQueueClear),

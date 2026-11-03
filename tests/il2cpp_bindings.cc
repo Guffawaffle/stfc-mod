@@ -1938,6 +1938,7 @@ void PlannedWarpBindingObservations()
 #include "notification_consumer_cases.h"
 #include "hud_owner_cases.h"
 #include "pin_geometry_cases.h"
+#include "chat_pointer_cases.h"
 #include "pin_presentation_cases.h"
 #include "managed_owner_exit_cases.h"
 // Registered active HUD owners and shared station radii are exercised in separate runtime processes.
@@ -2086,6 +2087,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "chat-focus-unavailable") {
     HotkeyFocusNativeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "chat-pointer-primary") {
+    ChatPointerCases();
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "shop-limits-native") {

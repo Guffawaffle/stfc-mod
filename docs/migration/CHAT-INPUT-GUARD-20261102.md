@@ -1,5 +1,9 @@
 # Chat text-input guard: unavailable focus
 
+The later [side-chat mouse primary correction](CHAT-MOUSE-PRIMARY-20261102.md)
+addresses mouse ownership over chat rows. It is separate from this typing-focus
+correction and retains its conservative unavailable-focus behavior.
+
 Guff reports that chat intermittently stops owning typed keys: Enter stops
 working and the configured faction-store shortcut opens the store. Reported
 after loading the typed refactor branch. Exact full/side view, native focus
