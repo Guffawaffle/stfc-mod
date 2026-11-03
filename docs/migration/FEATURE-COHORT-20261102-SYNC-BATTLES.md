@@ -68,6 +68,19 @@ before-build.log, before-cases.json and individual before logs, followed by fina
 build/test logs, isolated transport cases and exact final source/executable hashes.
 Review/signing checkpoints are recorded after the final verification.
 
+Final signed source is `8fd58fb948d30212a4b8f3242e4377a454228e0e`. Its signature
+verifies as good (local signer trust unknown). General, hostile and independent
+review lanes found no actionable findings against base `89258418`, diff hash
+`34e60b7e92c633a6dbe9e7e7afd2837362fc8cc4`. The receipt records static-persona
+fallback; scoped continuity remained available separately. All eight source/test/
+build inputs and three executable hashes match `local-verification.json`.
+`review-reconciliation.json` retains the three dispositions and limits.
+
+Request admission is an observation immediately before POST, not atomic
+cancellation: an already-authorized request can still start if settings change
+immediately afterward. Later requests re-observe current interest. The correction
+does not claim to retract an authorized or issued request.
+
 ## Qualification and continuation
 
 This closes the identified source/controlled-transport cancellation gap. It does
