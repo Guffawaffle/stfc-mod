@@ -67,6 +67,15 @@ Before/final build logs, before-cases.json, restricted-cases.json, final-cases.j
 and the final input/executable manifest bind the exercised layers. Final formatting,
 signing and independent review are recorded against their exact checkpoints.
 
+Final signed source is `f8ec3a0610739efed28b814c4199ae28483ef7ed`; its signature
+verifies as good (local signer trust unknown). General, hostile and independent
+review lanes found no actionable findings against base `f65fa9af`, diff hash
+`8e423c72b9021331abd2357bd5ec016ed289d5e1`. The receipt retains static-persona
+fallback, while scoped continuity remains available separately. All ten recorded
+source/consumer/test inputs and three executable hashes match the final manifest.
+Review reconciliation preserves the restricted-execution contrast as an earlier
+observation, not a relabeled result for the final formatted binary.
+
 ## Qualification and continuation
 
 Windows qualifies the common file opener and supplied-context policy, not native
