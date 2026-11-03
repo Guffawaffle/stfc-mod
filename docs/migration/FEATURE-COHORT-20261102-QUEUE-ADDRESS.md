@@ -47,8 +47,29 @@ Formatting and `git diff --check` pass.
 Evidence directory: `D:/dev/stfc-workspace/artifacts/queue-address-20261102/`.
 `baseline-build.log`, `baseline-cases.json`, `final-build.log` and
 `final-cases.json` bind the failing/passing modes, executable hashes and changed
-source input hashes. A clean signed source checkpoint and native build receipt
-are recorded separately after implementation.
+source input hashes.
+
+## Signed checkpoint and native candidate
+
+Source checkpoint `0057b4a5347e12aeffda47b69b5b5053dfdcc597` has a verified good
+EDDSA signature (the local key's trust is unknown). The clean/stable bound Windows
+releasedbg build passes **41/41 steps** and verifies x86_64 proxy exports, static
+CRT and embedded source identity. AAI remains pinned to
+`4bece2e5f1afa7c7343f009e83398742a0f86114`, clean, with UI Lab selected.
+Candidate SHA256:
+`F9CDA3067BFAB1EB81D9CF576E16D0A944EEAF531FF2B10881F09407C20F50CC`.
+
+The general, hostile and independent review lanes each found no actionable
+defect against base `9799f67f` and source `0057b4a5`, diff hash
+`04475385ea8ecbfc98ec8b21fc69a6f6321a4255`. The receipt reports static-persona
+fallback; scoped continuity remained available separately. No source correction
+was requested. Native/platform limits below remain open.
+
+The evidence directory also holds `source-checkpoint.json`,
+`review-receipt.json`, `review-reconciliation.json`, `native-build.log`,
+`native-build-receipt.json` and the preserved `candidate/version.dll`/PDB.
+The candidate is local, unpushed and undeployed. This later evidence-only record
+does not change the source inputs qualified at `0057b4a5`.
 
 ## Remaining qualification
 

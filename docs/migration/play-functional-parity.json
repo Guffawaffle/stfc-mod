@@ -741,9 +741,13 @@
           },
           "contract": "docs/migration/features/PLAY-QUEUE-ADDRESS.md",
           "cohort": "docs/migration/FEATURE-COHORT-20261102-QUEUE-ADDRESS.md",
+          "implementationCommit": "0057b4a5347e12aeffda47b69b5b5053dfdcc597",
           "migrationStatus": "Implemented, unverified",
           "verification": "Three independently failing-before/passing-after production-adapter cases; broader scope/failure/recovery mode and ten retained modes pass. Existing Windows mods/build-tests/test-il2cpp/test-mod:423/423 steps. Native queue retention and Mac remain unqualified.",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/queue-address-20261102/final-cases.json",
+          "nativeBuildReceipt": "D:/dev/stfc-workspace/artifacts/queue-address-20261102/native-build-receipt.json",
+          "artifactSha256": "F9CDA3067BFAB1EB81D9CF576E16D0A944EEAF531FF2B10881F09407C20F50CC",
+          "nativeQualification": "Clean/stable source0057b4a5, Windows releasedbg41/41 steps and binary verification; pinned clean AAI/UI Lab retained. Local candidate only, no deployment or runtime acceptance. Three review lanes: no actionable defect, static-persona receipt.",
           "historicalRestorationNotes": [
             "working candidate after 5c921b65; not yet committed or deployed"
           ]
