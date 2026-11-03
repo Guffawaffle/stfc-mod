@@ -1,5 +1,13 @@
 # Downstream play preservation target
 
+## File routing and log history — 2026-11-02
+
+The [path/persistence cohort](FEATURE-COHORT-20261102-PATH-PERSISTENCE.md) restores
+first -ccm selection and ordinary Mac fallback history. Existing admitted routing,
+Unicode paths and scoped cleanup remain intact. Production filesystem/supplied-
+context evidence is kept distinct from native Mac/profile acceptance and the
+retained reserved-selector ambiguity. AAI remains deferred.
+
 ## Battle acquisition cancellation — 2026-11-02
 
 The [battle-sync cohort](FEATURE-COHORT-20261102-SYNC-BATTLES.md) corrects the

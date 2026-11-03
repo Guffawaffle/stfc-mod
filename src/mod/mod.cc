@@ -18,7 +18,6 @@
 
 #include <il2cpp/hook.h>
 #include <il2cpp/il2cpp.h>
-#include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <unity/application.h>
@@ -30,7 +29,9 @@
 #include <filesystem>
 #include <format>
 #include <iterator>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #if _WIN32
@@ -50,54 +51,26 @@ void StartLogging()
 {
   // File::Log() is UTF-8, and Windows reads a narrow file name in the ANSI code page, so every name here goes
   // through File::FromUtf8.
-  const auto  log = File::Path(File::Log(), true);
-  std::string rotation_error;
-  try {
-    const auto backup = [](int index) { return File::Path(std::format("{}.{}", File::Log(), index)); };
-    std::filesystem::remove(backup(5));
-    for (int index = 4; index >= 1; --index)
-      if (std::filesystem::exists(backup(index)))
-        std::filesystem::rename(backup(index), backup(index + 1));
-    if (std::filesystem::exists(log))
-      std::filesystem::rename(log, backup(1));
-  } catch (const std::filesystem::filesystem_error& error) {
-    rotation_error = error.what();
-  }
-  // Append if rotation failed so an existing session log is not truncated. spdlog takes the path's native name,
-  // which is wide on Windows (the build sets SPDLOG_WCHAR_FILENAMES there).
-  std::string log_error;
-  auto        logger = [&] {
+  const auto                           log = File::Path(File::Log(), true);
+  std::optional<std::filesystem::path> fallback;
 #if __APPLE__
-    try {
-      return spdlog::basic_logger_mt("default", log.native(), false);
-    } catch (const spdlog::spdlog_ex& error) {
-      // Only ordinary launches used the historic working-directory fallback. Never escape admitted profile or
-      // explicit custom routing, whose log location is part of its ownership contract.
-      if (File::HasCustomNames() || profile_launch::Requested())
-        throw;
-      log_error = error.what();
-      try {
-        return spdlog::basic_logger_mt("default", File::FromUtf8(File::Log()).native(), false);
-      } catch (const spdlog::spdlog_ex& fallback_error) {
-        log_error += "; previous location also failed: ";
-        log_error += fallback_error.what();
-        return std::make_shared<spdlog::logger>("default");
-      }
-    }
-#else
-    return spdlog::basic_logger_mt("default", log.native(), false);
+  // Only ordinary launches used the historic working-directory fallback. Never escape admitted profile or
+  // explicit custom routing, whose log location is part of its ownership contract.
+  if (!File::HasCustomNames() && !profile_launch::Requested())
+    fallback = File::FromUtf8(File::Log());
 #endif
-  }();
+  auto opened = File::OpenSessionLog(log, fallback);
+  auto logger = std::move(opened.logger);
   logger->sinks().push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
   spdlog::set_default_logger(logger);
 
   const auto level = File::Trace() ? spdlog::level::trace : File::Debug() ? spdlog::level::debug : spdlog::level::info;
   spdlog::set_level(level);
   spdlog::flush_on(level);
-  if (!rotation_error.empty())
-    spdlog::warn("could not rotate the log history; appending to the existing log: {}", rotation_error);
-  if (!log_error.empty())
-    spdlog::warn("preferred ordinary log unavailable; using legacy file or console logging: {}", log_error);
+  if (!opened.rotation_error.empty())
+    spdlog::warn("could not rotate the log history; appending to the existing log: {}", opened.rotation_error);
+  if (!opened.open_error.empty())
+    spdlog::warn("preferred ordinary log unavailable; using legacy file or console logging: {}", opened.open_error);
   il2cpp::SetErrorHandler([](std::string_view message) { spdlog::error("{}", message); });
 }
 

@@ -4,8 +4,15 @@
 // not account isolation. An admitted immutable Profiles context takes precedence and supplies its existing paths.
 
 #include <filesystem>
+#include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+
+namespace spdlog
+{
+class logger;
+}
 
 namespace File
 {
@@ -33,6 +40,15 @@ bool Trace();
 std::filesystem::path Path(std::string_view name, bool create_dir = false);
 // A path from UTF-8 text. std::filesystem::path(std::string) reads the ANSI code page on Windows instead.
 std::filesystem::path FromUtf8(std::string_view text);
+
+struct SessionLog {
+  std::shared_ptr<spdlog::logger> logger;
+  std::string                     rotation_error, open_error;
+};
+// Rotate/open the session log, appending if rotation fails. A supplied fallback is an explicit ordinary-launch
+// policy: without one, an open failure propagates; if both attempts fail, return a logger without file sinks.
+SessionLog OpenSessionLog(const std::filesystem::path&                preferred,
+                          const std::optional<std::filesystem::path>& fallback = std::nullopt);
 
 // Moves settings left behind by older releases. Logs, so call after the logger is up.
 void MigrateLegacyFiles();

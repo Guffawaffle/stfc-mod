@@ -1,5 +1,14 @@
 # Full downstream play restoration plan
 
+## File namespace checkpoint — 2026-11-02
+
+The [path/persistence assessment](FEATURE-COHORT-20261102-PATH-PERSISTENCE.md)
+closes two source gaps: duplicate -ccm selection and unrotated ordinary Mac fallback
+logs. Existing persistence consumers follow the selected File namespace, while
+real profile/native platform qualification remains separate. Continue window/
+profile-title and cursor source reconciliation in their existing owners; keep
+AAI, new upstream features and previously parked work deferred.
+
 ## Battle acquisition checkpoint — 2026-11-02
 
 The [journal cancellation correction](FEATURE-COHORT-20261102-SYNC-BATTLES.md)

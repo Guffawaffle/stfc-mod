@@ -5,6 +5,7 @@
 #include "arguments.h"
 #include "profile_launch.h"
 
+#include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/spdlog.h>
 
 #include <fstream>
@@ -94,14 +95,22 @@ namespace File
 {
 void Init()
 {
-  const auto& args = ProcessArguments();
+  const auto& args        = ProcessArguments();
+  bool        custom_seen = false;
   for (size_t i = 1; i < args.size(); ++i) {
     if (args[i] == "-debug")
       debug = true;
     else if (args[i] == "-trace")
       trace = true;
-    else if (args[i] == "-ccm" && i + 1 < args.size())
-      profile_path = FromUtf8(args[++i]);
+    else if (args[i] == "-ccm" && i + 1 < args.size()) {
+      const auto& operand = args[++i];
+      // Frozen launches use the first operand, including an empty one. Keep scanning later flags without
+      // allowing another -ccm to replace that choice or interpreting its operand as a debug/trace flag.
+      if (!custom_seen) {
+        profile_path = FromUtf8(operand);
+        custom_seen  = true;
+      }
+    }
   }
 
 #if STFC_PROFILES_HOST
@@ -182,6 +191,46 @@ std::filesystem::path Path(std::string_view name, bool create_dir)
 
 std::filesystem::path FromUtf8(std::string_view text)
 { return std::u8string(text.begin(), text.end()); }
+
+SessionLog OpenSessionLog(const std::filesystem::path& preferred, const std::optional<std::filesystem::path>& fallback)
+{
+  SessionLog result;
+  const auto open = [&](const std::filesystem::path& selected) {
+    try {
+      const auto backup = [&](int index) {
+        auto path = selected;
+        path += "." + std::to_string(index);
+        return path;
+      };
+      std::filesystem::remove(backup(5));
+      for (int index = 4; index >= 1; --index)
+        if (std::filesystem::exists(backup(index)))
+          std::filesystem::rename(backup(index), backup(index + 1));
+      if (std::filesystem::exists(selected))
+        std::filesystem::rename(selected, backup(1));
+    } catch (const std::filesystem::filesystem_error& error) {
+      if (!result.rotation_error.empty())
+        result.rotation_error += "; ";
+      result.rotation_error += error.what();
+    }
+    return spdlog::basic_logger_mt("default", selected.native(), false);
+  };
+  try {
+    result.logger = open(preferred);
+  } catch (const spdlog::spdlog_ex& error) {
+    if (!fallback)
+      throw;
+    result.open_error = error.what();
+    try {
+      result.logger = open(*fallback);
+    } catch (const spdlog::spdlog_ex& fallback_error) {
+      result.open_error += "; previous location also failed: ";
+      result.open_error += fallback_error.what();
+      result.logger = std::make_shared<spdlog::logger>("default");
+    }
+  }
+  return result;
+}
 
 void MigrateLegacyFiles()
 {

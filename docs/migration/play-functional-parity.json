@@ -8154,7 +8154,28 @@
       },
       "dependenciesAndLimitations": "Ordinary/custom launch, admitted immutable profile, legacy Mac preferences migration; no guessed account identities.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAT-PATHS.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-11-02",
+          "source": {"ref": "frozen/play-dev-20261026", "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"},
+          "target": {"branch": "play-dev-ripper", "base": "f65fa9af1219ea1e5e9adbfc42202d93bafdb9f9"},
+          "contract": "docs/migration/features/PLAT-PATHS.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-PATH-PERSISTENCE.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Three independent first-selector failures before correction; final core/binding/mod423/423 Windows steps.19 explicit production File path/log/cleanup cases and2 bootstrap/hook-policy fixtures pass under authorized normal execution. Actual admission/catalog/nativeMac/argument acquisition remain separate. Scoped real-file cleanup preserves unrelated/live bytes.",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/path-persistence-20261102/local-verification.json"
+        }
+      ],
+      "knownSourceLimitations": [
+        {
+          "date": "2026-11-02",
+          "scope": "A -ccm operand literally spelled -stfc-profile can be scanned as named identity; frozen mods/src/profile_launch.cc does the same. Retained ambiguity, not a newly established migration regression.",
+          "disposition": "Do not silently convert a potentially named request to ordinary routing. Reserved-selector policy requires its own correction decision; no parser change in this cohort."
+        }
+      ]
     },
     {
       "id": "PLAT-MAC-LOG",
@@ -8181,7 +8202,22 @@
       "restorationCommits": [
         "working candidate after 5c921b65; not yet committed or deployed"
       ],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAT-MAC-LOG.md",
+      "assessments": [
+        {
+          "version": 1,
+          "date": "2026-11-02",
+          "source": {"ref": "frozen/play-dev-20261026", "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"},
+          "target": {"branch": "play-dev-ripper", "base": "f65fa9af1219ea1e5e9adbfc42202d93bafdb9f9"},
+          "contract": "docs/migration/features/PLAT-MAC-LOG.md",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-PATH-PERSISTENCE.md",
+          "migrationStatus": "Implemented, unverified",
+          "verification": "Factored preferred-only rotation independently fails fallback history. Corrected actual common File/spdlog opener qualifies selected Unicode log rotation, append-on-error, both-open failure and no-fallback confinement under Windows authorized normal execution.423/423 core/binding/mod steps pass. Native Mac StartLogging/Foundation/migration remain unqualified for this local source.",
+          "artifactReceipt": "D:/dev/stfc-workspace/artifacts/path-persistence-20261102/local-verification.json",
+          "historicalRestorationNotes": ["working candidate after 5c921b65; not yet committed or deployed"]
+        }
+      ]
     },
     {
       "id": "PLAT-MAC-LAUNCH",
@@ -10150,11 +10186,11 @@
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
     "latestContinuation": {
       "date": "2026-11-02",
-      "document": "docs/migration/FEATURE-COHORT-20261102-SYNC-BATTLES.md",
-      "capabilities": ["SYNC-BATTLES", "SYNC-RECORDS", "PLAY-QUEUE-ADDRESS"],
-      "status": "Battle acquisition target-interest correction qualified through Windows core compilation and controlled real-CPR/local-only transport checks; pending release/re-enable and cached successful records preserved. Normal queue play/waves/recoveries accepted by Guff. Older currentRuntime fields below are historical observations, not a current-session selector.",
+      "document": "docs/migration/FEATURE-COHORT-20261102-PATH-PERSISTENCE.md",
+      "capabilities": ["PLAT-PATHS", "PLAT-MAC-LOG"],
+      "status": "First -ccm selection and common fallback log history corrected; Windows core compilation and owned real-file/supplied-context checks qualify selected routes and preserved cleanup bytes. Native Mac/profile-host acceptance remains separate. Older currentRuntime fields below are historical observations, not a current-session selector.",
       "scope": "AAI deferred by Guff; Mcohall tests existing Mac pre-release as work proceeds. No new local source-bound Mac result supplied here.",
-      "next": "P21 ordinary/custom/profile path and persistence reconciliation in existing owners. Do not infer live sync authorization or overall parity."
+      "next": "Window/profile-title and cursor source reconciliation in existing owners. Preserve parked diagnostics/orbit/AAI decisions; no overall parity claim."
     },
     "status": "Audio/notification cohort source-reconciled,428/428 Windows regression and native startup qualified; main ordinary cycle performed. Optional player notification/audio trial pending. Signed84584fa4 basic Mac preset reorder/save-display trial accepted separately.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",

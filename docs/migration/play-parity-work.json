@@ -406,6 +406,14 @@
           "scope": "Battle journal/name acquisition follows live target-interest union across backoff and each POST, with own pending release/re-enable and retained successfully acquired records.",
           "localChecks": "Five failing-before cases; corrected final combined431/431 Windows steps,6 isolated real-CPR local transport modes and17 retained modes pass.",
           "remaining": ["Ordinary/custom/profile path and persistence reconciliation", "Native client/FollowSettings/real receiver/current Mac qualification remain distinct; AAI deferred"]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "f65fa9af1219ea1e5e9adbfc42202d93bafdb9f9",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-PATH-PERSISTENCE.md",
+          "scope": "First custom selector and common fallback log rotation restored; scoped namespace/cleanup and existing persistence consumer paths source-reconciled, admitted context stays confined.",
+          "localChecks": "Four independent failing-before cases; final423/423 Windows core/binding/mod steps and19 file/log/cleanup+2 policy cases pass in authorized normal execution. Restricted filesystem comparison retained separately.",
+          "remaining": ["Native Mac/profile/admission/argument acquisition and persistent-store equivalence remain separate", "Retained source reserved-selector ambiguity is not silently changed; AAI deferred"]
         }
       ]
     },
