@@ -1,10 +1,14 @@
 # PLAT-MAC-LAUNCH — C++ launch and injection source contract
 
-Partial contract v1, 2026-11-02. This assessment covers the standalone C++ loader,
+Source contract v2, 2026-11-03. The initial assessment covers the standalone C++ loader,
 Foundation directory adapter, injected entry and bootstrap/build registration.
 The catalog also includes the Swift updater, repair, rollback, bundle/signing and
-interactive launch flows; those are not qualified by this bounded comparison.
-No product code, setting, build registration or packaging is changed here.
+interactive launch flows. Their later source mapping and corrections are recorded
+in the [Swift launcher cohort](../FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md), with
+separate [UI](PLAT-MAC-LAUNCHER-UI.md), [updater](PLAT-MAC-UPDATER.md),
+[entitlement](PLAT-MAC-ENTITLEMENTS.md), and [packaging](PLAT-MAC-PACKAGING.md)
+contracts. Native platform qualification remains open. This original C++ slice
+changes no product code, setting, build registration or packaging.
 
 Frozen source is `1baa55fedf1758b19f843cc59707b8901a0b4998`. Its macos-loader,
 macos-dylib and mods/src/folder_manager.mm inputs have no diff from either pinned
@@ -35,8 +39,9 @@ Windows fixtures do not validate Foundation, POSIX exec, actual DYLD injection,
 current-client hook fit or signed/universal packaging. Mcohall's pre-release
 reports remain attached to that tested artifact.
 
-Next source reconciliation is the existing Swift install/update/cancel/repair and
-rollback workflow, followed by its assembly/signing contract and actual Mac build
-and runtime evidence. PLAT-MAC-LAUNCH remains Implemented, unverified; native
+The Swift workflow and assembly/signing source mapping is now recorded by those
+child contracts; unavailable or inherited capabilities are not invented as new
+features. Actual Mac builds and runtime evidence remain required.
+PLAT-MAC-LAUNCH remains Implemented, unverified; native
 startup, profile isolation and overall platform parity are not closed. AAI and
 new upstream features remain deferred.

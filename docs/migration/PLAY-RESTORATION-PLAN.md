@@ -1,5 +1,20 @@
 # Full downstream play restoration plan
 
+## Launcher source and core values checkpoint — 2026-11-03
+
+The [launcher assessment](FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md) restores
+Open TOML/View Mod Folder and corrects configured entitlement-target selection.
+Updater and packaging contracts retain existing behavior and the deliberate
+separate signing controller; downstream release-promotion policy remains open.
+Native Swift/Mac qualification is blocked by the absent SDK/toolchain here.
+
+The core [SET-VALUES umbrella](features/SET-VALUES.md) now links the actual owners
+and prior precision/editor/reset/save evidence; six retained checks pass with no
+core product change. Keep Partial and native Apply/save/restart limits explicit.
+Continue core Partial workflow/failure-path reconciliation, beginning with
+donation and dock-assignment observations; do not infer completion from contract
+presence or repeat accepted queue trials. AAI and parked diagnostics stay deferred.
+
 ## Camera/confirmation checkpoint — 2026-11-02
 
 The [camera/confirmation assessment](FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md)

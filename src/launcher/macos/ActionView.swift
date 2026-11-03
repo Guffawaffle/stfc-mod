@@ -1,5 +1,6 @@
 // The launcher's buttons: configure the mod, update the game, and launch it through the mod's loader.
 
+import AppKit
 import SwiftUI
 import os
 
@@ -19,9 +20,11 @@ struct ActionView: View {
 
   var body: some View {
     GeometryReader { geo in
-      Grid {
+      Grid(horizontalSpacing: 8) {
         GridRow {
-          lcarsButton("Configure Mod", color: .lcarViolet, action: openConfigSite)
+          lcarsButton("Configure\nMod", color: .lcarViolet, action: openConfigSite)
+          lcarsButton("Open TOML", color: .lcarViolet, action: openConfigFile)
+            .help("Open community_patch_settings.toml in your associated app or TextEdit")
 
           if gameInstalled {
             Group {
@@ -39,9 +42,11 @@ struct ActionView: View {
             .allowsHitTesting(!updating && !gameRunning)
           } else {
             Text("Game not installed")
-              .font(.lcars(size: 40))
+              .font(.lcars(size: 24))
               .foregroundStyle(Color.lcarTan)
-              .offset(x: -45)
+              .lineLimit(1)
+              .minimumScaleFactor(0.7)
+              .frame(width: 192, height: 50)
           }
         }
       }
@@ -86,17 +91,20 @@ struct ActionView: View {
   private func lcarsButton(_ text: String, color: Color, action: @escaping @MainActor () -> Void) -> some View {
     Button(action: action) {
       RoundedRectangle(cornerRadius: 20)
-        .frame(width: 125, height: 50)
+        .frame(width: 92, height: 50)
         .overlay(alignment: .bottomTrailing) {
           HStack {
             Spacer()
             Text(text.isEmpty ? "\(randomDigits(4))-\(randomDigits(3))" : text)
               .font(.lcars(size: 17))
               .foregroundStyle(.black)
+              .lineLimit(text.contains("\n") ? 2 : 1)
+              .multilineTextAlignment(.trailing)
+              .minimumScaleFactor(0.7)
           }
-          .scaleEffect(x: 0.7, anchor: .trailing)
           .padding(.bottom, 5)
-          .padding(.trailing, 20)
+          .padding(.leading, 8)
+          .padding(.trailing, 12)
         }
         .foregroundStyle(color)
     }
@@ -106,6 +114,37 @@ struct ActionView: View {
   private func openConfigSite() {
     guard let configSiteURL = URL(string: "https://modconfig.pages.dev") else { return }
     NSWorkspace.shared.open(configSiteURL)
+  }
+
+  private func openConfigFile() {
+    guard let configURL = ModFiles.configURL else {
+      showError("Could not locate your Library folder.")
+      return
+    }
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: configURL.path, isDirectory: &isDirectory),
+      !isDirectory.boolValue
+    else {
+      showError(
+        "The mod config file is not available at \(configURL.path). Launch the game with the mod once to create it.")
+      return
+    }
+
+    guard let applicationURL = NSWorkspace.shared.urlForApplication(toOpen: configURL)
+      ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit")
+    else {
+      showError("No app is available to open the mod config file. Install a text editor and try again.")
+      return
+    }
+
+    Task { @MainActor in
+      do {
+        try await NSWorkspace.shared.open(
+          [configURL], withApplicationAt: applicationURL, configuration: NSWorkspace.OpenConfiguration())
+      } catch {
+        showError("Could not open the mod config file: \(error.localizedDescription)")
+      }
+    }
   }
 
   private func showProgress(_ progress: XsollaUpdateProgress) {

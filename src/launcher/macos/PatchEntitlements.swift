@@ -22,6 +22,7 @@ enum EntitlementError: LocalizedError {
   case gameRunning
   case accessNotGranted
   case wrongBundleSelected(String)
+  case differentGameBundle(String)
   case entitlementVerificationFailed
   case entitlementApplicationFailed
 
@@ -35,6 +36,8 @@ enum EntitlementError: LocalizedError {
       return "The launcher needs access to the game bundle to enable the mod"
     case .wrongBundleSelected(let path):
       return "\(path) is not the Star Trek Fleet Command app"
+    case .differentGameBundle(let path):
+      return "Select the game bundle configured in the Xsolla launcher: \(path)"
     case .entitlementVerificationFailed:
       return "Failed to verify game entitlements"
     case .entitlementApplicationFailed:
@@ -68,23 +71,37 @@ func ensureGameHasLoaderEntitlements() throws(EntitlementError) {
     logger.error("User did not confirm access to game bundle")
     throw EntitlementError.accessNotGranted
   }
-  // Access is granted to the selected bundle only, so that is the one signed. It must still be the game.
-  let selectedExecutable = confirmedURL.appendingPathComponent(gameExecutableInBundle).path
-  guard FileManager.default.isExecutableFile(atPath: selectedExecutable) else {
-    logger.error("Selected bundle has no game executable: \(confirmedURL.path, privacy: .private)")
-    throw EntitlementError.wrongBundleSelected(confirmedURL.path)
-  }
-  if confirmedURL.standardizedFileURL.path != URL(fileURLWithPath: gameAppPath).standardizedFileURL.path {
-    logger.warning(
-      "User selected \(confirmedURL.path, privacy: .private) instead of \(gameAppPath, privacy: .private)")
-  }
-
   guard confirmedURL.startAccessingSecurityScopedResource() else {
     logger.error("Failed to access security-scoped resource")
     throw EntitlementError.entitlementApplicationFailed
   }
   defer {
     confirmedURL.stopAccessingSecurityScopedResource()
+  }
+
+  // The loader still uses the configured game path. Authorization for another copy must not sign that copy and
+  // then launch the unmodified configured one. Resolve symlinks while the selected resource's access is held.
+  let configuredBundle = canonicalGameBundle(URL(fileURLWithPath: gameAppPath))
+  guard canonicalGameBundle(confirmedURL).path == configuredBundle.path else {
+    logger.error("Selected bundle is not the configured game: \(confirmedURL.path, privacy: .private)")
+    throw EntitlementError.differentGameBundle(gameAppPath)
+  }
+  let selectedExecutable = confirmedURL.appendingPathComponent(gameExecutableInBundle).path
+  guard FileManager.default.isExecutableFile(atPath: selectedExecutable) else {
+    logger.error("Selected bundle has no game executable: \(confirmedURL.path, privacy: .private)")
+    throw EntitlementError.wrongBundleSelected(confirmedURL.path)
+  }
+  // The launcher settings can also change while the authorization panel is open.
+  guard let currentInstallPath = try? XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath() else {
+    throw EntitlementError.gamePathNotFound
+  }
+  let currentAppPath = (currentInstallPath as NSString).appendingPathComponent("Star Trek Fleet Command.app")
+  guard canonicalGameBundle(URL(fileURLWithPath: currentAppPath)).path == configuredBundle.path else {
+    throw EntitlementError.differentGameBundle(currentAppPath)
+  }
+  // The game may have started while the authorization panel was open.
+  guard !isGameRunning(bundlePath: gameAppPath) else {
+    throw EntitlementError.gameRunning
   }
 
   // Only the main executable is signed, so nested frameworks and plugins keep their own signatures.
@@ -161,7 +178,8 @@ private func requestGameBundleAccess(gameAppPath: String, gamePath: String) -> U
       The first time, macOS asks you to allow App Management for this launcher. After allowing it, quit the launcher
       and start it again.
 
-      The selection below should only need changing if the game was not found where expected.
+      Select the game bundle configured in the Xsolla launcher. To use another installation, cancel and change
+      the Xsolla launcher setting first.
       Press "Authorize and Continue" to grant access to the game bundle.
       """
     panel.prompt = "Authorize and Continue"
@@ -224,7 +242,14 @@ private func sign(executablePath: String, entitlements: [String: Bool]) -> Bool 
   return true
 }
 
+private func canonicalGameBundle(_ url: URL) -> URL {
+  url.resolvingSymlinksInPath().standardizedFileURL
+}
+
 private func isGameRunning(bundlePath: String) -> Bool {
-  let bundleURL = URL(fileURLWithPath: bundlePath).standardizedFileURL
-  return NSWorkspace.shared.runningApplications.contains { $0.bundleURL?.standardizedFileURL == bundleURL }
+  let bundleURL = canonicalGameBundle(URL(fileURLWithPath: bundlePath))
+  return NSWorkspace.shared.runningApplications.contains {
+    guard let runningURL = $0.bundleURL else { return false }
+    return canonicalGameBundle(runningURL).path == bundleURL.path
+  }
 }

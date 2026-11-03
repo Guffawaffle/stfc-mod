@@ -670,6 +670,16 @@
             "Live timing-specific component replacement/deferred-cleanup reproduction",
             "Mac build/runtime qualification"
           ]
+        },
+        {
+          "date": "2026-11-03",
+          "targetBase": "80bc425c7c06b36d22566d6e863531c3740fbbc5",
+          "evidence": "docs/migration/FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md",
+          "scope": "SET-VALUES existing-owner/contract consolidation with6retainedchecks;no coreproductchange",
+          "remaining": [
+            "Native Apply/save/restart or Swift/Mac platform qualification stays separate",
+            "Mac SDK/toolchain absent and release-promotion policy remains open; AAI deferred"
+          ]
         }
       ]
     },
@@ -698,6 +708,16 @@
           "remaining": [
             "Swift updater/rollback and packaging source contract",
             "Both Mac builds blocked by missing SDK; native qualification separate"
+          ]
+        },
+        {
+          "date": "2026-11-03",
+          "targetBase": "80bc425c7c06b36d22566d6e863531c3740fbbc5",
+          "evidence": "docs/migration/FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md",
+          "scope": "Mac launcher file actions restored, entitlement target mismatch corrected, updater/packaging/controller contracts mapped",
+          "remaining": [
+            "Native Apply/save/restart or Swift/Mac platform qualification stays separate",
+            "Mac SDK/toolchain absent and release-promotion policy remains open; AAI deferred"
           ]
         }
       ]

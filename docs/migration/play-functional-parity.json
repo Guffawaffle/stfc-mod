@@ -6611,7 +6611,15 @@
       },
       "migration": {
         "path": "src/mod/features/settings_values.cc",
-        "symbolOrWorkflow": "Native Boolean/choice/slider controls with retained PLAY models and exact editors"
+        "symbolOrWorkflow": "Boolean/page publication, choices/sliders, exact entry and shared value/persistence models",
+        "supportingOwners": [
+          "src/mod/features/settings.cc",
+          "src/mod/features/settings_pages.cc",
+          "src/mod/features/settings_text_entry.cc",
+          "src/mod/game/settings_text_entry.h",
+          "src/mod/settings/native_text_entry.h",
+          "src/mod/settings/config_settings.cc"
+        ]
       },
       "expectedBehavior": "Boolean, exact numeric, choices and slider controls",
       "verificationProcedure": "Readiness/disabled backends, exact custom values, verify/save/refresh, pooled release and stale modal commits. Precision: Edit readouts .52/.26; drag label follows applied snapshot; exact custom/tiny/large editor preserves original value; page departure/rebind/native fallback.",
@@ -6621,7 +6629,8 @@
           "D:/dev/stfc-workspace/.ax/play-alignment-sprint-20261025/candidate-build-7.log:239/239; Windows ReleaseFast native mods + Debug fixtures",
           "docs/migration/SETTINGS-PRECISION-20261028.md:source-preserving readout/late-slider-label correction;400/400 steps plus exact source/binary receipt at artifacts/settings-precision-20261028/qualification.json",
           "settings-exact-entry-20261101/model-tests.log:152/152 existing test-mod build/run steps; see exact-entry assessment scope.",
-          "settings-choice-slider-20261101/final-tests.log:312/312 existing binding/Settings build/run steps plus explicit production choice-consumer regression; native Windows41/41; no live qualification."
+          "settings-choice-slider-20261101/final-tests.log:312/312 existing binding/Settings build/run steps plus explicit production choice-consumer regression; native Windows41/41; no live qualification.",
+          "D:/dev/stfc-workspace/artifacts/swift-launcher-20261103/core-values-cases.json: choice/slider consumers and4Boolean/choice/slider/exactentry models pass; prior coreinput/exe hashes unchanged."
         ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false,
@@ -6693,6 +6702,21 @@
           "remaining": [
             "Operator-driven choice/slider/save/reset normal-flow check after deployment",
             "Actual native reentrant/pooling lifecycle and Mac build/runtime qualification"
+          ]
+        }
+      ],
+      "contract": "docs/migration/features/SET-VALUES.md",
+      "catalogStatus": "Existing owners/contracts consolidated;6retained consumer/model checks pass; Partial/nativeApply/save/restart andMac remainopen",
+      "assessments": [
+        {
+          "date": "2026-11-03",
+          "targetBase": "80bc425c7c06b36d22566d6e863531c3740fbbc5",
+          "cohort": "docs/migration/FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md",
+          "scope": "Umbrella source/contract mapping only, no core implementation change; reuse precision,exactentry,choice/slider,reset/save assessments.",
+          "localChecks": "6retained Windows consumer/model checks pass; exact core source/executable hashes unchanged.",
+          "remaining": [
+            "Successful native live Apply/save/restart",
+            "Extended control-family/pooling/hardware and Mac qualification"
           ]
         }
       ]
@@ -8364,7 +8388,7 @@
       "restorationCommits": [],
       "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
       "contract": "docs/migration/features/PLAT-MAC-LAUNCH.md",
-      "catalogStatus": "Partial C++ loader/directory/injection/build source contract; Swift updater/rollback/packaging and native Mac acceptance remain open",
+      "catalogStatus": "C++/Swift/entitlement/ordinary packaging source-mapped; file actions restored and target mismatch corrected; native Mac and downstream promotion policy open",
       "assessments": [
         {
           "date": "2026-11-02",
@@ -8376,6 +8400,18 @@
           "remaining": [
             "Swift install/update/cancel/repair/rollback full source contract",
             "Bundle/signing and current artifact/platform/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-03",
+          "targetBase": "80bc425c7c06b36d22566d6e863531c3740fbbc5",
+          "cohort": "docs/migration/FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md",
+          "scope": "Restore frozen Open TOML/View Mod Folder; selected entitlement bundle must match configured loader target with post-panel configuration/running rechecks. Updater and ordinary packaging behavior retained; optional signing remains separate trusted controller.",
+          "localChecks": "Static before/after source observations; Linux production rsync fixture6/6steps pass; both Mac launcher requests stop beforecompile missingSDK; no Swift/AppKit/native signing qualification.",
+          "remaining": [
+            "Native SwiftUI/AppKit compile/layout/file actions/authorization and signature behavior",
+            "Real update/failure recovery and current Mac artifacts",
+            "Reconcile generic publisher versus frozen fork downstream signed promotion before any release"
           ]
         }
       ]
@@ -10336,18 +10372,15 @@
     "branch": "play-dev-ripper",
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
     "latestContinuation": {
-      "date": "2026-11-02",
-      "document": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+      "date": "2026-11-03",
+      "document": "docs/migration/FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md",
       "capabilities": [
-        "PLAY-CAMERA-PAN",
-        "PLAY-CAMERA-BACKDROP",
-        "SET-FC-CONFIRM",
-        "PLAY-QUEUE-SWITCH",
-        "PLAT-MAC-LAUNCH"
+        "PLAT-MAC-LAUNCH",
+        "SET-VALUES"
       ],
-      "status": "Shared camera admission/scale/cache corrections and FC/queue source/consumer checks qualified on Windows. Native motion/platform/account preference behavior separate. Older runtime fields remain historical, not target selectors. C++ Mac launch source contract is partial and has no proven gap; Swift lifecycle remains open.",
-      "scope": "AAI/new upstream/parked diagnostics deferred; FT ship-name existing upstream provenance corrected without feature change. No runtime cycle/config/deploy/preview/remote writes.",
-      "next": "Existing Swift install/update/cancel/repair and rollback source reconciliation; bundle/signing and native Mac evidence separate. SDK/native Mac remain unavailable. AAI/new upstream/parked diagnostics deferred."
+      "status": "Mac launcher source corrections and source/operational contracts recorded; Swift/nativeMac uncompiled here. Core SET-VALUES contract consolidated with retained consumer/models passing and Partial intact. Older runtime fields are historical observations, not selected targets.",
+      "scope": "AAI/newupstream/parked diagnostics deferred. Existing separate trusted signing controller preserved; no workflow import/promotion. No actual app/file opener/signature/install/game/config/deploy/remote writes.",
+      "next": "Return to core Partial workflow/failure-path reconciliation, beginning donation and dock-assignment observations. Keep source/native/platform evidence distinct; no repeated normal queue trials or percentage claims."
     },
     "status": "Audio/notification cohort source-reconciled,428/428 Windows regression and native startup qualified; main ordinary cycle performed. Optional player notification/audio trial pending. Signed84584fa4 basic Mac preset reorder/save-display trial accepted separately.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",

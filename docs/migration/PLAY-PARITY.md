@@ -1,5 +1,16 @@
 # Downstream play preservation target
 
+## Launcher preservation and core values — 2026-11-03
+
+The [launcher cohort](FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md) restores the
+missing desktop file actions and refuses an entitlement selection for another
+configured game copy. Updater/packaging source mapping retains the accepted
+signing-controller split and open promotion policy. Linux rsync checks pass;
+native Swift/Mac qualification remains unavailable here. SET-VALUES now links
+existing value/editor/model contracts and keeps its Partial classification.
+Core donation/dock workflow reconciliation is the next bounded source audit;
+AAI and new upstream functionality remain deferred.
+
 ## Camera and confirmation continuation — 2026-11-02
 
 The [camera/confirmation cohort](FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md)
