@@ -77,6 +77,21 @@ source-observations.json, local-verification.json, both Linux logs and mac-build
 bind their respective layers. Whitespace checks pass. Review and signed source
 checkpoints are recorded after the final source freeze.
 
+Signed source checkpoint `3b472c18d59489030505c8bd06bfdbee841cc680` has a good
+signature (local signer trust unknown). General, hostile and independent reviews
+found no actionable findings against base `80bc425c`, diff hash
+`c823b3cbb97fbee5f114170ba4e2c92982ab530a`. All21 launcher/related and14 core source
+hashes, the captured Linux fixture executable and six Windows case records match.
+The final Linux run captures its executable in the same session; that hash binds
+the retained binary, while the earlier logs retain their distinct cache outcomes.
+Review receipts retain static-persona fallback because their CLI memory lookup
+was unavailable; scoped AXF continuity works separately.
+
+No executable Swift/UI verification is inferred from those reviews. The final
+documentation checkpoint records this result without changing production or test
+source. Continue core donation/dock-assignment observation and failure-path
+reconciliation, reproducing any candidate gap before changing behavior.
+
 No real launcher settings, mod TOML, account/catalog data or game files were read
 or changed. No app/file opener, game cycle, installation/update, codesign,
 notarization, deployment, pre-release replacement or remote write occurred.
