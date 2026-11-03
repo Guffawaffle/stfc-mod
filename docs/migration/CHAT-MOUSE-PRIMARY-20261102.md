@@ -44,6 +44,27 @@ the ownership result; its pass qualifies wheel/pinch consumer ordering, not the
 whole native pointer query. The new mode is local only; no CI registration changed.
 
 Evidence is retained outside the checkout under
-`artifacts/chat-pointer-primary-20261102/`. Native side-chat row/menu behavior,
-ordinary world/mission right-click and Mac builds/runtime remain separately
-qualified. No chat message is sent for automated validation.
+`artifacts/chat-pointer-primary-20261102/`. No chat message is sent for automated
+validation.
+
+## Windows deployment and player confirmation
+
+The normal AX cycle deployed clean/stable source
+`46bd5c969970bda91bedbef0845bc22ce3633340` with the selected AAI/UI Lab host
+retained. Ordinary client 273 at
+`C:/Games/Star Trek Fleet Command/default/game` restarted from PID 13784 to 17004
+at 2026-11-02 20:22 America/Chicago. Copy/readback matched DLL SHA256
+`f72cbf2e0146f24e0c9a27f4de9d453abcfe6c74cd12648b1bea5919cd58f3d2`.
+The source identity, loaded proxy path and startup were observed; memory bytes
+were not hashed. All 73 patch-group lines and FrameTick readiness were present,
+with no fresh startup error/unavailable/not-installed lines in the captured log.
+The legacy lifecycle parser's count of two is not the complete registry count.
+All five observed settings/state hashes were unchanged; no agent TOML edit occurred.
+
+Guff confirms the exact updated Windows trial: right-clicking a user in the open
+left-side chat produces the native menu only, without primary_action. Guff also
+confirms ordinary world/mission-marker right-click still works. This qualifies
+the reported interaction and retained world right-click, not every chat/menu,
+keyboard alternative or platform. Keyboard eligibility is additionally covered
+by the local matcher/dispatcher fixtures. Mac build/runtime remains unqualified;
+no local Mac SDK was available. No source push, PR, tag or release change was made.
