@@ -1,5 +1,13 @@
 # Downstream play preservation target
 
+## Battle acquisition cancellation — 2026-11-02
+
+The [battle-sync cohort](FEATURE-COHORT-20261102-SYNC-BATTLES.md) corrects the
+remaining journal target-interest gap: disabling the last battle destination
+stops new requests after backoff and between journal/name requests. Pending IDs
+are released normally, already-acquired journals stay useful, and re-enable
+recovers. Source/controlled HTTP evidence is distinct from native/Mac acceptance.
+
 ## Sync continuation and accepted queue play — 2026-11-02
 
 The [sync-records cohort](FEATURE-COHORT-20261102-SYNC-RECORDS.md) restores the

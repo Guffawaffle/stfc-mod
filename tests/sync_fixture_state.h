@@ -4,12 +4,15 @@
 // code links these owned, synthetic stand-ins instead of game hooks or files.
 #include "sync/sync.h"
 
+#include <functional>
 #include <stdexcept>
 
 namespace sync_fixture
 {
 inline data_sync::SharedState              state;
 inline std::shared_ptr<const Config::Sync> settings{std::make_shared<const Config::Sync>()};
+// Scoped to an explicitly owned fixture thread; never a production callback.
+inline thread_local std::function<void()> session_observer, settings_observer;
 
 inline void Check(bool condition, const char* message)
 {
@@ -36,7 +39,12 @@ inline void Fresh()
 } // namespace sync_fixture
 
 std::shared_ptr<const Config::Sync> Config::Sync::Get()
-{ return std::atomic_load_explicit(&sync_fixture::settings, std::memory_order_acquire); }
+{
+  auto snapshot = std::atomic_load_explicit(&sync_fixture::settings, std::memory_order_acquire);
+  if (sync_fixture::settings_observer)
+    sync_fixture::settings_observer();
+  return snapshot;
+}
 
 namespace data_sync
 {
@@ -44,7 +52,12 @@ SharedState& State()
 { return sync_fixture::state; }
 
 bool OrdinarySessionOpen(uint64_t generation) noexcept
-{ return generation == State().generation.load() && State().health.Allows(generation); }
+{
+  const bool open = generation == State().generation.load() && State().health.Allows(generation);
+  if (sync_fixture::session_observer)
+    sync_fixture::session_observer();
+  return open;
+}
 
 void SealOrdinarySession(uint64_t generation) noexcept
 {
@@ -52,6 +65,8 @@ void SealOrdinarySession(uint64_t generation) noexcept
   State().ready.notify_all();
 }
 
+#ifndef STFC_SYNC_FIXTURE_BATTLELOGS
 std::string NewUuid()
 { return "00000000-0000-4000-8000-000000000001"; }
+#endif
 } // namespace data_sync

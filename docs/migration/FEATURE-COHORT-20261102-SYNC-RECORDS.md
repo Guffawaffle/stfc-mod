@@ -121,3 +121,7 @@ presence before each request. Recheck current battle interest after the wait and
 before each game-server POST, then prove suppression/re-enable through a synthetic
 barrier. That producer gap is not closed by the uploader retirement fixture and
 is the next bounded source slice. Legacy attempted-ID suppression stays excluded.
+
+That follow-up is now corrected and locally qualified by the later
+[battle-sync cohort](FEATURE-COHORT-20261102-SYNC-BATTLES.md), which preserves
+successful acquired journals while stopping new uninterested requests.

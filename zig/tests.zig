@@ -841,6 +841,7 @@ pub fn addSyncUpload(build_ctx: *const Ctx, libs: Libs, steps: Steps) void {
         .flags = ctx.cxxFlags("c++23", &.{ "-Wno-invalid-offsetof", "-UNDEBUG" }),
     });
     const exe = ctx.executable("sync-upload-tests", module);
+    if (ctx.isWindows()) module.linkSystemLibrary("rpcrt4", .{});
     steps.build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
     const run = b.addSystemCommand(&.{ if (ctx.isWindows()) "python" else "python3", "-B" });
     run.addFileArg(b.path("scripts/test-sync-loopback.py"));

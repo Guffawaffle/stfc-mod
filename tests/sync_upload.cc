@@ -1,6 +1,7 @@
 // Actual production uploader/CPR over the owned Python fixture listener only.
 // No configuration files, game hooks, profile/account stores or game server.
 #include "sync_diagnostics.h"
+#define STFC_SYNC_FIXTURE_BATTLELOGS 1
 #include "sync_fixture_state.h"
 
 #include <cpr/cpr.h>
@@ -200,10 +201,12 @@ void RetireDuringResponse()
 }
 } // namespace
 
+#include "battlelogs_cases.h"
+
 int main(int argc, char** argv)
 {
   try {
-    Check(argc == 3, "fixture requires its owned loopback URL and key");
+    Check(argc == 3 || argc == 4, "fixture requires its owned loopback URL and key, and optional local case");
     base                              = argv[1];
     key                               = argv[2];
     constexpr std::string_view prefix = "http://127.0.0.1:";
@@ -217,10 +220,16 @@ int main(int argc, char** argv)
     Check(parsed.ec == std::errc{} && parsed.ptr == port.data() + port.size() && number > 0 && number <= 65535,
           "invalid loopback port");
     Check(Control("/control/state").at("fixture") == key, "listener is not this owned synthetic fixture");
+    if (argc == 4) {
+      BattleLogsCases(argv[3]);
+      Check(state.targets.empty(), "battle fixture target ownership did not drain");
+      return 0;
+    }
     RetryAndBestEffort();
     SealDuringResponse();
     ConfigureDuringResponse();
     RetireDuringResponse();
+    BattleLogsCases("battle-native");
     Check(state.targets.empty() && state.diagnostic_budget.Count() == 0, "fixture ownership did not drain");
     std::cout << "Production sync uploader loopback checks passed\n";
     return 0;

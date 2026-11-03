@@ -12,21 +12,26 @@ import threading
 
 
 def main():
-    if len(sys.argv) != 2:
-        raise SystemExit("expected the built sync-upload-tests executable")
+    modes = {"battle-request", "battle-prepost", "battle-retry", "battle-journal", "battle-profile", "battle-native"}
+    if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] not in modes):
+        raise SystemExit("expected the built sync-upload-tests executable and optional local battle case")
+    mode = sys.argv[2] if len(sys.argv) == 3 else None
     executable = pathlib.Path(sys.argv[1]).resolve(strict=True)
     if executable.name not in ("sync-upload-tests", "sync-upload-tests.exe"):
         raise SystemExit("only the named headless fixture is accepted")
     key = secrets.token_hex(16)
     lock = threading.Lock()
     release = threading.Event()
-    lifecycle_release = {name: threading.Event() for name in ("configure", "retire")}
+    lifecycle_release = {name: threading.Event() for name in ("configure", "retire", "battle-journal", "battle-profile")}
+    journal_attempts = {}
     records = []
     counters = {"fixture": key, "retry": {"ordinary": 0, "diagnostic": 0},
                 "blocked": {"ordinary": 0, "diagnostic": 0, "entered": False},
                 "configure": {"ordinary": 0, "diagnostic": 0, "entered": False},
                 "configured": {"ordinary": 0, "diagnostic": 0},
-                "retire": {"ordinary": 0, "diagnostic": 0, "entered": False}}
+                "retire": {"ordinary": 0, "diagnostic": 0, "entered": False},
+                "battle": {"counts": {"journal": 0, "profile": 0, "alliance": 0},
+                           "journal_entered": False, "profile_entered": False}}
 
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -60,6 +65,9 @@ def main():
             self.answer(200, snapshot)
 
         def do_POST(self):
+            if self.path in ("/journals/get", "/user_profile/profiles", "/alliance/get_alliances_public_info"):
+                self.battle_request()
+                return
             if not self.allowed():
                 self.answer(403, {})
                 return
@@ -111,6 +119,57 @@ def main():
             status = 500 if path == "retry" and (diagnostic or ordinal == 1) else 200
             self.answer(status, {})
 
+        def battle_request(self):
+            if self.client_address[0] != "127.0.0.1" or self.headers.get("X-AUTH-SESSION-ID") != key:
+                self.answer(403, {})
+                return
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 1024 * 1024:
+                self.answer(413, {})
+                return
+            body = json.loads(self.rfile.read(length))
+            lane = {"/journals/get": "journal", "/user_profile/profiles": "profile",
+                    "/alliance/get_alliances_public_info": "alliance"}[self.path]
+            with lock:
+                counters["battle"]["counts"][lane] += 1
+                records.append({"path": "battle-" + lane, "lane": "game", "body": body})
+            if lane == "journal":
+                identity = body.get("journal_id")
+                if identity not in (7001, 7101, 7201, 7301):
+                    self.answer(400, {})
+                    return
+                with lock:
+                    journal_attempts[identity] = journal_attempts.get(identity, 0) + 1
+                    ordinal = journal_attempts[identity]
+                    if identity == 7101:
+                        counters["battle"]["journal_entered"] = True
+                if identity == 7001 and ordinal == 1:
+                    self.answer(503, {})
+                    return
+                if identity == 7101 and not lifecycle_release["battle-journal"].wait(10):
+                    self.answer(504, {})
+                    return
+                self.answer(200, {"journal": {"initiator_id": f"player{identity}", "target_id": "npc_fixture"}})
+            elif lane == "profile":
+                identities = body.get("user_ids", [])
+                if not identities or any(value not in ("player7001", "player7101", "player7201", "player7301")
+                                         for value in identities):
+                    self.answer(400, {})
+                    return
+                if "player7201" in identities:
+                    with lock:
+                        counters["battle"]["profile_entered"] = True
+                    if not lifecycle_release["battle-profile"].wait(10):
+                        self.answer(504, {})
+                        return
+                self.answer(200, {"user_profiles": {identity: {"name": "Synthetic Player", "alliance_id": 42}
+                                                     for identity in identities}})
+            else:
+                if body.get("alliance_ids") != [42]:
+                    self.answer(400, {})
+                    return
+                self.answer(200, {"alliances_info": {"42": {"id": 42, "name": "Synthetic Alliance", "tag": "FX"}}})
+
     class Server(http.server.ThreadingHTTPServer):
         daemon_threads = False
         block_on_close = True
@@ -127,7 +186,7 @@ def main():
                 del environment[name]
         environment["NO_PROXY"] = "*"
         environment["no_proxy"] = "*"
-        child = subprocess.Popen([str(executable), url, key], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        child = subprocess.Popen([str(executable), url, key] + ([mode] if mode else []), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  text=True, env=environment)
         stdout, stderr = child.communicate(timeout=45)
         sys.stdout.write(stdout)
@@ -136,6 +195,16 @@ def main():
             raise RuntimeError(f"headless sync fixture exited {child.returncode}")
         with lock:
             captured = list(records)
+            battle_counts = dict(counters["battle"]["counts"])
+        expected = {"battle-request": (0, 0, 0), "battle-prepost": (0, 0, 0), "battle-retry": (2, 1, 1),
+                    "battle-journal": (1, 0, 0), "battle-profile": (1, 1, 0), "battle-native": (4, 2, 1)}
+        if tuple(battle_counts[name] for name in ("journal", "profile", "alliance")) != expected[mode or "battle-native"]:
+            raise RuntimeError("battle transport admission/removal/re-enable counts differ")
+        if mode:
+            print(f"Owned127.0.0.1 listener verified {mode}: {battle_counts}; "
+                  f"fixture_sha256={hashlib.sha256(executable.read_bytes()).hexdigest()}")
+            print(f"fixture_path={executable}")
+            return
         ordinary = [r for r in captured if r["path"] == "retry" and r["lane"] == "ordinary"]
         diagnostic = [r for r in captured if r["path"] == "retry" and r["lane"] == "diagnostic"]
         if len(ordinary) != 3 or len(diagnostic) != 1:

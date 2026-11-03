@@ -1,5 +1,14 @@
 # Full downstream play restoration plan
 
+## Battle acquisition checkpoint — 2026-11-02
+
+The [journal cancellation correction](FEATURE-COHORT-20261102-SYNC-BATTLES.md)
+rechecks live battle interest after waiting and before every acquisition request.
+The controlled transport qualifies removal, retained successful records, pending
+release and re-enable; full native/platform acceptance remains separate. Continue
+P21 ordinary/custom/profile path and persistence reconciliation without adding
+AAI or new upstream features. Earlier dated next-slice statements are historical.
+
 ## Sync continuation and scope — 2026-11-02
 
 The [sync-records assessment](FEATURE-COHORT-20261102-SYNC-RECORDS.md) maps frozen

@@ -97,6 +97,10 @@ namespace
   const std::string kUnityVersion = "6000.0.59f2-deadlock-fix-test";
   const std::string kClientCurl   = "libcurl/8.10.1-DEV";
 
+  // The immutable category union follows live target settings, including when only unrelated targets remain.
+  bool BattleRequestsAllowed(uint64_t generation)
+  { return OrdinarySessionOpen(generation) && Config::Sync::Get()->options.battlelogs; }
+
   // `base` with its path replaced, through libcurl's URL parser so ports and IDN hosts survive.
   std::string WithPath(const std::string& base, const std::string& path)
   {
@@ -161,7 +165,7 @@ namespace
     // The URL and credentials are the captured session's; the version and instance headers are the latest, since
     // the game reports them after login.
     const auto current = Session();
-    if (session.generation != current.generation || !OrdinarySessionOpen(session.generation))
+    if (session.generation != current.generation || !BattleRequestsAllowed(session.generation))
       return {};
     auto& http    = GameServerHttp();
     auto& headers = http.GetHeader();
@@ -181,7 +185,7 @@ namespace
       }
     } clear_body{http};
     http.SetBody(body);
-    if (!OrdinarySessionOpen(session.generation))
+    if (!BattleRequestsAllowed(session.generation))
       return {};
     const auto response = http.Post();
     if (!OrdinarySessionOpen(session.generation))
@@ -337,48 +341,53 @@ namespace
             session.generation);
     return true;
   }
-} // namespace
-
-void RunBattleLogs() noexcept
-{
-  auto& state = State();
-  ContainWorkerExit(state.health, [&] {
-    for (;;) {
-      auto battle = battles.Pop();
-      // A battle from an older session, or one queued before battle logs were switched off, is only forgotten.
-      if (OrdinarySessionOpen(battle.session.generation) && Config::Sync::Get()->options.battlelogs) {
-        // A retried journal goes to the back of the queue, so everything queued before it has been fetched; only
-        // what arrived later waits for it.
-        if (const auto now = Clock::now(); battle.retry_at > now) {
-          auto&            state = State();
-          std::unique_lock lock(state.mutex);
-          state.ready.wait_until(lock, battle.retry_at,
-                                 [&] { return !OrdinarySessionOpen(battle.session.generation); });
-        }
+  // Process one queue item; a requeued job retains ownership of its pending key.
+  void ProcessBattle(Battle battle)
+  {
+    // A battle from an older session, or one queued before battle logs were switched off, is only forgotten.
+    if (BattleRequestsAllowed(battle.session.generation)) {
+      // A retried journal goes to the back of the queue, so everything queued before it has been fetched; only
+      // what arrived later waits for it.
+      if (const auto now = Clock::now(); battle.retry_at > now) {
+        auto&            state = State();
+        std::unique_lock lock(state.mutex);
+        state.ready.wait_until(lock, battle.retry_at,
+                               [&] { return !BattleRequestsAllowed(battle.session.generation); });
+      }
+      if (BattleRequestsAllowed(battle.session.generation)) {
         bool fetched = false;
         try {
           fetched = FetchBattle(battle);
         } catch (const std::exception& e) {
           logging::Error("process", "battle log", "battle {} failed: {}", battle.id, e.what());
         }
-        if (!fetched) {
+        if (!fetched && BattleRequestsAllowed(battle.session.generation)) {
           if (++battle.attempts >= kJournalAttempts) {
             logging::Error("download", "battle log", "giving up on battle {} after {} attempts", battle.id,
                            kJournalAttempts);
-          } else if (OrdinarySessionOpen(battle.session.generation)) {
+          } else {
             battle.retry_at =
                 Clock::now() + std::chrono::seconds(std::min(1 << (battle.attempts - 1), kJournalMaxBackoff));
             // Under the lock, like QueueNewBattles, so a battle the full queue drops leaves `pending` in the same step.
             std::scoped_lock lock(battle_mutex);
             if (auto dropped = battles.Push(battle))
               pending.erase({dropped->session.generation, dropped->id});
-            continue;
+            return;
           }
         }
       }
-      std::scoped_lock lock(battle_mutex);
-      pending.erase({battle.session.generation, battle.id});
     }
+    std::scoped_lock lock(battle_mutex);
+    pending.erase({battle.session.generation, battle.id});
+  }
+} // namespace
+
+void RunBattleLogs() noexcept
+{
+  auto& state = State();
+  ContainWorkerExit(state.health, [&] {
+    for (;;)
+      ProcessBattle(battles.Pop());
   });
   state.ready.notify_all();
   try {

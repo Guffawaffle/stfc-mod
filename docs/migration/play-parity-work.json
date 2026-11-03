@@ -398,6 +398,14 @@
           "scope": "Frozen wire/config reconciliation, Haven marker and checked native intake; retained stronger per-target ACK/session semantics; real local uploader configure/retire/re-add fixture.",
           "localChecks": "431/431 core/binding/mod/sync/local-uploader steps,10 explicit intake modes and5 queue/chat/fleet modes pass.",
           "remaining": ["SYNC-BATTLES target-interest acquisition correction", "Native/profile/persistence and live receiver qualification stay separate", "Mac reports remain attached to the pre-release tested; AAI deferred"]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "89258418eb32f03a83a6226f294b412107197af6",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-SYNC-BATTLES.md",
+          "scope": "Battle journal/name acquisition follows live target-interest union across backoff and each POST, with own pending release/re-enable and retained successfully acquired records.",
+          "localChecks": "Five failing-before cases; corrected final combined431/431 Windows steps,6 isolated real-CPR local transport modes and17 retained modes pass.",
+          "remaining": ["Ordinary/custom/profile path and persistence reconciliation", "Native client/FollowSettings/real receiver/current Mac qualification remain distinct; AAI deferred"]
         }
       ]
     },
