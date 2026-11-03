@@ -92,6 +92,16 @@ and five retained queue/chat/fleet modes pass. `pointer-before-cases.json` binds
 the two additional failures; `final-tests.log`, `final-cases.json` and
 `final-local-verification.json` bind the corrected source inputs and executables.
 
+Final signed source is `1dd9751717dad5102518ca25b002a61da427bb80`. General,
+hostile and independent cumulative follow-up reviews each found no actionable
+defect; the hostile P2 is confirmed fixed. Final cumulative diff against
+`5c71cf56` is `33f7d6a58001e2238f3f16405baf5264ef81842f`. Both implementation
+signatures verify; local signer trust remains unknown. The final receipt retains
+static-persona fallback, with scoped continuity available separately.
+`review-reconciliation.json` records initial finding, correction and final lanes.
+All nine source/test/script hashes and three executable hashes match the final
+manifest. Later evidence-only documentation does not change those source inputs.
+
 ## Acceptance and continuation
 
 Guff has confirmed normal queue play, waves and recovery on the running build;
