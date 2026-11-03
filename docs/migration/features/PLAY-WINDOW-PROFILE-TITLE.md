@@ -18,7 +18,9 @@ The standard example remains `[alt] Star Trek Fleet Command` for `-ccm alt.toml`
 Directory-like custom operands retain the target's independently selected `.toml`
 path. The fallback label follows that selected filename, rather than restoring
 the frozen sequential replace_extension mutation defect. The direct fixture uses
-the production UTF-8/filesystem conversion and confirms `[.toml]` for that route.
+an equivalent supplied UTF-8 conversion boundary and actual std::filesystem
+operations to confirm `[.toml]` for that route. Separate File modes exercise the
+production namespace selection.
 
 Window discovery and installation remain with [PLAY-WINDOW](PLAY-WINDOW.md).
 The title operation neither changes profile admission nor selects configuration,

@@ -44,9 +44,11 @@ using Zig0.16, ReleaseFast dependencies/core and Debug fixtures. All thirteen
 explicit window/title/cursor modes pass, plus retained scale-native and ordinary,
 directory-like custom and named File modes. The fixture includes production
 window.cc and uses actual typed static-field resolution; only window/cursor
-effects and supplied File context are private sinks. UTF-8 conversion and the
-selected dotfile label use the existing production filesystem conversion. No
-new test target or CI registration is added. Formatting and whitespace checks pass.
+effects and supplied File context are private sinks. The window fixture reuses
+the equivalent UTF-8 conversion boundary in tests/loading_artwork_cases.h;
+actual std::filesystem operations form the selected dotfile label. Separate
+profile-paths modes link production File code and verify selected namespace names.
+No new test target or CI registration is added. Formatting and whitespace checks pass.
 
 Evidence is under `D:/dev/stfc-workspace/artifacts/window-cursor-20261102/`:
 before-verified-build.log, before-cases.json, final-tests.log and
@@ -59,6 +61,17 @@ Both Mac core build requests stop before compilation because the configured
 macOS SDK is absent. mac-builds.json and per-architecture logs retain the failure.
 This slice changes only the existing Windows feature body and Windows-guarded
 test additions; neither Mac architecture is claimed built or runtime-qualified.
+
+Signed source checkpoint `74b4ab9c59e35399e32c454667e7d7fc0669b68b` has a good
+signature (local signer trust unknown). General, hostile and independent reviews
+of base `5c3637af` and diff `1e29bbac7ea4b1dd695afbb2a238b4bf4befd436` found no
+production defect. General/hostile identified the conversion-boundary wording
+above; that documentation-only correction and the additional dependency hash do
+not change production code, tests or executables. The manifest now records fifteen
+source/test inputs and two executables. Review receipts retain static-persona
+fallback because their CLI memory lookup was unavailable; scoped AXF continuity
+works separately. Documentation correction review is recorded in the evidence
+directory alongside the original three-lane receipt.
 
 The three catalog rows remain Implemented, unverified. Controlled fixtures and
 production compilation do not qualify real HWND selection, Win32 title operations,
