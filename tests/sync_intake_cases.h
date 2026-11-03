@@ -70,7 +70,7 @@ struct SyncIntakeString {
   int32_t      length = 0;
   char16_t     chars[32]{};
 };
-int              sync_intake_fault = 0, sync_intake_group_reads = 0;
+int              sync_intake_fault = 0, sync_intake_group_reads = 0, sync_intake_collection_reads = 0;
 SyncIntakeString sync_intake_type{}, sync_intake_target{}, sync_intake_data{};
 SyncIntakeString sync_intake_user{};
 Il2CppObject     sync_intake_manager{}, sync_intake_profile{};
@@ -82,6 +82,7 @@ void             SyncIntakeFault(int fault)
 }
 SyncIntakeList* SyncIntakeGroups(SyncIntakeResponse* response, const MethodInfo*)
 {
+  ++sync_intake_collection_reads;
   SyncIntakeFault(1);
   return response->groups;
 }
@@ -160,12 +161,16 @@ void SyncIntakeCases(std::string_view mode)
       AddMethod(group_type, "get_Group", reinterpret_cast<void*>(&SyncIntakePayload), T(bytes_type), {});
   AddProperty(group_type, "Type", &kind);
   AddProperty(group_type, "Group", &payload);
-  auto& list_type = Define("Fixture", "SyncGroups", IL2CPP_TYPE_CLASS, &object_class);
+  auto& raw_pointer_type = Define("Fixture", "SyncNativePointer", IL2CPP_TYPE_PTR);
+  auto& list_type        = Define("Fixture", "SyncGroups", IL2CPP_TYPE_CLASS, &object_class);
   AddMethod(list_type, "get_Count", reinterpret_cast<void*>(&SyncIntakeCount), T(int_class), {});
   AddMethod(list_type, "get_Item", reinterpret_cast<void*>(&SyncIntakeItem), T(group_type), {T(int_class)});
   auto&       response_type = Define("Digit.PrimeServer.Models", "ServiceResponse", IL2CPP_TYPE_CLASS, &object_class);
   const auto& groups        = AddMethod(response_type, "get_EntityGroups", reinterpret_cast<void*>(&SyncIntakeGroups),
-                                        T(mode == "sync-intake-list-pointer" ? intptr_class : list_type), {});
+                                        T(mode == "sync-intake-list-pointer"     ? intptr_class
+                                          : mode == "sync-intake-list-unmanaged" ? raw_pointer_type
+                                                                                 : list_type),
+                                        {});
   AddProperty(response_type, "EntityGroups", &groups);
   auto&       platform_group_type = Define("Digit.Platform.Models", "EntityGroup", IL2CPP_TYPE_CLASS, &object_class);
   const auto& platform_kind =
@@ -179,8 +184,9 @@ void SyncIntakeCases(std::string_view mode)
   AddMethod(platform_list_type, "get_Item", reinterpret_cast<void*>(&SyncIntakeItem), T(platform_group_type),
             {T(int_class)});
   auto& platform_response_type = Define("Digit.Platform.Models", "ServiceResponse", IL2CPP_TYPE_CLASS, &object_class);
-  const auto& platform_groups  = AddMethod(platform_response_type, "get_EntityGroups",
-                                           reinterpret_cast<void*>(&SyncIntakeGroups), T(platform_list_type), {});
+  const auto& platform_groups =
+      AddMethod(platform_response_type, "get_EntityGroups", reinterpret_cast<void*>(&SyncIntakeGroups),
+                T(mode == "sync-intake-platform-unmanaged" ? raw_pointer_type : platform_list_type), {});
   AddProperty(platform_response_type, "EntityGroups", &platform_groups);
   auto&       profile_type = Define("Digit.PrimeServer.Models", "UserProfile", IL2CPP_TYPE_CLASS, &object_class);
   const auto& user =
@@ -256,6 +262,27 @@ void SyncIntakeCases(std::string_view mode)
   }
   if (mode == "sync-intake-type") {
     failed(4);
+    return;
+  }
+  if (mode == "sync-intake-list-unmanaged" || mode == "sync-intake-platform-unmanaged") {
+    const bool platform = mode == "sync-intake-platform-unmanaged";
+    if (platform) {
+      sync_intake_settings->options.store_offers = true;
+      group.header.klass                         = &platform_group_type.klass;
+      group.kind                                 = static_cast<int32_t>(PlatformEntityGroup::Kind::StoreOffers);
+      list.header.klass                          = &platform_list_type.klass;
+      response.header.klass                      = &platform_response_type.klass;
+    }
+    fresh();
+    sync_intake_collection_reads = 0;
+    registry();
+    Require(!OrdinarySessionOpen(SessionGeneration()) && !pending_jobs.TryPop() && sync_intake_collection_reads == 0,
+            "native-pointer collection metadata is refused before getter invocation under real Object assignability");
+    const auto raw = platform
+                         ? reinterpret_cast<PlatformServiceResponse*>(&response)->TryCall<"get_EntityGroups", void*>()
+                         : reinterpret_cast<ServiceResponse*>(&response)->TryCall<"get_EntityGroups", void*>();
+    Require(raw && raw.value == &list && sync_intake_collection_reads == 1,
+            "intentional untyped-pointer bindings still accept the native-pointer signature");
     return;
   }
   if (mode == "sync-intake-list-pointer" || mode == "sync-intake-byte-pointer") {

@@ -85,6 +85,11 @@ A `T&` parameter binds the caller's variable directly, without `std::ref`.
 | Integer or enum | Managed integer of the same size |
 | `bool`, `float`, `double`, or struct | Matching kind and size |
 
+Bound object pointers require managed-reference metadata kinds before class
+assignability is checked. IL2CPP's universal System.Object assignability alone
+does not qualify an unmanaged pointer as an object. Untyped-pointer bindings
+retain their explicitly broader native-pointer contract.
+
 A missing or drifted class or member is reported once.
 Calls then do nothing and return a value-initialized result.
 A managed exception is contained at the binding call, reported once per method, and produces the same default result.

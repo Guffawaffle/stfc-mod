@@ -62,6 +62,36 @@ baseline-tests.log, haven-before.log, intake-before-build*.log,
 intake-before-cases.json, candidate-tests.log and candidate-cases.json.
 Exact final input hashes, checkpoint and review receipts accompany those logs.
 
+## Review correction — bound reference metadata
+
+Initial signed checkpoint `5b0ceaf2` passed the above checks. The hostile review
+then found that the shared signature matcher treated a bound System.Object facade
+as managed-only, but the pinned runtime makes Object assignable from unmanaged
+pointer classes too (`libil2cpp/vm/Class.cpp:663–665,1858–1872`). IntPtr is a value
+type and did not expose that path. Native-pointer collection metadata could
+therefore execute a getter and be rooted as managed storage.
+
+Two new modes independently fail against that initial source:
+`sync-intake-list-unmanaged` and `sync-intake-platform-unmanaged`. The controlled
+runtime now models Object's actual universal assignability. The shared matcher
+requires managed-reference metadata kinds for bound pointers before class
+assignability; intentional untyped-pointer bindings keep their existing behavior.
+The new modes check zero getter invocations, one native original, generation
+seal, and retained untyped native-pointer calls. This corrects the existing
+documented library contract for all bound references rather than adding a local
+parallel decoder. Final checks and delta review are bound separately to the
+corrected source; the earlier logs are not silently relabeled.
+
+The review's separate suggestion to register the explicit intake modes in routine
+CI remains deferred under this migration's no-new-registration scope. Current
+explicit executable-bound evidence is retained.
+
+After the matcher correction, the same combined Windows core/binding/mod/sync/
+local-uploader command passes 431/431 steps again. All twelve sync-intake modes
+and five retained queue/chat/fleet modes pass. `pointer-before-cases.json` binds
+the two additional failures; `final-tests.log`, `final-cases.json` and
+`final-local-verification.json` bind the corrected source inputs and executables.
+
 ## Acceptance and continuation
 
 Guff has confirmed normal queue play, waves and recovery on the running build;

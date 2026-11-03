@@ -8044,6 +8044,12 @@
           "migrationStatus": "Implemented, unverified",
           "verification": "Missing Haven marker and five native intake modes fail before correction. Corrected core/binding/mod/sync/local-uploader command431/431 steps;10 explicit intake modes plus5 retained queue/chat/fleet modes pass. Actual production intake with substituted managed bodies, real encoders/Delivery and production CPR uploader against owned synthetic loopback. Native client/live receiver/Mac remain separate.",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/sync-records-20261102/candidate-cases.json",
+          "reviewCorrection": {
+            "base": "5b0ceaf2f0e8867c6fcd08f277fca4dd3bc72e98",
+            "scope": "Shared bound-reference matching now requires managed metadata kinds before Object assignability. Untyped pointer semantics unchanged. Prime/Platform PTR cases independently fail before correction; fake Object assignability now matches the pinned runtime.",
+            "verification": "Corrected combined Windows core/binding/mod/sync/local-uploader431/431 steps;12 intake plus5 retained modes pass.",
+            "artifactReceipt": "D:/dev/stfc-workspace/artifacts/sync-records-20261102/final-local-verification.json"
+          },
           "intentionalDifferences": [
             "Restored Haven full-sync marker retains canonical full cached snapshot instead of frozen changed subset.",
             "Retain accepted valid empty baseline, stronger parsing/loss/ACK/session/restart behavior documented in M8; do not recreate source defects."

@@ -1062,6 +1062,10 @@ API(bool, il2cpp_class_is_assignable_from, (Il2CppClass * klass, Il2CppClass* ot
     std::fprintf(stderr, "il2cpp_class_is_assignable_from called with a null class\n");
     std::abort();
   }
+  // The pinned runtime treats System.Object as assignable from every class,
+  // including unmanaged-pointer classes. Signature checks must reject those kinds themselves.
+  if (klass == &object_class.klass)
+    return true;
   for (; other; other = other->parent)
     if (other == klass)
       return true;

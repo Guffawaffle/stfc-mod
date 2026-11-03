@@ -89,6 +89,19 @@ namespace
       if (!slot.klass)
         return !il2cpp_class_is_valuetype(klass) || type->type == IL2CPP_TYPE_I || type->type == IL2CPP_TYPE_U
                || type->type == IL2CPP_TYPE_PTR;
+      // System.Object is assignable from even unmanaged-pointer classes in IL2CPP.
+      // Bound object pointers require managed-reference metadata before assignability can establish a match.
+      switch (type->type) {
+        case IL2CPP_TYPE_CLASS:
+        case IL2CPP_TYPE_OBJECT:
+        case IL2CPP_TYPE_STRING:
+        case IL2CPP_TYPE_SZARRAY:
+        case IL2CPP_TYPE_ARRAY:
+        case IL2CPP_TYPE_GENERICINST:
+          break;
+        default:
+          return false;
+      }
       if (il2cpp_class_is_valuetype(klass))
         return false;
       // Bindings may name a base or derived class of the declared type. If the binding's own class

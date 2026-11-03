@@ -35,6 +35,12 @@ Runtime configuration and state file owners are unchanged.
 | R8 | Legacy sent IDs are attempted admission, not account/target ACK. Accepted prior decision: preserve file/path untouched and allow restart resend. | Existing restart fixture and M8 decision retained. No new persistent history/account inference/exactly-once claim. |
 | R9 | Platform paths and native ABI/fit remain explicit; no new hook ownership. | Existing signatures/installers unchanged. Current Windows compilation/controlled host and Mac pre-release user testing are distinct evidence. No new Mac qualification is inferred from local Windows checks. |
 
+Review additionally exposed a shared matching defect: IL2CPP makes Object
+assignable from unmanaged-pointer classes. Bound reference slots now require
+managed-reference metadata kinds before assignability, preserving untyped-pointer
+compatibility. Prime and Platform pointer modes reproduce the initial failure
+and check refusal before getter invocation under the real Object rule.
+
 ## Deliberate differences and correction boundaries
 
 Frozen Haven changed subsets were marked full. The target's existing Delivery
