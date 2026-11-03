@@ -14,6 +14,7 @@
 #include <unity/core.h>
 #include <unity/input.h>
 
+#include <chrono>
 #include <string>
 
 #include <Windows.h>
@@ -118,25 +119,49 @@ bool RestoreBorderlessWindow()
     RestoreBorderlessWindow();
 }
 
-// With several clients running, "-ccm alt.toml" shows up as "[alt] Star Trek Fleet Command".
-bool ApplyProfileTitle()
-{
-  auto* window = GameWindow();
-  if (!window)
-    return false;
+// Custom launches can reach Update before their window exists. Retry once a second and retain the complete
+// desired title after a failed write, so a partial native effect cannot duplicate the prefix on the next attempt.
+struct ProfileWindowTitle {
+  bool                                  complete = false;
+  std::chrono::steady_clock::time_point next_attempt{};
+  std::wstring                          title;
 
-  const auto length = GetWindowTextLengthW(window);
-  if (length == 0)
-    return false;
-  std::wstring title(static_cast<size_t>(length) + 1, L'\0');
-  title.resize(GetWindowTextW(window, title.data(), length + 1));
+  void Update(std::chrono::steady_clock::time_point now)
+  {
+    if (complete)
+      return;
+    if (!File::HasCustomNames()) {
+      complete = true;
+      return;
+    }
+    if (now < next_attempt)
+      return;
+    next_attempt = now + std::chrono::seconds(1);
 
-  const auto&  profile = File::Profile();
-  const auto   bytes   = static_cast<int>(profile.size());
-  std::wstring prefix(MultiByteToWideChar(CP_UTF8, 0, profile.data(), bytes, nullptr, 0), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, profile.data(), bytes, prefix.data(), static_cast<int>(prefix.size()));
-  return SetWindowTextW(window, (L"[" + prefix + L"] " + title).c_str()) != 0;
-}
+    auto window = GameWindow();
+    if (!window)
+      return;
+    if (title.empty()) {
+      const auto length = GetWindowTextLengthW(window);
+      if (length <= 0)
+        return;
+      std::wstring native_title(static_cast<size_t>(length) + 1, L'\0');
+      const auto   written = GetWindowTextW(window, native_title.data(), length + 1);
+      if (written <= 0)
+        return;
+      native_title.resize(written);
+
+      // Named Profiles keep their admitted ID. Directory-like -ccm routes can have no display stem; use the
+      // selected config filename then, without changing their file routing or reviving old extension mutation.
+      const auto prefix = File::Profile().empty()
+                              ? File::FromUtf8(File::Config()).filename().replace_extension().wstring()
+                              : File::FromUtf8(File::Profile()).wstring();
+      title             = L"[" + prefix + L"] " + native_title;
+    }
+    if (SetWindowTextW(window, title.c_str()))
+      complete = true;
+  }
+};
 
 // With free_resize the original is skipped: the game's per-frame aspect-ratio enforcement is what would snap the
 // window back.
@@ -146,9 +171,8 @@ bool ApplyProfileTitle()
 // trigger if the fallback is still seen.
 void AspectRatioConstraintHandler_Update_Hook(auto original, il2cpp::Object* _this)
 {
-  static bool title_pending = !File::Profile().empty();
-  if (title_pending && ApplyProfileTitle())
-    title_pending = false;
+  static ProfileWindowTitle profile_title;
+  profile_title.Update(std::chrono::steady_clock::now());
   if (!Config::Get().graphics.free_resize)
     original(_this);
 }
@@ -172,9 +196,12 @@ intptr_t AspectRatioConstraintHandler_WndProc_Hook(auto original, HWND window, u
   // the window's current procedure (the game's, installed through its own P/Invoke), and the A and W calls each
   // convert from their own form; the wrong one garbles non-ASCII text such as chat input.
   if (Config::Get().graphics.free_resize) {
+    const auto procedure = AspectRatioConstraintHandler::unityWndProc();
+    // Failed typed reads return zero, as does a not-yet-populated field. Let the native handler own either case.
+    if (!procedure)
+      return original(window, message, w_param, l_param);
     const auto forward = IsWindowUnicode(window) ? CallWindowProcW : CallWindowProcA;
-    return forward(reinterpret_cast<WNDPROC>(AspectRatioConstraintHandler::unityWndProc()), window, message, w_param,
-                   l_param);
+    return forward(reinterpret_cast<WNDPROC>(procedure), window, message, w_param, l_param);
   }
   return original(window, message, w_param, l_param);
 }

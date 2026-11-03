@@ -1,5 +1,15 @@
 # Full downstream play restoration plan
 
+## Window and cursor checkpoint — 2026-11-02
+
+The [window/cursor assessment](FEATURE-COHORT-20261102-WINDOW-CURSOR.md) covers
+reachable resize forwarding, custom/profile titles and plain-cursor behavior in
+their existing owners. Keep the Unicode/native-disabled corrections and admitted
+ID title intent. F11 and the captured-window fullscreen fallback were never
+installed in frozen source; they remain dormant. Native window/display evidence
+is separate. Continue the existing camera pan/backdrop source reconciliation,
+without activating parked orbit diagnostics, AAI or new upstream functionality.
+
 ## File namespace checkpoint — 2026-11-02
 
 The [path/persistence assessment](FEATURE-COHORT-20261102-PATH-PERSISTENCE.md)

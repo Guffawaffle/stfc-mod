@@ -1,5 +1,14 @@
 # Downstream play preservation target
 
+## Window titles, resize and cursor — 2026-11-02
+
+The [window/cursor cohort](FEATURE-COHORT-20261102-WINDOW-CURSOR.md) reconciles
+the reachable Windows behavior. Title retry cadence, cached composition and
+custom-routing activation are restored; unavailable Unity window procedures
+fall back to native handling. Cursor dispatch is retained. The never-installed
+F11/fullscreen experiment stays dormant, and native platform qualification remains
+separate from controlled checks. AAI stays deferred.
+
 ## File routing and log history — 2026-11-02
 
 The [path/persistence cohort](FEATURE-COHORT-20261102-PATH-PERSISTENCE.md) restores

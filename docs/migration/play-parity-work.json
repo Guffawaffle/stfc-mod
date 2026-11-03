@@ -141,12 +141,25 @@
       ],
       "status": "windows-boot-qualified-interaction-pending",
       "steps": [
-        "Restore actual play borderless/fullscreen behavior where current TODO is inert.",
+        "Preserve reachable resize/title/cursor behavior; keep never-installed F11/fullscreen fallback dormant.",
         "Verify resize/cursor/interface/viewer/ship/backdrop scale rather than porting duplicate owners.",
         "Exercise system/interior zoom, pan/glide, presets/defaults and original restoration.",
         "User-requested pan momentum/glide follow-up: compare matched PLAY/migration release behavior at identical zoom/falloff; qualify intended behavior before changing the migration one-movement-per-frame path. No separate drag-speed feature requested."
       ],
-      "trial": "Boot; window toggle/resize, section transitions, preset save/reload and zoom extremes."
+      "trial": "Boot; window toggle/resize, section transitions, preset save/reload and zoom extremes.",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "5c3637af61a3fb270db28f2610e95fe62666d5c6",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-WINDOW-CURSOR.md",
+          "scope": "Reachable Windows resize/title/cursor reconciliation; dormant F11/fullscreen kept off; admitted title IDs and Unicode forwarding retained.",
+          "localChecks": "423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections.",
+          "remaining": [
+            "Native window/display/cursor and current ABI fit",
+            "Existing camera pan/backdrop reconciliation; parked orbit diagnostics and AAI stay deferred"
+          ]
+        }
+      ]
     },
     {
       "id": "P09",

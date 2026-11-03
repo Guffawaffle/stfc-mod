@@ -1933,6 +1933,7 @@ void PlannedWarpBindingObservations()
 #include "loading_artwork_cases.h"
 #include "loading_tips_cases.h"
 #if _WIN32
+#include "window_bindings_cases.h"
 #include "cargo_bindings_cases.h"
 #include "shop_claims_cases.h"
 #include "reveal_confirmation_cases.h"
@@ -1954,6 +1955,12 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+#if _WIN32
+  if (argc == 2 && std::string_view(argv[1]).starts_with("window-")) {
+    WindowNativeCases(argv[1]);
+    return 0;
+  }
+#endif
   if (argc == 2 && std::string_view(argv[1]).starts_with("owner-exit-")) {
     ManagedOwnerExitCases(argv[1]);
     return 0; // The registered runtime-shutdown callback runs before process static destructors.

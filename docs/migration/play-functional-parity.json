@@ -5441,13 +5441,28 @@
       "verificationProcedure": "Resize/maximize, enabled/disabled, Unicode window procedure, existing window and multiple clients. F11 restoration is not required baseline functionality.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/window-cursor-20261102/: 423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Resize, F11 enter/exit, previous placement/styles, text focus, multiple windows and cursor clipping.",
+      "dependenciesAndLimitations": "Existing restart-only gates and live graphics settings retained. No real HWND/display/cursor trial or current native ABI/hook-fit result. Windows-only behavior; no Mac feature restored. Dormant F11/fullscreen trigger remains inactive.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-WINDOW.md",
+      "catalogStatus": "Windows source/controlled dispatch qualified; native window/display and exact-client hook fit remain separate",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "5c3637af61a3fb270db28f2610e95fe62666d5c6",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-WINDOW-CURSOR.md",
+          "scope": "Retained Unicode A/W forwarding and disabled Update original; missing/null saved Unity procedure uses original WndProc.",
+          "localChecks": "423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections.",
+          "remaining": "Native HWND/title/resize/cursor/display behavior and current-client ABI fit remain unqualified. Overall parity remains open; AAI deferred."
+        }
+      ]
     },
     {
       "id": "PLAY-CURSOR",
@@ -5466,13 +5481,28 @@
       "verificationProcedure": "Disable custom cursor, UI rescale, leave/reenter game; Windows-specific.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/window-cursor-20261102/: 423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Disable custom cursor, UI rescale, leave/reenter game; Windows-specific.",
+      "dependenciesAndLimitations": "Existing restart-only gates and live graphics settings retained. No real HWND/display/cursor trial or current native ABI/hook-fit result. Windows-only behavior; no Mac feature restored. Dormant F11/fullscreen trigger remains inactive.",
       "restorationCommits": [],
-      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks."
+      "activationAndDependencies": "Use the native screen/shortcut/setting stated in verificationProcedure; restart-only [patches] gates remain distinct from live feature settings. Dependencies and unknown binding behavior require the listed workflow checks.",
+      "contract": "docs/migration/features/PLAY-CURSOR.md",
+      "catalogStatus": "Windows source/controlled dispatch qualified; native window/display and exact-client hook fit remain separate",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "5c3637af61a3fb270db28f2610e95fe62666d5c6",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-WINDOW-CURSOR.md",
+          "scope": "Unchanged native/arrow/clipping dispatch, exact callback argument forwarding and live toggles covered; UI-scale companion retained.",
+          "localChecks": "423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections.",
+          "remaining": "Native HWND/title/resize/cursor/display behavior and current-client ABI fit remain unqualified. Overall parity remains open; AAI deferred."
+        }
+      ]
     },
     {
       "id": "PLAY-GAME-CONFIG",
@@ -8688,12 +8718,27 @@
       "verificationProcedure": "Ordinary title unchanged; legacy -ccm prefixes stem, immutable profile uses admitted ID. Test delayed window, Unicode/spaces and multiple clients. Presentation is not account identity.",
       "validation": {
         "staticSourceInspection": true,
-        "localAutomatedEvidence": [],
+        "localAutomatedEvidence": [
+          "D:/dev/stfc-workspace/artifacts/window-cursor-20261102/: 423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections."
+        ],
         "exactCandidateRuntime": "pending",
         "playerVerifiedFinalCandidate": false
       },
-      "dependenciesAndLimitations": "Ordinary title unchanged; legacy -ccm prefixes stem, immutable profile uses admitted ID. Test delayed window, Unicode/spaces and multiple clients. Presentation is not account identity.",
-      "restorationCommits": []
+      "dependenciesAndLimitations": "Existing restart-only gates and live graphics settings retained. No real HWND/display/cursor trial or current native ABI/hook-fit result. Windows-only behavior; no Mac feature restored. Dormant F11/fullscreen trigger remains inactive.",
+      "restorationCommits": [],
+      "contract": "docs/migration/features/PLAY-WINDOW-PROFILE-TITLE.md",
+      "catalogStatus": "Windows source/controlled dispatch qualified; native window/display and exact-client hook fit remain separate",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "5c3637af61a3fb270db28f2610e95fe62666d5c6",
+          "frozenRevision": "1baa55fedf1758b19f843cc59707b8901a0b4998",
+          "cohort": "docs/migration/FEATURE-COHORT-20261102-WINDOW-CURSOR.md",
+          "scope": "Restore custom-routing activation, one-second retries, nonempty actual reads and cached desired title. Keep admitted ID; empty human stem derives from selected config filename rather than frozen extension mutation.",
+          "localChecks": "423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections.",
+          "remaining": "Native HWND/title/resize/cursor/display behavior and current-client ABI fit remain unqualified. Overall parity remains open; AAI deferred."
+        }
+      ]
     },
     {
       "id": "SET-WARP-FILTERS",
@@ -10186,11 +10231,15 @@
     "worktree": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
     "latestContinuation": {
       "date": "2026-11-02",
-      "document": "docs/migration/FEATURE-COHORT-20261102-PATH-PERSISTENCE.md",
-      "capabilities": ["PLAT-PATHS", "PLAT-MAC-LOG"],
-      "status": "First -ccm selection and common fallback log history corrected; Windows core compilation and owned real-file/supplied-context checks qualify selected routes and preserved cleanup bytes. Native Mac/profile-host acceptance remains separate. Older currentRuntime fields below are historical observations, not a current-session selector.",
-      "scope": "AAI deferred by Guff; Mcohall tests existing Mac pre-release as work proceeds. No new local source-bound Mac result supplied here.",
-      "next": "Window/profile-title and cursor source reconciliation in existing owners. Preserve parked diagnostics/orbit/AAI decisions; no overall parity claim."
+      "document": "docs/migration/FEATURE-COHORT-20261102-WINDOW-CURSOR.md",
+      "capabilities": [
+        "PLAY-WINDOW",
+        "PLAY-WINDOW-PROFILE-TITLE",
+        "PLAY-CURSOR"
+      ],
+      "status": "Title source preservation and safe Unity-procedure fallback qualified by Windows compilation and controlled consumers. Cursor unchanged. Native platform/ABI acceptance remains separate; older runtime fields are historical observations, not current-session selectors.",
+      "scope": "AAI and new upstream features deferred. No game input/cycle/config edit/deploy or new pre-release.",
+      "next": "Existing camera pan/backdrop frozen-source reconciliation. Preserve parked diagnostics/orbit decisions; no overall parity claim."
     },
     "status": "Audio/notification cohort source-reconciled,428/428 Windows regression and native startup qualified; main ordinary cycle performed. Optional player notification/audio trial pending. Signed84584fa4 basic Mac preset reorder/save-display trial accepted separately.",
     "renamedFrom": "feature/migrate-play-feature-pilots-20261026",
