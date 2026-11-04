@@ -6,8 +6,8 @@ Existing `play-dev-ripper`, starting head
 [donation](features/PLAY-DONATION.md) and
 [dock assignment](features/PLAY-DOCK-ASSIGN.md). This slice reconciles those two
 existing core features. AAI, new upstream features and parked diagnostics remain
-deferred. This record qualifies bounded local fixtures; current-client runtime,
-signed source checkpoint and review remain separate. Both inventory
+deferred. This record qualifies bounded local fixtures and the reviewed signed
+source checkpoint below; current-client runtime remains separate. Both inventory
 classifications remain Partial.
 
 ## Corrections and retained behavior
@@ -153,8 +153,31 @@ established. `mac-builds.json` and the two `after-macos-*` logs preserve this
 limitation. Linux common-branch fixtures cannot qualify native Mac hooking,
 rendering or resource behavior.
 
-Final signed source checkpoint, signature result and three-lane review receipt
-remain pending. No unsigned working tree is described as a signed release.
+## Signed source and review
+
+Signed source checkpoint `5a1ae2aa5e578bede65a4532c56749747a32bef3` has a good
+signature; local signer trust remains unknown. `source-signature.log` and
+`source-checkpoint.json` preserve that result. This is a local source checkpoint,
+not a signed release or deployment.
+
+General, hostile and independent read-only reviews found no confirmed production
+defects or blocking findings against base `5d7613d0`, diff hash
+`1bddcbca5bff0f82e8c58ce1bd1e0f64ca335917`. `review-receipt.json` binds the exact
+head, base, merge-base, ten changed files and constraint input. All 479 source
+hashes, the retained baseline/final fixture binaries, late-parent baseline and
+Windows core library matched their records. Reviewers did not execute fixtures
+or native game actions; the earlier controlled runs supply that evidence.
+
+General and independent review identified one P3 maintenance suggestion: the new
+argument-only modes are absent from the ordinary `test-il2cpp` run lists. Their
+explicit 38 Windows and 36 Linux invocations qualify this checkpoint, while
+automatic registration with the existing target remains deferred coverage work.
+An ordinary target run alone does not exercise these new cases.
+
+The receipt uses static-persona constraints because the LexSona memory lookup
+was unavailable. Exact Git and input hashes still bind the review. The documented
+borrowed-snapshot, frame-cached focus, non-atomic hierarchy and native platform
+limits remain open; review does not turn them into qualified runtime behavior.
 
 Guff's earlier basic Windows donation/dock acceptance remains attached to its
 tested pilot artifact. It does not qualify this continuation's changed bytes,
@@ -164,5 +187,5 @@ in the dock contract; these bounded fixes do not claim full source equivalence.
 
 No runtime session, game/sidecar cycle, live TOML/config change, deployment,
 pre-release replacement or remote write belongs to this controlled evidence
-record. The two scoped inventory assessments retain Partial; final source
-review and promotion remain open.
+record. The two scoped inventory assessments retain Partial; current-artifact
+native/gameplay qualification and promotion remain open.

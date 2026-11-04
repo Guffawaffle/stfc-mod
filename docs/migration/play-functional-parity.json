@@ -2234,6 +2234,7 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5d7613d0383c91b6c051fecdc6605f707224ae0e",
+            "implementationCommit": "5a1ae2aa5e578bede65a4532c56749747a32bef3",
             "inputManifest": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/final-source-inputs.json"
           },
           "cohort": "docs/migration/FEATURE-COHORT-20261103-DONATION-DOCK.md",
@@ -2266,7 +2267,7 @@
           "remaining": [
             "Whole borrowed-snapshot custody, source bounded/latest ordering versus target all/construction ordering and inherited no-episode-reset pairing",
             "Current-client ABI/hook fit, native lifetime behavior, rendered interaction and platform acceptance",
-            "Final source checkpoint, signature and review receipt pending"
+            "New argument-only fixture modes require explicit invocation; automatic registration with the existing test target is deferred"
           ],
           "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103"
         }
@@ -5766,6 +5767,7 @@
           "target": {
             "branch": "play-dev-ripper",
             "base": "5d7613d0383c91b6c051fecdc6605f707224ae0e",
+            "implementationCommit": "5a1ae2aa5e578bede65a4532c56749747a32bef3",
             "inputManifest": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/final-source-inputs.json"
           },
           "cohort": "docs/migration/FEATURE-COHORT-20261103-DONATION-DOCK.md",
@@ -5796,7 +5798,7 @@
           "remaining": [
             "Intentional scoped Mac behavior differs from frozen global slider changes; native Mac build/hook/runtime remain unqualified",
             "Current-client ABI/hook fit, rendered controls, resource behavior and extended native edges",
-            "Final source checkpoint, signature and review receipt pending"
+            "New argument-only fixture modes require explicit invocation; automatic registration with the existing test target is deferred"
           ],
           "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103"
         }
