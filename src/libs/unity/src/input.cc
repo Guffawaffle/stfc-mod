@@ -16,11 +16,11 @@ namespace
   // On an idle frame anyKey is false and no key is asked about at all; otherwise each key is one internal call.
   // The optional members cache a read for the rest of the frame.
   struct Frame {
-    int32_t             number   = -1;
-    bool                any_held = false;
-    bool                any_down = false;
-    std::optional<bool> focused;
-    std::optional<bool> modified;
+    int32_t                                 number   = -1;
+    bool                                    any_held = false;
+    bool                                    any_down = false;
+    std::optional<il2cpp::CallResult<bool>> focused;
+    std::optional<bool>                     modified;
     // Indexed [down][key].
     std::array<std::array<std::optional<bool>, std::to_underlying(KeyCode::Max)>, 2> keys{};
 
@@ -93,22 +93,34 @@ namespace Key
 
   bool IsInputFocused()
   {
+    const auto focus = TryIsInputFocused();
+    return !focus || focus.value;
+  }
+
+  il2cpp::CallResult<bool> TryIsInputFocused()
+  {
     if (!frame.focused) {
       const auto event_system = EventSystem::Class::TryCall<"get_current", EventSystem*>();
-      // An unavailable observation cannot release typed keys to gameplay shortcuts.
-      // Reserve this frame for native input and retry on the next frame.
-      frame.focused = !event_system || InputFocused(event_system.value).value_or(true);
+      const auto focus        = event_system ? InputFocused(event_system.value) : std::nullopt;
+      frame.focused           = focus ? il2cpp::CallResult<bool>{true, *focus} : il2cpp::CallResult<bool>{};
     }
     return *frame.focused;
   }
 
-  void ClearInputFocus()
+  il2cpp::CallResult<bool> ClearInputFocus()
   {
-    const auto event_system = EventSystem::Class::TryCall<"get_current", EventSystem*>();
-    if (event_system && InputFocused(event_system.value).value_or(false))
-      event_system.value->SetSelectedGameObject(nullptr);
+    il2cpp::CallResult<bool> cleared;
+    const auto               event_system = EventSystem::Class::TryCall<"get_current", EventSystem*>();
+    const auto               focus        = event_system ? InputFocused(event_system.value) : std::nullopt;
+    if (focus) {
+      if (!*focus)
+        cleared = {true, false};
+      else if (event_system.value->TryCall<"SetSelectedGameObject", void(GameObject*)>(nullptr))
+        cleared = {true, true};
+    }
     // Selection callbacks can focus another field. Re-read the actual focus on the next query this frame.
     frame.focused.reset();
+    return cleared;
   }
 } // namespace Key
 } // namespace unity

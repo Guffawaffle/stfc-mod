@@ -28,6 +28,24 @@ namespace
 // The frame tick dispatches shortcuts whether or not this feature installed; this says whether it did.
 bool hotkeys_installed = false;
 
+// A debug-only scalar sample helps distinguish text ownership, capture and stuck modifiers in intermittent
+// reports. Reuse the dispatcher's focus observation; do not move focus queries ahead of native callbacks.
+void TraceHotkeyInput(std::optional<il2cpp::CallResult<bool>> focus)
+{
+#ifdef _MODDBG
+  if (!spdlog::should_log(spdlog::level::debug) || !unity::Input::anyKeyDown())
+    return;
+  static std::optional<std::chrono::steady_clock::time_point> last;
+  const auto                                                  now = std::chrono::steady_clock::now();
+  if (last && now - *last < std::chrono::seconds(2))
+    return;
+  last = now;
+  spdlog::debug("[Hotkeys] input-state frame={} capture={} text_sampled={} text_known={} text_focused={} modifier={}",
+                unity::Time::frameCount(), Shortcut::CaptureBlocksShortcuts(), focus.has_value(),
+                focus && focus->succeeded, focus && focus->succeeded && focus->value, unity::Key::IsModified());
+#endif
+}
+
 // --- Setting shortcuts ---
 
 template <auto Section, auto Setting, gameplay_settings::Boolean Option> void ToggleSetting()
@@ -149,6 +167,7 @@ bool HandleShortcuts()
 {
   // Capture also owns mode toggles, awaited buttons, ship selection and Escape. Let native UI keep its Update.
   if (Shortcut::CaptureBlocksShortcuts()) {
+    TraceHotkeyInput(std::nullopt);
     CancelAwaitedButton();
     return false;
   }
@@ -183,7 +202,9 @@ bool HandleShortcuts()
     return false;
 
   // Keys typed into a text field (chat, search) are text, not shortcuts.
-  const bool typing = unity::Key::IsInputFocused();
+  const auto focus  = unity::Key::TryIsInputFocused();
+  const bool typing = !focus || focus.value;
+  TraceHotkeyInput(focus);
   if (!typing && Shortcut::IsDown(Action::kToggleShortcutHints) && ToggleKeybindBadges())
     return true;
 
@@ -211,8 +232,10 @@ bool HandleShortcuts()
   // The game only clears a focused text field from its back button; Escape should too.
   const bool in_chat = Hub::IsInChat();
   if (unity::Key::Pressed(unity::KeyCode::Escape) && (typing || in_chat)) {
-    unity::Key::ClearInputFocus();
-    return true;
+    const auto cleared = unity::Key::ClearInputFocus();
+    // Unknown focus or a failed clear must leave native Escape recovery available. Keep the existing full-chat
+    // handling when text focus is known absent; do not fall through to the mod's exit-key suppression.
+    return cleared && (cleared.value || in_chat);
   }
 
   if (in_chat) {

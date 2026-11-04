@@ -483,7 +483,11 @@ namespace Key
   // A TextMeshPro input field has keyboard focus, so typing must not trigger shortcuts.
   // Unavailable focus observations also reserve keys for native input until the next frame.
   bool IsInputFocused();
+  // The same frame-cached observation, preserving unavailable versus a known focus value.
+  il2cpp::CallResult<bool> TryIsInputFocused();
   // Takes keyboard focus away from the focused input field. Unity UI only does this on a click elsewhere.
-  void ClearInputFocus();
+  // Unavailable focus or a failed clear is failure; success/false means no focused field, success/true means a
+  // clear-selection invocation succeeded. A successful invocation does not establish observed blur.
+  il2cpp::CallResult<bool> ClearInputFocus();
 } // namespace Key
 } // namespace unity

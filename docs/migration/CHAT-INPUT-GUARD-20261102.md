@@ -4,6 +4,12 @@ The later [side-chat mouse primary correction](CHAT-MOUSE-PRIMARY-20261102.md)
 addresses mouse ownership over chat rows. It is separate from this typing-focus
 correction and retains its conservative unavailable-focus behavior.
 
+The subsequent [Escape recovery correction](CHAT-FOCUS-RECOVERY-20261103.md)
+preserves this typing guard while leaving native Escape available when focus is
+unavailable or a clear-selection invocation fails, including a fresh failure
+after an initially known unfocused snapshot. Its controlled result does not
+establish the cause of the intermittent player report.
+
 Guff reports that chat intermittently stops owning typed keys: Enter stops
 working and the configured faction-store shortcut opens the store. Reported
 after loading the typed refactor branch. Exact full/side view, native focus

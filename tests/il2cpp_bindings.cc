@@ -359,11 +359,14 @@ unity::GameObject     selected_object{};
 unity::TMP_InputField input_field{};
 unity::GameObject*    selected         = &selected_object;
 bool                  has_event_system = true, has_input_field = true, redirect_selection = false;
-bool                  component_lookup_throws = false;
+bool                  component_lookup_throws    = false;
 bool                  event_system_lookup_throws = false, selected_lookup_throws = false;
 bool                  input_focus_throws = false, input_field_focused = true;
-int                   event_system_reads      = 0;
-int                   component_lookup_calls  = 0;
+bool                  selection_set_throws = false, selection_set_throws_after = false;
+int                   event_system_reads     = 0;
+int                   component_lookup_calls = 0;
+int                   selection_set_calls    = 0;
+int                   input_focus_reads = 0, input_focus_throw_at = 0;
 
 unity::EventSystem* EventSystem_get_current(const MethodInfo*)
 {
@@ -383,7 +386,15 @@ unity::GameObject* EventSystem_get_selected(unity::EventSystem*, const MethodInf
   return selected;
 }
 void EventSystem_set_selected(unity::EventSystem*, unity::GameObject* value, const MethodInfo*)
-{ selected = redirect_selection ? &selected_object : value; }
+{
+  ++selection_set_calls;
+  static Il2CppException exception{};
+  if (selection_set_throws)
+    throw Il2CppExceptionWrapper(&exception);
+  selected = redirect_selection ? &selected_object : value;
+  if (selection_set_throws_after)
+    throw Il2CppExceptionWrapper(&exception);
+}
 unity::TMP_InputField* GameObject_get_component(unity::GameObject*, Il2CppObject*, const MethodInfo*)
 {
   ++component_lookup_calls;
@@ -395,7 +406,8 @@ unity::TMP_InputField* GameObject_get_component(unity::GameObject*, Il2CppObject
 }
 bool InputField_get_focused(unity::TMP_InputField*, const MethodInfo*)
 {
-  if (input_focus_throws) {
+  ++input_focus_reads;
+  if (input_focus_throws || input_focus_reads == input_focus_throw_at) {
     static Il2CppException exception{};
     throw Il2CppExceptionWrapper(&exception);
   }
@@ -2139,6 +2151,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "chat-focus-unavailable") {
     HotkeyFocusNativeCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]).starts_with("chat-focus-recovery-")) {
+    HotkeyFocusRecoveryNativeCases(argv[1]);
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "chat-pointer-primary") {
