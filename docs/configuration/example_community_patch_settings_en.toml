@@ -160,6 +160,8 @@ galaxy_extended_selection = false
 galaxy_multi_select = false
 # Static, source-qualified station-housing indicator; not live docking-slot availability.
 galaxy_station_housing = false
+# Mark known Plasma Storm systems from the community reference; does not show free anchoring slots.
+galaxy_starbase_systems = false
 galaxy_overlay_default = true
 galaxy_overlay_mining = false
 galaxy_overlay_hostiles = false

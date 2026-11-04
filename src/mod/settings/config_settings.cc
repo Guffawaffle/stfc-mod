@@ -632,6 +632,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
   Boolean(catalog, "community_mod.galaxy", "graphics", "galaxy_station_housing", "Station housing",
           ACCESS(graphics, galaxy_station_housing), galaxy_controls::HousingAvailable, Timing::Live,
           "Show housing-capable systems, not free station slots.", galaxy_controls::Refresh);
+  Boolean(catalog, "community_mod.galaxy", "graphics", "galaxy_starbase_systems", "Alliance Starbase systems",
+          ACCESS(graphics, galaxy_starbase_systems), galaxy_controls::StarbaseAvailable, Timing::Live,
+          "Show known Plasma Storm systems for Alliance Starbase deployment.", galaxy_controls::Refresh);
   Boolean(catalog, "community_mod.galaxy", "graphics", "galaxy_multi_select", "Select multiple overlays",
           ACCESS(graphics, galaxy_multi_select), galaxy_controls::LabelsAvailable, Timing::Live,
           "Select several Galaxy overlays together.", galaxy_controls::Refresh);

@@ -205,6 +205,7 @@ public:
     bool                         galaxy_extended_selection = false;
     bool                         galaxy_multi_select       = false;
     bool                         galaxy_station_housing    = false;
+    bool                         galaxy_starbase_systems   = false;
     std::array<bool, 4>          galaxy_overlays{true, false, false, false}; // Default, Mining, Hostiles, Hazards.
     galaxy_controls::ZoomProfile galaxy_label_major{galaxy_controls::ZoomMode::Native, .5f};
     galaxy_controls::ZoomProfile galaxy_label_minor{galaxy_controls::ZoomMode::Native, .5f};

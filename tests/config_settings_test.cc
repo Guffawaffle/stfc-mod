@@ -38,6 +38,8 @@ const ConfigSaveFixtureDirectory              directory;
 const std::string                             config_name = "settings.toml", vars_name = "runtime.vars";
 size_t                                        path_reads = 0, ship_rescales = 0, queue_resets = 0;
 size_t                                        fleet_label_refreshes = 0;
+size_t                                        galaxy_refreshes      = 0;
+bool                                          starbase_available    = false;
 size_t                                        save_calls            = 0;
 std::vector<FeatureInstallation>              features;
 std::set<std::string>                         registered;
@@ -198,7 +200,10 @@ bool SelectionAvailable()
 { return false; }
 bool HousingAvailable()
 { return false; }
-void Refresh() {}
+bool StarbaseAvailable()
+{ return starbase_available; }
+void Refresh()
+{ ++galaxy_refreshes; }
 void SetOverlay(int32_t, bool) {}
 } // namespace galaxy_controls
 namespace mission_hud
@@ -357,6 +362,25 @@ int main()
   Check(cargo->status_text().find("file changed externally") != std::string::npos,
         "writer conflicts remain visible through the model");
   conflict = false;
+
+  auto* starbase = Find<BooleanSetting>(catalog, "graphics.galaxy_starbase_systems");
+  Check(starbase && registered.contains("graphics.galaxy_starbase_systems") && !starbase->Observe().state.known(),
+        "Alliance Starbase setting is registered but unavailable without its own catalog");
+  starbase_available = true;
+  Check(starbase->Observe().state.value == false, "Alliance Starbase marker defaults to disabled");
+  const auto galaxy_before = galaxy_refreshes;
+  Check(starbase->SetFromUser(true, starbase->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().graphics.galaxy_starbase_systems && !Config::Get().graphics.galaxy_station_housing
+            && std::get<bool>(saved.at("graphics.galaxy_starbase_systems")) && galaxy_refreshes == galaxy_before + 1,
+        "Alliance Starbase toggle persists its exact key and refreshes independently of Housing");
+  starbase_available = false;
+  Check(!starbase->Observe().state.known() && Config::Get().graphics.galaxy_starbase_systems,
+        "unavailable starbase evidence does not rewrite the stored preference");
+  starbase_available = true;
+  Check(starbase->SetFromUser(false, starbase->Observe()).outcome == Outcome::AppliedVerified
+            && galaxy_refreshes == galaxy_before + 2,
+        "disabling Alliance Starbase markers requests live cleanup");
+  starbase_available = false;
 
   auto* extended = Find<BooleanSetting>(catalog, "control.hotkeys_extended");
   Check(extended && extended->SetFromUser(false, extended->Observe()).outcome == Outcome::AppliedVerified

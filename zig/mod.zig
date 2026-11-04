@@ -192,6 +192,7 @@ pub fn embedImages(ctx: *const Ctx, module: *std.Build.Module) void {
         .{ "embedded_logo_image.h", "g_embeddedLogoImage", b.path("assets/stfc-mod-logo.png") },
         .{ "embedded_cc_logo_image.h", "g_embeddedCCLogoImage", b.path("assets/guffawaffle-build-badge.png") },
         .{ "embedded_station_housing.h", "g_embeddedStationHousing", b.path("assets/data/station_housing.json") },
+        .{ "embedded_starbase_systems.h", "g_embeddedStarbaseSystems", b.path("assets/data/starbase_systems.json") },
     };
     for (table) |entry| {
         const header, const symbol, const path = entry;

@@ -1,10 +1,12 @@
-// Galaxy labels: independent major/minor zoom profiles, native overlay multi-selection, housing markers.
+// Galaxy labels: independent zoom profiles, native overlays, station housing and Alliance Starbase markers.
 // The camera and NavigationLOD detours are shared with existing system-fleet labels.
 #include "features/galaxy.h"
 #include "config.h"
+#include "embedded_starbase_systems.h"
 #include "embedded_station_housing.h"
 #include "features/features.h"
 #include "galaxy_housing_data.h"
+#include "galaxy_starbase_data.h"
 #include "game/galaxy.h"
 #include "runtime_config.h"
 #include <algorithm>
@@ -31,31 +33,45 @@ struct GalaxyShift {
   float            spacing = 0, min_width = -1, preferred_width = -1;
   bool             ignore_layout = false;
 };
+enum class GalaxyMarkerKind : size_t { Housing, Starbase };
+struct GalaxyMarker {
+  il2cpp::GcHandle object;
+  bool             ready = false;
+};
+struct GalaxyMarkerStyle {
+  const char*  object;
+  const char*  glyph;
+  unity::Color color;
+};
+constexpr std::array<GalaxyMarkerStyle, 2> kGalaxyMarkerStyles{{
+    {"CommunityMod.StationHousing", "HousingIcon", {.45f, .9f, 1.f, 1.f}},
+    {"CommunityMod.AllianceStarbase", "StarbaseIcon", {1.f, .85f, .2f, 1.f}},
+}};
 struct GalaxyStarBinding {
   il2cpp::GcHandle                          owner;
   gb::Node                                  node;
   uint64_t                                  generation = 0;
   std::vector<std::shared_ptr<GalaxyShift>> shifts;
-  il2cpp::GcHandle                          housing;
-  bool                                      housing_ready = false;
+  std::array<GalaxyMarker, 2>               markers;
   bool                                      rendering = false, restoring = false, releasing = false;
 };
 struct GalaxyState {
-  bool                       installed = false, refreshing = false, maintaining = false, zoom_known = false, refresh = true;
-  bool                       last_multi = false, last_housing = false;
-  bool                       pending_layout_cleanup = false, pending_housing_cleanup = false;
-  std::thread::id            thread;
-  uint64_t                   generation = 0, mode_revision = 0;
-  il2cpp::GcHandle           camera;
-  float                      normalized = 0;
-  ZoomLevels                 level      = ZoomLevels::None;
-  const Config*              config     = nullptr;
-  std::array<ZoomProfile, 2> profiles{};
+  bool             installed = false, refreshing = false, maintaining = false, zoom_known = false, refresh = true;
+  bool             last_multi = false, last_housing = false, last_starbase = false;
+  bool             pending_layout_cleanup = false, pending_housing_cleanup = false, pending_starbase_cleanup = false;
+  std::thread::id  thread;
+  uint64_t         generation = 0, mode_revision = 0;
+  il2cpp::GcHandle camera;
+  float            normalized = 0;
+  ZoomLevels       level      = ZoomLevels::None;
+  const Config*    config     = nullptr;
+  std::array<ZoomProfile, 2>                              profiles{};
   std::map<gb::Star*, std::shared_ptr<GalaxyStarBinding>> stars;
   std::map<gb::Filter*, il2cpp::GcHandle>                 filters;
   std::map<NavigationLOD*, il2cpp::GcHandle>              lods;
   std::map<gb::ZoomHandler*, il2cpp::GcHandle>            handlers;
   std::optional<HousingData>                              housing;
+  std::optional<StarbaseData>                             starbase;
   gb::Star*                                               batching = nullptr;
   std::array<bool, 4>                                     combined{};
   bool                                                    saw_name = false;
@@ -98,12 +114,12 @@ bool GalaxySetActive(unity::GameObject* object, bool desired)
   value = object->TryCall<"get_activeSelf", bool>();
   return value && value.value == desired;
 }
-bool GalaxyRemoveHousing(GalaxyStarBinding& binding)
+bool GalaxyRemoveMarker(GalaxyMarker& marker)
 {
-  auto* observed = binding.housing.Get();
+  auto* observed = marker.object.Get();
   if (!observed) {
-    binding.housing.Reset();
-    binding.housing_ready = false;
+    marker.object.Reset();
+    marker.ready = false;
     return true;
   }
   auto root = il2cpp::GcHandle::Strong(observed);
@@ -113,17 +129,41 @@ bool GalaxyRemoveHousing(GalaxyStarBinding& binding)
   if (!alive)
     return false;
   if (!alive.value) {
-    binding.housing.Reset();
-    binding.housing_ready = false;
-    return true;
+    if (marker.object.Get() == observed) {
+      marker.object.Reset();
+      marker.ready = false;
+    }
+    return !marker.object;
   }
   (void)GalaxySetActive(root.Get<unity::GameObject>(), false);
   if (!unity::UnityObject::Class::TryCall<"Destroy", void(unity::UnityObject*)>(
           reinterpret_cast<unity::UnityObject*>(root.Get())))
     return false;
-  binding.housing.Reset(); // Unity owns the successfully scheduled deferred destruction.
-  binding.housing_ready = false;
-  return true;
+  if (marker.object.Get() == observed) {
+    marker.object.Reset(); // Unity owns the successfully scheduled deferred destruction.
+    marker.ready = false;
+  }
+  return !marker.object;
+}
+bool GalaxyRemoveMarkers(GalaxyStarBinding& binding)
+{
+  bool complete = true;
+  for (auto& marker : binding.markers)
+    if (!GalaxyRemoveMarker(marker))
+      complete = false; // Each slot owns independent cleanup, including when the first one fails.
+  return complete;
+}
+bool GalaxyMarkersEmpty(const GalaxyStarBinding& binding)
+{
+  return std::ranges::none_of(binding.markers, [](const auto& marker) { return bool(marker.object); });
+}
+void GalaxyHideMarkers(GalaxyStarBinding& binding)
+{
+  for (auto& marker : binding.markers) {
+    auto root = il2cpp::GcHandle::Strong(marker.object.Get());
+    if (root)
+      (void)GalaxySetActive(root.Get<unity::GameObject>(), false);
+  }
 }
 bool GalaxyRestore(const std::shared_ptr<GalaxyStarBinding>& binding)
 {
@@ -149,15 +189,17 @@ bool GalaxyRestore(const std::shared_ptr<GalaxyStarBinding>& binding)
   };
   while (!binding->shifts.empty()) {
     auto shift = binding->shifts.back(); // Native callbacks may mutate other records; retain this snapshot itself.
-    if (!restore_component(shift->element, [&](Il2CppObject* object) {
-          auto* element = reinterpret_cast<unity::LayoutElement*>(object);
-          return element->TryCall<"set_minWidth", void(float)>(shift->min_width)
-                 && element->TryCall<"set_preferredWidth", void(float)>(shift->preferred_width)
-                 && element->TryCall<"set_ignoreLayout", void(bool)>(shift->ignore_layout);
-        })
+    if (!restore_component(shift->element,
+                           [&](Il2CppObject* object) {
+                             auto* element = reinterpret_cast<unity::LayoutElement*>(object);
+                             return element->TryCall<"set_minWidth", void(float)>(shift->min_width)
+                                    && element->TryCall<"set_preferredWidth", void(float)>(shift->preferred_width)
+                                    && element->TryCall<"set_ignoreLayout", void(bool)>(shift->ignore_layout);
+                           })
         || !restore_component(shift->group, [&](Il2CppObject* object) {
              return reinterpret_cast<unity::HorizontalLayoutGroup*>(object)
-                 ->TryCall<"set_spacing", void(float)>(shift->spacing).succeeded;
+                 ->TryCall<"set_spacing", void(float)>(shift->spacing)
+                 .succeeded;
            }))
       return false;
     auto* observed = shift->target.Get();
@@ -168,16 +210,16 @@ bool GalaxyRestore(const std::shared_ptr<GalaxyStarBinding>& binding)
     auto root = il2cpp::GcHandle::Strong(observed);
     if (!root)
       return false;
-    auto* target = root.Get<unity::RectTransform>();
-    const auto alive = unity::TryAlive(target);
+    auto*      target = root.Get<unity::RectTransform>();
+    const auto alive  = unity::TryAlive(target);
     if (!alive)
       return false;
     if (!alive.value) {
       binding->shifts.pop_back();
       continue;
     }
-    auto parent_root = il2cpp::GcHandle::Strong(shift->parent.Get());
-    auto* parent = parent_root.Get<unity::Transform>();
+    auto       parent_root  = il2cpp::GcHandle::Strong(shift->parent.Get());
+    auto*      parent       = parent_root.Get<unity::Transform>();
     const auto parent_alive = parent ? unity::TryAlive(parent) : il2cpp::CallResult<bool>{};
     if (!parent_alive || !parent_alive.value
         || !target->TryCall<"SetParent", void(unity::Transform*, bool)>(parent, false)
@@ -197,13 +239,17 @@ std::shared_ptr<GalaxyStarBinding> GalaxyTrack(gb::Star* star)
   if (!star->Bound())
     return {};
   const auto previous = Galaxy().stars.find(star);
-  auto existing = previous == Galaxy().stars.end() ? nullptr : previous->second;
+  auto       existing = previous == Galaxy().stars.end() ? nullptr : previous->second;
   if (existing && SameGalaxyBinding(star, existing))
     return existing;
   // An expired/replaced weak owner at the same address still owns its old cleanup journal. Do not overwrite it.
 
-  if (existing && (!GalaxyRestore(existing) || !GalaxyRemoveHousing(*existing)))
-    return {};
+  if (existing) {
+    const bool restored = GalaxyRestore(existing);
+    const bool removed  = GalaxyRemoveMarkers(*existing);
+    if (!restored || !removed)
+      return {};
+  }
   const auto after_cleanup = Galaxy().stars.find(star);
   if (existing && (after_cleanup == Galaxy().stars.end() || after_cleanup->second != existing))
     return {}; // A reentrant bind/release owns its replacement record.
@@ -357,16 +403,25 @@ void GalaxyIconLayout(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& 
   if (index && own)
     target->Call<"SetSiblingIndex">(index.value - (own.value < index.value ? 1 : 0));
 }
-void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& binding, ZoomLevels level)
+bool GalaxyMarkerEnabled(GalaxyMarkerKind kind)
 {
-  auto& state = Galaxy();
-  if (auto* marker = binding->housing.Get<unity::GameObject>())
-    (void)GalaxySetActive(marker, false);
-  if (!Config::Get().graphics.galaxy_station_housing || !state.housing || level != ZoomLevels::Near
-      || !SameGalaxyBinding(star, binding))
-    return;
-  const auto id = gb::NodeId(star->Context());
-  if (!id || state.housing->Contains(*id) != std::optional(true))
+  return kind == GalaxyMarkerKind::Housing ? Config::Get().graphics.galaxy_station_housing
+                                           : Config::Get().graphics.galaxy_starbase_systems;
+}
+std::array<bool, 2> GalaxyMarkerEligibility(int64_t id, ZoomLevels level)
+{
+  if (level != ZoomLevels::Near)
+    return {};
+  const auto& state = Galaxy();
+  return {GalaxyMarkerEnabled(GalaxyMarkerKind::Housing) && state.housing
+              && state.housing->Contains(id) == std::optional(true),
+          GalaxyMarkerEnabled(GalaxyMarkerKind::Starbase) && state.starbase && state.starbase->Find(id).has_value()};
+}
+void GalaxyRenderMarker(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& binding, GalaxyMarkerKind kind)
+{
+  auto&       marker = binding->markers[static_cast<size_t>(kind)];
+  const auto& style  = kGalaxyMarkerStyles[static_cast<size_t>(kind)];
+  if (!GalaxyMarkerEnabled(kind) || !SameGalaxyBinding(star, binding))
     return;
   auto  label_root = il2cpp::GcHandle::Strong(star->Name());
   auto  graphic    = il2cpp::GcHandle::Strong(label_root ? label_root.Get<TextLocalizer>()->Target() : nullptr);
@@ -378,9 +433,9 @@ void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& bin
   if (!label || !label->gameObject() || !label->gameObject()->activeInHierarchy() || !row || !row->gameObject()
       || !row->gameObject()->GetComponent<unity::HorizontalLayoutGroup>())
     return;
-  if (binding->housing && !binding->housing_ready && !GalaxyRemoveHousing(*binding))
+  if (marker.object && !marker.ready && !GalaxyRemoveMarker(marker))
     return;
-  auto* existing_marker = binding->housing.Get();
+  auto* existing_marker = marker.object.Get();
   auto  marker_root     = il2cpp::GcHandle::Strong(existing_marker);
   if (existing_marker && !marker_root)
     return;
@@ -388,8 +443,8 @@ void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& bin
   if (!marker_alive)
     return;
   if (marker_root && !marker_alive.value) {
-    binding->housing.Reset();
-    binding->housing_ready = false;
+    marker.object.Reset();
+    marker.ready = false;
     marker_root.Reset();
   }
   if (!marker_root) {
@@ -402,12 +457,12 @@ void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& bin
     auto  sprite_root = il2cpp::GcHandle::Strong(image ? image->sprite() : nullptr);
     if (!sprite_root || !unity::Alive(sprite_root.Get()) || !SameGalaxyBinding(star, binding))
       return;
-    auto* rect = unity::CreateUiObject("CommunityMod.StationHousing", row, marker_root);
+    auto* rect = unity::CreateUiObject(style.object, row, marker_root);
     if (!rect || !marker_root)
       return;
     // Publish custody before native setters; release/rebind can safely destroy a partially built marker.
-    binding->housing = std::move(marker_root);
-    marker_root      = il2cpp::GcHandle::Strong(binding->housing.Get());
+    marker.object = std::move(marker_root);
+    marker_root   = il2cpp::GcHandle::Strong(marker.object.Get());
     if (!marker_root)
       return;
     auto* object = marker_root.Get<unity::GameObject>();
@@ -415,7 +470,7 @@ void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& bin
     rect->Call<"set_sizeDelta">(unity::Vector2{36.f, 32.f});
     auto* element = object->AddComponent<unity::LayoutElement>();
     if (!element) {
-      (void)GalaxyRemoveHousing(*binding);
+      (void)GalaxyRemoveMarker(marker);
       return;
     }
     element->Call<"set_minWidth">(36.f);
@@ -423,9 +478,9 @@ void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& bin
     element->Call<"set_preferredHeight">(32.f);
     element->Call<"set_flexibleWidth">(0.f);
     il2cpp::GcHandle glyph_root;
-    auto*            glyph = unity::CreateUiObject("HousingIcon", rect, glyph_root);
+    auto*            glyph = unity::CreateUiObject(style.glyph, rect, glyph_root);
     if (!glyph || !glyph_root) {
-      (void)GalaxyRemoveHousing(*binding);
+      (void)GalaxyRemoveMarker(marker);
       return;
     }
     auto* glyph_object = glyph_root.Get<unity::GameObject>();
@@ -437,22 +492,22 @@ void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& bin
     glyph->Call<"set_anchoredPosition">(unity::Vector2{});
     auto* icon = glyph_object->AddComponent<unity::Image>();
     if (!icon) {
-      (void)GalaxyRemoveHousing(*binding);
+      (void)GalaxyRemoveMarker(marker);
       return;
     }
     if (!icon->TryCall<"set_sprite", void(unity::Sprite*)>(sprite_root.Get<unity::Sprite>())
-        || !icon->TryCall<"set_color", void(unity::Color)>(unity::Color{.45f, .9f, 1.f, 1.f})
+        || !icon->TryCall<"set_color", void(unity::Color)>(style.color)
         || !icon->TryCall<"set_preserveAspect", void(bool)>(true)
         || !icon->TryCall<"set_raycastTarget", void(bool)>(false) || !GalaxySetActive(glyph_object, true))
       return; // Custody remains incomplete; the next render cleans/rebuilds this marker.
     const auto assigned = icon->TryCall<"get_sprite", unity::Sprite*>();
     if (!assigned || assigned.value != sprite_root.Get<unity::Sprite>())
       return;
-    if (!SameGalaxyBinding(star, binding))
+    if (!SameGalaxyBinding(star, binding) || marker.object.Get() != marker_root.Get())
       return;
-    binding->housing_ready = true;
+    marker.ready = true;
   }
-  if (!SameGalaxyBinding(star, binding))
+  if (!SameGalaxyBinding(star, binding) || marker.object.Get() != marker_root.Get() || !GalaxyMarkerEnabled(kind))
     return;
   auto* object    = marker_root.Get<unity::GameObject>();
   auto* transform = object->transform();
@@ -462,6 +517,22 @@ void GalaxyHousing(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& bin
   if (index && own)
     transform->Call<"SetSiblingIndex">(index.value - (own.value < index.value ? 1 : 0));
   (void)GalaxySetActive(object, true);
+}
+void GalaxyRenderMarkers(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>& binding, ZoomLevels level)
+{
+  GalaxyHideMarkers(*binding);
+  if (level != ZoomLevels::Near || !SameGalaxyBinding(star, binding)
+      || ((!GalaxyMarkerEnabled(GalaxyMarkerKind::Housing) || !Galaxy().housing)
+          && (!GalaxyMarkerEnabled(GalaxyMarkerKind::Starbase) || !Galaxy().starbase)))
+    return;
+  const auto id = gb::NodeId(star->Context());
+  if (!id)
+    return;
+  const auto eligible = GalaxyMarkerEligibility(*id, level);
+  // Inserting each slot immediately before the name gives housing, starbase, name.
+  for (size_t slot = 0; slot < eligible.size(); ++slot)
+    if (eligible[slot])
+      GalaxyRenderMarker(star, binding, static_cast<GalaxyMarkerKind>(slot));
 }
 
 void NavigationStarEntityWidget_UpdateStarData_Hook(auto original, gb::Star* star, ZoomLevels level)
@@ -478,8 +549,7 @@ void NavigationStarEntityWidget_UpdateStarData_Hook(auto original, gb::Star* sta
     ~Done()
     { value = false; }
   } done{binding->rendering};
-  if (auto* marker = binding->housing.Get<unity::GameObject>())
-    (void)GalaxySetActive(marker, false);
+  GalaxyHideMarkers(*binding);
   if (!GalaxyRestore(binding) || !SameGalaxyBinding(star, binding))
     return original(star, level);
   const auto effective = GalaxyEffective(star, level);
@@ -595,13 +665,13 @@ void NavigationStarEntityWidget_UpdateStarData_Hook(auto original, gb::Star* sta
   }
   if (!SameGalaxyBinding(star, binding))
     return;
-  if (multi || Config::Get().graphics.galaxy_station_housing) {
+  if (multi || Config::Get().graphics.galaxy_station_housing || Config::Get().graphics.galaxy_starbase_systems) {
     auto* anomaly = star->Anomaly();
     GalaxyIconLayout(star, binding, anomaly ? anomaly->GetComponent<unity::Component>() : nullptr, anomaly);
     if (selection.Contains(3))
       GalaxyIconLayout(star, binding, star->Hazard(), star->HazardContainer());
   }
-  GalaxyHousing(star, binding, effective);
+  GalaxyRenderMarkers(star, binding, effective);
 }
 void NavigationStarEntityWidget_UpdateStarName_Hook(auto original, gb::Star* star, bool resources, bool hostiles,
                                                     bool level, bool hazards)
@@ -620,7 +690,7 @@ void NavigationStarEntityWidget_OnDidBindContext_Hook(auto original, gb::Star* s
 {
   if (GalaxyThread())
     if (auto binding = GalaxyBinding(star)) {
-      (void)GalaxyRemoveHousing(*binding);
+      (void)GalaxyRemoveMarkers(*binding);
       (void)GalaxyRestore(binding);
     }
   original(star);
@@ -632,11 +702,11 @@ void NavigationStarEntityWidget_OnAboutToReleaseContext_Hook(auto original, gb::
   auto binding = GalaxyThread() ? GalaxyBinding(star) : nullptr;
   if (binding) {
     binding->releasing = true;
-    (void)GalaxyRemoveHousing(*binding);
+    (void)GalaxyRemoveMarkers(*binding);
     (void)GalaxyRestore(binding);
   }
   original(star);
-  if (binding && GalaxyBinding(star) == binding && binding->shifts.empty() && !binding->housing)
+  if (binding && GalaxyBinding(star) == binding && binding->shifts.empty() && GalaxyMarkersEmpty(*binding))
     Galaxy().stars.erase(star);
 }
 void HudNavigationViewController_ChangeGalaxyViewInfo_Hook(auto original, il2cpp::Object* hud, int32_t mode)
@@ -737,14 +807,18 @@ bool InstallGalaxyLabels()
   IL2CPP_STAGE_AT(hooks, entries[7], GalaxyDataFilterSystem_RebuildCullingGroup_Hook);
   if (!hooks.Commit())
     return false;
-  auto& state     = Galaxy();
-  state.thread    = std::this_thread::get_id();
-  state.installed = true;
-  state.last_multi = Config::Get().graphics.galaxy_multi_select;
-  state.last_housing = Config::Get().graphics.galaxy_station_housing;
-  state.housing   = HousingData::Parse(g_embeddedStationHousing, g_embeddedStationHousing_SIZE);
+  auto& state         = Galaxy();
+  state.thread        = std::this_thread::get_id();
+  state.installed     = true;
+  state.last_multi    = Config::Get().graphics.galaxy_multi_select;
+  state.last_housing  = Config::Get().graphics.galaxy_station_housing;
+  state.last_starbase = Config::Get().graphics.galaxy_starbase_systems;
+  state.housing       = HousingData::Parse(g_embeddedStationHousing, g_embeddedStationHousing_SIZE);
   if (!state.housing)
     spdlog::warn("[GalaxyLabels] housing dataset unavailable; native labels and overlays remain available");
+  state.starbase = StarbaseData::Parse(g_embeddedStarbaseSystems, g_embeddedStarbaseSystems_SIZE);
+  if (!state.starbase)
+    spdlog::warn("[GalaxyLabels] Alliance Starbase dataset unavailable; other markers and overlays remain available");
   return true;
 }
 // Shared by the three refresh registries. A failed new strong handle is not proof that a weak target expired.
@@ -769,13 +843,13 @@ template <class Registry, class Action> void GalaxyRefreshRegistered(Registry& r
 
 void GalaxyRefreshStars(ZoomLevels level)
 {
-  auto& state = Galaxy();
+  auto&                                                                 state = Galaxy();
   std::vector<std::pair<gb::Star*, std::shared_ptr<GalaxyStarBinding>>> stars;
   for (const auto& entry : state.stars)
     stars.push_back(entry);
   for (const auto& [star, binding] : stars) {
     auto* observed = binding->owner.Get();
-    auto root = il2cpp::GcHandle::Strong(observed);
+    auto  root     = il2cpp::GcHandle::Strong(observed);
     if (observed && !root)
       continue;
     const auto alive = root ? unity::TryAlive(root.Get()) : il2cpp::CallResult<bool>{true, false};
@@ -783,10 +857,11 @@ void GalaxyRefreshStars(ZoomLevels level)
       continue;
     if (!alive.value) {
       const auto current = state.stars.find(star);
-      if (current != state.stars.end() && current->second == binding && GalaxyRestore(binding)
-          && GalaxyRemoveHousing(*binding)) {
+      if (current != state.stars.end() && current->second == binding) {
+        const bool restored      = GalaxyRestore(binding);
+        const bool removed       = GalaxyRemoveMarkers(*binding);
         const auto after_cleanup = state.stars.find(star);
-        if (after_cleanup != state.stars.end() && after_cleanup->second == binding)
+        if (restored && removed && after_cleanup != state.stars.end() && after_cleanup->second == binding)
           state.stars.erase(after_cleanup);
       }
       continue;
@@ -803,20 +878,27 @@ void GalaxyRefreshDisabledPresentation()
   auto& state = Galaxy();
   if (state.maintaining)
     return;
-  const bool multi = Config::Get().graphics.galaxy_multi_select;
-  const bool housing = Config::Get().graphics.galaxy_station_housing;
-  state.pending_layout_cleanup = !multi && (state.pending_layout_cleanup || state.last_multi);
-  state.pending_housing_cleanup = !housing && (state.pending_housing_cleanup || state.last_housing);
-  state.last_multi = multi;
-  state.last_housing = housing;
-  const bool restore_layouts = state.pending_layout_cleanup;
-  const bool remove_housing = state.pending_housing_cleanup;
-  if (!restore_layouts && !remove_housing)
+  const bool multi               = Config::Get().graphics.galaxy_multi_select;
+  const bool housing             = Config::Get().graphics.galaxy_station_housing;
+  const bool starbase            = Config::Get().graphics.galaxy_starbase_systems;
+  state.pending_layout_cleanup   = !multi
+                                   && (state.pending_layout_cleanup || state.last_multi
+                                       || (!housing && !starbase && (state.last_housing || state.last_starbase)));
+  state.pending_housing_cleanup  = !housing && (state.pending_housing_cleanup || state.last_housing);
+  state.pending_starbase_cleanup = !starbase && (state.pending_starbase_cleanup || state.last_starbase);
+  state.last_multi               = multi;
+  state.last_housing             = housing;
+  state.last_starbase            = starbase;
+  const bool restore_layouts     = state.pending_layout_cleanup;
+  const bool remove_housing      = state.pending_housing_cleanup;
+  const bool remove_starbase     = state.pending_starbase_cleanup;
+  if (!restore_layouts && !remove_housing && !remove_starbase)
     return;
   state.maintaining = true;
   struct Done {
     bool& active;
-    ~Done() { active = false; }
+    ~Done()
+    { active = false; }
   } done{state.maintaining};
   std::vector<std::pair<gb::Star*, std::shared_ptr<GalaxyStarBinding>>> records;
   for (const auto& record : state.stars)
@@ -828,19 +910,31 @@ void GalaxyRefreshDisabledPresentation()
     if (restore_layouts && !Config::Get().graphics.galaxy_multi_select)
       (void)GalaxyRestore(binding);
     if (remove_housing && !Config::Get().graphics.galaxy_station_housing)
-      (void)GalaxyRemoveHousing(*binding);
+      (void)GalaxyRemoveMarker(binding->markers[static_cast<size_t>(GalaxyMarkerKind::Housing)]);
+    if (remove_starbase && !Config::Get().graphics.galaxy_starbase_systems)
+      (void)GalaxyRemoveMarker(binding->markers[static_cast<size_t>(GalaxyMarkerKind::Starbase)]);
   }
   // Native callbacks can replace records or re-enable presentation. Inspect current ownership rather than
   // clearing a latch based only on a stale snapshot or a setter's return value. Re-enabling cancels disabled-only
   // work; the ordinary Data/bind/release paths still restore old journals before reusing their layout/assets.
-  state.pending_layout_cleanup = restore_layouts && !Config::Get().graphics.galaxy_multi_select
-                                 && std::ranges::any_of(state.stars, [](const auto& entry) {
-                                      return !entry.second->shifts.empty();
-                                    });
-  state.pending_housing_cleanup = remove_housing && !Config::Get().graphics.galaxy_station_housing
-                                  && std::ranges::any_of(state.stars, [](const auto& entry) {
-                                       return bool(entry.second->housing);
-                                     });
+  state.pending_layout_cleanup =
+      restore_layouts && !Config::Get().graphics.galaxy_multi_select
+      && std::ranges::any_of(state.stars, [](const auto& entry) { return !entry.second->shifts.empty(); });
+  state.pending_housing_cleanup =
+      remove_housing && !Config::Get().graphics.galaxy_station_housing
+      && std::ranges::any_of(state.stars, [](const auto& entry) {
+           return bool(entry.second->markers[static_cast<size_t>(GalaxyMarkerKind::Housing)].object);
+         });
+  state.pending_starbase_cleanup =
+      remove_starbase && !Config::Get().graphics.galaxy_starbase_systems
+      && std::ranges::any_of(state.stars, [](const auto& entry) {
+           return bool(entry.second->markers[static_cast<size_t>(GalaxyMarkerKind::Starbase)].object);
+         });
+  // A native callback can re-enable a slot after the initial settings snapshot. Remember that observed enabled
+  // state so its next disable still has an edge; a newly arriving disable remains visible to the next maintenance.
+  state.last_multi |= Config::Get().graphics.galaxy_multi_select;
+  state.last_housing |= Config::Get().graphics.galaxy_station_housing;
+  state.last_starbase |= Config::Get().graphics.galaxy_starbase_systems;
 }
 } // namespace
 
@@ -848,6 +942,8 @@ bool galaxy_controls::LabelsAvailable()
 { return Galaxy().installed; }
 bool galaxy_controls::HousingAvailable()
 { return Galaxy().installed && Galaxy().housing.has_value(); }
+bool galaxy_controls::StarbaseAvailable()
+{ return Galaxy().installed && Galaxy().starbase.has_value(); }
 void galaxy_controls::Refresh()
 {
   Galaxy().refresh = true;
@@ -904,15 +1000,15 @@ void galaxy_controls::AfterZoom(NavigationZoom* zoom)
     return;
   }
   const auto normalized_observation = zoom->TryNormalizedZoom();
-  const auto level_observation = zoom->TryZoomLevel();
+  const auto level_observation      = zoom->TryZoomLevel();
   if (!normalized_observation || !level_observation || !std::isfinite(normalized_observation.value)
       || level_observation.value < ZoomLevels::Near || level_observation.value > ZoomLevels::Far) {
     state.zoom_known = false;
     return;
   }
-  const auto normalized = normalized_observation.value;
-  const auto level = level_observation.value;
-  const auto&      config = Config::Get();
+  const auto       normalized = normalized_observation.value;
+  const auto       level      = level_observation.value;
+  const auto&      config     = Config::Get();
   const std::array profiles{config.graphics.galaxy_label_major, config.graphics.galaxy_label_minor};
   bool             changed = !state.zoom_known || state.camera.Get() != zoom || state.level != level || state.refresh
                              || state.config != &config;

@@ -873,6 +873,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("graphics", "galaxy_extended_selection", g.galaxy_extended_selection);
   r.Read("graphics", "galaxy_multi_select", g.galaxy_multi_select);
   r.Read("graphics", "galaxy_station_housing", g.galaxy_station_housing);
+  r.Read("graphics", "galaxy_starbase_systems", g.galaxy_starbase_systems);
   constexpr std::array galaxy_layers{"galaxy_overlay_default", "galaxy_overlay_mining", "galaxy_overlay_hostiles",
                                      "galaxy_overlay_hazards"};
   for (size_t i = 0; i < galaxy_layers.size(); ++i)

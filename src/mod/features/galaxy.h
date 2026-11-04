@@ -8,6 +8,7 @@ namespace galaxy_controls
 bool       LabelsAvailable();
 bool       SelectionAvailable();
 bool       HousingAvailable();
+bool       StarbaseAvailable();
 void       AfterZoom(NavigationZoom* zoom);
 ZoomLevels LodLevel(NavigationLOD* lod, ZoomLevels native);
 void       Refresh();

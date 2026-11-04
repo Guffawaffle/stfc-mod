@@ -409,13 +409,15 @@ void UpstreamSettings()
   toml::table effective;
   const auto  defaults = Config::Parse(toml::table{}, effective, false);
   Check(!defaults->graphics.galaxy_extended_selection && !defaults->graphics.galaxy_multi_select
-            && !defaults->graphics.galaxy_station_housing && defaults->graphics.galaxy_overlays[0],
+            && !defaults->graphics.galaxy_station_housing && !defaults->graphics.galaxy_starbase_systems
+            && defaults->graphics.galaxy_overlays[0],
         "Galaxy optional behavior and Default layer retain PLAY defaults");
   const auto galaxy = Config::Parse(toml::parse(R"(
     [graphics]
     galaxy_extended_selection = true
     galaxy_multi_select = true
     galaxy_station_housing = true
+    galaxy_starbase_systems = true
     galaxy_overlay_default = false
     galaxy_overlay_mining = true
     galaxy_overlay_hostiles = true
@@ -426,13 +428,23 @@ void UpstreamSettings()
   )"),
                                     effective, false);
   Check(galaxy->graphics.galaxy_extended_selection && galaxy->graphics.galaxy_multi_select
-            && galaxy->graphics.galaxy_station_housing && !galaxy->graphics.galaxy_overlays[0]
-            && galaxy->graphics.galaxy_overlays[1] && galaxy->graphics.galaxy_overlays[2]
-            && galaxy->graphics.galaxy_overlays[3]
+            && galaxy->graphics.galaxy_station_housing && galaxy->graphics.galaxy_starbase_systems
+            && !galaxy->graphics.galaxy_overlays[0] && galaxy->graphics.galaxy_overlays[1]
+            && galaxy->graphics.galaxy_overlays[2] && galaxy->graphics.galaxy_overlays[3]
             && galaxy->graphics.galaxy_label_major.mode == galaxy_controls::ZoomMode::Always
             && galaxy->graphics.galaxy_label_minor.mode == galaxy_controls::ZoomMode::Threshold
             && galaxy->graphics.galaxy_label_minor.threshold == .35f,
-        "Galaxy independent selection, composition, housing and normalized profiles survive parsing");
+        "Galaxy independent selection, composition, housing, starbase and normalized profiles survive parsing");
+  for (bool housing : {false, true})
+    for (bool starbase : {false, true}) {
+      auto independent =
+          Config::Parse(toml::parse(std::string("[graphics]\ngalaxy_station_housing=") + (housing ? "true" : "false")
+                                    + "\ngalaxy_starbase_systems=" + (starbase ? "true" : "false")),
+                        effective, false);
+      Check(independent->graphics.galaxy_station_housing == housing
+                && independent->graphics.galaxy_starbase_systems == starbase,
+            "housing and Alliance Starbase markers retain independent settings");
+    }
   const auto no_layer = Config::Parse(toml::parse("[graphics]\ngalaxy_overlay_default=false\ngalaxy_label_minor_"
                                                   "threshold=nan\ngalaxy_label_major_detail='invalid'"),
                                       effective, false);
