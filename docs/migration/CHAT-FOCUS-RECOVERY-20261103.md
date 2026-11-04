@@ -174,14 +174,55 @@ unavailable; neither reaches compilation. Both requests were repeated after the
 final API correction. The shared code path and Linux pass do not establish Mac
 build or runtime qualification.
 
-Source signing, review, final native proxy build and delivery are pending.
-Core compilation is not an assembled proxy artifact or deployment. No corrected
-DLL is claimed installed or accepted by the player, and no deployment or cycle
-is planned as part of this recovered incident without the source-bound lifecycle
-flow. The planned normal native build preserves the installed configuration's
-clean pinned host `4bece2e5` and enabled UI Lab. The core fixtures do not use that
-host; this correction changes no AAI source and makes no AAI parity claim. No
-agent cycle, live UI input, deployment or game configuration change occurred.
+## Signed review and Windows delivery
+
+Signed source checkpoint `49f7cd096102461aa5f821c36f06722544e5d162` has a good
+signature; local signer trust remains unknown. General, hostile and independent
+read-only reviews found no confirmed production defect or blocking finding.
+`review-receipt.json` binds base `46af805c`, the seven-file delta and diff hash
+`3c670a096bc9adfd8f999d0cf7f429eeb821dca9`. All 479 recorded source inputs and
+the preserved test executable hashes match. Reviewers did not run builds,
+fixtures or native game actions. The receipt uses static-persona constraints
+because LexSona memory lookup was unavailable; exact Git and source hashes still
+bind the review.
+
+General review retained one P3 maintenance suggestion: the ten recovery modes
+require explicit arguments and are not part of the ordinary target run list.
+Current manual runs qualify this checkpoint; automatic registration remains
+deferred coverage work. An ordinary target run alone does not cover these modes.
+
+The normal source-bound Windows workflow built and verified the assembled
+`version.dll` from the existing Ripper worktree with stable source identity
+`git:49f7cd09`. It retained the machine's existing clean pinned host `4bece2e5`
+and enabled UI Lab, matching the installed build configuration. Core fixtures
+do not use that host; this correction changes no AAI source and makes no AAI
+parity claim. The first assembled candidate and its receipt remain preserved;
+the cycle produced its own build identity and final artifact below.
+
+Runtime intent selected the ordinary installation at
+`C:/Games/Star Trek Fleet Command/default/game`, client 273, PID 34720.
+The bound lifecycle rechecked identity under its runtime lease, rebuilt and
+verified before stopping that PID, copied/read back the DLL and launched PID
+21220. One agent game cycle occurred. The deployed/read-back SHA256 is
+`63d57fca928bf9a4619fbfddc33f672a961d257c3b8dc0b3f93735f9426bb21d`.
+Its embedded source is the signed checkpoint above, build
+`ax-zig-20261104T011831-9fce6415`, releasedbg/study.
+
+Independent post-cycle observation resolved the requested installation/profile
+and exact new process. The typed startup log records all 73 feature groups
+patched, zero skipped/unavailable, frame delivery ready and zero error/critical
+lines at observation. Beta/deprecated-setting warnings remain. The older
+lifecycle boot parser's two-hook count alone is not the full feature count;
+`native-smoke.json` records the typed-format check.
+
+This qualifies copy/readback and native startup, not the intermittent Alt+Tab
+cause, actual Escape recovery during that incident, or a player acceptance
+trial. No native input-state samples had appeared at the recorded startup check;
+the probe is available for later natural key-down events while debug logging is
+enabled. Loaded paths and disk hashes are observations, not direct in-memory
+byte attestation. No UI automation, chat text/Send, resource action or manual
+TOML/config edit was performed. No remote publication occurred. Mac build and
+runtime qualification remain open.
 
 Evidence is retained outside the checkout under
 `D:/dev/stfc-workspace/artifacts/chat-focus-recovery-20261103/`, including
@@ -194,3 +235,5 @@ commands, exit results and artifact before a delivery or runtime claim is added.
 `after-linux-results.json`, `after-linux-freeze-comparison.json` and
 `final-source-inputs.json` bind the completed correction-delta results.
 `mac-builds.json` retains the configuration limits.
+`native-build.json`, `native-candidate-receipt.json`, `cycle.json`,
+`post-cycle-observation.json` and `native-smoke.json` bind the Windows delivery.
