@@ -2,6 +2,7 @@
 // The camera and NavigationLOD detours are shared with existing system-fleet labels.
 #include "features/galaxy.h"
 #include "config.h"
+#include "embedded_starbase_icon.h"
 #include "embedded_starbase_systems.h"
 #include "embedded_station_housing.h"
 #include "features/features.h"
@@ -35,7 +36,7 @@ struct GalaxyShift {
 };
 enum class GalaxyMarkerKind : size_t { Housing, Starbase };
 struct GalaxyMarker {
-  il2cpp::GcHandle object;
+  il2cpp::GcHandle object, sprite;
   bool             ready = false;
 };
 struct GalaxyMarkerStyle {
@@ -72,6 +73,7 @@ struct GalaxyState {
   std::map<gb::ZoomHandler*, il2cpp::GcHandle>            handlers;
   std::optional<HousingData>                              housing;
   std::optional<StarbaseData>                             starbase;
+  unity::ImageAsset                                       starbase_glyph;
   gb::Star*                                               batching = nullptr;
   std::array<bool, 4>                                     combined{};
   bool                                                    saw_name = false;
@@ -119,6 +121,7 @@ bool GalaxyRemoveMarker(GalaxyMarker& marker)
   auto* observed = marker.object.Get();
   if (!observed) {
     marker.object.Reset();
+    marker.sprite.Reset();
     marker.ready = false;
     return true;
   }
@@ -131,6 +134,7 @@ bool GalaxyRemoveMarker(GalaxyMarker& marker)
   if (!alive.value) {
     if (marker.object.Get() == observed) {
       marker.object.Reset();
+      marker.sprite.Reset();
       marker.ready = false;
     }
     return !marker.object;
@@ -141,6 +145,7 @@ bool GalaxyRemoveMarker(GalaxyMarker& marker)
     return false;
   if (marker.object.Get() == observed) {
     marker.object.Reset(); // Unity owns the successfully scheduled deferred destruction.
+    marker.sprite.Reset();
     marker.ready = false;
   }
   return !marker.object;
@@ -433,6 +438,18 @@ void GalaxyRenderMarker(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>
   if (!label || !label->gameObject() || !label->gameObject()->activeInHierarchy() || !row || !row->gameObject()
       || !row->gameObject()->GetComponent<unity::HorizontalLayoutGroup>())
     return;
+  il2cpp::GcHandle sprite_root;
+  if (kind == GalaxyMarkerKind::Starbase) {
+    auto& asset = Galaxy().starbase_glyph;
+    if (!asset.Load(g_embeddedStarbaseIcon, g_embeddedStarbaseIcon_SIZE))
+      return;
+    sprite_root = il2cpp::GcHandle::Strong(asset.Sprite());
+    if (!sprite_root || !unity::Alive(sprite_root.Get()) || !SameGalaxyBinding(star, binding))
+      return;
+    // A surviving label must replace its image when Unity unloads/recreates the shared artwork.
+    if (marker.ready && marker.sprite.Get() != sprite_root.Get())
+      marker.ready = false;
+  }
   if (marker.object && !marker.ready && !GalaxyRemoveMarker(marker))
     return;
   auto* existing_marker = marker.object.Get();
@@ -444,17 +461,25 @@ void GalaxyRenderMarker(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>
     return;
   if (marker_root && !marker_alive.value) {
     marker.object.Reset();
+    marker.sprite.Reset();
     marker.ready = false;
     marker_root.Reset();
   }
   if (!marker_root) {
-    auto  home_root  = il2cpp::GcHandle::Strong(star->Home());
-    auto* home       = home_root.Get<unity::GameObject>();
-    auto* type       = unity::Image::Class::TypeObject();
-    auto  image_root = il2cpp::GcHandle::Strong(
-        home && type ? home->Call<"GetComponentInChildren", unity::Image*>(type, true) : nullptr);
-    auto* image       = image_root.Get<unity::Image>();
-    auto  sprite_root = il2cpp::GcHandle::Strong(image ? image->sprite() : nullptr);
+    auto  donor_root = il2cpp::GcHandle::Strong(kind == GalaxyMarkerKind::Housing ? star->Home() : row->gameObject());
+    auto* donor      = donor_root.Get<unity::GameObject>();
+    if (!donor || !unity::Alive(donor))
+      return;
+    const auto layer = donor->TryCall<"get_layer", int32_t>();
+    if (!layer)
+      return;
+    if (kind == GalaxyMarkerKind::Housing) {
+      auto* type = unity::Image::Class::TypeObject();
+      auto  image_root =
+          il2cpp::GcHandle::Strong(type ? donor->Call<"GetComponentInChildren", unity::Image*>(type, true) : nullptr);
+      auto* image = image_root.Get<unity::Image>();
+      sprite_root = il2cpp::GcHandle::Strong(image ? image->sprite() : nullptr);
+    }
     if (!sprite_root || !unity::Alive(sprite_root.Get()) || !SameGalaxyBinding(star, binding))
       return;
     auto* rect = unity::CreateUiObject(style.object, row, marker_root);
@@ -462,11 +487,12 @@ void GalaxyRenderMarker(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>
       return;
     // Publish custody before native setters; release/rebind can safely destroy a partially built marker.
     marker.object = std::move(marker_root);
+    marker.sprite = il2cpp::GcHandle::Strong(sprite_root.Get());
     marker_root   = il2cpp::GcHandle::Strong(marker.object.Get());
-    if (!marker_root)
+    if (!marker_root || !marker.sprite)
       return;
     auto* object = marker_root.Get<unity::GameObject>();
-    object->Call<"set_layer">(home->Get<"layer", int32_t>());
+    object->Call<"set_layer">(layer.value);
     rect->Call<"set_sizeDelta">(unity::Vector2{36.f, 32.f});
     auto* element = object->AddComponent<unity::LayoutElement>();
     if (!element) {
@@ -484,7 +510,7 @@ void GalaxyRenderMarker(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>
       return;
     }
     auto* glyph_object = glyph_root.Get<unity::GameObject>();
-    glyph_object->Call<"set_layer">(home->Get<"layer", int32_t>());
+    glyph_object->Call<"set_layer">(layer.value);
     glyph->SetAnchorMin({.5f, .5f});
     glyph->SetAnchorMax({.5f, .5f});
     glyph->Call<"set_pivot">(unity::Vector2{.5f, .5f});
@@ -503,7 +529,8 @@ void GalaxyRenderMarker(gb::Star* star, const std::shared_ptr<GalaxyStarBinding>
     const auto assigned = icon->TryCall<"get_sprite", unity::Sprite*>();
     if (!assigned || assigned.value != sprite_root.Get<unity::Sprite>())
       return;
-    if (!SameGalaxyBinding(star, binding) || marker.object.Get() != marker_root.Get())
+    if (!SameGalaxyBinding(star, binding) || marker.object.Get() != marker_root.Get()
+        || marker.sprite.Get() != sprite_root.Get())
       return;
     marker.ready = true;
   }

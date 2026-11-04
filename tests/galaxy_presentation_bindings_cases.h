@@ -112,6 +112,8 @@ void GalaxyPresentationCases(std::string_view mode)
   GalaxyPresentationMarker starbase_marker{{&game_object_class.klass}};
   GalaxyPresentationMarker replacement_housing{{&game_object_class.klass}};
   GalaxyPresentationMarker replacement_starbase{{&game_object_class.klass}};
+  Il2CppObject             housing_sprite{&unity_object_class.klass};
+  Il2CppObject             starbase_sprite{&unity_object_class.klass};
   const auto               roots = warp_roots.size();
   Galaxy().installed             = true;
   Galaxy().thread                = std::this_thread::get_id();
@@ -353,13 +355,31 @@ void GalaxyPresentationCases(std::string_view mode)
   binding->owner.Reset();
 
   binding->markers[0].object         = il2cpp::GcHandle::Strong(&marker.header);
+  binding->markers[0].sprite         = il2cpp::GcHandle::Strong(&housing_sprite);
   binding->markers[0].ready          = true;
   galaxy_presentation_destroy_throws = true;
-  Require(!GalaxyRemoveMarker(binding->markers[0]) && binding->markers[0].object && !marker.active,
-          "failed native marker destruction keeps hidden cleanup custody instead of dropping the owned asset");
+  Require(!GalaxyRemoveMarker(binding->markers[0]) && binding->markers[0].object
+              && binding->markers[0].sprite.Get() == &housing_sprite && !marker.active,
+          "failed native marker destruction keeps hidden object and sprite custody instead of dropping the asset");
   galaxy_presentation_destroy_throws = false;
-  Require(GalaxyRemoveMarker(binding->markers[0]) && !binding->markers[0].object && !binding->markers[0].ready,
-          "confirmed native destruction releases the completed housing owner");
+  Require(GalaxyRemoveMarker(binding->markers[0]) && !binding->markers[0].object && !binding->markers[0].sprite
+              && !binding->markers[0].ready,
+          "confirmed native destruction releases the completed marker and its assigned sprite together");
+
+  binding->markers[1].sprite = il2cpp::GcHandle::Strong(&starbase_sprite);
+  binding->markers[1].ready  = true;
+  Require(GalaxyRemoveMarker(binding->markers[1]) && !binding->markers[1].object && !binding->markers[1].sprite
+              && !binding->markers[1].ready,
+          "a missing marker object discharges its remaining sprite custody and readiness");
+  binding->markers[1].object           = il2cpp::GcHandle::Strong(&starbase_marker.header);
+  binding->markers[1].sprite           = il2cpp::GcHandle::Strong(&starbase_sprite);
+  binding->markers[1].ready            = true;
+  visual_dead_object                   = &starbase_marker.header;
+  const auto dead_marker_destroy_calls = galaxy_presentation_destroy_calls;
+  Require(GalaxyRemoveMarker(binding->markers[1]) && !binding->markers[1].object && !binding->markers[1].sprite
+              && !binding->markers[1].ready && galaxy_presentation_destroy_calls == dead_marker_destroy_calls,
+          "confirmed native marker destruction releases its sprite without scheduling another Destroy");
+  visual_dead_object = nullptr;
 
   // Settings may disable presentation with inactive stars and no current Galaxy camera.
   binding->shifts.push_back(GalaxyPresentationShift(group, 6.5f));
@@ -415,6 +435,8 @@ void GalaxyPresentationCases(std::string_view mode)
   const auto own_markers = [&](const std::shared_ptr<GalaxyStarBinding>& record, bool ready = true) {
     record->markers[0].object = il2cpp::GcHandle::Strong(&marker.header);
     record->markers[1].object = il2cpp::GcHandle::Strong(&starbase_marker.header);
+    record->markers[0].sprite = il2cpp::GcHandle::Strong(&housing_sprite);
+    record->markers[1].sprite = il2cpp::GcHandle::Strong(&starbase_sprite);
     record->markers[0].ready = record->markers[1].ready = ready;
     marker.active = starbase_marker.active = true;
   };
@@ -422,27 +444,34 @@ void GalaxyPresentationCases(std::string_view mode)
   galaxy_presentation_destroy_failure = &marker.header;
   const auto partial_destroy_calls    = galaxy_presentation_destroy_calls;
   Require(!GalaxyRemoveMarkers(*binding) && binding->markers[0].object && !binding->markers[0].ready
-              && !binding->markers[1].object && !binding->markers[1].ready && !marker.active && !starbase_marker.active
+              && binding->markers[0].sprite.Get() == &housing_sprite && !binding->markers[1].object
+              && !binding->markers[1].sprite && !binding->markers[1].ready && !marker.active && !starbase_marker.active
               && galaxy_presentation_destroy_calls == partial_destroy_calls + 2,
           "failed cleanup of a partial cyan slot still independently retires the partial yellow slot");
   galaxy_presentation_destroy_failure = nullptr;
-  Require(GalaxyRemoveMarkers(*binding) && GalaxyMarkersEmpty(*binding),
-          "partial marker cleanup retries its retained strong owner without rebuilding or leaking the other slot");
+  Require(GalaxyRemoveMarkers(*binding) && GalaxyMarkersEmpty(*binding) && !binding->markers[0].sprite
+              && !binding->markers[1].sprite,
+          "partial marker cleanup retries retained object and sprite custody without leaking the other slot");
 
   own_markers(binding);
   warp_root_failure                = true;
   const auto custody_destroy_calls = galaxy_presentation_destroy_calls;
   Require(!GalaxyRemoveMarkers(*binding) && binding->markers[0].object && binding->markers[1].object
+              && binding->markers[0].sprite.Get() == &housing_sprite
+              && binding->markers[1].sprite.Get() == &starbase_sprite
               && galaxy_presentation_destroy_calls == custody_destroy_calls,
-          "failed operation-local custody keeps both marker owners without invoking borrowed native receivers");
+          "failed operation-local custody keeps both marker objects and sprites without invoking borrowed receivers");
   warp_root_failure = false;
   visual_throws     = true;
-  Require(!GalaxyRemoveMarkers(*binding) && binding->markers[0].object && binding->markers[1].object,
-          "unknown Unity liveness retains both marker journals rather than treating either as destroyed");
+  Require(!GalaxyRemoveMarkers(*binding) && binding->markers[0].object && binding->markers[1].object
+              && binding->markers[0].sprite.Get() == &housing_sprite
+              && binding->markers[1].sprite.Get() == &starbase_sprite,
+          "unknown Unity liveness retains both marker objects and sprites rather than treating either as destroyed");
   visual_throws = false;
   GalaxyHideMarkers(*binding);
-  Require(!marker.active && !starbase_marker.active && GalaxyRemoveMarkers(*binding),
-          "the shared hide/removal path handles both slots after native liveness recovers");
+  Require(!marker.active && !starbase_marker.active && GalaxyRemoveMarkers(*binding) && !binding->markers[0].sprite
+              && !binding->markers[1].sprite,
+          "the shared hide/removal path clears both sprite owners after native liveness recovers");
 
   // Each live setting transition owns only its own disabled slot, including inactive pooled widgets.
   own_markers(binding);

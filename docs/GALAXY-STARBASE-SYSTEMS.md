@@ -3,11 +3,14 @@
 Enable **Alliance Starbase systems** in the mod's Galaxy settings, or set
 `graphics.galaxy_starbase_systems = true`. The default is off.
 
-A yellow house marks known Plasma Storm systems at the same native detail/name
+A yellow orbital station marks known Plasma Storm systems at the same native detail/name
 visibility used by the cyan Housing indicator. The two settings are independent;
 systems that support both can show both icons. The marker describes a static
 deployment system. It does not report vacant anchoring slots or current Alliance
 Starbase occupancy.
+
+The station glyph is embedded with the mod; its editable vector source is
+`assets/icons/alliance-starbase.svg`. Housing keeps the native cyan house.
 
 ## Catalog
 
