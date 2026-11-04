@@ -1,9 +1,10 @@
 # Downstream releases
 
-`play` is the fork's integration and release source. Promote the reviewed typed
-snapshot through a pull request, then use the successful **push** Build for that
-exact merged commit. A pull-request build or an older branch build does not
-qualify the merged source. Normal core CI excludes optional AAI/UI Lab.
+`play` is the fork's integration and release source. Before merging its pull
+request, have the assigned player smoke the exact candidate core CI payload.
+Then promote the reviewed typed snapshot and use the successful **push** Build
+for that exact merged commit. A pull-request build or an older branch build does
+not qualify the merged source. Normal core CI excludes optional AAI/UI Lab.
 
 ## Signed publication
 
