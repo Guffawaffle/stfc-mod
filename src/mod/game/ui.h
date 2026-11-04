@@ -76,6 +76,13 @@ struct CanvasController : unity::Behaviour {
   // overload.
   static CanvasController* Of(il2cpp::Object* component)
   { return component ? component->Call<"GetComponentInParent", CanvasController*>(Class::TypeObject()) : nullptr; }
+  // Distinguish a known absent canvas from an unavailable parent observation.
+  static il2cpp::CallResult<CanvasController*> TryOf(il2cpp::Object* component)
+  {
+    auto* type = Class::TypeObject();
+    return component && type ? component->TryCall<"GetComponentInParent", CanvasController*>(type)
+                             : il2cpp::CallResult<CanvasController*>{};
+  }
 
   // `component` is on a canvas that is currently visible.
   static bool Shows(il2cpp::Object* component)

@@ -336,19 +336,78 @@ bool double_click_installed = false;
 FleetPlayerData*                      last_clicked_ship = nullptr;
 std::chrono::steady_clock::time_point last_click_time{};
 
-void PressAssignButton()
+bool DockAssignmentAllowed(bool from_enter)
 {
+  if (from_enter && (Shortcut::CaptureBlocksShortcuts() || unity::Key::IsInputFocused()))
+    return false;
+  // Read policy after the potentially managed focus query; a reload replaces Config.
+  const auto& config = Config::Get();
+  return double_click_installed && config.patches.doubleclickassignshiphooks && config.ui.double_click_to_assign_ship
+         && (!from_enter || (config.patches.hotkeyhooks && !Shortcut::CaptureBlocksShortcuts()));
+}
+
+void PressAssignButton(bool from_enter = false)
+{
+  if (!DockAssignmentAllowed(from_enter))
+    return;
   for (auto* widget : unity::Instances<AssignShipsWidget>()) {
     // The tracker snapshot is borrowed. Root before managed calls and check
     // Unity lifetime independently; no custody or cached dock survives this call.
     auto owner = il2cpp::GcHandle::Strong(widget);
-    if (!owner || !unity::Alive(widget) || !CanvasController::OnScreen(widget))
+    if (!owner)
+      return;
+    const auto alive = unity::TryAlive(widget);
+    if (!alive)
+      return;
+    if (!alive.value)
       continue;
-    auto* wrapper = widget->assignButton();
-    auto* inner   = wrapper ? wrapper->Widget() : nullptr;
+    const auto active = static_cast<unity::Behaviour*>(widget)->TryCall<"get_isActiveAndEnabled", bool>();
+    if (!active)
+      return;
+    if (!active.value)
+      continue;
+    const auto parent = CanvasController::TryOf(widget);
+    if (!parent)
+      return;
+    if (!parent.value)
+      continue;
+    auto canvas = il2cpp::GcHandle::Strong(parent.value);
+    if (!canvas)
+      return;
+    const auto visible = parent.value->TryCall<"get_Visible", bool>();
+    if (!visible)
+      return;
+    if (!visible.value)
+      continue;
+
     // Only the first shown dock is pressed, even when its button cannot be read.
-    if (auto* button = inner ? inner->UnityButton() : nullptr)
-      button->Press();
+    // Hold the raw-field chain while checking the selected dock again.
+    auto wrapper = il2cpp::GcHandle::Strong(widget->assignButton());
+    auto inner =
+        wrapper ? il2cpp::GcHandle::Strong(wrapper.Get<ButtonAndContextWrapper>()->Widget()) : il2cpp::GcHandle{};
+    auto listener = inner ? il2cpp::GcHandle::Strong(inner.Get<GenericButtonWidget>()->semaphoreButtonListener())
+                          : il2cpp::GcHandle{};
+    auto button =
+        listener ? il2cpp::GcHandle::Strong(listener.Get<SemaphoreButtonListener>()->button()) : il2cpp::GcHandle{};
+    if (!button)
+      return;
+
+    const auto current_visible = canvas.Get<CanvasController>()->TryCall<"get_Visible", bool>();
+    const auto current_active  = static_cast<unity::Behaviour*>(widget)->TryCall<"get_isActiveAndEnabled", bool>();
+    // Those queries may have rebound the selected widget to another canvas.
+    const auto current_parent = CanvasController::TryOf(widget);
+    if (!current_parent || current_parent.value != canvas.Get())
+      return;
+    const auto current_alive = unity::TryAlive(widget);
+    const auto button_alive  = unity::TryAlive(button.Get());
+    if (!current_visible || !current_visible.value || !current_active || !current_active.value || !current_alive
+        || !current_alive.value || !button_alive || !button_alive.value || !DockAssignmentAllowed(from_enter))
+      return;
+    if (widget->assignButton() != wrapper.Get() || wrapper.Get<ButtonAndContextWrapper>()->Widget() != inner.Get()
+        || inner.Get<GenericButtonWidget>()->semaphoreButtonListener() != listener.Get()
+        || listener.Get<SemaphoreButtonListener>()->button() != button.Get())
+      return;
+    button.Get<unity::Button>()->Press();
     return;
   }
 }
@@ -372,7 +431,7 @@ void AssignOnEnterFrame()
 {
   // Down, not Pressed: a held Enter must press Assign once, not every frame.
   if (dock_assignment::EnterRequested(double_click_installed))
-    PressAssignButton();
+    PressAssignButton(true);
 }
 
 // --- Ship tile click ---

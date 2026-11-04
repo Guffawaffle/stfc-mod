@@ -2223,6 +2223,52 @@
           "evidence": "docs/migration/MIGRATE-PLAY-FEATURE-PILOTS.md",
           "artifactReceipt": "D:/dev/stfc-workspace/.ax/migrate-play-feature-241372c3-receipt.json",
           "artifactReceiptSha256": "8081ac3f64ee871c8ea34756f7e3c1793cd18e319897d9191bcb7c38ac444ecd"
+        },
+        {
+          "version": 2,
+          "date": "2026-11-03",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5d7613d0383c91b6c051fecdc6605f707224ae0e",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/final-source-inputs.json"
+          },
+          "cohort": "docs/migration/FEATURE-COHORT-20261103-DONATION-DOCK.md",
+          "migrationStatus": "Partial",
+          "contract": "docs/migration/features/PLAY-DOCK-ASSIGN.md",
+          "implemented": [
+            "Abort unavailable candidate observations instead of redirecting assignment; retain first-known-shown stopping",
+            "Root the selected owner, canvas and acquired raw button chain; recheck current policy, liveness, parent and field identities",
+            "Retain Enter-only capture checks, physical mouse policy, shared pin precedence, original-first tile callback and 400 ms consumed pairs"
+          ],
+          "decisions": [
+            "Keep one assignment per Enter edge and successful shared-hook admission as intentional target adaptations",
+            "Keep text-focus observation frame-cached; local roots and identity rechecks are not an atomic hierarchy lock",
+            "Do not equate per-candidate custody with rooted acquisition of the whole borrowed tracker snapshot"
+          ],
+          "verification": {
+            "beforeWindows": "191/191 build steps; 21 explicit dock modes: 13 controls pass and eight intended failures",
+            "beforeLinux": "184/184 build steps; same 21 dock modes: 13 controls pass and the same eight intended failures",
+            "afterWindows": "423/423 combined mods/build-tests/test-il2cpp/test-mod build/run/install steps; 38/38 explicit modes including 27 dock modes and 10/10 retained modes pass",
+            "afterLinux": "157/157 existing test-il2cpp build/run steps; 36/36 explicit modes including 27 dock modes and retained shop limits pass; all six changed source/fixture hash checks match",
+            "linuxFixtureSha256": "658f0f6674e089b62103d406e2c2b8dd8179ebedb151683afbac060c2cf85bf8",
+            "linuxReceipt": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/after-linux-results.json",
+            "sourceInputCount": 479,
+            "windowsFixtureSha256": "20579ad04cc6c6401e41b997e7f85d6fa8181ed01874f80722ebc0ebac7c08ef",
+            "windowsCoreLibrarySha256": "d42028ed91125f69b4175821f4ed51ef6e081013c161e20b4da09fe57577a788",
+            "artifactReceipt": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/local-verification.json",
+            "macOS": "Both core requests rejected missing SDK during configuration; no Mac source compile or native runtime qualification",
+            "runtime": "No live assignment, deployment, game/sidecar cycle or live config edit; historical Windows pilot acceptance remains artifact-bound"
+          },
+          "remaining": [
+            "Whole borrowed-snapshot custody, source bounded/latest ordering versus target all/construction ordering and inherited no-episode-reset pairing",
+            "Current-client ABI/hook fit, native lifetime behavior, rendered interaction and platform acceptance",
+            "Final source checkpoint, signature and review receipt pending"
+          ],
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103"
         }
       ],
       "branchObservations": [
@@ -5709,6 +5755,50 @@
           "execution": "Direct continuous implementation and local tooling; no Runner execution or implementation fanout",
           "artifactSha256": "0612568a5e66dfd89b707001f2e4eaf7f4e008cf5dc0ad8fc0fa17bd4eab59d9",
           "artifactReceipt": "D:/dev/stfc-workspace/artifacts/shop-controls-20261029/qualification.json"
+        },
+        {
+          "version": 2,
+          "date": "2026-11-03",
+          "source": {
+            "ref": "frozen/play-dev-20261026",
+            "revision": "1baa55fedf1758b19f843cc59707b8901a0b4998"
+          },
+          "target": {
+            "branch": "play-dev-ripper",
+            "base": "5d7613d0383c91b6c051fecdc6605f707224ae0e",
+            "inputManifest": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/final-source-inputs.json"
+          },
+          "cohort": "docs/migration/FEATURE-COHORT-20261103-DONATION-DOCK.md",
+          "migrationStatus": "Partial",
+          "contract": "docs/migration/features/PLAY-DONATION.md",
+          "implemented": [
+            "Windows setter rechecks live enable after the typed donation tag and reads the cap from current Config",
+            "Non-Windows scoped row checks live enable and cap after its final Context identity observation"
+          ],
+          "decisions": [
+            "Retain typed bool values instead of frozen boxed-pointer truthiness",
+            "Retain exact initial Windows cap for nonpositive policy and scoped non-Windows known-owned-amount bounds instead of the frozen global slider detour"
+          ],
+          "verification": {
+            "beforeWindows": "191/191 build steps; 11 explicit donation modes: nine controls pass and two intended late-policy failures",
+            "beforeLinux": "184/184 build steps; eight explicit non-Windows row modes: four controls pass and four intended late-policy failures",
+            "afterWindows": "423/423 combined mods/build-tests/test-il2cpp/test-mod build/run/install steps; 38/38 explicit modes including 11 donation setter modes and 10/10 retained modes pass",
+            "afterLinux": "157/157 existing test-il2cpp build/run steps; 36/36 explicit modes including eight scoped donation-row modes and retained shop limits pass; all six changed source/fixture hash checks match",
+            "linuxFixtureSha256": "658f0f6674e089b62103d406e2c2b8dd8179ebedb151683afbac060c2cf85bf8",
+            "linuxReceipt": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/after-linux-results.json",
+            "sourceInputCount": 479,
+            "windowsFixtureSha256": "20579ad04cc6c6401e41b997e7f85d6fa8181ed01874f80722ebc0ebac7c08ef",
+            "windowsCoreLibrarySha256": "d42028ed91125f69b4175821f4ed51ef6e081013c161e20b4da09fe57577a788",
+            "artifactReceipt": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103/local-verification.json",
+            "macOS": "Both core requests rejected missing SDK during configuration; Linux common-branch fixtures do not establish Mac hooking or gameplay",
+            "runtime": "No donation, purchase, resource operation, deployment, game/sidecar cycle or live config edit; earlier Windows dialog acceptance remains artifact-bound"
+          },
+          "remaining": [
+            "Intentional scoped Mac behavior differs from frozen global slider changes; native Mac build/hook/runtime remain unqualified",
+            "Current-client ABI/hook fit, rendered controls, resource behavior and extended native edges",
+            "Final source checkpoint, signature and review receipt pending"
+          ],
+          "evidenceDirectory": "D:/dev/stfc-workspace/artifacts/donation-dock-20261103"
         }
       ]
     },

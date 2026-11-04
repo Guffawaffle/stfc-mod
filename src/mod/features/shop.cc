@@ -94,7 +94,7 @@ void InventoryForPopup_set_MaxItemsToUse_Hook(auto original, InventoryForPopup* 
 {
   if (value == 50 && Config::Get().ui.extend_donation_slider) {
     const auto donation = _this->TryCall<"get_IsDonationUse", bool>();
-    if (donation && donation.value) {
+    if (donation && donation.value && Config::Get().ui.extend_donation_slider) {
       const auto cap = Config::Get().ui.extend_donation_max;
       if (cap <= 0)
         return;
@@ -129,10 +129,10 @@ void InventoryUseRowWidget_SetWidgetData_Hook(auto original, InventoryUseRowWidg
         // Nonpositive configured limits use that amount, not a guessed infinity.
         const auto owned      = popup->TryCall<"get_AmountOwned", int64_t>();
         const auto native_max = popup->TryCall<"get_MaxItemsToUse", int64_t>();
-        const auto configured = Config::Get().ui.extend_donation_max;
-        if (owned && native_max && owned.value > 0 && Config::Get().ui.extend_donation_slider && current()) {
-          const auto cap    = configured > 0 ? int64_t{configured} : owned.value;
-          const auto target = std::min(cap, owned.value);
+        if (owned && native_max && owned.value > 0 && current() && Config::Get().ui.extend_donation_slider) {
+          const auto configured = Config::Get().ui.extend_donation_max;
+          const auto cap        = configured > 0 ? int64_t{configured} : owned.value;
+          const auto target     = std::min(cap, owned.value);
           if (target != native_max.value)
             popup->SetMaxItemsToUse(target);
         }

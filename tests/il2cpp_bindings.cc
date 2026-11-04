@@ -1958,6 +1958,8 @@ void PlannedWarpBindingObservations()
 #include "camera_pan_cases.h"
 #include "camera_backdrop_cases.h"
 #include "confirmation_settings_cases.h"
+#include "donation_policy_cases.h"
+#include "dock_assignment_cases.h"
 // Registered active HUD owners and shared station radii are exercised in separate runtime processes.
 // clang-format on
 
@@ -1965,6 +1967,21 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+#if _WIN32
+  if (argc == 2 && std::string_view(argv[1]).starts_with("donation-policy-")) {
+    DonationPolicyCases(argv[1]);
+    return 0;
+  }
+#else
+  if (argc == 2 && std::string_view(argv[1]).starts_with("donation-row-")) {
+    DonationRowPolicyCases(argv[1]);
+    return 0;
+  }
+#endif
+  if (argc == 2 && std::string_view(argv[1]).starts_with("dock-assign-")) {
+    DockAssignmentCases(argv[1]);
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]).starts_with("camera-pan-")) {
     CameraPanCases(argv[1]);
     return 0;
