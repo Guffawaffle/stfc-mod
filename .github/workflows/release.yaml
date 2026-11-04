@@ -12,6 +12,8 @@ permissions:
 jobs:
   create-release:
     name: Create Release
+    # Fork releases promote verified signed artifacts from the separate trusted controller.
+    if: github.repository != 'Guffawaffle/stfc-mod'
     runs-on: ubuntu-24.04
 
     steps:
