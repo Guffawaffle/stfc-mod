@@ -6,6 +6,7 @@
 #include "ui_pointer.h"
 
 #include <il2cpp/il2cpp.h>
+#include <unity/application.h>
 
 #include <cstdint>
 #include <type_traits>
@@ -73,6 +74,20 @@ struct ChatMessageListLocalViewController : il2cpp::Object {
 
   unity::TMP_InputField* inputField()
   { return Field<"_inputField", unity::TMP_InputField*>(); }
+
+  // Native chat submission uses these two flags independently of TMP's focus. A missing/drifted field is
+  // unavailable, rather than a confirmed false gate; the diagnostic never changes either flag.
+  il2cpp::CallResult<bool> TryFocusOnTypeEnabled()
+  {
+    static const bool available = Class::HasField<"_enableFocusOnType", bool>();
+    return available ? il2cpp::CallResult<bool>{true, Field<"_enableFocusOnType", bool>()} : il2cpp::CallResult<bool>{};
+  }
+  il2cpp::CallResult<bool> TryInputFieldSelected()
+  {
+    static const bool available = Class::HasField<"_inputFieldSelected", bool>();
+    return available ? il2cpp::CallResult<bool>{true, Field<"_inputFieldSelected", bool>()}
+                     : il2cpp::CallResult<bool>{};
+  }
 };
 
 struct FullScreenChatViewController : il2cpp::Object {
@@ -83,6 +98,114 @@ struct FullScreenChatViewController : il2cpp::Object {
   TabBarViewController* categoriesTabBarViewController()
   { return Field<"_categoriesTabBarViewController", TabBarViewController*>(); }
 };
+
+namespace chat_submit_binding
+{
+// Submit repair must distinguish an unavailable field from a confirmed false native gate. Qualify the exact
+// instance storage before reading or writing it; the ordinary zero-default field accessor is not permission.
+template <class Value> FieldInfo* Field(const char* name)
+{
+  auto* owner = ChatMessageListLocalViewController::Class::Raw();
+  auto* field = owner ? il2cpp_class_get_field_from_name(owner, name) : nullptr;
+  if (!field || !field->type || field->type->byref
+      || (field->type->attrs & (FIELD_ATTRIBUTE_STATIC | FIELD_ATTRIBUTE_LITERAL))
+      || field->offset < static_cast<int32_t>(sizeof(Il2CppObject)))
+    return nullptr;
+  const auto size = il2cpp_class_instance_size(owner);
+  if (size < sizeof(Value) || static_cast<uint32_t>(field->offset) > size - sizeof(Value))
+    return nullptr;
+  if constexpr (std::is_same_v<Value, bool>) {
+    if (field->type->type != IL2CPP_TYPE_BOOLEAN)
+      return nullptr;
+  } else {
+    using Binding  = std::remove_pointer_t<Value>;
+    auto* expected = Binding::Class::Raw();
+    if (field->type->type != IL2CPP_TYPE_CLASS || !expected || il2cpp_class_from_type(field->type) != expected)
+      return nullptr;
+  }
+  return field;
+}
+
+struct Fields {
+  FieldInfo *input = nullptr, *enabled = nullptr, *selected = nullptr;
+};
+
+inline const Fields& Native()
+{
+  static const Fields fields{Field<unity::TMP_InputField*>("_inputField"), Field<bool>("_enableFocusOnType"),
+                             Field<bool>("_inputFieldSelected")};
+  return fields;
+}
+
+// Immediately before the natural OnSubmit only: reconcile its native selection bit with an already focused,
+// exactly selected input held by this live list's native _inputField reference. No text, selection/focus callbacks
+// or send path is invoked; the serialized reference does not require a particular parent hierarchy.
+inline bool ReconcileSelection(ChatMessageListLocalViewController* receiver, bool physical_submit)
+{
+  if (!physical_submit || !receiver)
+    return false;
+  auto source = il2cpp::GcHandle::Strong(receiver);
+  if (!source || !source.Get<ChatMessageListLocalViewController>()->Is<ChatMessageListLocalViewController>())
+    return false;
+  const auto& fields = Native();
+  if (!fields.input || !fields.enabled || !fields.selected
+      || !il2cpp::detail::ReadField<bool>(fields.enabled, source.Get())
+      || il2cpp::detail::ReadField<bool>(fields.selected, source.Get()))
+    return false;
+  auto input = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<unity::TMP_InputField*>(fields.input, source.Get()));
+  if (!input || !input.Get<unity::TMP_InputField>()->Is<unity::TMP_InputField>())
+    return false;
+  const auto input_object = input.Get<unity::TMP_InputField>()->TryCall<"get_gameObject", unity::GameObject*>();
+  if (!input_object)
+    return false;
+  auto       object  = il2cpp::GcHandle::Strong(input_object.value);
+  const auto current = unity::EventSystem::Class::TryCall<"get_current", unity::EventSystem*>();
+  if (!current)
+    return false;
+  auto system = il2cpp::GcHandle::Strong(current.value);
+  if (!object || !object.Get<unity::GameObject>()->Is<unity::GameObject>() || !system
+      || !system.Get<unity::EventSystem>()->Is<unity::EventSystem>())
+    return false;
+
+  const auto qualifies = [&] {
+    const auto app_focus = unity::Application::Class::TryCall<"get_isFocused", bool>();
+    if (!app_focus || !app_focus.value)
+      return false;
+    for (auto* rooted : {source.Get(), input.Get(), object.Get(), system.Get()}) {
+      const auto alive = unity::TryAlive(rooted);
+      if (!alive || !alive.value)
+        return false;
+    }
+    const auto source_active =
+        source.Get<ChatMessageListLocalViewController>()->TryCall<"get_isActiveAndEnabled", bool>();
+    const auto input_active  = input.Get<unity::TMP_InputField>()->TryCall<"get_isActiveAndEnabled", bool>();
+    const auto system_active = system.Get<unity::EventSystem>()->TryCall<"get_isActiveAndEnabled", bool>();
+    const auto focused       = input.Get<unity::TMP_InputField>()->TryCall<"get_isFocused", bool>();
+    if (!source_active || !source_active.value || !input_active || !input_active.value || !system_active
+        || !system_active.value || !focused || !focused.value)
+      return false;
+    const auto same_object = input.Get<unity::TMP_InputField>()->TryCall<"get_gameObject", unity::GameObject*>();
+    const auto selecting   = system.Get<unity::EventSystem>()->TryCall<"get_alreadySelecting", bool>();
+    const auto navigation  = system.Get<unity::EventSystem>()->TryCall<"get_sendNavigationEvents", bool>();
+    const auto selected =
+        system.Get<unity::EventSystem>()->TryCall<"get_currentSelectedGameObject", unity::GameObject*>();
+    const auto same_system = unity::EventSystem::Class::TryCall<"get_current", unity::EventSystem*>();
+    return same_object && same_object.value == object.Get<unity::GameObject>() && selecting && !selecting.value
+           && navigation && navigation.value && selected && selected.value == object.Get<unity::GameObject>()
+           && same_system && same_system.value == system.Get<unity::EventSystem>();
+  };
+  // Managed observations can reenter game code. Recheck the rooted context, then compare the owner's direct
+  // reference and both native gates after all managed reads. Nothing calls back into managed code after the write.
+  if (!qualifies() || !qualifies()
+      || il2cpp::detail::ReadField<unity::TMP_InputField*>(fields.input, source.Get())
+             != input.Get<unity::TMP_InputField>()
+      || !il2cpp::detail::ReadField<bool>(fields.enabled, source.Get())
+      || il2cpp::detail::ReadField<bool>(fields.selected, source.Get()))
+    return false;
+  il2cpp::detail::WriteField(fields.selected, source.Get(), true);
+  return true;
+}
+} // namespace chat_submit_binding
 
 namespace chat_pointer
 {

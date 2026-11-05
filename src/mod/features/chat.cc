@@ -14,6 +14,7 @@
 #include <il2cpp/il2cpp.h>
 #include <spdlog/spdlog.h>
 #include <unity/core.h>
+#include <unity/input.h>
 #include <unity/tracker.h>
 
 #include <optional>
@@ -21,6 +22,83 @@
 
 namespace
 {
+#ifdef _MODDBG
+struct ChatSubmitTrace {
+  int32_t                  frame   = -1;
+  bool                     sampled = false, input_acquired = false;
+  il2cpp::CallResult<bool> enabled, selected, alive, focused;
+};
+
+ChatSubmitTrace ObserveChatSubmit(ChatMessageListLocalViewController* receiver) noexcept
+{
+  ChatSubmitTrace state;
+  try {
+    if (spdlog::should_log(spdlog::level::debug)) {
+      state.sampled = true;
+      state.frame   = unity::Time::frameCount();
+      auto source   = il2cpp::GcHandle::Strong(receiver);
+      if (source) {
+        auto* owner          = source.Get<ChatMessageListLocalViewController>();
+        state.enabled        = owner->TryFocusOnTypeEnabled();
+        state.selected       = owner->TryInputFieldSelected();
+        auto input           = il2cpp::GcHandle::Strong(owner->inputField());
+        state.input_acquired = bool(input);
+        state.alive          = input ? unity::TryAlive(input.Get()) : il2cpp::CallResult<bool>{};
+        if (state.alive && state.alive.value)
+          state.focused = input.Get<unity::TMP_InputField>()->TryCall<"get_isFocused", bool>();
+      }
+    }
+  } catch (...) {
+    // Trace availability never decides whether the separate repair or native callback may run.
+  }
+  return state;
+}
+
+void ReportChatSubmit(const ChatSubmitTrace& state, bool submit_down, bool capture, bool reconciled) noexcept
+{
+  try {
+    if (state.sampled)
+      spdlog::debug("[Chat] submit-state phase=pre_native_callback frame={} native_enable_known={} native_enabled={} "
+                    "native_selected_known={} native_selected={} input_acquired={} input_alive_known={} "
+                    "input_alive={} text_focus_known={} text_focused={} submit_down={} capture={} reconciled={}",
+                    state.frame, state.enabled.succeeded, state.enabled && state.enabled.value,
+                    state.selected.succeeded, state.selected && state.selected.value, state.input_acquired,
+                    state.alive.succeeded, state.alive && state.alive.value, state.focused.succeeded,
+                    state.focused && state.focused.value, submit_down, capture, reconciled);
+  } catch (...) {
+    // No logger failure may suppress, retry or undo the native submit or a completed repair.
+  }
+}
+#endif
+
+void ChatMessageListLocalViewController_OnSubmit_Hook(auto original, ChatMessageListLocalViewController* _this,
+                                                      Il2CppString* text)
+{
+  bool submit_down = false, capture = true, keys_observed = false, reconciled = false;
+  try {
+    unity::Key::Poll();
+    // Poll can leave an old cache when frame-count observation is unavailable. Query the engine's current edge
+    // directly, matching the native submit gate, rather than treating an old cached Return as this user's intent.
+    submit_down =
+        unity::Input::GetKeyDown(unity::KeyCode::Return) || unity::Input::GetKeyDown(unity::KeyCode::KeypadEnter);
+    capture       = Shortcut::CaptureBlocksShortcuts();
+    keys_observed = true;
+  } catch (...) {
+  }
+#ifdef _MODDBG
+  const auto trace = ObserveChatSubmit(_this);
+#endif
+  try {
+    reconciled = chat_submit_binding::ReconcileSelection(_this, keys_observed && submit_down && !capture);
+  } catch (...) {
+    // The optional correction never replaces the game's callback or retries a failed submission.
+  }
+#ifdef _MODDBG
+  ReportChatSubmit(trace, submit_down, capture, reconciled);
+#endif
+  original(_this, text);
+}
+
 // --- Chat portrait retention ---
 
 void ChatMessageWidget_SetWidgetData_Hook(auto original, ChatMessageWidget* _this)
@@ -198,6 +276,9 @@ bool InstallChat()
                ChatPreviewController_OnGlobalMessageReceived_Hook);
   IL2CPP_STAGE(hooks, ChatPreviewController::Class::Method<void(void*)>("OnRegionalMessageReceived"),
                ChatPreviewController_OnRegionalMessageReceived_Hook);
+  IL2CPP_STAGE_AT(
+      hooks, il2cpp::CheckedEntry(ChatMessageListLocalViewController::Class::Method<void(Il2CppString*)>("OnSubmit")),
+      ChatMessageListLocalViewController_OnSubmit_Hook);
   return hooks.Commit();
 }
 
