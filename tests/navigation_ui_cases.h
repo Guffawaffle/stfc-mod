@@ -224,7 +224,6 @@ struct NavigationCardFleet {
 struct NavigationCardViewer {
   Il2CppObject  header{};
   Il2CppObject *data = nullptr, *context = nullptr, *visibility = nullptr;
-  int32_t       occupied = 2; // Mining OtherPlayerOccupied; unused by regular player cards.
 };
 struct NavigationCardNavigation {
   Il2CppObject  header{};
@@ -335,7 +334,6 @@ void NavigationCardCases()
   auto& poi         = Define("Digit.Prime.Navigation", "POI", IL2CPP_TYPE_CLASS, &object_class);
   auto& viewer_base = Define("Digit.Prime.ObjectViewer", "ObjectViewerBaseWidget", IL2CPP_TYPE_CLASS, &component_class);
   auto& preview     = Define("Digit.Prime.Combat", "PreScanTargetWidget", IL2CPP_TYPE_CLASS, &viewer_base);
-  auto& mining      = Define("Digit.Prime.ObjectViewer", "MiningObjectViewerWidget", IL2CPP_TYPE_CLASS, &viewer_base);
   auto& nav =
       Define("Digit.Prime.Navigation", "NavigationInteractionUIViewController", IL2CPP_TYPE_CLASS, &object_class);
   auto& loader = Define("Digit.Prime.ObjectViewer", "ParentObjectViewerLoadAndShow", IL2CPP_TYPE_CLASS, &object_class);
@@ -356,8 +354,6 @@ void NavigationCardCases()
   AddMethod(preview, "OnSetCourseResponse", reinterpret_cast<void*>(&NavigationCardNoop), T(void_class), {T(response)});
   AddMethod(nav, "OnSetCourseResponse", reinterpret_cast<void*>(&NavigationCardNoop), T(void_class), {T(response)});
   AddField(preview, "_battleTargetData", data, offsetof(NavigationCardViewer, data));
-  AddField(mining, "_targetFleet", deployed, offsetof(NavigationCardViewer, data));
-  AddField(mining, "_occupiedState", int_class, offsetof(NavigationCardViewer, occupied));
   AddField(context, "Poi", poi, offsetof(NavigationUiNode, first));
   AddField(context, "UserId", string_class, offsetof(NavigationUiNode, second));
   AddField(data, "TargetFleetDeployedData", deployed, offsetof(NavigationCardData, fleet));
@@ -367,7 +363,6 @@ void NavigationCardCases()
   AddField(viewer_base, "_visibilityController", visibility, offsetof(NavigationCardViewer, visibility));
   AddField(visibility, "_state", state, offsetof(NavigationCardVisibility, state));
   preview.klass.instance_size = viewer_base.klass.instance_size = sizeof(NavigationCardViewer);
-  mining.klass.instance_size                                    = sizeof(NavigationCardViewer);
   nav.klass.instance_size                                       = sizeof(NavigationCardNavigation);
   context.klass.instance_size                                   = sizeof(NavigationUiNode);
   data.klass.instance_size                                      = sizeof(NavigationCardData);
@@ -654,141 +649,6 @@ void NavigationCardCases()
       invoke_hooks(keep_base);
     }
 
-  NavigationCardViewer mining_viewer{
-      {&mining.klass}, &native_fleet.header, &native_context.header, &native_visibility.header};
-  native_loader.viewer     = &mining_viewer.header;
-  recorded.base            = false;
-  event.target_id          = nullptr;
-  event.fleet_id           = 0;
-  const auto retain_mining = [&] { return base_card_binding::RetainNavigation(navigation, event, false, true); };
-  Require(base_card_binding::ShipNative().mining_ready && retain_mining(),
-          "a displayed mining card retains its actual other-player occupant without battle-target data");
-  navigation_card_manager = nullptr;
-  Require(retain_mining(), "mining-card retention does not need a global scanning manager or response target");
-  navigation_card_manager = &native_scanning;
-  native_scanning.first   = &replacement.header;
-  for (const auto* unused : {"starbase", "valid"}) {
-    navigation_card_failure = unused;
-    Require(retain_mining(), "mining-card classification does not read unrelated battle-target predicates");
-  }
-  navigation_card_failure.clear();
-  for (const auto occupied : {int32_t{0}, int32_t{1}, int32_t{-1}, int32_t{99}}) {
-    mining_viewer.occupied = occupied;
-    Require(!retain_mining(), "empty, own or unknown node states cannot reuse a stale bound opponent fleet");
-  }
-  mining_viewer.occupied = 2;
-  mining_viewer.data     = nullptr;
-  Require(!retain_mining(), "an empty mining node keeps native card dismissal");
-  mining_viewer.data = &recorded.header;
-  Require(!retain_mining(), "an incorrectly typed bound occupant cannot qualify a mining card");
-  mining_viewer.data = &native_fleet.header;
-  native_fleet.type  = DeployedFleetType::Marauder;
-  Require(!retain_mining(), "NPC occupants keep native mining-card dismissal");
-  native_fleet.type  = DeployedFleetType::Player;
-  native_fleet.local = true;
-  Require(!retain_mining(), "own occupants keep native mining-card dismissal");
-  native_fleet.local     = false;
-  native_fleet.destroyed = true;
-  Require(!retain_mining(), "destroyed occupants cannot keep mining cards open");
-  native_fleet.destroyed  = false;
-  native_visibility.state = VisibilityState::Hidden;
-  Require(!retain_mining(), "hidden mining cards cannot qualify for retention");
-  native_visibility.state = VisibilityState::Visible;
-  for (const auto* field : {"fleet-type", "fleet-local", "fleet-destroyed"}) {
-    navigation_card_failure = field;
-    Require(!retain_mining(), "unknown occupant classification keeps native mining-card dismissal");
-  }
-  navigation_card_failure.clear();
-  for (auto* dead : {&mining_viewer.header, &native_poi}) {
-    visual_dead_object = dead;
-    Require(!retain_mining(), "dead mining viewer or node cannot qualify for retention");
-  }
-  visual_dead_object = nullptr;
-  visual_throws      = true;
-  Require(!retain_mining(), "unknown mining-viewer liveness keeps native dismissal");
-  visual_throws     = false;
-  warp_root_failure = true;
-  Require(!retain_mining(), "failed managed custody keeps native mining-card dismissal");
-  warp_root_failure       = false;
-  const auto reset_mining = [&] {
-    mining_viewer.data       = &native_fleet.header;
-    mining_viewer.context    = &native_context.header;
-    mining_viewer.visibility = &native_visibility.header;
-    mining_viewer.occupied   = 2;
-    native_context.first     = &native_poi;
-    native_nav.loader        = &native_loader.header;
-    native_loader.viewer     = &mining_viewer.header;
-    native_loader.poi        = &native_poi;
-  };
-  for (const auto replace : {0, 1, 2, 3, 4, 5, 6, 7}) {
-    navigation_card_on_classification = [&, replace] {
-      if (replace == 0)
-        mining_viewer.data = &other_fleet.header;
-      if (replace == 1)
-        mining_viewer.context = &other_context.header;
-      if (replace == 2)
-        native_context.first = &other_poi;
-      if (replace == 3)
-        mining_viewer.visibility = &other_visibility.header;
-      if (replace == 4)
-        native_nav.loader = &other_loader.header;
-      if (replace == 5)
-        native_loader.viewer = &other_preview.header;
-      if (replace == 6)
-        native_loader.poi = &other_poi;
-      if (replace == 7)
-        mining_viewer.occupied = 0;
-    };
-    Require(!retain_mining(), "mining occupant/state/viewer/context/loader replacement prevents stale retention");
-    reset_mining();
-  }
-  const auto invoke_mining_hook = [&](bool retained) {
-    const auto before = navigation_calls;
-    NavigationInteractionUIViewController_OnSetCourseResponse_BaseCardHook(original_navigation, navigation, event);
-    Require(navigation_calls == before + !retained,
-            "the mining response hook either retains or calls its native original exactly once");
-  };
-  for (bool keep_base : {false, true})
-    for (bool keep_ship : {false, true}) {
-      options.keep_base_card_open        = keep_base;
-      options.keep_player_ship_card_open = keep_ship;
-      invoke_mining_hook(keep_ship);
-    }
-  options.keep_player_ship_card_open = true;
-  event.success                      = false;
-  invoke_mining_hook(false);
-  event.success   = true;
-  event.is_recall = true;
-  invoke_mining_hook(false);
-  event.is_recall    = false;
-  native_fleet.local = true;
-  invoke_mining_hook(false);
-  native_fleet.local = false;
-  native_fleet.type  = DeployedFleetType::Marauder;
-  invoke_mining_hook(false);
-  native_fleet.type      = DeployedFleetType::Player;
-  native_fleet.destroyed = true;
-  invoke_mining_hook(false);
-  native_fleet.destroyed = false;
-  mining_viewer.occupied = 0;
-  invoke_mining_hook(false);
-  mining_viewer.occupied = 1;
-  invoke_mining_hook(false);
-  mining_viewer.occupied = 2;
-  mining_viewer.data     = nullptr;
-  invoke_mining_hook(false);
-  mining_viewer.data = &recorded.header;
-  invoke_mining_hook(false);
-  mining_viewer.data      = &native_fleet.header;
-  navigation_card_failure = "fleet-type";
-  invoke_mining_hook(false);
-  navigation_card_failure.clear();
-  native_visibility.state = VisibilityState::Hidden;
-  invoke_mining_hook(false);
-  native_visibility.state = VisibilityState::Visible;
-  base_card_ready.store(false);
-  invoke_mining_hook(false);
-  reset_display();
   options.keep_base_card_open        = saved_base;
   options.keep_player_ship_card_open = saved_ship;
   base_card_ready.store(false);
@@ -796,6 +656,6 @@ void NavigationCardCases()
   extra_value_box = second_value_box = nullptr;
   extra_value_payload = second_value_payload = nullptr;
   Require(warp_roots.empty(), "card observations release every operation-local root");
-  std::cout << "Production station matching and displayed player/mining-card classification/replacement cases passed\n";
+  std::cout << "Production station matching and displayed player-card classification/replacement cases passed\n";
 }
 } // namespace

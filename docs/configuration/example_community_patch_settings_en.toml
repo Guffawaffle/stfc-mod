@@ -974,7 +974,7 @@ disable_preview_recall = false
 # Keep the matching enemy station card open while issuing course/recall actions.
 keep_base_card_open = false
 
-# Keep cards for other players' ships open after attacks, including mining nodes.
+# Keep the player ship card open after attacks. For miners, switch to the ship card.
 keep_player_ship_card_open = false
 
 # Show cargo used and capacity immediately instead of counting up. Restart after changing. Windows client 263 only; other builds keep native behavior

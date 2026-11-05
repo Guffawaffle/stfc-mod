@@ -523,7 +523,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("previews", ui, keep_base_card_open, "Keep base card open", Owner("BaseCard"), Live,
        "Keep the base card open after supported actions.");
   BOOL("previews", ui, keep_player_ship_card_open, "Keep player ship card open after attack", Owner("BaseCard"), Live,
-       "Keep cards for other players' ships open after attacks, including mining nodes.");
+       "Keep the player ship card open after attacks. For miners, switch to the ship card.");
   BOOL("previews", ui, highlight_opc_fleets, "Highlight unprotected cargo", Owner("OpcIndicators"), Live,
        "Highlight fleets over protected cargo.");
   BOOL("previews", ui, fleet_hud_opc_eta, "Time until unprotected cargo", Owner("OpcIndicators"), Live,
