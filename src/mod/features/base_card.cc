@@ -1,5 +1,6 @@
 // [ui] keep_base_card_open retains enemy station cards across matching course responses and recalls;
-// keep_player_ship_card_open retains player ship cards after matching accepted attacks. Commands remain native.
+// keep_player_ship_card_open retains the displayed player ship card after accepted course responses. Commands remain
+// native.
 #include "features/base_card.h"
 #include "config.h"
 #include "features/features.h"
@@ -19,36 +20,96 @@ std::atomic_bool base_card_ready = false;
 bool BaseCardEnabled()
 { return base_card_ready.load() && Config::Get().ui.keep_base_card_open; }
 
+#ifdef _MODDBG
+void TracePlayerShipRetention(const char* callback, const SetCourseResponse& response,
+                              const base_card_binding::RetentionObservation& observation, bool retained) noexcept
+{
+  try {
+    if (!spdlog::should_log(spdlog::level::debug))
+      return;
+    const auto view = observation.view == base_card_binding::RetentionViewKind::PreScan  ? "prescan"
+                      : observation.view == base_card_binding::RetentionViewKind::Mining ? "mining"
+                                                                                         : "unknown";
+    spdlog::debug("[BaseCard] response-state callback={} view={} success={} recall={} retained={} phase={} "
+                  "seen={:#x} known={:#x} passed={:#x}",
+                  callback, view, response.success, response.is_recall, retained, observation.phase, observation.seen,
+                  observation.known, observation.passed);
+  } catch (...) {
+    // Reporting cannot turn an already computed retain decision into a native dismissal.
+  }
+}
+#endif
+
 void PreScanTargetWidget_OnSetCourseResponse_BaseCardHook(auto original, PreScanTargetWidget* _this,
                                                           SetCourseResponse response)
 {
+  bool retained = false;
+#ifdef _MODDBG
+  base_card_binding::RetentionObservation observation;
+  bool                                    observe_ship = false;
+#endif
   try {
     if (base_card_ready.load()) {
       const bool keep_base        = Config::Get().ui.keep_base_card_open;
       const bool keep_player_ship = Config::Get().ui.keep_player_ship_card_open;
+#ifdef _MODDBG
+      observe_ship     = keep_player_ship;
+      auto* diagnostic = observe_ship ? &observation : nullptr;
+#else
+      auto* diagnostic = static_cast<base_card_binding::RetentionObservation*>(nullptr);
+#endif
       if ((keep_base || keep_player_ship)
-          && base_card_binding::RetainPreview(_this, response, keep_base, keep_player_ship))
-        return;
+          && base_card_binding::RetainPreview(_this, response, keep_base, keep_player_ship, diagnostic))
+        retained = true;
     }
   } catch (...) {
     // Optional viewer retention must never prevent the game's fallback path.
+#ifdef _MODDBG
+    base_card_binding::RetentionPhase(&observation, "exception");
+#endif
   }
+#ifdef _MODDBG
+  if (observe_ship)
+    TracePlayerShipRetention("preview", response, observation, retained);
+#endif
+  if (retained)
+    return;
   original(_this, response);
 }
 
 void NavigationInteractionUIViewController_OnSetCourseResponse_BaseCardHook(
     auto original, NavigationInteractionUIViewController* _this, SetCourseResponse response)
 {
+  bool retained = false;
+#ifdef _MODDBG
+  base_card_binding::RetentionObservation observation;
+  bool                                    observe_ship = false;
+#endif
   try {
     if (base_card_ready.load()) {
       const bool keep_base        = Config::Get().ui.keep_base_card_open;
       const bool keep_player_ship = Config::Get().ui.keep_player_ship_card_open;
+#ifdef _MODDBG
+      observe_ship     = keep_player_ship;
+      auto* diagnostic = observe_ship ? &observation : nullptr;
+#else
+      auto* diagnostic = static_cast<base_card_binding::RetentionObservation*>(nullptr);
+#endif
       if ((keep_base || keep_player_ship)
-          && base_card_binding::RetainNavigation(_this, response, keep_base, keep_player_ship))
-        return;
+          && base_card_binding::RetainNavigation(_this, response, keep_base, keep_player_ship, diagnostic))
+        retained = true;
     }
   } catch (...) {
+#ifdef _MODDBG
+    base_card_binding::RetentionPhase(&observation, "exception");
+#endif
   }
+#ifdef _MODDBG
+  if (observe_ship)
+    TracePlayerShipRetention("navigation", response, observation, retained);
+#endif
+  if (retained)
+    return;
   original(_this, response);
 }
 

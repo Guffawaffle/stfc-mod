@@ -2,11 +2,11 @@
 
 // Qualified observations used to retain the current station or attacked player-ship card.
 // Course submission, completion and semaphore ownership remain native.
-#include "game/galaxy.h"
 #include "game/queues.h"
 #include "game/viewers.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <utility>
 
@@ -14,6 +14,7 @@ namespace base_card_binding
 {
 using Scanning = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation.Managers", "ScanningManager">;
 using Poi      = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "POI">;
+using Loader   = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "ParentObjectViewerLoadAndShow">;
 
 struct Api {
   il2cpp::Method    preview, navigation;
@@ -140,148 +141,101 @@ inline bool Matches(BattleTargetData* data, NavigationInteractionUIContext* cont
   return SameUser(target.Get(), target_user.Get());
 }
 
-inline bool NullableFleetIdLayout(const Il2CppType* type)
-{
-  // The shared NullableLayoutMatches validates aggregate payloads; its ValueClassMatches intentionally rejects
-  // primitive metadata. This course member is Nullable<Int64>, so qualify the real primitive argument and field.
-  using Target = il2cpp::Nullable<int64_t>;
-  if (!type || type->byref || type->type != IL2CPP_TYPE_GENERICINST)
-    return false;
-  const auto* generic    = type->data.generic_class;
-  const auto* arguments  = generic ? generic->context.class_inst : nullptr;
-  auto*       definition = il2cpp_class_from_name(il2cpp_get_corlib(), "System", "Nullable`1");
-  auto*       payload    = il2cpp::PrimitiveClass<int64_t>();
-  if (!definition || !payload || !generic || !generic->type || il2cpp_class_from_type(generic->type) != definition
-      || !arguments || arguments->type_argc != 1 || !arguments->type_argv
-      || !il2cpp::detail::ExactScalarMatches(arguments->type_argv[0], IL2CPP_TYPE_I8)
-      || il2cpp_class_from_type(arguments->type_argv[0]) != payload)
-    return false;
-  auto*    actual    = il2cpp_class_from_type(type);
-  uint32_t alignment = 0;
-  if (!actual || !il2cpp_class_is_valuetype(actual) || il2cpp_class_value_size(actual, &alignment) != sizeof(Target)
-      || alignment != alignof(Target))
-    return false;
-  const auto* flag     = il2cpp_class_get_field_from_name(actual, "hasValue");
-  const auto* value    = il2cpp_class_get_field_from_name(actual, "value");
-  const auto  instance = [](const FieldInfo* field) {
-    return field && field->type && !field->type->byref
-           && !(field->type->attrs & (FIELD_ATTRIBUTE_STATIC | FIELD_ATTRIBUTE_LITERAL));
-  };
-  return instance(flag) && instance(value) && flag->type->type == IL2CPP_TYPE_BOOLEAN
-         && flag->offset == sizeof(Il2CppObject) + offsetof(Target, has_value)
-         && value->offset == sizeof(Il2CppObject) + offsetof(Target, value)
-         && il2cpp::detail::ExactScalarMatches(value->type, IL2CPP_TYPE_I8)
-         && il2cpp_class_from_type(value->type) == payload;
-}
-
-inline FieldInfo* CourseTargetFleetField()
-{
-  static auto* field = [] {
-    using Target = il2cpp::Nullable<int64_t>;
-    auto* owner  = CourseData::Class::Raw();
-    auto* value  = owner ? il2cpp_class_get_field_from_name(owner, "<TargetDeployedFleetId>k__BackingField") : nullptr;
-    if (!value || !value->type || value->type->byref || (value->type->attrs & FIELD_ATTRIBUTE_STATIC)
-        || value->offset < static_cast<int32_t>(sizeof(Il2CppObject)))
-      return static_cast<FieldInfo*>(nullptr);
-    const auto size = il2cpp_class_instance_size(owner);
-    return size >= sizeof(Target) && static_cast<uint32_t>(value->offset) <= size - sizeof(Target)
-                   && static_cast<uint32_t>(value->offset) % alignof(Target) == 0 && NullableFleetIdLayout(value->type)
-               ? value
-               : nullptr;
-  }();
-  return field;
-}
-
-struct PlayerShipProof {
-  il2cpp::GcHandle poi, fleet, course, user;
-  FieldInfo *      fleet_field = nullptr, *course_field = nullptr, *target_field = nullptr;
-  int64_t          target_id = 0;
-
-  explicit operator bool() const
-  { return poi && fleet && course && user && fleet_field && course_field && target_field && target_id > 0; }
-
-  bool Current(BattleTargetData* data, NavigationInteractionUIContext* context) const
-  {
-    // Keep the final references tied to this card after every managed observation, including a generic getter
-    // that rebinds the viewer. These roots live only for the response, never across target changes or combat.
-    // This last check has no managed calls: a getter cannot rebind the card after its source was compared.
-    const auto target = il2cpp::detail::ReadField<il2cpp::Nullable<int64_t>>(target_field, course.Get());
-    return target.has_value && target.value == target_id
-           && il2cpp::detail::ReadField<Il2CppObject*>(Native().poi, context) == poi.Get()
-           && il2cpp::detail::ReadField<Il2CppObject*>(Native().user, context) == user.Get()
-           && il2cpp::detail::ReadField<Il2CppObject*>(fleet_field, data) == fleet.Get()
-           && il2cpp::detail::ReadField<Il2CppObject*>(course_field, data) == course.Get();
-  }
+// Scalar diagnostics are copied only when the debug hooks request them. Nothing persists between responses.
+enum class RetentionGate : uint8_t {
+  WidgetAlive,
+  PoiAlive,
+  NotStarbase,
+  Valid,
+  PlayerFleet,
+  OtherPlayer,
+  NotDestroyed,
+  Visible,
+  CurrentContext,
+  CurrentData,
+  CurrentFleet,
+  CurrentPoi,
+  CurrentVisibility,
+  CurrentLoader,
+  CurrentViewer,
+  CurrentActivePoi,
+  OtherPlayerOccupied,
 };
 
-inline PlayerShipProof MatchPlayerShip(BattleTargetData* data, NavigationInteractionUIContext* context,
-                                       const SetCourseResponse& response)
-{
-  if (!data || data->klass != BattleTargetData::Class::Raw() || !context
-      || context->klass != NavigationInteractionUIContext::Class::Raw() || !response.success || response.is_recall
-      || response.fleet_id <= 0 || !response.target_id
-      || response.target_id->klass != il2cpp::detail::PrimitiveClass(IL2CPP_TYPE_I8))
-    return {};
-  auto* boxed = static_cast<int64_t*>(il2cpp_object_unbox(response.target_id));
-  if (!boxed || *boxed <= 0)
-    return {};
-  const int64_t expected = *boxed;
-  const auto    base     = data->TryCall<"get_IsStarbase", bool>();
-  const auto    valid    = data->TryCall<"get_IsValid", bool>();
-  const auto    player   = planned_warp_binding::Scalar<"get_PlayerID", int64_t>(data);
-  const auto    target   = planned_warp_binding::Scalar<"get_TargetID", int64_t>(data);
-  if (!base || base.value || !valid || !valid.value || !player || player.value != response.fleet_id || !target
-      || target.value != expected)
-    return {};
+enum class RetentionViewKind : uint8_t { Unknown, PreScan, Mining };
 
-  static auto* fleet_field =
-      ReferenceField(BattleTargetData::Class::Raw(), "TargetFleetDeployedData", FleetDeployedData::Class::Raw());
-  static auto* course_field = ReferenceField(BattleTargetData::Class::Raw(), "<PlannedCourseToTarget>k__BackingField",
-                                             CourseData::Class::Raw());
-  auto*        target_field = CourseTargetFleetField();
-  if (!fleet_field || !course_field || !target_field)
-    return {};
-  PlayerShipProof proof;
-  proof.fleet_field  = fleet_field;
-  proof.course_field = course_field;
-  proof.target_field = target_field;
-  proof.target_id    = expected;
-  proof.poi          = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(Native().poi, context));
-  proof.fleet        = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(fleet_field, data));
-  proof.course       = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(course_field, data));
-  proof.user         = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(Native().user, context));
-  if (!proof.poi || proof.poi.Get()->klass != Poi::Raw() || !proof.fleet
-      || !proof.fleet.Get<il2cpp::Object>()->Is<FleetDeployedData>() || !proof.course
-      || !proof.course.Get<il2cpp::Object>()->Is<CourseData>() || !proof.user)
-    return {};
-  const auto alive = unity::TryAlive(proof.poi.Get());
-  if (!alive || !alive.value)
-    return {};
-  auto*      poi          = proof.poi.Get<galaxy_binding::Poi>();
-  auto*      fleet        = proof.fleet.Get<FleetDeployedData>();
-  auto*      course       = proof.course.Get<CourseData>();
-  const auto poi_id       = planned_warp_binding::Scalar<"get_ID", int64_t>(poi);
-  const auto poi_type     = poi->TryCall<"get_InteractableType", galaxy_binding::Interactable>();
-  const auto fleet_id     = planned_warp_binding::Scalar<"get_ID", int64_t>(fleet);
-  const auto fleet_type   = fleet->TryFleetType();
-  const auto own          = fleet->TryIsLocalPlayer();
-  const auto destroyed    = fleet->TryCall<"get_IsDestroyed", bool>();
-  const auto course_fleet = course->TryFleetId();
-  const auto action       = course->TryTargetAction();
-  auto       user         = il2cpp::GcHandle::Strong(
-      reinterpret_cast<Il2CppObject*>(planned_warp_binding::Reference<"get_TargetUserID", Il2CppString>(data).value));
-  // TargetAction.Attack = 2 in the retained client catalog. A course response has no action kind of its own;
-  // an absent plan cannot become permission to retain orbit/follow or a card for a different ship of this user.
-  if (!poi_id || poi_id.value != expected || !poi_type || poi_type.value != galaxy_binding::Interactable::Fleet
-      || !fleet_id || fleet_id.value != expected || !fleet_type || fleet_type.value != DeployedFleetType::Player || !own
-      || own.value || !destroyed || destroyed.value || !course_fleet || course_fleet.value != response.fleet_id
-      || !action || action.value != 2 || !SameUser(user.Get(), proof.user.Get()) || !proof.Current(data, context))
-    return {};
-  return proof;
+struct RetentionObservation {
+  const char*       phase = "entry";
+  RetentionViewKind view  = RetentionViewKind::Unknown;
+  uint32_t          seen = 0, known = 0, passed = 0;
+};
+
+inline void RetentionPhase(RetentionObservation* observation, const char* phase) noexcept
+{
+  if (observation)
+    observation->phase = phase;
 }
 
-inline bool RetainPreview(PreScanTargetWidget* widget, const SetCourseResponse& response, bool keep_base = true,
-                          bool keep_player_ship = false)
+inline bool RetentionCheck(RetentionObservation* observation, RetentionGate gate, bool value,
+                           bool known = true) noexcept
+{
+  if (observation) {
+    const auto bit = uint32_t{1} << std::to_underlying(gate);
+    observation->seen |= bit;
+    observation->known  = (observation->known & ~bit) | (known ? bit : 0);
+    observation->passed = (observation->passed & ~bit) | (known && value ? bit : 0);
+  }
+  return value;
+}
+
+inline FieldInfo* Int32Field(Il2CppClass* owner, const char* name)
+{
+  auto* field = owner ? il2cpp_class_get_field_from_name(owner, name) : nullptr;
+  if (!field || !field->type || field->type->byref
+      || (field->type->attrs & (FIELD_ATTRIBUTE_STATIC | FIELD_ATTRIBUTE_LITERAL))
+      || field->offset < static_cast<int32_t>(sizeof(Il2CppObject)))
+    return nullptr;
+  const auto size = il2cpp_class_instance_size(owner);
+  return size >= sizeof(int32_t) && static_cast<uint32_t>(field->offset) <= size - sizeof(int32_t)
+                 && static_cast<uint32_t>(field->offset) % alignof(int32_t) == 0
+                 && il2cpp::detail::ExactScalarMatches(field->type, IL2CPP_TYPE_I4)
+             ? field
+             : nullptr;
+}
+
+struct ShipApi {
+  FieldInfo *loader = nullptr, *active_viewer = nullptr, *active_poi = nullptr;
+  FieldInfo *target_fleet = nullptr, *mining_fleet = nullptr, *visibility = nullptr, *visibility_state = nullptr;
+  FieldInfo* mining_occupied = nullptr;
+  bool       preview_ready = false, mining_ready = false, ready = false;
+};
+
+inline const ShipApi& ShipNative()
+{
+  static const ShipApi api = [] {
+    ShipApi result;
+    result.loader =
+        ReferenceField(NavigationInteractionUIViewController::Class::Raw(), "_objectViewerLoadAndShow", Loader::Raw());
+    result.active_viewer = ReferenceField(Loader::Raw(), "_activeViewer", ObjectViewerBaseWidget::Class::Raw());
+    result.active_poi    = ReferenceField(Loader::Raw(), "_activePOI", Poi::Raw());
+    result.target_fleet =
+        ReferenceField(BattleTargetData::Class::Raw(), "TargetFleetDeployedData", FleetDeployedData::Class::Raw());
+    result.mining_fleet =
+        ReferenceField(MiningObjectViewerWidget::Class::Raw(), "_targetFleet", FleetDeployedData::Class::Raw());
+    result.visibility       = ReferenceField(ObjectViewerBaseWidget::Class::Raw(), "_visibilityController",
+                                             VisibilityController::Class::Raw());
+    result.visibility_state = Int32Field(VisibilityController::Class::Raw(), "_state");
+    result.mining_occupied  = Int32Field(MiningObjectViewerWidget::Class::Raw(), "_occupiedState");
+    result.preview_ready    = result.target_fleet && result.visibility && result.visibility_state;
+    result.mining_ready = result.mining_fleet && result.mining_occupied && result.visibility && result.visibility_state;
+    result.ready =
+        (result.preview_ready || result.mining_ready) && result.loader && result.active_viewer && result.active_poi;
+    return result;
+  }();
+  return api;
+}
+
+inline bool RetainBasePreview(PreScanTargetWidget* widget, const SetCourseResponse& response)
 {
   const auto& api = Native();
   if (!api.ready || !widget || !response.success || response.fleet_id == 0
@@ -297,24 +251,10 @@ inline bool RetainPreview(PreScanTargetWidget* widget, const SetCourseResponse& 
   // target must never suppress the game's response for the replacement card.
   if (!data || !context || il2cpp::detail::ReadField<Il2CppObject*>(api.preview_data, source.Get()) != data.Get())
     return false;
-  if (keep_base && Matches(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response))
-    return true;
-  if (!keep_player_ship)
-    return false;
-  auto proof = MatchPlayerShip(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response);
-  if (!proof)
-    return false;
-  const auto alive = unity::TryAlive(proof.poi.Get());
-  if (!alive || !alive.value)
-    return false;
-  auto current = il2cpp::GcHandle::Strong(Invoke(api.preview_context, source.Get()));
-  return current.Get() == context.Get()
-         && proof.Current(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>())
-         && il2cpp::detail::ReadField<Il2CppObject*>(api.preview_data, source.Get()) == data.Get();
+  return Matches(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response);
 }
 
-inline bool RetainNavigation(NavigationInteractionUIViewController* controller, const SetCourseResponse& response,
-                             bool keep_base = true, bool keep_player_ship = false)
+inline bool RetainBaseNavigation(NavigationInteractionUIViewController* controller, const SetCourseResponse& response)
 {
   const auto& api = Native();
   if (!api.ready || !controller || !response.success || response.fleet_id == 0
@@ -329,23 +269,205 @@ inline bool RetainNavigation(NavigationInteractionUIViewController* controller, 
   auto data    = manager ? il2cpp::GcHandle::Strong(Invoke(api.target_cache, manager.Get())) : il2cpp::GcHandle{};
   if (!context || !data)
     return false;
-  if (keep_base && Matches(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response))
+  return Matches(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response);
+}
+
+inline bool ShipShown(Il2CppObject* visibility)
+{
+  const auto state = il2cpp::detail::ReadField<VisibilityState>(ShipNative().visibility_state, visibility);
+  return state == VisibilityState::Show || state == VisibilityState::Visible;
+}
+
+inline RetentionViewKind ShipView(Il2CppObject* widget)
+{
+  if (widget && widget->klass == PreScanTargetWidget::Class::Raw())
+    return RetentionViewKind::PreScan;
+  if (widget && widget->klass == MiningObjectViewerWidget::Class::Raw())
+    return RetentionViewKind::Mining;
+  return RetentionViewKind::Unknown;
+}
+
+struct ShipCard {
+  il2cpp::GcHandle  widget, data, context, poi, fleet, visibility;
+  RetentionViewKind view        = RetentionViewKind::Unknown;
+  FieldInfo*        fleet_field = nullptr;
+  explicit          operator bool() const
+  {
+    return widget && (view == RetentionViewKind::Mining || data) && context && poi && fleet && visibility
+           && fleet_field;
+  }
+
+  bool Current(RetentionObservation* observation) const
+  {
+    const auto& api  = Native();
+    const auto& ship = ShipNative();
+    // All managed observations finish before these raw references and UI states are rechecked.
+    if (view == RetentionViewKind::Mining
+        && !RetentionCheck(observation, RetentionGate::OtherPlayerOccupied,
+                           il2cpp::detail::ReadField<OccupiedState>(ship.mining_occupied, widget.Get())
+                               == OccupiedState::OtherPlayerOccupied))
+      return false;
+    if (view == RetentionViewKind::PreScan
+        && !RetentionCheck(observation, RetentionGate::CurrentData,
+                           il2cpp::detail::ReadField<Il2CppObject*>(api.preview_data, widget.Get()) == data.Get()))
+      return false;
+    auto* fleet_owner = view == RetentionViewKind::PreScan ? data.Get() : widget.Get();
+    return RetentionCheck(observation, RetentionGate::CurrentFleet,
+                          il2cpp::detail::ReadField<Il2CppObject*>(fleet_field, fleet_owner) == fleet.Get())
+           && RetentionCheck(observation, RetentionGate::CurrentPoi,
+                             il2cpp::detail::ReadField<Il2CppObject*>(api.poi, context.Get()) == poi.Get())
+           && RetentionCheck(observation, RetentionGate::CurrentVisibility,
+                             il2cpp::detail::ReadField<Il2CppObject*>(ship.visibility, widget.Get())
+                                 == visibility.Get())
+           && RetentionCheck(observation, RetentionGate::Visible, ShipShown(visibility.Get()));
+  }
+};
+
+inline ShipCard ObservePlayerShip(ObjectViewerBaseWidget* widget, RetentionObservation* observation)
+{
+  const auto& api  = Native();
+  const auto& ship = ShipNative();
+  RetentionPhase(observation, "ship_widget");
+  ShipCard card;
+  card.widget = il2cpp::GcHandle::Strong(widget);
+  card.view   = ShipView(card.widget.Get());
+  if (observation)
+    observation->view = card.view;
+  if (card.view == RetentionViewKind::Unknown)
+    return {};
+  RetentionPhase(observation, "ship_fields");
+  if (!api.ready || (card.view == RetentionViewKind::PreScan ? !ship.preview_ready : !ship.mining_ready))
+    return {};
+  if (card.view == RetentionViewKind::Mining) {
+    // UpdateSlotInfo can leave _targetFleet populated when a node becomes empty; occupancy is the current UI state.
+    RetentionPhase(observation, "ship_mining_occupied");
+    if (!RetentionCheck(observation, RetentionGate::OtherPlayerOccupied,
+                        il2cpp::detail::ReadField<OccupiedState>(ship.mining_occupied, card.widget.Get())
+                            == OccupiedState::OtherPlayerOccupied))
+      return {};
+  }
+  RetentionPhase(observation, "ship_data_context");
+  if (card.view == RetentionViewKind::PreScan)
+    card.data = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(api.preview_data, card.widget.Get()));
+  // Both views inherit the same Widget<NavigationInteractionUIContext>.Context getter.
+  card.context = il2cpp::GcHandle::Strong(Invoke(api.preview_context, card.widget.Get()));
+  if ((card.view == RetentionViewKind::PreScan
+       && (!card.data || card.data.Get()->klass != BattleTargetData::Class::Raw()))
+      || !card.context || card.context.Get()->klass != NavigationInteractionUIContext::Class::Raw())
+    return {};
+  card.poi          = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(api.poi, card.context.Get()));
+  card.fleet_field  = card.view == RetentionViewKind::PreScan ? ship.target_fleet : ship.mining_fleet;
+  auto* fleet_owner = card.view == RetentionViewKind::PreScan ? card.data.Get() : card.widget.Get();
+  card.fleet        = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(card.fleet_field, fleet_owner));
+  card.visibility =
+      il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(ship.visibility, card.widget.Get()));
+  RetentionPhase(observation, "ship_references");
+  if (!card.poi || card.poi.Get()->klass != Poi::Raw() || !card.fleet
+      || !card.fleet.Get<il2cpp::Object>()->Is<FleetDeployedData>() || !card.visibility
+      || !card.visibility.Get<il2cpp::Object>()->Is<VisibilityController>())
+    return {};
+  RetentionPhase(observation, "ship_classification");
+  il2cpp::CallResult<bool> base, valid;
+  if (card.view == RetentionViewKind::PreScan) {
+    auto* data = card.data.Get<BattleTargetData>();
+    base       = data->TryCall<"get_IsStarbase", bool>();
+    valid      = data->TryCall<"get_IsValid", bool>();
+  }
+  auto*      fleet     = card.fleet.Get<FleetDeployedData>();
+  const auto kind      = fleet->TryFleetType();
+  const auto local     = fleet->TryIsLocalPlayer();
+  const auto destroyed = fleet->TryCall<"get_IsDestroyed", bool>();
+  if (card.view == RetentionViewKind::PreScan) {
+    RetentionCheck(observation, RetentionGate::NotStarbase, !base.value, base.succeeded);
+    RetentionCheck(observation, RetentionGate::Valid, valid.value, valid.succeeded);
+  }
+  RetentionCheck(observation, RetentionGate::PlayerFleet, kind.value == DeployedFleetType::Player, kind.succeeded);
+  RetentionCheck(observation, RetentionGate::OtherPlayer, !local.value, local.succeeded);
+  RetentionCheck(observation, RetentionGate::NotDestroyed, !destroyed.value, destroyed.succeeded);
+  if ((card.view == RetentionViewKind::PreScan && (!base || base.value || !valid || !valid.value)) || !kind
+      || kind.value != DeployedFleetType::Player || !local || local.value || !destroyed || destroyed.value)
+    return {};
+  RetentionPhase(observation, "ship_alive");
+  const auto widget_alive = unity::TryAlive(card.widget.Get());
+  const auto poi_alive    = unity::TryAlive(card.poi.Get());
+  RetentionCheck(observation, RetentionGate::WidgetAlive, widget_alive.value, widget_alive.succeeded);
+  RetentionCheck(observation, RetentionGate::PoiAlive, poi_alive.value, poi_alive.succeeded);
+  if (!widget_alive || !widget_alive.value || !poi_alive || !poi_alive.value)
+    return {};
+  RetentionPhase(observation, "ship_final_context");
+  auto current_context = il2cpp::GcHandle::Strong(Invoke(api.preview_context, card.widget.Get()));
+  if (!RetentionCheck(observation, RetentionGate::CurrentContext, current_context.Get() == card.context.Get())
+      || !card.Current(observation))
+    return {};
+  RetentionPhase(observation, "ship_retained");
+  return card;
+}
+
+inline bool RetainPreview(PreScanTargetWidget* widget, const SetCourseResponse& response, bool keep_base = true,
+                          bool keep_player_ship = false, RetentionObservation* observation = nullptr)
+{
+  RetentionPhase(observation, "preview_response");
+  if (keep_base && RetainBasePreview(widget, response)) {
+    RetentionPhase(observation, "base_retained");
     return true;
-  if (!keep_player_ship)
+  }
+  if (!keep_player_ship || !response.success || response.is_recall)
     return false;
-  auto proof = MatchPlayerShip(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>(), response);
-  if (!proof)
+  return bool(ObservePlayerShip(widget, observation));
+}
+
+inline bool RetainNavigation(NavigationInteractionUIViewController* controller, const SetCourseResponse& response,
+                             bool keep_base = true, bool keep_player_ship = false,
+                             RetentionObservation* observation = nullptr)
+{
+  RetentionPhase(observation, "navigation_response");
+  if (keep_base && RetainBaseNavigation(controller, response)) {
+    RetentionPhase(observation, "base_retained");
+    return true;
+  }
+  if (!keep_player_ship || !response.success || response.is_recall)
     return false;
-  const auto alive = unity::TryAlive(proof.poi.Get());
-  if (!alive || !alive.value)
+  const auto& ship = ShipNative();
+  RetentionPhase(observation, "ship_navigation_fields");
+  if (!ship.ready || !controller)
     return false;
-  auto current_context = il2cpp::GcHandle::Strong(Invoke(api.navigation_context, source.Get()));
-  auto current_manager = il2cpp::GcHandle::Strong(Invoke(api.scanning_instance, nullptr));
-  auto current_data =
-      current_manager ? il2cpp::GcHandle::Strong(Invoke(api.target_cache, current_manager.Get())) : il2cpp::GcHandle{};
-  return current_context.Get() == context.Get() && current_manager.Get() == manager.Get()
-         && current_data.Get() == data.Get()
-         && proof.Current(data.Get<BattleTargetData>(), context.Get<NavigationInteractionUIContext>());
+  auto source = il2cpp::GcHandle::Strong(controller);
+  if (!source || source.Get()->klass != NavigationInteractionUIViewController::Class::Raw())
+    return false;
+  auto loader = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(ship.loader, source.Get()));
+  RetentionPhase(observation, "ship_no_loader");
+  if (!loader || !il2cpp_class_is_assignable_from(Loader::Raw(), loader.Get()->klass))
+    return false;
+  auto viewer = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(ship.active_viewer, loader.Get()));
+  RetentionPhase(observation, "ship_no_active_viewer");
+  if (!viewer)
+    return false;
+  RetentionPhase(observation, "ship_viewer_class");
+  const auto view = ShipView(viewer.Get());
+  if (observation)
+    observation->view = view;
+  if (view == RetentionViewKind::Unknown)
+    return false;
+  auto poi = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<Il2CppObject*>(ship.active_poi, loader.Get()));
+  RetentionPhase(observation, "ship_no_active_poi");
+  if (!poi || poi.Get()->klass != Poi::Raw())
+    return false;
+  auto card = ObservePlayerShip(viewer.Get<ObjectViewerBaseWidget>(), observation);
+  if (!card)
+    return false;
+  RetentionPhase(observation, "ship_navigation_final");
+  const bool retained =
+      RetentionCheck(observation, RetentionGate::CurrentLoader,
+                     il2cpp::detail::ReadField<Il2CppObject*>(ship.loader, source.Get()) == loader.Get())
+      && RetentionCheck(observation, RetentionGate::CurrentViewer,
+                        il2cpp::detail::ReadField<Il2CppObject*>(ship.active_viewer, loader.Get()) == viewer.Get())
+      && RetentionCheck(observation, RetentionGate::CurrentActivePoi,
+                        il2cpp::detail::ReadField<Il2CppObject*>(ship.active_poi, loader.Get()) == poi.Get()
+                            && card.poi.Get() == poi.Get())
+      && card.Current(observation);
+  if (retained)
+    RetentionPhase(observation, "ship_retained");
+  return retained;
 }
 
 } // namespace base_card_binding
