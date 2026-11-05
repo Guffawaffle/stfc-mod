@@ -472,6 +472,19 @@ void UpstreamSettings()
   }
   Check(!defaults->ui.only_show_first_popup && defaults->audio.alert_victory.sound == NotificationSound::kNone,
         "popup suppression and audio cues stay opt-in");
+  Check(!defaults->ui.keep_player_ship_card_open,
+        "player ship card retention stays opt-in independently of base-card retention");
+  for (bool base_card : {false, true})
+    for (bool ship_card : {false, true}) {
+      const auto cards =
+          Config::Parse(toml::parse(std::string("[ui]\nkeep_base_card_open=") + (base_card ? "true" : "false")
+                                    + "\nkeep_player_ship_card_open=" + (ship_card ? "true" : "false")),
+                        effective, false);
+      Check(cards->ui.keep_base_card_open == base_card && cards->ui.keep_player_ship_card_open == ship_card
+                && effective["ui"]["keep_base_card_open"].value<bool>() == base_card
+                && effective["ui"]["keep_player_ship_card_open"].value<bool>() == ship_card,
+            "station and player ship cards parse and report independent retention preferences");
+    }
   for (const auto value : {"0.5", "inf", "nan"}) {
     const auto invalid_zoom =
         Config::Parse(toml::parse(std::string("[graphics]\ninterior_zoom_scale = ") + value), effective, false);

@@ -967,6 +967,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "disable_preview_locate", u.disable_preview_locate);
   r.Read("ui", "disable_preview_recall", u.disable_preview_recall);
   r.Read("ui", "keep_base_card_open", u.keep_base_card_open);
+  r.Read("ui", "keep_player_ship_card_open", u.keep_player_ship_card_open);
   r.Read("ui", "only_show_first_popup", u.only_show_first_popup);
   r.Read("ui", "reverse_haven_history", u.reverse_haven_history);
   r.Read("ui", "disable_move_keys", u.disable_move_keys);

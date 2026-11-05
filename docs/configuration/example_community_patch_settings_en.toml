@@ -974,6 +974,9 @@ disable_preview_recall = false
 # Keep the matching enemy station card open while issuing course/recall actions.
 keep_base_card_open = false
 
+# Keep the matching player ship card open after an accepted attack.
+keep_player_ship_card_open = false
+
 # Show cargo used and capacity immediately instead of counting up. Restart after changing. Windows client 263 only; other builds keep native behavior
 instant_cargo_counter = true
 

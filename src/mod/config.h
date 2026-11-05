@@ -280,6 +280,7 @@ public:
     bool disable_preview_locate          = false;
     bool disable_preview_recall          = false;
     bool keep_base_card_open             = false;
+    bool keep_player_ship_card_open      = false;
     bool only_show_first_popup           = false;
     bool reverse_haven_history           = true;
     bool disable_toast_banners           = false;

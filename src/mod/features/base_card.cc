@@ -1,5 +1,5 @@
-// [ui] keep_base_card_open retains the currently viewed enemy station's card
-// across matching course responses and recalls; commands remain entirely native.
+// [ui] keep_base_card_open retains enemy station cards across matching course responses and recalls;
+// keep_player_ship_card_open retains player ship cards after matching accepted attacks. Commands remain native.
 #include "features/base_card.h"
 #include "config.h"
 #include "features/features.h"
@@ -23,8 +23,13 @@ void PreScanTargetWidget_OnSetCourseResponse_BaseCardHook(auto original, PreScan
                                                           SetCourseResponse response)
 {
   try {
-    if (BaseCardEnabled() && base_card_binding::RetainPreview(_this, response))
-      return;
+    if (base_card_ready.load()) {
+      const bool keep_base        = Config::Get().ui.keep_base_card_open;
+      const bool keep_player_ship = Config::Get().ui.keep_player_ship_card_open;
+      if ((keep_base || keep_player_ship)
+          && base_card_binding::RetainPreview(_this, response, keep_base, keep_player_ship))
+        return;
+    }
   } catch (...) {
     // Optional viewer retention must never prevent the game's fallback path.
   }
@@ -35,8 +40,13 @@ void NavigationInteractionUIViewController_OnSetCourseResponse_BaseCardHook(
     auto original, NavigationInteractionUIViewController* _this, SetCourseResponse response)
 {
   try {
-    if (BaseCardEnabled() && base_card_binding::RetainNavigation(_this, response))
-      return;
+    if (base_card_ready.load()) {
+      const bool keep_base        = Config::Get().ui.keep_base_card_open;
+      const bool keep_player_ship = Config::Get().ui.keep_player_ship_card_open;
+      if ((keep_base || keep_player_ship)
+          && base_card_binding::RetainNavigation(_this, response, keep_base, keep_player_ship))
+        return;
+    }
   } catch (...) {
   }
   original(_this, response);
@@ -47,13 +57,13 @@ bool InstallBaseCard()
 #if (defined(_WIN32) && defined(_M_X64)) || (defined(__APPLE__) && (defined(__arm64__) || defined(__x86_64__)))
   const auto& native = base_card_binding::Native();
   if (!native.ready) {
-    spdlog::warn("[BaseCard] station-card contract unavailable (preview-layout={} navigation-layout={} data={} poi={} "
-                 "user={} preview-context={} navigation-context={} scanning={} cache={}); native dismissal retained",
-                 base_card_binding::ResponseLayout(native.preview),
-                 base_card_binding::ResponseLayout(native.navigation), native.preview_data != nullptr,
-                 native.poi != nullptr, native.user != nullptr, native.preview_context != nullptr,
-                 native.navigation_context != nullptr, native.scanning_instance != nullptr,
-                 native.target_cache != nullptr);
+    spdlog::warn(
+        "[BaseCard] card-retention contract unavailable (preview-layout={} navigation-layout={} data={} poi={} "
+        "user={} preview-context={} navigation-context={} scanning={} cache={}); native dismissal retained",
+        base_card_binding::ResponseLayout(native.preview), base_card_binding::ResponseLayout(native.navigation),
+        native.preview_data != nullptr, native.poi != nullptr, native.user != nullptr,
+        native.preview_context != nullptr, native.navigation_context != nullptr, native.scanning_instance != nullptr,
+        native.target_cache != nullptr);
     return false;
   }
   il2cpp::HookSet hooks("BaseCard");
