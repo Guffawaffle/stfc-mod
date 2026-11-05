@@ -1,15 +1,16 @@
-#include "patches/audio_coalescing.h"
+#include "features/audio_coalescing.h"
 #include <stdexcept>
 
 void Check(bool condition)
 {
-  if (!condition) throw std::runtime_error("audio coalescing regression");
+  if (!condition)
+    throw std::runtime_error("audio coalescing regression");
 }
 
 int main()
 {
   using namespace std::chrono_literals;
-  const auto start = AudioCoalescingWindow::Clock::time_point{} + 1s;
+  const auto            start = AudioCoalescingWindow::Clock::time_point{} + 1s;
   AudioCoalescingWindow window;
   Check(!window.Suppress(AudioCoalescing::All, true, start));
   window.Started(start, 10.0);

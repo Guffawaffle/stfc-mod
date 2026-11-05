@@ -1,0 +1,4 @@
+interface:
+  display_name: "Migrate PLAY feature"
+  short_description: "Preserve PLAY behavior in the typed SPUD refactor"
+  default_prompt: "Use $migrate-play-feature to investigate, adapt, and verify one feature against the frozen play-dev source."

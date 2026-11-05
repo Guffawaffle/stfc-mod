@@ -1,4 +1,16 @@
 #pragma once
+namespace mod_state
+{
+inline bool draining = false, settled = true;
+inline void BeginQuitDrain()
+{ draining = true; }
+inline bool QuitDrained()
+{ return settled; }
+inline void ResumeAfterQuitVeto()
+{ draining = false; }
+} // namespace mod_state
+#include "runtime_reload.h"
+#include "toml_editor.h"
 #if _WIN32
 #include <Windows.h>
 #endif
@@ -19,14 +31,12 @@ template <class... Args> void warn(const char*, Args&&...) {}
 } // namespace spdlog
 namespace config_edit
 {
-using Value = std::variant<bool, std::string, double, std::int64_t>;
-enum class Outcome { Saved, AlreadySaved, Conflict, InvalidDocument, Unsupported, IoError };
 // Controllable boundary; the fixture below includes the actual adapter bodies.
 struct RuntimeConfigWriter {
   struct Status {
-    std::uint64_t revision = 0;
-    Outcome       outcome  = Outcome::AlreadySaved;
-    bool          pending = false, registered = true;
+    std::uint64_t        revision = 0;
+    Outcome              outcome  = Outcome::AlreadySaved;
+    bool                 pending = false, registered = true;
     std::optional<Value> subject;
   };
   std::uint64_t StatusSequence() const
@@ -36,8 +46,8 @@ struct RuntimeConfigWriter {
   Status GetStatus(std::string_view, std::string_view) const
   { return {submissions, failures ? Outcome::IoError : Outcome::Saved, work, true, desired}; }
   std::optional<Value> desired;
-  bool failures = false;
-  bool HasFailures() const
+  bool                 failures = false;
+  bool                 HasFailures() const
   { return failures; }
   bool HasFailure(std::string_view, std::string_view) const
   { return failures; }

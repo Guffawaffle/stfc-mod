@@ -1,7 +1,7 @@
+// Retained PLAY draft, undo, catalog and raw capture policies against Foundation action identities.
 #include "settings/shortcut_capture.h"
 #include "settings/shortcut_catalog.h"
 #include "settings/shortcut_draft.h"
-#include "settings/shortcut_popup_keys.h"
 #include "settings/shortcut_undo.h"
 #include <cstdlib>
 #include <iostream>
@@ -29,52 +29,56 @@ int main()
     Check(2 * VisibleShortcutBindingCount(count) + ShortcutFixedRowLimit <= PageCatalog::NativeChildLimit,
           "Change and Remove plus fixed rows fit native page capacity");
   }
-  Check(DescribeShortcut(ShowInventory, "show_inventory").group == ShortcutGroup::Screens
-            && DescribeShortcut(ShowArtifacts, "show_artifacts").group == ShortcutGroup::Screens,
+  Check(DescribeShortcut(Action::kShowInventory, "show_inventory").group == ShortcutGroup::Screens
+            && DescribeShortcut(Action::kShowArtifacts, "show_artifacts").group == ShortcutGroup::Screens,
         "opening inventory/artifacts belongs to game screens");
-  Check(DescribeShortcut(ToggleAutoConfirmInstantWarp, "toggle_instant_warp").group == ShortcutGroup::Travel,
+  Check(DescribeShortcut(Action::kToggleAutoConfirmInstantWarp, "toggle_instant_warp").group == ShortcutGroup::Travel,
         "instant warp shortcut belongs to map and travel");
-  Check(DescribeShortcut(Restart, "restart").label == "Clear localization cache and reload",
+  Check(DescribeShortcut(Action::kRestart, "restart").label == "Clear localization cache and reload",
         "cache-clearing shortcut must not promise a plain restart");
-  Check(DescribeShortcut(Quit, "quit").label == "Force close client" && !ShortcutExplanation(Quit).empty(),
+  Check(DescribeShortcut(Action::kQuit, "quit").label == "Force close client"
+            && !ShortcutExplanation(Action::kQuit).empty(),
         "force close must be identified before binding it");
 
   // A sparse override list models adding an action without editing UI metadata.
   // Discovery depends on registered keys, never on whether a binding is present.
   constexpr auto partial = std::to_array<ShortcutInfo>({
-      {MoveRight, ShortcutGroup::Camera, "Pan right"},
-      {ShowArtifacts, ShortcutGroup::Screens, "Open artifacts"},
+      {Action::kMoveRight, ShortcutGroup::Camera, "Pan right"},
+      {Action::kShowArtifacts, ShortcutGroup::Screens, "Open artifacts"},
   });
   static_assert(ValidShortcutCatalog(partial));
   constexpr auto duplicates = std::to_array<ShortcutInfo>({
-      {MoveRight, ShortcutGroup::Camera, "Pan right"},
-      {MoveRight, ShortcutGroup::Travel, "Duplicate"},
+      {Action::kMoveRight, ShortcutGroup::Camera, "Pan right"},
+      {Action::kMoveRight, ShortcutGroup::Travel, "Duplicate"},
   });
   static_assert(!ValidShortcutCatalog(duplicates));
-  constexpr auto invalidAction = std::to_array<ShortcutInfo>({{GameFunction::Max, ShortcutGroup::Camera, "Invalid"}});
-  constexpr auto invalidGroup  = std::to_array<ShortcutInfo>({{MoveRight, static_cast<ShortcutGroup>(99), "Invalid"}});
-  constexpr auto emptyLabel    = std::to_array<ShortcutInfo>({{MoveRight, ShortcutGroup::Camera, ""}});
+  constexpr auto invalidAction = std::to_array<ShortcutInfo>({{Action::kCount, ShortcutGroup::Camera, "Invalid"}});
+  constexpr auto invalidGroup =
+      std::to_array<ShortcutInfo>({{Action::kMoveRight, static_cast<ShortcutGroup>(99), "Invalid"}});
+  constexpr auto emptyLabel = std::to_array<ShortcutInfo>({{Action::kMoveRight, ShortcutGroup::Camera, ""}});
   static_assert(!ValidShortcutCatalog(invalidAction) && !ValidShortcutCatalog(invalidGroup)
                 && !ValidShortcutCatalog(emptyLabel));
-  std::array<std::string_view, GameFunction::Max> registered{};
-  registered[MoveLeft]  = "toggle_new_feature";
-  registered[MoveRight] = "move_right";
-  registered[MoveUp]    = "test_value_2";
-  auto       key        = [&](GameFunction action) { return registered[action]; };
+  std::array<std::string_view, std::to_underlying(Action::kCount)> registered{};
+  registered[std::to_underlying(Action::kMoveLeft)]  = "toggle_new_feature";
+  registered[std::to_underlying(Action::kMoveRight)] = "move_right";
+  registered[std::to_underlying(Action::kMoveUp)]    = "test_value_2";
+  auto       key        = [&](Action action) { return registered[std::to_underlying(action)]; };
   const auto discovered = DiscoverShortcuts(key, partial);
-  Check(discovered.size() == 3 && discovered[0].action == MoveRight && discovered[0].label == "Pan right"
+  Check(discovered.size() == 3 && discovered[0].action == Action::kMoveRight && discovered[0].label == "Pan right"
             && !discovered[0].fallback && discovered[0].group == ShortcutGroup::Camera,
         "registered actions keep explicit labels and categories; metadata alone cannot expose an unregistered action");
-  Check(discovered[1].action == MoveUp && discovered[1].label == "Test value 2" && discovered[1].fallback
-            && discovered[2].action == MoveLeft && discovered[2].label == "Toggle new feature"
+  Check(discovered[1].action == Action::kMoveUp && discovered[1].label == "Test value 2" && discovered[1].fallback
+            && discovered[2].action == Action::kMoveLeft && discovered[2].label == "Toggle new feature"
             && discovered[2].group == ShortcutGroup::Uncategorized,
         "uncatalogued registered actions are discovered and sorted with readable labels");
-  const auto promoted = std::to_array<ShortcutInfo>({{MoveLeft, ShortcutGroup::Interface, "Toggle polished feature"}});
-  const auto description = DescribeShortcut(MoveLeft, registered[MoveLeft], promoted);
+  const auto promoted =
+      std::to_array<ShortcutInfo>({{Action::kMoveLeft, ShortcutGroup::Interface, "Toggle polished feature"}});
+  const auto description =
+      DescribeShortcut(Action::kMoveLeft, registered[std::to_underlying(Action::kMoveLeft)], promoted);
   Check(description.action == discovered[2].action && description.group == ShortcutGroup::Interface
             && description.label == "Toggle polished feature" && !description.fallback,
         "a later override changes presentation without changing action identity");
-  registered[MoveLeft] = {};
+  registered[std::to_underlying(Action::kMoveLeft)] = {};
   Check(DiscoverShortcuts(key, partial).size() == 2,
         "startup availability filtering excludes actions before fallback discovery");
   registered = {};
@@ -85,12 +89,12 @@ int main()
   Check(HumanizeShortcutKey("__open--panel_2__") == "Open panel 2" && HumanizeShortcutKey("__") == "Shortcut",
         "fallback labels collapse separators, retain numbers and never become blank");
 
-  registered            = {};
-  registered[MoveUp]    = "move_up";
-  registered[MoveDown]  = "move_down";
-  registered[MoveLeft]  = "move_left";
-  registered[MoveRight] = "move_right";
-  const auto movement   = DiscoverShortcuts(key);
+  registered                                         = {};
+  registered[std::to_underlying(Action::kMoveUp)]    = "move_up";
+  registered[std::to_underlying(Action::kMoveDown)]  = "move_down";
+  registered[std::to_underlying(Action::kMoveLeft)]  = "move_left";
+  registered[std::to_underlying(Action::kMoveRight)] = "move_right";
+  const auto movement                                = DiscoverShortcuts(key);
   Check(movement.size() == 4, "all registered movement actions have in-game editors");
   for (const auto& entry : movement)
     Check(entry.group == ShortcutGroup::Camera && !entry.fallback && !ShortcutExplanation(entry.action).empty(),
@@ -252,27 +256,16 @@ int main()
               && oversized.size() == limit + 2,
           "failed restoration cannot offer success or Undo");
   }
-  ShortcutCapture   capture;
-  ShortcutPopupKeys popupKeys;
-  Check(popupKeys.Tick(false, true, true, false) == ShortcutPopupKey::None, "Enter during recording cannot confirm");
-  Check(popupKeys.Tick(true, true, true, false) == ShortcutPopupKey::None,
-        "captured Enter cannot confirm itself when the preview becomes ready");
-  Check(popupKeys.Tick(true, false, false, false) == ShortcutPopupKey::None
-            && popupKeys.Tick(true, true, true, false) == ShortcutPopupKey::Confirm,
-        "after release a fresh Enter confirms a ready preview");
-  Check(popupKeys.Tick(true, true, false, false) == ShortcutPopupKey::None, "holding Enter cannot repeat confirmation");
-  popupKeys.Tick(true, false, false, false);
-  Check(popupKeys.Tick(true, true, true, true) == ShortcutPopupKey::Cancel,
-        "Escape takes priority over simultaneous confirmation");
-  Check(popupKeys.Tick(false, false, false, true) == ShortcutPopupKey::Cancel,
-        "Escape cancels even when confirmation is unavailable");
-  popupKeys.Tick(true, false, false, false);
-  popupKeys.Tick(false, false, false, false);
-  Check(popupKeys.Tick(true, true, true, false) == ShortcutPopupKey::None,
-        "Record again resets confirmation readiness");
+  ShortcutCapture       capture;
   ShortcutCapture::Keys held{}, down{};
-  auto                  modifier = [](KeyCode key) { return key == KeyCode::LeftControl; };
-  auto                  tick     = [&] { return capture.Tick(held, down, true, modifier); };
+  held[static_cast<int>(KeyCode::RightControl)]        = held[static_cast<int>(KeyCode::RightAlt)] =
+      held[static_cast<int>(KeyCode::RightShift)]      = held[static_cast<int>(KeyCode::LeftCommand)] =
+          held[static_cast<int>(KeyCode::LeftWindows)] = true;
+  Check(CaptureModifierPrefix([&](KeyCode key) { return held[static_cast<int>(key)]; }) == "CTRL-ALT-SHIFT-CMD-",
+        "recorded modifier families retain canonical order and prefer Command over duplicate Windows reports");
+  held          = {};
+  auto modifier = [](KeyCode key) { return key == KeyCode::LeftControl; };
+  auto tick     = [&] { return capture.Tick(held, down, true, modifier); };
   capture.Begin();
   held[(int)KeyCode::Mouse0] = true;
   down[(int)KeyCode::Mouse0] = true;

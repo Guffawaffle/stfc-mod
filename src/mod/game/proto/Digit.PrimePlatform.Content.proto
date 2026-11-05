@@ -1,0 +1,278 @@
+
+syntax="proto3";
+
+option optimize_for = LITE_RUNTIME;
+
+import "google/protobuf/timestamp.proto";
+
+package Digit.PrimePlatform.Content;
+
+enum AnimationOnClaimType {
+  ANIMATIONONCLAIMTYPE_UNSPECIFIED = 0;
+  ANIMATIONONCLAIMTYPE_FLYOUT = 1;
+}
+
+enum ClaimGrantState {
+  CLAIMGRANTSTATE_UNSPECIFIED = 0;
+  CLAIMGRANTSTATE_APPLIED = 1;
+  CLAIMGRANTSTATE_SCHEDULED = 2;
+}
+
+enum BundleBorderShapeType {
+  BUNDLEBORDERSHAPETYPE_NONE = 0;
+  BUNDLEBORDERSHAPETYPE_DEFAULT = 1;
+  BUNDLEBORDERSHAPETYPE_LIMITED = 2;
+  BUNDLEBORDERSHAPETYPE_NEWCONTENT = 3;
+  BUNDLEBORDERSHAPETYPE_PLAYERLIFECYCLE = 4;
+}
+
+message Bundle {
+  int64 bundleId = 1;
+  string bundleTypeString = 2;
+  uint32 priority = 3;
+  uint32 sortOrder = 4;
+  bool isSpecial = 5;
+  repeated Cost cost = 6;
+  repeated Resource requirements = 7;
+  string category = 8;
+  Metadata metadata = 9;
+  BundleContent content = 10;
+  Hinting hinting = 11;
+  string externalId = 12;
+  string oldExternalId = 13;
+  OfferDetails offerDetails = 14;
+  bool isPlayerlifecycle = 15;
+  bool allowCustomQuantity = 16;
+  repeated int64 storeGroupIds = 17;
+  BundleStyle bundleStyle = 18;
+  int32 pityCap = 19;
+  int32 pityCount = 20;
+  string popupAssetFilename = 21;
+  bool isChainedOffer = 22;
+}
+
+message Translation {
+  string key = 1;
+  int32 keyHash = 2;
+  string text = 3;
+  string id = 4;
+}
+
+message ContentItem {
+  string id = 1;
+  int64 quantity = 2;
+  string type = 3;
+  uint32 level = 4;
+  uint32 rewardIdx = 5;
+}
+
+message Hinting {
+message TranslationKey {
+  string field = 1;
+  bool isTranslated = 2;
+}
+
+  repeated TranslationKey translationKeys = 1;
+}
+
+message Metadata {
+message Vector3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+message Transform {
+  Metadata.Vector3 translation = 1;
+  Metadata.Vector3 rotation = 2;
+}
+
+  string color = 1;
+  string assetId = 2;
+  string assetFilename = 3;
+  string iconAssetFilename = 4;
+  Bucket bucket = 5;
+  string bundleMultiplier = 6;
+  int64 secondaryBundleId = 7;
+  AnimationOnClaimType animationOnClaimType = 8;
+  bool skipOnClaimAll = 9;
+  string deeplink = 10;
+  string valueLabel = 11;
+  string popupModelAsset = 12;
+  bool popupModelUseCustomTransform = 13;
+  Transform popupModelCustomTransform = 14;
+}
+
+message OfferDetails {
+  string bonusLabel = 1;
+  string bonusValue = 2;
+  int32 validCount = 3;
+  google.protobuf.Timestamp validFromTimestamp = 4;
+  google.protobuf.Timestamp validUntilTimestamp = 5;
+  int32 sameRemainingCount = 6;
+  bool sameRemainingCountVisible = 7;
+  bool cooldownConfigured = 8;
+}
+
+message TranslationsContainer {
+  repeated TranslationSection sections = 1;
+}
+
+message DynamicTranslationsContainer {
+  repeated TranslationSection sections = 1;
+}
+
+message TranslationSection {
+  string section = 1;
+  int32 sectionHash = 2;
+  repeated Translation translations = 3;
+  google.protobuf.Timestamp modified = 4;
+}
+
+message RewardRedeem {
+  RewardInfo rewardInfo = 4;
+}
+
+message RewardInfo {
+  Order order = 1;
+  repeated BundleContent orderBundles = 2;
+  repeated int64 data = 3;
+}
+
+message Bucket {
+  int64 id = 1;
+  string transId = 2;
+  string artId = 3;
+  int64 sortOrder = 4;
+}
+
+message BundleContent {
+  repeated ContentItemList dynamic = 1;
+  ContentItemList gifts = 2;
+  ContentItemList showcase = 3;
+  ContentItemList static = 4;
+  ContentItemList multiplied = 5;
+  repeated CustomizedSet customized = 6;
+  ContentItemList inviter = 7;
+}
+
+message ContentItemList {
+  repeated ContentItem items = 1;
+}
+
+message CustomizedSet {
+  uint32 setIdx = 1;
+  ContentItemList contents = 2;
+}
+
+message Order {
+  string orderId = 1;
+  google.protobuf.Timestamp created = 2;
+  repeated OrderItem orderItems = 3;
+  ClaimGrant grant = 4;
+}
+
+message Orders {
+  repeated Order orders_ = 1;
+}
+
+message OrderItem {
+  uint32 bundleId = 1;
+  uint32 bundleVersion = 2;
+  BundleContent content = 3;
+}
+
+message ClaimGrant {
+  ClaimGrantState state = 1;
+  bool requiresSync = 2;
+  ClaimGrantDelta delta = 3;
+}
+
+message ClaimGrantDelta {
+  map<int64, ClaimGrantResource> resources = 1;
+  map<int32, ClaimGrantInventory> playerInventory = 2;
+  repeated ClaimGrantNotification notifications = 3;
+}
+
+message ClaimGrantResource {
+  int64 currentAmount = 1;
+  int64 upperCapacity = 2;
+  int64 lowerCapacity = 3;
+}
+
+message ClaimGrantInventory {
+  repeated ClaimGrantInventoryItem items = 1;
+  repeated int32 allowedItemTypes = 2;
+  int32 numExtensions = 3;
+}
+
+message ClaimGrantInventoryItem {
+  int32 type = 1;
+  int64 count = 2;
+  google.protobuf.Timestamp expiryTime = 3;
+  ClaimGrantInventoryItemParams params = 4;
+}
+
+message ClaimGrantInventoryItemParams {
+  int64 refId = 1;
+  int64 id = 2;
+  int64 amount = 3;
+  int32 level = 4;
+  int32 rarity = 5;
+  repeated ClaimGrantInventoryItem items = 6;
+}
+
+message ClaimGrantNotification {
+  string uuid = 1;
+  google.protobuf.Timestamp createdTimestamp = 2;
+  google.protobuf.Timestamp expiryTimestamp = 3;
+  int32 producerType = 4;
+  ClaimGrantPlatformChestParams platformChestParams = 5;
+}
+
+message ClaimGrantPlatformChestParams {
+  repeated ClaimGrantChestContent chestsContents = 1;
+  int32 numChests = 2;
+}
+
+message ClaimGrantChestContent {
+  repeated ClaimGrantInventoryItem items = 1;
+}
+
+message Bundles {
+  repeated Bundle bundles_ = 1;
+}
+
+message TournamentBundlesResponse {
+  repeated Bundle bundles = 1;
+}
+
+message Cost {
+  repeated Resource cost_ = 1;
+  uint32 quantity = 2;
+}
+
+message Resource {
+  fixed32 amount = 1;
+  uint32 amountOld = 2;
+  string id = 3;
+  string type = 4;
+  int32 unavailableDisplayMode = 5;
+  uint64 amountUlong = 6;
+}
+
+message StoreGroups {
+  repeated StoreGroup storeGroups_ = 1;
+}
+
+message StoreGroup {
+  int64 id = 1;
+  string name = 2;
+  string transId = 3;
+  int32 sortOrder = 4;
+}
+
+message BundleStyle {
+  BundleBorderShapeType borderShapeType = 1;
+}
+

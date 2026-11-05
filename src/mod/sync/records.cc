@@ -1,0 +1,702 @@
+// Game responses become canonical wire records, on the processing thread. Each processor parses one response kind
+// and publishes its records; Delivery (state.cc) owns comparison, removal and initial-sync state.
+
+#include "sync/sync.h"
+#include "text.h"
+
+#include <Digit.PrimePlatform.Content.pb.h>
+#include <Digit.PrimeServer.Models.pb.h>
+#include <google/protobuf/repeated_field.h>
+
+#include <algorithm>
+#include <charconv>
+#include <map>
+#include <ranges>
+#include <set>
+#include <stdexcept>
+
+NLOHMANN_JSON_NAMESPACE_BEGIN
+template <typename T> struct adl_serializer<google::protobuf::RepeatedField<T>> {
+  static void to_json(json& j, const google::protobuf::RepeatedField<T>& values)
+  {
+    j = json::array();
+    for (const auto& value : values)
+      j.push_back(value);
+  }
+};
+NLOHMANN_JSON_NAMESPACE_END
+
+namespace data_sync
+{
+namespace
+{
+  namespace pb      = Digit::PrimeServer::Models;
+  namespace content = Digit::PrimePlatform::Content;
+
+  // Build the complete response before publishing: a malformed payload never partially changes current state.
+  template <typename Message, typename Build>
+  void Read(const Input& input, Stream stream, Build build, Update mode = Update::kMerge)
+  {
+    const auto message = Parse<Message>(input, Message::default_instance().GetTypeName());
+    if (!message)
+      return;
+    RecordSet records;
+    build(*message, records);
+    Publish(stream, std::move(records), input.generation, mode);
+  }
+
+  json Seconds(bool has, int64_t seconds)
+  { return has ? json(seconds) : json(nullptr); }
+
+  json AwayAssignment(const pb::AwayAssignmentInstance& instance)
+  {
+    // Protobuf maps are unordered; both lists go out in key order.
+    const auto& slots    = instance.officerids();
+    auto        officers = json::array();
+    for (const auto id : std::map(slots.begin(), slots.end()) | std::views::values)
+      if (id)
+        officers.push_back(id);
+    auto traits = json::array();
+    for (const auto& trait : instance.officertraits())
+      traits.push_back({{"tid", trait.traitid()}, {"max_level", trait.maxlevel()}});
+    const auto& scores   = instance.parameters().criticaltraitscores();
+    auto        critical = json::array();
+    for (const auto& [id, score] : std::map(scores.begin(), scores.end()))
+      critical.push_back({{"tid", id}, {"score", score}});
+    return {{"aid", instance.id()},
+            {"template_id", instance.awayassignmenttemplateid()},
+            {"state", instance.state()},
+            {"officer_ids", officers},
+            {"job_uuid", instance.jobuuid()},
+            {"duration", instance.parameters().duration()},
+            {"rarity", instance.rarity()},
+            {"officer_traits", traits},
+            {"critical_trait_scores", critical},
+            {"success_chance", instance.parameters().successchance()},
+            {"critical_success_chance", instance.parameters().criticalsuccesschance()},
+            {"max_critical_success_chance", instance.maxcriticalsuccesschance()},
+            {"key_stat", instance.keystat()},
+            {"max_assignable_officers", instance.maxassignableofficerscount()},
+            {"attack_weight", instance.attackweight()},
+            {"defense_weight", instance.defenseweight()},
+            {"health_weight", instance.healthweight()}};
+  }
+  void ProcessAwayAssignments(const Input& input)
+  {
+    Read<pb::AwayAssignmentUserListResponse>(
+        input, Stream::kAway,
+        [](const auto& response, auto& records) {
+          for (const auto& instance : response.instances())
+            records[instance.id()] = AwayAssignment(instance);
+        },
+        Update::kReplace);
+  }
+  void ProcessAwayAssignment(const Input& input)
+  {
+    Read<pb::AwayAssignmentInstance>(input, Stream::kAway, [](const auto& instance, auto& records) {
+      records[instance.id()] = AwayAssignment(instance);
+    });
+  }
+  void ProcessBattleHeaders(const Input& input)
+  {
+    const auto response = Parse<pb::BattleResultHeadersResponse>(input, "battle headers");
+    if (!response)
+      return;
+    std::vector<uint64_t> ids;
+    for (const auto& header : response->headers())
+      ids.push_back(static_cast<uint64_t>(header.id()));
+    QueueNewBattles(ids, input.generation);
+  }
+  void ProcessBuffs(const Input& input)
+  {
+    Read<pb::GlobalActiveBuffsResponse>(
+        input, Stream::kBuffs,
+        [](const auto& response, auto& records) {
+          for (const auto& buff : response.globalactivebuffs()) {
+            const auto& active     = buff.activebuff();
+            records[buff.buffid()] = {{"bid", buff.buffid()},
+                                      {"level", buff.level()},
+                                      {"expiry_time", Seconds(active.has_expirytime(), active.expirytime().seconds())}};
+          }
+        },
+        Update::kReplace);
+  }
+  void ProcessAllianceGameProperties(const Input& input)
+  {
+    Read<pb::AllianceGamePropertiesResponse>(input, Stream::kEmerald, [](const auto& response, auto& records) {
+      const auto claimed = std::ranges::find_if(response.properties(), [](const pb::AllianceGameProperty& property) {
+        return property.propertyname() == "claimed_loyalty_tiers";
+      });
+      if (claimed == response.properties().end())
+        return;
+      // The highest claimed tier. from_chars reads a tier's leading digits, so "5x" counts as 5 and "x" as none.
+      int32_t level = -1;
+      for (const auto& tier : claimed->valuelist()) {
+        int32_t value = -1;
+        std::from_chars(tier.data(), tier.data() + tier.size(), value);
+        level = std::max(level, value);
+      }
+      records[nullptr] = {{"level", level}};
+    });
+  }
+  void ProcessStarbaseModules(const Input& input)
+  {
+    Read<pb::StarbaseModulesResponse>(input, Stream::kBuildings, [](const auto& response, auto& records) {
+      for (const auto& module : response.modulestates())
+        records[module.id()] = {{"bid", module.id()}, {"level", module.level()}};
+    });
+  }
+  void ProcessHavenBase(const Input& input)
+  {
+    Read<pb::PlanetaryBase>(input, Stream::kHavenPieces, [](const auto& response, auto& records) {
+      for (const auto& [piece, count] : response.pieces())
+        records[piece] = {{"sid", piece}, {"count", count}};
+    });
+  }
+  void HavenBuildings(const pb::PlanetaryMapData& response, RecordSet& records)
+  {
+    for (const auto& [id, building] : response.buildings())
+      records[id] = {{"sid", building.specid()},
+                     {"id", id},
+                     {"level", building.level()},
+                     {"status", building.status()},
+                     {"position", building.position()}};
+  }
+  void ProcessHavenMap(const Input& input)
+  { Read<pb::PlanetaryMapData>(input, Stream::kHaven, HavenBuildings); }
+  void ProcessHavenResponse(const Input& input)
+  {
+    const auto response = Parse<pb::PlanetaryMapResponse>(input, "Haven map");
+    if (!response || (!response->owneruserid().empty() && response->owneruserid() != input.user_id))
+      return;
+    RecordSet records;
+    HavenBuildings(response->mapdata(), records);
+    Publish(Stream::kHaven, std::move(records), input.generation);
+  }
+  void ProcessHavenProsperity(const Input& input)
+  {
+    Read<pb::PlanetaryMapProsperityResponse>(input, Stream::kHavenProsperity, [](const auto& response, auto& records) {
+      records[nullptr] = {{"prosperity", response.prosperity()}};
+    });
+  }
+  void ProcessInventory(const Input& input)
+  {
+    Read<pb::InventoryResponse>(
+        input, Stream::kInventory,
+        [](const auto& response, auto& records) {
+          for (const auto& inventory : response.inventories() | std::views::values)
+            for (const auto& item : inventory.items())
+              if (item.has_commonparams()) {
+                const auto id                           = item.commonparams().refid();
+                records[json::array({item.type(), id})] = {
+                    {"item_type", item.type()}, {"refid", id}, {"count", item.count()}};
+              }
+        },
+        Update::kFull);
+  }
+  std::optional<json> Job(const pb::Job& job)
+  {
+    json record{{"job_type", job.type()},
+                {"uuid", job.uuid()},
+                {"start_time", job.starttime().seconds()},
+                {"duration", job.duration()},
+                {"reduction", job.reductioninseconds()}};
+    switch (job.type()) {
+      case pb::JOBTYPE_RESEARCH:
+        record.update({{"rid", job.researchparams().projectid()}, {"level", job.researchparams().level()}});
+        break;
+      case pb::JOBTYPE_STARBASECONSTRUCTION:
+        record.update({{"bid", job.starbaseconstructionparams().moduleid()},
+                       {"level", job.starbaseconstructionparams().level()}});
+        break;
+      case pb::JOBTYPE_SHIPTIERUP:
+        record.update({{"psid", job.tierupshipparams().shipid()}, {"tier", job.tierupshipparams().newtier()}});
+        break;
+      case pb::JOBTYPE_SHIPSCRAP:
+        record.update({{"psid", job.scrapyardparams().shipid()},
+                       {"hull_id", job.scrapyardparams().hullid()},
+                       {"level", job.scrapyardparams().level()}});
+        break;
+      case pb::JOBTYPE_AWAYASSIGNMENT:
+        record["aid"] = job.awayassignmentparams().awayassignmentinstanceid();
+        break;
+      default:
+        return std::nullopt;
+    }
+    return record;
+  }
+  void ProcessJobs(const Input& input)
+  {
+    Read<pb::JobResponse>(
+        input, Stream::kJobs,
+        [](const auto& response, auto& records) {
+          for (const auto& job : response.jobs())
+            if (auto record = Job(job))
+              records[job.uuid()] = std::move(*record);
+        },
+        Update::kReplace);
+  }
+  void ProcessActiveMissions(const Input& input)
+  {
+    // The whole list is one record, so each response replaces the last; an empty list still sends one entry with a
+    // null mid so targets can clear theirs.
+    Read<pb::ActiveMissionsResponse>(input, Stream::kActiveMissions, [](const auto& response, auto& records) {
+      std::set<int64_t> ids;
+      for (const auto& mission : response.activemissions())
+        ids.insert(mission.id());
+      auto missions = json::array();
+      for (const auto id : ids)
+        missions.push_back({{"mid", id}});
+      if (missions.empty())
+        missions.push_back({{"mid", nullptr}});
+      records[nullptr] = std::move(missions);
+    });
+  }
+  void ProcessCompletedMissions(const Input& input)
+  {
+    Read<pb::CompletedMissionsResponse>(input, Stream::kCompletedMissions, [](const auto& response, auto& records) {
+      for (const auto id : response.completedmissions())
+        records[id] = {{"mid", id}};
+    });
+  }
+  void ProcessOfficers(const Input& input)
+  {
+    Read<pb::OfficersResponse>(input, Stream::kOfficers, [](const auto& response, auto& records) {
+      for (const auto& officer : response.officers())
+        records[officer.id()] = {{"oid", officer.id()},
+                                 {"rank", officer.rankindex()},
+                                 {"level", officer.level()},
+                                 {"shard_count", officer.shardcount()}};
+    });
+  }
+  void ProcessResearch(const Input& input)
+  {
+    Read<pb::ResearchTreesState>(input, Stream::kResearch, [](const auto& response, auto& records) {
+      for (const auto& [id, level] : response.researchprojectlevels())
+        records[id] = {{"rid", id}, {"level", level}};
+    });
+  }
+  void ProcessResources(const Input& input)
+  {
+    Read<pb::ResourcesResponse>(
+        input, Stream::kResources,
+        [](const auto& response, auto& records) {
+          for (const auto& resource : response.resources())
+            records[resource.id()] = {{"rid", resource.id()}, {"amount", resource.currentamount()}};
+        },
+        Update::kFull);
+  }
+  void ProcessResourcesDelta(const Input& input)
+  {
+    Read<pb::ResourcesDeltaResponse>(input, Stream::kResources, [](const auto& response, auto& records) {
+      for (const auto& resource : response.resources())
+        records[resource.id()] = {{"rid", resource.id()}, {"amount", resource.amount()}};
+    });
+  }
+  void ProcessAllianceResources(const Input& input)
+  {
+    Read<pb::AllianceGetBankResourcesResponse>(
+        input, Stream::kAllianceResources,
+        [](const auto& response, auto& records) {
+          for (const auto& item : response.items())
+            if (item.has_commonparams()) {
+              const auto id = item.commonparams().refid();
+              records[id]   = {{"rid", id}, {"amount", item.count()}};
+            }
+        },
+        Update::kFull);
+  }
+  void ProcessAllianceResourcesDelta(const Input& input)
+  {
+    Read<pb::AllianceResourcesDeltaResponse>(
+        input, Stream::kAllianceResources, [](const auto& response, auto& records) {
+          for (const auto& resource : response.resources())
+            records[resource.id()] = {{"rid", resource.id()}, {"amount", resource.amount()}};
+        });
+  }
+
+  // Both transports use these same parameter shapes. Realtime timestamps and fleet setup abbreviations are
+  // converted at the JSON boundary below; the wire format never depends on which transport supplied a slot.
+  json Slot(int64_t id, int32_t type, int64_t spec, json item, json params)
+  {
+    return {{"sid", id},
+            {"slot_type", type},
+            {"spec_id", spec},
+            {"item_id", std::move(item)},
+            {"params", std::move(params)}};
+  }
+  std::optional<json> Slot(const pb::EntitySlot& slot)
+  {
+    json params;
+    switch (slot.slottype()) {
+      case pb::SLOTTYPE_CONSUMABLE:
+        if (slot.has_consumableslotparams()) {
+          const auto& p         = slot.consumableslotparams();
+          params["expiry_time"] = Seconds(p.has_expirytime(), p.expirytime().seconds());
+        }
+        break;
+      case pb::SLOTTYPE_OFFICERPRESET:
+        if (slot.has_officerpresetslotparams()) {
+          const auto& p = slot.officerpresetslotparams();
+          params        = {{"name", p.name()}, {"order", p.order()}, {"officer_ids", p.officerids()}};
+        }
+        break;
+      case pb::SLOTTYPE_FLEETCOMMANDER:
+        if (slot.has_fleetcommanderslotparams())
+          params["order"] = slot.fleetcommanderslotparams().order();
+        break;
+      case pb::SLOTTYPE_SELECTABLESKILL:
+        if (slot.has_selectableskillslotparams()) {
+          const auto& p                 = slot.selectableskillslotparams();
+          params["cooldown_expiration"] = Seconds(p.has_cooldownexpiration(), p.cooldownexpiration().seconds());
+        }
+        break;
+      case pb::SLOTTYPE_FORBIDDENTECH:
+        if (slot.has_forbiddentechslotparams()) {
+          const auto& p = slot.forbiddentechslotparams();
+          params        = {{"owner_id", p.ownerid()}, {"tier", p.tier()}, {"level", p.level()}};
+        }
+        break;
+      case pb::SLOTTYPE_FLEETPRESET:
+        if (slot.has_fleetpresetslotparams()) {
+          const auto& p      = slot.fleetpresetslotparams();
+          auto        setups = json::array();
+          for (const auto& setup : p.setups())
+            setups.push_back({{"drydock_id", setup.drydockid()},
+                              {"ship_id", setup.shipids_size() ? json(setup.shipids(0)) : json(nullptr)},
+                              {"officer_ids", setup.officerids()}});
+          params = {{"name", p.name()}, {"order", p.order()}, {"setup", setups}};
+        }
+        break;
+      default:
+        return std::nullopt;
+    }
+    return Slot(slot.id(), slot.slottype(), slot.slotspecid(),
+                slot.has_slotitemid() ? json(slot.slotitemid().value()) : json(nullptr), std::move(params));
+  }
+  void ProcessEntitySlots(const Input& input)
+  {
+    Read<pb::EntitySlots>(input, Stream::kSlots, [](const auto& response, auto& records) {
+      for (const auto& slot : response.entityslots_())
+        if (auto record = Slot(slot))
+          records[slot.id()] = std::move(*record);
+    });
+  }
+  void ProcessEntitySlotsData(const Input& input)
+  {
+    Read<pb::EntitySlotsData>(input, Stream::kSlots, [](const auto& response, auto& records) {
+      for (const auto& entity : response.entityslots())
+        for (const auto& slot : entity.slots())
+          if (auto record = Slot(slot))
+            records[slot.id()] = std::move(*record);
+    });
+  }
+  void ProcessForbiddenTech(const Input& input)
+  {
+    Read<pb::ForbiddenTechsResponse>(input, Stream::kTech, [](const auto& response, auto& records) {
+      for (const auto& tech : response.forbiddentechs())
+        records[tech.id()] = {
+            {"fid", tech.id()}, {"tier", tech.tier()}, {"level", tech.level()}, {"shard_count", tech.shardcount()}};
+    });
+  }
+  void ProcessOfficerTraits(const Input& input)
+  {
+    Read<pb::OfficerTraitsResponse>(input, Stream::kTraits, [](const auto& response, auto& records) {
+      for (const auto& [officer, traits] : response.activeofficertraits())
+        for (const auto& trait : traits.activetraits() | std::views::values)
+          records[json::array({officer, trait.traitid()})] = {
+              {"oid", officer}, {"tid", trait.traitid()}, {"level", trait.level()}};
+    });
+  }
+  json Ship(int64_t id, int64_t hull, int32_t tier, int32_t level, double progress, json components)
+  {
+    return {{"psid", id},
+            {"hull_id", hull},
+            {"tier", tier},
+            {"level", level},
+            {"level_percentage", progress},
+            {"components", std::move(components)}};
+  }
+  void ProcessShips(const Input& input)
+  {
+    Read<pb::PlayerShipsResponse>(
+        input, Stream::kShips,
+        [](const auto& response, auto& records) {
+          for (const auto& ship : response.ships() | std::views::values)
+            records[ship.id()] =
+                Ship(ship.id(), ship.hullid(), ship.tier(), ship.level(), ship.levelpercentage(), ship.components());
+        },
+        Update::kFull);
+  }
+
+  // The game's JSON response mixes categories, one section each.
+  void ProcessJson(const Input& input)
+  {
+    const bool battle_logs = Config::Sync::Get()->options.battlelogs;
+    const auto result      = json::parse(input.bytes, nullptr, false);
+    if (!result.is_object()) {
+      SealOrdinarySession(input.generation);
+      logging::Error("process", "JSON response", "the response does not parse");
+      return;
+    }
+    // The sections this response can carry, besides battle headers.
+    constexpr std::pair<std::string_view, Stream> kSections[] = {
+        {"resources", Stream::kResources}, {"starbase_modules", Stream::kBuildings}, {"ships", Stream::kShips}};
+    for (const auto& [name, section] : result.items()) {
+      if (name == "battle_result_headers" && battle_logs) {
+        std::vector<uint64_t> ids;
+        for (const auto& header : section)
+          if (header.is_object()) {
+            const auto id = header.find("id");
+            if (id != header.end() && id->is_number_unsigned())
+              ids.push_back(id->get<uint64_t>());
+          }
+        QueueNewBattles(ids, input.generation);
+        continue;
+      }
+      const auto known = std::ranges::find(kSections, name, &std::pair<std::string_view, Stream>::first);
+      if (known == std::end(kSections))
+        continue;
+      const auto stream = known->second;
+      if (!section.is_object() && !section.is_array()) {
+        SealOrdinarySession(input.generation);
+        logging::Error("process", name, "the known section is not a record container");
+        return;
+      }
+      RecordSet records;
+      for (const auto& [key, record] : section.items()) {
+        try {
+          if (stream == Stream::kResources) {
+            size_t     consumed = 0;
+            const auto id       = std::stoll(key, &consumed);
+            if (consumed != key.size())
+              throw std::invalid_argument("resource key has an unconsumed suffix");
+            records[id] = {{"rid", id}, {"amount", record.at("current_amount").get<int64_t>()}};
+          } else if (stream == Stream::kBuildings) {
+            const auto id = record.at("id").get<int64_t>();
+            records[id]   = {{"bid", id}, {"level", record.at("level").get<int32_t>()}};
+          } else {
+            const auto id = record.at("id").get<int64_t>();
+            records[id]   = Ship(id, record.at("hull_id").get<int64_t>(), record.at("tier").get<int32_t>(),
+                                 record.at("level").get<int32_t>(), record.at("level_percentage").get<double>(),
+                                 record.at("components").get<std::vector<int64_t>>());
+          }
+        } catch (const std::exception& e) {
+          SealOrdinarySession(input.generation);
+          logging::Error("process", name, "malformed record {} seals this generation: {}", key, e.what());
+          return;
+        }
+      }
+      // Every supported record must be valid before claiming a full list.
+      Publish(stream, std::move(records), input.generation, Update::kFull);
+    }
+  }
+
+  // The processor for each response kind.
+  struct Route {
+    EntityGroup::Kind type;
+    Processor         process;
+    // Battle log routes only run while a target wants battle logs.
+    bool battle_logs = false;
+  };
+  constexpr Route kRoutes[] = {
+      {EntityGroup::Kind::AwayAssignmentsList, ProcessAwayAssignments},
+      {EntityGroup::Kind::AwayAssignmentsInstance, ProcessAwayAssignment},
+      {EntityGroup::Kind::BattleResultHeaders, ProcessBattleHeaders, true},
+      {EntityGroup::Kind::UserProfiles, CachePlayerNames, true},
+      {EntityGroup::Kind::AllianceProfiles, CacheAllianceNames, true},
+      {EntityGroup::Kind::GlobalActiveBuffs, ProcessBuffs},
+      {EntityGroup::Kind::AllianceGetGameProperties, ProcessAllianceGameProperties},
+      {EntityGroup::Kind::StarbaseModules, ProcessStarbaseModules},
+      {EntityGroup::Kind::PlanetaryBaseData, ProcessHavenBase},
+      {EntityGroup::Kind::PlanetaryMapData, ProcessHavenMap},
+      {EntityGroup::Kind::PlanetaryMapResponse, ProcessHavenResponse},
+      {EntityGroup::Kind::PlanetaryMapProsperity, ProcessHavenProsperity},
+      {EntityGroup::Kind::PlayerInventories, ProcessInventory},
+      {EntityGroup::Kind::Jobs, ProcessJobs},
+      {EntityGroup::Kind::ActiveMissions, ProcessActiveMissions},
+      {EntityGroup::Kind::CompletedMissions, ProcessCompletedMissions},
+      {EntityGroup::Kind::Officers, ProcessOfficers},
+      {EntityGroup::Kind::ResearchTreesState, ProcessResearch},
+      {EntityGroup::Kind::Resources, ProcessResources},
+      {EntityGroup::Kind::ResourcesDelta, ProcessResourcesDelta},
+      {EntityGroup::Kind::AllianceGetBankResources, ProcessAllianceResources},
+      {EntityGroup::Kind::ResourcesDeltaAlliance, ProcessAllianceResourcesDelta},
+      {EntityGroup::Kind::Ships, ProcessShips},
+      {EntityGroup::Kind::EntitySlots, ProcessEntitySlots},
+      {EntityGroup::Kind::EntitySlotsData, ProcessEntitySlotsData},
+      {EntityGroup::Kind::ForbiddenTechs, ProcessForbiddenTech},
+      {EntityGroup::Kind::ActiveOfficerTraits, ProcessOfficerTraits},
+      {EntityGroup::Kind::Json, ProcessJson},
+  };
+
+  // Store offer prices are in Resource.amount; amountUlong is the fallback.
+  int64_t OfferAmount(const content::Resource& resource)
+  { return static_cast<int64_t>(resource.amount() != 0 ? resource.amount() : resource.amountulong()); }
+
+  // Platform ids are strings; numeric ones go out as numbers, like the rest of the sync data.
+  json OfferId(const std::string& id)
+  {
+    int64_t     value    = 0;
+    const auto* end      = id.data() + id.size();
+    const auto [ptr, ec] = std::from_chars(id.data(), end, value);
+    return !id.empty() && ec == std::errc{} && ptr == end ? json(value) : json(id);
+  }
+
+  // The consumable a bundle sells. Faction store offers are favor levels, sold as consumables.
+  const content::ContentItem* OfferConsumable(const content::BundleContent& bundle)
+  {
+    for (const auto* list : {&bundle.static_(), &bundle.showcase(), &bundle.gifts()})
+      for (const auto& item : list->items())
+        if (item.type() == "consumable")
+          return &item;
+    return nullptr;
+  }
+} // namespace
+
+// A realtime slot update: the same record as the protobuf EntitySlot, from the realtime channel's JSON. The cases
+// follow Slot above; this channel abbreviates fleet setups and sends times as UTC timestamps.
+void ProcessRealtimeSlot(const Input& input)
+{
+  try {
+    const auto                                data     = json::parse(input.bytes);
+    const int32_t                             type     = data.at("slot_type").get<int32_t>();
+    constexpr std::pair<int32_t, const char*> fields[] = {
+        {pb::SLOTTYPE_CONSUMABLE, "consumable_slot_params"},
+        {pb::SLOTTYPE_OFFICERPRESET, "officer_preset_slot_params"},
+        {pb::SLOTTYPE_FLEETCOMMANDER, "fleet_commander_slot_params"},
+        {pb::SLOTTYPE_SELECTABLESKILL, "selectable_skill_slot_params"},
+        {pb::SLOTTYPE_FORBIDDENTECH, "forbidden_tech_slot_params"},
+        {pb::SLOTTYPE_FLEETPRESET, "fleet_preset_slot_params"}};
+    const auto field = std::ranges::find(fields, type, &std::pair<int32_t, const char*>::first);
+    if (field == std::end(fields))
+      return;
+    json params = data.value(field->second, json());
+    if (!params.is_null()) {
+      if (type == pb::SLOTTYPE_CONSUMABLE || type == pb::SLOTTYPE_SELECTABLESKILL) {
+        const char* key       = type == pb::SLOTTYPE_CONSUMABLE ? "expiry_time" : "cooldown_expiration";
+        const auto  timestamp = params.value(key, json());
+        const auto  seconds =
+            timestamp.is_string() ? ParseUtcTimestamp(timestamp.get_ref<const std::string&>()) : std::nullopt;
+        params = {{key, seconds ? json(*seconds) : json(nullptr)}};
+      } else if (type == pb::SLOTTYPE_FLEETPRESET) {
+        auto setups = json::array();
+        for (const auto& setup : params.at("setups")) {
+          const auto ships = setup.at("s").get<std::vector<int64_t>>();
+          setups.push_back({{"drydock_id", setup.at("d").get<int64_t>()},
+                            {"ship_id", ships.empty() ? json(nullptr) : json(ships.at(0))},
+                            {"officer_ids", setup.at("o").get<std::vector<int64_t>>()}});
+        }
+        params = {{"name", params.at("name").get<std::string>()},
+                  {"order", params.at("order").get<int32_t>()},
+                  {"setup", setups}};
+      } else if (type == pb::SLOTTYPE_FLEETCOMMANDER)
+        params = {{"order", params.at("order").get<int32_t>()}};
+      else if (type == pb::SLOTTYPE_OFFICERPRESET)
+        params = {{"name", params.at("name").get<std::string>()},
+                  {"order", params.at("order").get<int32_t>()},
+                  {"officer_ids", params.at("officer_ids").get<std::vector<int64_t>>()}};
+      else
+        params = {{"owner_id", params.at("owner_id").get<int64_t>()},
+                  {"tier", params.at("tier").get<int32_t>()},
+                  {"level", params.at("level").get<int32_t>()}};
+    }
+    const auto id     = data.at("slot_id").get<int64_t>();
+    const auto item   = data.value("slot_item_id", json());
+    auto       record = Slot(id, type, data.at("slot_spec_id").get<int64_t>(),
+                             item.is_null() ? json(nullptr) : json(item.get<int64_t>()), std::move(params));
+    Publish(Stream::kSlots, {{id, std::move(record)}}, input.generation);
+  } catch (const json::exception& e) {
+    SealOrdinarySession(input.generation);
+    logging::Error("process", "realtime slot", "the payload does not parse: {}", e.what());
+  }
+}
+
+// A store offers group carries whole store categories. The faction store's consumable offers are one record, which
+// targets receive again whenever it changes.
+void ProcessStoreOffers(const Input& input)
+{
+  const auto parsed = Parse<content::Bundles>(input, "store offers");
+  if (!parsed)
+    return;
+  const auto& response = *parsed;
+
+  constexpr std::string_view kCategory = "factions";
+  struct Offer {
+    const content::Bundle*      bundle;
+    const content::ContentItem* consumable;
+  };
+  std::vector<Offer> found;
+  bool               has_category = false;
+  for (const auto& bundle : response.bundles_()) {
+    if (bundle.category() != kCategory)
+      continue;
+    has_category = true;
+    if (const auto* consumable = OfferConsumable(bundle.content()))
+      found.push_back({&bundle, consumable});
+  }
+  // A group without the faction store says nothing about it.
+  if (!has_category)
+    return;
+  // In a fixed order, so the record does not change with the server's.
+  std::ranges::sort(found, {}, [](const Offer& offer) {
+    return std::pair{offer.bundle->bundleid(), std::string_view{offer.consumable->id()}};
+  });
+
+  auto offers = json::array();
+  for (const auto& [bundle, consumable] : found) {
+    auto cost = json::array();
+    for (const auto& entry : bundle->cost())
+      for (const auto& resource : entry.cost_())
+        cost.push_back({{"rid", OfferId(resource.id())}, {"amount", OfferAmount(resource)}});
+    // For faction_standing requirements the amount is a zero-based tier index.
+    auto requirements = json::array();
+    for (const auto& resource : bundle->requirements())
+      requirements.push_back(
+          {{"type", resource.type()}, {"id", OfferId(resource.id())}, {"amount", OfferAmount(resource)}});
+    const auto& details = bundle->offerdetails();
+    offers.push_back({{"bid", bundle->bundleid()},
+                      {"cid", OfferId(consumable->id())},
+                      {"cost", std::move(cost)},
+                      {"req", std::move(requirements)},
+                      {"valid_count", details.validcount()},
+                      {"same_remaining_count", details.sameremainingcount()}});
+  }
+  RecordSet records;
+  records[std::string(kCategory)] = {{"category", kCategory}, {"offers", std::move(offers)}};
+  Publish(Stream::kStoreOffers, std::move(records), input.generation);
+}
+
+// UserProfiles responses also list other players; only the local player's record is read. The server record carries
+// level 0, so the in-memory Level captured with the response is used: it lags one own-record response after a
+// level-up.
+void ProcessOwnProfile(const Input& input)
+{
+  const auto response = Parse<pb::UserProfilesResponse>(input, "own profile");
+  if (!response)
+    return;
+  const auto& profiles = response->userprofiles();
+  const auto  own      = std::ranges::find_if(
+      profiles, [&input](const pb::UserProfile& profile) { return profile.userid() == input.user_id; });
+  if (own == profiles.end())
+    return;
+  RecordSet records;
+  records[input.user_id] = {{"uid", input.user_id},
+                            {"level", input.level},
+                            {"xp", own->xp()},
+                            {"military_might", own->militarymight()},
+                            {"planetary_base_unlocked", own->planetarybaseunlocked()}};
+  Publish(Stream::kProfile, std::move(records), input.generation, Update::kFull);
+}
+
+// Every category is parsed and stored, and each target filters what it receives at delivery: a target or category
+// switched on by a settings reload then gets the current state at once, not after the next login. Battle logs are
+// the exception, because processing their headers downloads every journal.
+Processor ProcessorFor(EntityGroup::Kind kind)
+{
+  const auto route = std::ranges::find(kRoutes, kind, &Route::type);
+  if (route == std::end(kRoutes))
+    return nullptr;
+  return !route->battle_logs || Config::Sync::Get()->options.battlelogs ? route->process : nullptr;
+}
+} // namespace data_sync

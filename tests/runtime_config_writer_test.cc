@@ -88,7 +88,7 @@ template <typename Function, typename Owner> std::thread StartWorker(Function fu
 // Block at the real worker's save boundary to exercise scheduling deterministically.
 #define CONFIG_EDIT_SAVE(editor, path, request) Save(editor, path, request)
 #define CONFIG_EDIT_START_WORKER(...) StartWorker(__VA_ARGS__)
-#include "../mods/src/runtime_config_writer.cc"
+#include "../src/mod/runtime_config_writer.cc"
 
 int main()
 {

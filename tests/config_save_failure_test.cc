@@ -23,19 +23,19 @@ static int FailedClose(std::FILE* file)
 // Exercise the production cleanup path without adding runtime injection controls.
 #define CONFIG_SAVE_WRITE ShortWrite
 #define CONFIG_SAVE_CLOSE FailedClose
-#include "../mods/src/config_save.cc"
+#include "../src/mod/config_save.cc"
+#include "config_save_fixture.h"
 
 #include <cassert>
 #include <fstream>
 #include <iostream>
 
-int main(int argc, char** argv)
+int main()
 {
-  assert(argc == 2);
-  const std::filesystem::path root(argv[1]);
-  std::filesystem::create_directories(root);
-  const auto        path     = root / "settings.toml";
-  const std::string original = "# keep this exactly\nenabled = false\n";
+  ConfigSaveFixtureDirectory fixture;
+  const auto&                root     = fixture.Root();
+  const auto                 path     = root / "settings.toml";
+  const std::string          original = "# keep this exactly\nenabled = false\n";
   {
     std::ofstream out(path, std::ios::binary);
     out << original;

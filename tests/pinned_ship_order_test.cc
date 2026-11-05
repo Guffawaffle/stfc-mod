@@ -2,8 +2,8 @@
 #undef NDEBUG
 #endif
 
-#include "patches/pinned_ship_order.h"
-#include "patches/pinned_ship_state.h"
+#include "pinned_ship_order.h"
+#include "pinned_ship_state.h"
 
 #include <cassert>
 #include <cstdint>
@@ -53,25 +53,23 @@ int main()
   assert((SortedIndices(ships, {}) == std::vector<int>{0, 1, 2, 3, 4, 5, 6}));
   assert((SortedIndices(ships, pins, {false, false, false, true, false, false, false})
           == std::vector<int>{2, 0, 5, 3, 1, 4, 6}));
-  assert((SortedIndices({std::nullopt, 101, 202}, pins, {true, false, false})
-          == std::vector<int>{1, 2, 0}));
+  assert((SortedIndices({std::nullopt, 101, 202}, pins, {true, false, false}) == std::vector<int>{1, 2, 0}));
 
-  const std::vector<std::string> duplicate_names{"AMALGAM", "AMALGAM"};
+  const std::vector<std::string>            duplicate_names{"AMALGAM", "AMALGAM"};
   const std::vector<std::optional<int64_t>> duplicate_ids{101, 202};
-  auto migrated_high = MigrateLegacyNames(duplicate_names, duplicate_ids, 101);
+  auto                                      migrated_high = MigrateLegacyNames(duplicate_names, duplicate_ids, 101);
   assert(migrated_high.selected_was_legacy && (migrated_high.pins == std::vector<int64_t>{202}));
   assert(migrated_high.unresolved_names.empty());
   auto migrated_low = MigrateLegacyNames(duplicate_names, duplicate_ids, 202);
   assert(migrated_low.selected_was_legacy && (migrated_low.pins == std::vector<int64_t>{101}));
   auto migrated_other = MigrateLegacyNames(duplicate_names, duplicate_ids, 303);
-  assert(!migrated_other.selected_was_legacy
-         && (migrated_other.pins == std::vector<int64_t>{101, 202}));
+  assert(!migrated_other.selected_was_legacy && (migrated_other.pins == std::vector<int64_t>{101, 202}));
   auto migrated_missing = MigrateLegacyNames(duplicate_names, {101, std::nullopt}, 303);
   assert((migrated_missing.pins == std::vector<int64_t>{101})
          && (migrated_missing.unresolved_names == std::vector<std::string>{"AMALGAM"}));
-  auto migrated_ambiguous = MigrateLegacyNames(duplicate_names, {101, std::nullopt}, 101);
-  const auto matches_amalgam = [](const std::string& name) { return name == "AMALGAM"; };
-  const auto matches_sekie = [](const std::string& name) { return name == "SEKIE"; };
+  auto       migrated_ambiguous = MigrateLegacyNames(duplicate_names, {101, std::nullopt}, 101);
+  const auto matches_amalgam    = [](const std::string& name) { return name == "AMALGAM"; };
+  const auto matches_sekie      = [](const std::string& name) { return name == "SEKIE"; };
   assert(AmbiguousUnpin(migrated_ambiguous, false, matches_amalgam));
   assert(AmbiguousUnpin(migrated_missing, true, matches_amalgam));
   assert(!AmbiguousUnpin(migrated_missing, false, matches_amalgam));

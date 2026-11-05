@@ -1,4 +1,5 @@
 #include "config_save.h"
+#include "config_save_fixture.h"
 #include "toml_editor.h"
 #include <cassert>
 #include <fstream>
@@ -8,11 +9,11 @@
 using namespace config_edit;
 static Request Mode(std::optional<Value> expected, std::string desired)
 { return {"ui", "auto_confirm_instant_warp", std::move(expected), std::move(desired)}; }
-int main(int argc, char** argv)
+int main()
 {
-  assert(argc == 2);
-  TomlEditor editor;
-  const auto request = Mode(Value{std::string("none")}, "warp");
+  ConfigSaveFixtureDirectory fixture;
+  TomlEditor                 editor;
+  const auto                 request = Mode(Value{std::string("none")}, "warp");
   for (const std::string original :
        {"# header\n[ui] # section\nauto_confirm_instant_warp = 'none' # comment\nother = 9\n",
         "\xef\xbb\xbf# BOM\r\n[ui]\r\nauto_confirm_instant_warp = 'none' # comment\r\n",
@@ -100,8 +101,7 @@ int main(int argc, char** argv)
     assert(toml::parse(inserted.text)["ui"][escaped_key].value<bool>() == true);
   }
 
-  const std::filesystem::path root(argv[1]);
-  std::filesystem::create_directories(root);
+  const auto&       root    = fixture.Root();
   const auto        path    = root / "settings.toml";
   const std::string initial = "[ui]\nauto_confirm_instant_warp='none'\nother=true # preserve\n";
   ReplaceConfigText(path, initial);

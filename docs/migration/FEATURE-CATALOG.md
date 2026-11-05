@@ -1,0 +1,148 @@
+# Community Mod feature catalog
+
+Generated from [the functional inventory](play-functional-parity.json) by
+`python scripts/render-feature-catalog.py`. Edit the inventory, then regenerate;
+`--check` detects a stale view. This is an incremental product catalog, not a
+claim that every branch or workflow has been inspected or verified.
+
+Branch presence refers to the exact **local revision inspected**. Consumer-only
+means the TOML/gameplay path exists but the named in-game control does not.
+Not assessed never means absent. Source presence, automated checks, builds,
+and player-confirmed behavior are separate evidence.
+
+## Features examined through the migration procedure
+
+| ID / feature | Player entry point | Upstream dev | play | play-dev | Refactor | Current qualification |
+| --- | --- | --- | --- | --- | --- | --- |
+| [PLAY-FLEET-SELECT — Fleet shortcut selection and repeated locate](features/PLAY-FLEET-SELECT.md) | Configured ship-selection keys and SelectCurrent; existing Controls/Preview preferences | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `b36d2837` | Basic Windows selection/screen workflow accepted; extended native/platform edges separate |
+| [PLAY-FLEET-TOW — Discovery shift-ship towing](features/PLAY-FLEET-TOW.md) | Shift + configured ship shortcut with Discovery and native tow eligibility; operator-chosen trial only | present; legacy towing implementation @ `e884efa7` | present; legacy towing implementation @ `cad98ef7` | present @ `1baa55fe` | present @ `b36d2837` | Windows source/adapter/build/boot qualified; live tow or rare cooldown recovery unconfirmed |
+| [PLAY-FLEET-ACTIONS — Contextual movement, attack, repair, recall and queue actions](features/PLAY-FLEET-ACTIONS.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `94f4b3e0` | Basic Windows player workflow accepted; extended interaction coverage and macOS remain unqualified |
+| [PLAY-FLEET-PREVIEW-GATES — Preview, locate, recall and Escape precedence](features/PLAY-FLEET-PREVIEW-GATES.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `94f4b3e0` | Basic Windows player workflow accepted; extended interaction coverage and macOS remain unqualified |
+| [PLAY-FLEET-ABILITY-RECOVERY — Expired ability button recovery](features/PLAY-FLEET-ABILITY-RECOVERY.md) | Existing fleet ability panel after native cooldown expiry; repairs button availability, never auto-activates | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `7c45c3bb` | Windows config/adapter/build/default-on boot qualified; naturally stuck-button recovery and macOS unconfirmed |
+| [PLAY-QUEUE-RECOVERY — Vanished-target course recovery](features/PLAY-QUEUE-RECOVERY.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `94f4b3e0` | Windows startup and basic queue use accepted; recovery race and macOS remain unqualified |
+| [PLAY-QUEUE-THIN — Native prefix-prune recovery](features/PLAY-QUEUE-THIN.md) | Fleet/target controls and configured shortcuts; Mod Settings -> Controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `94f4b3e0` | Windows startup and basic queue use accepted; recovery race and macOS remain unqualified |
+| [PLAY-CARGO-PREVIEW — Category defaults and delayed cargo opening](features/PLAY-CARGO-PREVIEW.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified |
+| [PLAY-MINING-CYCLE — Mining node, occupant and cargo cycle](features/PLAY-MINING-CYCLE.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified |
+| [PLAY-CARGO-FORMAT — Cargo abbreviation precision](features/PLAY-CARGO-FORMAT.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified |
+| [PLAY-CARGO-INSTANT — Instant cargo counter with native flag restoration](features/PLAY-CARGO-INSTANT.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Windows basic cargo workflow accepted; counter remains Windows-only; extended native edges unqualified |
+| [PLAY-OFFICER-SORT — Below Deck Ability sort](features/PLAY-OFFICER-SORT.md) | Officer roster and assignment sort menus | present @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `e979f692` | Native BDA reported available; compatibility module retained; testing held |
+| [PLAY-OFFICER-PRESETS — Preset ordering and canonical native save](features/PLAY-OFFICER-PRESETS.md) | Officer Presets; Shift/Ctrl/Command name edit | absent @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `a0565d7e` | Basic Windows preset workflow accepted after initialization-order fix; macOS and native crew create/replace/delete remain unqualified |
+| [PLAY-PINS-ORDER — Stable-ID ship pins and legacy-name fallback](features/PLAY-PINS-ORDER.md) | Swap Ship pin order | partial @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `e979f692` | Source-preserved; partial pin trial; further testing held |
+| [PLAY-PINS-INPUT — Badge double-click and hold-drag pin gestures](features/PLAY-PINS-INPUT.md) | Swap Ship badge double-click and held drag | absent @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `e979f692` | Windows border and basic click-drag accepted; extended lifecycle/persistence and macOS remain open |
+| [PLAY-DOCK-ASSIGN — Double-click and Enter assignment](features/PLAY-DOCK-ASSIGN.md) | Swap Ship; Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Officers & Ships | present @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic workflow confirmed; edge/custody limits retained |
+| [PLAY-SCREEN-ACTIONS — Ship/officer/preset navigation and deferred buttons](features/PLAY-SCREEN-ACTIONS.md) | Configured screen, Ship Swap, Officer Swap, Presets and arrow/search shortcuts | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `b36d2837` | Basic Windows selection/screen workflow accepted; extended native/platform edges separate |
+| [PLAY-WARP-AUTO — Per-ship jump/warp/ask precedence](features/PLAY-WARP-AUTO.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified |
+| [PLAY-WARP-MODIFIER — Ctrl/Command-click manual warp/jump choice](features/PLAY-WARP-MODIFIER.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified |
+| [PLAY-WARP-LABEL — WARP/JUMP visit-label preview](features/PLAY-WARP-LABEL.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified |
+| [PLAY-WARP-COURSE — Retained hidden Galaxy course action](features/PLAY-WARP-COURSE.md) | Configured travel/scan/cargo shortcuts and native target cards; existing Mod Settings controls | partial @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `10477fd1` | Basic Windows travel/cargo workflow accepted; extended native edges and macOS remain separately qualified |
+| [PLAY-SHIP-TECH-ART — Exact-ship FT/CT indicators](features/PLAY-SHIP-TECH-ART.md) | Swap Ship tiles; existing ship technology and backing controls | not assessed @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [PLAY-FLEET-BADGES — Configured shortcut on own system fleet labels](features/PLAY-FLEET-BADGES.md) | Own system-fleet labels; Fleet Labels shortcut badge control | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [PLAY-FLEET-LABELS — Player/nonplayer label detail and thresholds](features/PLAY-FLEET-LABELS.md) | System fleet labels and existing detail/threshold controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [PLAY-FLEET-OPC — OPC highlighting and mining ETA](features/PLAY-FLEET-OPC.md) | Fleet panel/card SAFE, OPC and mining ETA; two independent existing controls | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [PLAY-CAMERA-ZOOM — Extended system zoom and clipping](features/PLAY-CAMERA-ZOOM.md) | System map zoom and existing camera Settings; configured reset/min/max shortcuts | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-CAMERA-PRESETS — Stored/jumped zoom presets and defaults](features/PLAY-CAMERA-PRESETS.md) | Configured five preset/store bindings, default store and existing camera Settings | consumer-only; explicit stores are session-only @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-CAMERA-KEYBOARD — Keyboard zoom at pointer](features/PLAY-CAMERA-KEYBOARD.md) | Configured held zoom-in/out shortcuts with pointer in the world or UI | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-CAMERA-WHEEL — UI wheel ownership with native pinch intact](features/PLAY-CAMERA-WHEEL.md) | Mouse wheel over world, side chat or native scrolling UI; native touch pinch remains separate | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-GALAXY-SELECTION — Far-tier system tapping](features/PLAY-GALAXY-SELECTION.md) | Galaxy minor-system taps at Far zoom with Extended system selection enabled | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-GALAXY-DETAIL — Independent major/minor label and culling profiles](features/PLAY-GALAXY-DETAIL.md) | Mod Settings > Galaxy: independent major/minor detail choices and thresholds | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-GALAXY-OVERLAYS — Multiple simultaneous overlays and native selection state](features/PLAY-GALAXY-OVERLAYS.md) | Galaxy Default/Mining/Hostiles/Hazards and existing multiple-overlay Settings controls | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-GALAXY-HOUSING — Data-backed station housing marker](features/PLAY-GALAXY-HOUSING.md) | Galaxy housing-capable markers and existing Housing Settings control | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8c306f89` | Basic Windows map/camera workflow accepted; extended native edges and macOS separate |
+| [PLAY-CHAT-CHANNELS — Galaxy/Veil tabs and preview filtering](features/PLAY-CHAT-CHANNELS.md) | Full/side chat, channel/title controls and configured chat shortcuts | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [PLAY-CHAT-AVATARS — Portrait retention during pooled chat binding](features/PLAY-CHAT-AVATARS.md) | Full/side chat, channel/title controls and configured chat shortcuts | absent @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [PLAY-CHAT-TITLES — Hide titles only in chat](features/PLAY-CHAT-TITLES.md) | Full/side chat, channel/title controls and configured chat shortcuts | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [PLAY-CHAT-NAVIGATION — Full/side chat, focus and channel shortcuts](features/PLAY-CHAT-NAVIGATION.md) | Full/side chat, channel/title controls and configured chat shortcuts | present @ `e884efa7` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `d61b383d` | Basic combined Windows trial accepted (labels tentative); extended cases and macOS unverified |
+| [SET-AUDIO-PICKER — Audio pages, custom file picker and preview](features/SET-AUDIO-PICKER.md) | Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Audio Alerts ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ alert page | absent @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
+| [SET-IMAGE-PICKER — Loading-image picker and exact entry](features/SET-IMAGE-PICKER.md) | Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Loading Screens | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic workflow confirmed; edge/custody limits retained |
+| [SET-WARP-FILTERS — Per-ship jump, warp and always-ask editors](features/SET-WARP-FILTERS.md) | Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Map & Travel ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Ship route filters | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
+| [SET-DAILY-FACTIONS — Daily bulk-claim faction selector](features/SET-DAILY-FACTIONS.md) | Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Claims & Confirmations | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
+| [SET-BANNER-FILTERS — Hidden banners and desktop notification filter editors](features/SET-BANNER-FILTERS.md) | Mod Settings ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Notifications | consumer-only @ `6ceb892b` | present @ `cad98ef7` | present @ `1baa55fe` | present @ `8aa5f2ac` | Windows basic acceptance reported; detailed edge cases and macOS pending |
+| [PLAY-AAI — Native Battle Analysis, Crew & Effects and Tactical Console host](features/PLAY-AAI.md) | Native battle summary -> Battle Analysis; Mod Settings -> Interface & Scale | absent @ `6ceb892b` | absent @ `cad98ef7` | present @ `1baa55fe` | present @ `4271c076` | Basic Windows player use confirmed 2026-10-27; detailed interaction paths and macOS qualification remain separate |
+| [AT-STORE-RESEARCH — Alliance Games store native Research Lookup](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
+| [AT-STORE-CURRENCY — Alliance Games store currency refresh](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
+| [AT-STORE-ROWS — Alliance Games purchase refresh visibility](features/AT-STORE.md) | Alliance Games â†’ Store â†’ material tooltip / currency header / purchase refresh | absent @ `e884efa7` | absent @ `cad98ef7` | absent @ `1baa55fe` | present @ `4f9a6f3b` | Basic Windows purchase/Research/currency trial accepted at4f9a6f3b; macOS/extended cases unverified |
+| [CFG-LOAD-RELOAD — Existing config defaults, aliases and activation](features/CFG-LOAD-RELOAD.md) | Load settings at startup; edit the primary TOML for automatic reload or use Reload Settings | consumer-only @ `ff179589` | consumer-only @ `cad98ef7` | consumer-only @ `1baa55fe` | consumer-only @ `4865af29` | 190 product defaults and aliases qualified; focus output correction verified on Windows; native UI/Mac open |
+| [CFG-WRITER — Registered-key preserving saves and quit](features/CFG-WRITER.md) | Existing persisted setting or shortcut; ordinary quit | absent for named workflow @ `ff179589` | consumer-only @ `cad98ef7` | consumer-only @ `1baa55fe` | consumer-only @ `300dcab4` | Frozen writer reconciled; Windows model/adapter/file checks pass; native quit/Mac open |
+| [STATE-STORE — Versioned state merge and atomic replacement](features/STATE-STORE.md) | Pin order and officer order saves through existing feature owners | absent for named workflow @ `ff179589` | consumer-only @ `cad98ef7` | consumer-only @ `1baa55fe` | consumer-only @ `300dcab4` | Frozen store reconciled; Windows real-file/group checks pass; native/Mac open |
+| [STATE-QUIT — Pending state writer on normal quit](features/STATE-QUIT.md) | Ordinary quit with pending state; native veto resumes saving | absent for named workflow @ `ff179589` | absent for named workflow @ `cad98ef7` | absent for named workflow @ `1baa55fe` | consumer-only @ `300dcab4` | Retained shared drain verified by Windows adapter and real-file checks; native/Mac open |
+| [SET-RESET-SAVE — Defaults, reset, conflicts and retry UI](features/SET-RESET-SAVE.md) | Existing Mod Settings Defaults & Help: page/individual reset and save retry | named control owner absent @ `ff179589` | control present @ `cad98ef7` | control present @ `1baa55fe` | control present @ `2195077f` | Frozen reset model and Windows controller/file checks pass; native UI/Mac open |
+| [SET-SHORTCUT-EDITOR — Interactive binding capture, conflict, undo/defaults](features/SET-SHORTCUT-EDITOR.md) | Existing Mod Settings Shortcuts: record/exact entry, Stage/Confirm, remove/default/Undo/unbind | named control owner absent @ `ff179589` | control present @ `cad98ef7` | control present @ `1baa55fe` | control present @ `2195077f` | Frozen workflow mapped; Windows editor/dispatcher/capture checks pass; native UX/Mac open |
+| [SET-SEARCH — Settings search with contextual return](features/SET-SEARCH.md) | Existing Mod Settings root search field, result Open/Clear and contextual Back | named control owner absent @ `ff179589` | control present @ `cad98ef7` | control present @ `1baa55fe` | control present @ `d2851fee` | Frozen model/full UTF-8 retention qualified; Windows native typing/one-click result/Back/Clear observed on0f9ad5a5; extended focus/Mac open |
+| [SET-NAV — Mod pages and native back/navigation](features/SET-NAV.md) | Player profile > Settings > Mod Settings, categories, root search Open/Clear and native Back | absent at named path @ `ff179589` | control @ `cad98ef7` | control @ `1baa55fe` | control @ `d65616bc` | Windows native menu/child Back/search/close-reopen observed on0f9ad5a5; extended lifecycle/Mac and contained lookup diagnostic open |
+
+Full pinned paths, symbols, differences and history are in each inventory entry.
+Frozen play-dev remains `1baa55fedf1758b19f843cc59707b8901a0b4998`.
+
+## Other recorded capabilities
+
+These include the earlier PLAY reconciliation inventory. Their historical
+dispositions are retained; they have **not** all been rescanned against frozen
+play-dev or the current refactor. Newly discovered entries remain visible even
+when their migration is deferred.
+
+| ID | Capability | Recorded disposition | Source evidence |
+| --- | --- | --- | --- |
+| PLAY-QUEUE-SWITCH | Queue enable and persisted toggle | Implemented, unverified | mods/src/patches/parts/testing.cc |
+| PLAY-QUEUE-ADDRESS | Conservative deployed-address substitution | Implemented, unverified | mods/src/patches/parts/queue_address_guard.cc |
+| PLAY-DOCK-SYNC | Management ship selects actual dock slot | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
+| PLAY-FOCUS-SEARCH | Search focus and legacy cross-section setting alias | Implemented, unverified | mods/src/patches/parts/focus_search.cc |
+| PLAY-CAMERA-BACKDROP | Planet/backdrop scale without compounding | Implemented, unverified | mods/src/patches/parts/zoom.cc |
+| PLAY-CAMERA-PAN | System pan and glide with modal gates | Implemented, unverified | mods/src/patches/parts/fix_pan.cc |
+| PLAY-CAMERA-STATION | Exterior rotation and interior zoom restoration | Implemented, unverified | mods/src/patches/parts/interior_zoom.cc |
+| PLAY-SYSTEM-ORBIT | System orbit/free pan/environment artwork | Intentionally excluded | mods/src/patches/parts/navigation_orbit.cc |
+| PLAY-HAVEN-ZOOM | Qualified planetary zoom | Implemented, unverified | mods/src/patches/parts/haven_zoom.cc |
+| PLAY-HAVEN-VISUALS | Reversible road depth and water visibility | Implemented, unverified | mods/src/patches/parts/haven_road_depth.cc |
+| PLAY-HAVEN-ORBIT | Haven right-drag and modifier reset | Implemented, unverified | mods/src/patches/parts/haven_zoom.cc |
+| PLAY-HAVEN-HISTORY | Reverse help history with managed custody | Implemented, unverified | mods/src/patches/parts/haven_history.cc |
+| PLAY-ART-LOGIN | Custom/fallback login image and logos | Implemented, unverified | mods/src/patches/parts/loading_screen.cc |
+| PLAY-ART-TRANSITION | Transition artwork, black mode and tips | Implemented, unverified | mods/src/patches/parts/transition_screen.cc |
+| PLAY-AUDIO-EVENTS | Fabric named/all audio filters and tracing | Implemented, unverified | mods/src/patches/parts/audio_events.cc |
+| PLAY-AUDIO-CUES | Built-in/custom audio and coalescing | Implemented, unverified | mods/src/patches/notification_audio.cc |
+| PLAY-NOTIFY-BANNERS | Independent banner suppression and readable desktop forwarding | Implemented, unverified | mods/src/patches/notification_service.cc |
+| PLAY-NOTIFY-MAC | Permission-aware macOS desktop alerts | Implemented, unverified | mods/src/notification_desktop_mac.mm |
+| PLAY-NOTIFY-FLEET | Seven fleet-event producers and alerts | Implemented, unverified | mods/src/patches/parts/fleet_notifications.cc |
+| PLAY-NOTIFY-INCOMING | Own-ship incoming player alert | Implemented, unverified | mods/src/patches/incoming_player_attack.cc |
+| PLAY-SHORTCUT-HINTS | Native hint replacement and visibility toggle | Implemented, unverified | mods/src/patches/parts/hotkeys.cc |
+| PLAY-WINDOW | Windows free resizing | Implemented, unverified | mods/src/patches/parts/free_resize.cc |
+| PLAY-CURSOR | Plain cursor and clipping release | Implemented, unverified | mods/src/patches/parts/testing.cc |
+| PLAY-GAME-CONFIG | Settings/assets endpoint overrides | Implemented, unverified | mods/src/patches/parts/testing.cc |
+| PLAY-DONATION | Donation slider extension | Partial | mods/src/patches/parts/misc.cc |
+| PLAY-CHEST-LIMIT | Chest purchase cap bounded at 160 | Implemented, unverified | mods/src/patches/parts/misc.cc |
+| PLAY-OFFER-DETAILS | Cooldown offer opens auxiliary view | Implemented, unverified | mods/src/patches/parts/misc.cc |
+| PLAY-POPUPS | Shared first-popup-only session and reveal skip | Implemented, unverified | mods/src/patches/parts/misc.cc |
+| PLAY-BUFF-GUARD | Null buff-list crash guard | Implemented, unverified | mods/src/patches/parts/misc.cc |
+| PLAY-CLAIM | Bulk gift flyout and daily faction claiming | Implemented, unverified | mods/src/patches/parts/daily_faction_bulk_claim.cc |
+| PLAY-BASE-CARD | Starbase level/name card presentation | Implemented, unverified | mods/src/patches/parts/base_card.cc |
+| PLAY-HUD | Four mission HUD visibility choices | Implemented, unverified | mods/src/patches/parts/mission_hud_tweaks.cc |
+| PLAY-FT-SHIP-NAME | Equipped ship under Forbidden Tech header | Implemented, unverified | mods/src/patches/parts/ship_tech_indicators.cc |
+| PLAY-CONFIRMATIONS | FT, alliance and reveal confirmation choices | Implemented, unverified | mods/src/patches/parts/forbidden_tech_confirmation.cc |
+| PLAY-ANOMALY | Galactic anomaly timer | Implemented, unverified | mods/src/patches/parts/galactic_anomaly_timer.cc |
+| SET-VALUES | Boolean, exact numeric, choices and slider controls | Partial | mods/src/settings/native/value_widgets.cc |
+| SET-FC-CONFIRM | Restore FC confirmation after do-not-show | Implemented, unverified | mods/src/patches/parts/fc_confirmation_reset.cc |
+| SYNC-RECORDS | Owned per-target sync and session lifecycle | Implemented, unverified | mods/src/patches/parts/sync.cc |
+| SYNC-BATTLES | Battle fetch, journals and participant resolution | Implemented, unverified | mods/src/patches/parts/sync.cc |
+| SYNC-RESTART | Legacy attempted-ID suppression is not delivery ACK | Intentionally excluded | mods/src/patches/parts/sync.cc |
+| PLAT-PATHS | Ordinary/custom/profile scoped file routing | Implemented, unverified | mods/src/file.cc |
+| PLAT-MAC-LOG | Ordinary macOS log fallback | Implemented, unverified | mods/src/patches/patches.cc |
+| PLAT-MAC-LAUNCH | macOS loader, launcher and update lifecycle | Implemented, unverified | macos-loader/src/main.cc |
+| DIAG-OVERLAY | Debug console and six history/opacity controls | Missing | mods/src/dev/dev_console.cc |
+| DIAG-BUS | Awake/source-gated lazy diagnostic history | Missing | mods/src/dev/diagnostics.cc |
+| DIAG-SCIENCE-ERROR | Opt-in debug game-error JSONL recorder | Missing | mods/src/patches/parts/game_error_probe.cc |
+| DIAG-FLEET-PROBE | Environment-gated debug fleet transitions | Implemented, unverified | mods/src/patches/fleet_watch.cc |
+| DIAG-KEYBOARD-VARS | Layout diagnostics in runtime vars | Implemented, unverified | mods/src/patches/keyboard_layout.cc |
+| PLAY-UI-SCALE | Interface scale and DPI | Implemented, unverified | mods/src/patches/parts/ui_scale.cc |
+| PLAY-VIEWER-SCALE | Object-viewer scale | Implemented, unverified | mods/src/patches/parts/ui_scale.cc |
+| PLAY-SHIP-MODEL-SCALE | Existing and newly loaded ship scale | Implemented, unverified | mods/src/patches/parts/ui_scale.cc |
+| PLAY-ARTIFACT-EXCHANGE-ALL | Hide only artifact bulk conversion | Implemented, unverified | mods/src/patches/parts/artifact_exchange.cc |
+| PLAY-OUT-OF-DOCK-POWER | Exclude station-only power buffs | Implemented, unverified | mods/src/patches/parts/buff_fixes.cc |
+| PLAY-WINDOW-PROFILE-TITLE | Custom/profile window title | Implemented, unverified | mods/src/patches/parts/free_resize.cc |
+| SET-AAI-ANALYSIS-ENTRY | Battle Analysis settings entry and availability | Implemented, unverified | mods/src/settings/upstream_settings.cc |
+| PLAY-REPAIR-INTERLOCK | Historical stale repair action and instant-click interlock | Unresolved | mods/src/patches/parts/repair_action_interlock.cc |
+| DIAG-CLAIM-TRACE | Claim diagnostics and opt-in navigation recovery | Discovered, unassessed | mods/src/patches/parts/claim_trace.cc |
+
+The JSON remains the sole machine-readable inventory. This document adds no
+independent migration status or execution authority.
+
+## Active migration
+
+Branch: `play-dev-ripper`. Fleet presentation/chat basic combined Windows trial accepted (labels tentative); source-preserving Settings precision correction now built/deployed and basic Windows trial accepted. No full parity or release claim.
+See [branch routing and preserved checkpoints](PLAY-PARITY.md#active-ripper-migration-branch--2026-10-26).

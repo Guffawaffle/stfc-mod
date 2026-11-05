@@ -1,6 +1,7 @@
-#include "patches/notification_audio.h"
-#include "patches/notification_audio_platform.h"
+#include "features/notification_audio.h"
+#include "features/notification_audio_platform.h"
 
+#include <chrono>
 #include <fstream>
 #include <stdexcept>
 
@@ -40,46 +41,50 @@ void WriteWave(const std::filesystem::path& file, unsigned seconds)
 
 int main(int argc, char** argv)
 {
-  Check(argc == 3);
+  Check(argc <= 3);
   // Construct UTF-8 here: Windows main(char**) arguments use the active code
   // page, whereas TOML paths and File::Config() are UTF-8.
-  const auto directory = std::filesystem::u8path(argv[1]) / std::filesystem::path(u8"r\u00e9pertoire");
+  const auto base      = argc >= 2 ? std::filesystem::u8path(argv[1]) : std::filesystem::temp_directory_path();
+  const auto directory = base / std::filesystem::path(u8"r\u00e9pertoire")
+                         / std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
   std::filesystem::create_directories(directory);
   const auto name = std::string("arrival \xc3\xa9.WAV");
   const auto wave = directory / std::filesystem::u8path(name);
   WriteWave(wave, 1);
-  const auto cue = notification_audio_load(name, directory);
+  const auto cue = LoadNotificationAudio(name, directory);
   Check(cue.enabled() && cue.data && cue.source == name);
   Check(cue.duration_seconds > 0.99 && cue.duration_seconds < 1.01);
   const auto absolute = wave.u8string();
-  Check(notification_audio_load(std::string(absolute.begin(), absolute.end()), {}).data == cue.data);
+  Check(LoadNotificationAudio(std::string(absolute.begin(), absolute.end()), {}).data == cue.data);
   const auto copy = directory / "copy.wav";
   std::filesystem::copy_file(wave, copy, std::filesystem::copy_options::overwrite_existing);
-  Check(notification_audio_load("copy.wav", directory).data == cue.data);
+  Check(LoadNotificationAudio("copy.wav", directory).data == cue.data);
   std::filesystem::remove(wave);
   Check(cue.enabled() && !cue.data->empty()); // prepared clip survives file removal
-  const auto missing = notification_audio_load(name, directory);
+  const auto missing = LoadNotificationAudio(name, directory);
   Check(!missing.enabled() && missing.source == name);
   std::ofstream(directory / "corrupt.wav") << "not audio";
-  Check(!notification_audio_load("corrupt.wav", directory).enabled());
-  Check(!notification_audio_load("https://example.test/clip.mp3", directory).enabled());
-  Check(!notification_audio_load("file:///clip.wav", directory).enabled());
-  Check(!notification_audio_load("directory.wav", directory).enabled());
-  Check(!notification_audio_load("clip.txt", directory).enabled());
+  Check(!LoadNotificationAudio("corrupt.wav", directory).enabled());
+  Check(!LoadNotificationAudio("https://example.test/clip.mp3", directory).enabled());
+  Check(!LoadNotificationAudio("file:///clip.wav", directory).enabled());
+  Check(!LoadNotificationAudio("directory.wav", directory).enabled());
+  Check(!LoadNotificationAudio("clip.txt", directory).enabled());
   WriteWave(directory / "long.wav", 31);
-  Check(!notification_audio_load("long.wav", directory).enabled());
+  Check(!LoadNotificationAudio("long.wav", directory).enabled());
   {
     std::ofstream out(directory / "large.mp3", std::ios::binary);
     out.seekp(kNotificationAudioMaxBytes);
     out.put('x');
   }
-  Check(!notification_audio_load("large.mp3", directory).enabled());
-  Check(notification_audio_load("arrival", directory).sound == NotificationSound::Arrival);
-  Check(notification_audio_load("victory", directory).sound == NotificationSound::Success);
-  Check(!notification_audio_load("none", directory).enabled());
-  Check(!notification_audio_load("off", directory).enabled());
-  const auto mp3 = notification_audio_load(argv[2], {});
-  Check(mp3.enabled() && mp3.data && !mp3.data->empty());
-  Check(mp3.duration_seconds > 0 && mp3.duration_seconds <= kNotificationAudioMaxSeconds);
+  Check(!LoadNotificationAudio("large.mp3", directory).enabled());
+  Check(LoadNotificationAudio("arrival", directory).sound == NotificationSound::kArrival);
+  Check(LoadNotificationAudio("victory", directory).sound == NotificationSound::kSuccess);
+  Check(!LoadNotificationAudio("none", directory).enabled());
+  Check(!LoadNotificationAudio("off", directory).enabled());
+  if (argc == 3) {
+    const auto mp3 = LoadNotificationAudio(argv[2], {});
+    Check(mp3.enabled() && mp3.data && !mp3.data->empty());
+    Check(mp3.duration_seconds > 0 && mp3.duration_seconds <= kNotificationAudioMaxSeconds);
+  }
   // Deliberately do not play sound in this deterministic fixture.
 }

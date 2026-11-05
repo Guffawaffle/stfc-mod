@@ -1,0 +1,398 @@
+#pragma once
+
+// The chat manager, the full-screen and side chat views, and the chat message rows.
+
+#include "ui.h"
+#include "ui_pointer.h"
+
+#include <il2cpp/il2cpp.h>
+#include <unity/application.h>
+
+#include <cstdint>
+#include <type_traits>
+#include <utility>
+
+enum class ChatChannelCategory : int32_t {
+  None            = -1,
+  Newbie          = 0,
+  Global          = 1,
+  Alliance        = 2,
+  Private         = 3,
+  Private_Message = 4,
+  Block           = 5,
+  Regional        = 6,
+};
+
+enum class ChatViewMode : int32_t {
+  Fullscreen = 0,
+  Side       = 1,
+};
+
+struct ChatManager : MonoSingleton<ChatManager> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatManager">;
+
+  bool IsSideChatOpen()
+  { return Get<"IsSideChatOpen", bool>(); }
+  void SetViewMode(ChatViewMode value)
+  { Set<"ViewMode">(value); }
+
+  bool CanSeeNewbieChat()
+  { return Call<"CanSeeNewbieChat", bool>(); }
+  bool CanSeeRegionalChat()
+  { return Call<"CanSeeRegionalChat", bool>(); }
+  void OpenChannel(ChatChannelCategory category = ChatChannelCategory::Alliance)
+  { Call<"OpenChannel">(category, il2cpp::NewString("")); }
+
+  void OpenChannel(ChatChannelCategory category, ChatViewMode viewMode)
+  {
+    // An unavailable mode setter must not open a different native chat view.
+    if (TryCall<"set_ViewMode", void(ChatViewMode)>(viewMode))
+      OpenChannel(category);
+  }
+};
+
+struct SwipeScroller : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "SwipeScroller">;
+
+  int32_t currentContentIndex()
+  { return Field<"_currentContentIndex", int32_t>(); }
+  void FocusOnInstantly(int32_t index)
+  { Call<"FocusOnInstantly">(index); }
+};
+
+struct ChatPreviewController : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatPreviewController">;
+
+  SwipeScroller* swipeScroller()
+  { return Field<"_swipeScroller", SwipeScroller*>(); }
+  void SetFocusedPanel(ChatChannelCategory value)
+  { SetField<"_focusedPanel">(value); }
+};
+
+struct ChatMessageListLocalViewController : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatMessageListLocalViewController">;
+
+  unity::TMP_InputField* inputField()
+  { return Field<"_inputField", unity::TMP_InputField*>(); }
+
+  // Native chat submission uses these two flags independently of TMP's focus. A missing/drifted field is
+  // unavailable, rather than a confirmed false gate; the diagnostic never changes either flag.
+  il2cpp::CallResult<bool> TryFocusOnTypeEnabled()
+  {
+    static const bool available = Class::HasField<"_enableFocusOnType", bool>();
+    return available ? il2cpp::CallResult<bool>{true, Field<"_enableFocusOnType", bool>()} : il2cpp::CallResult<bool>{};
+  }
+  il2cpp::CallResult<bool> TryInputFieldSelected()
+  {
+    static const bool available = Class::HasField<"_inputFieldSelected", bool>();
+    return available ? il2cpp::CallResult<bool>{true, Field<"_inputFieldSelected", bool>()}
+                     : il2cpp::CallResult<bool>{};
+  }
+};
+
+struct FullScreenChatViewController : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "FullScreenChatViewController">;
+
+  ChatMessageListLocalViewController* messageList()
+  { return Field<"_messageList", ChatMessageListLocalViewController*>(); }
+  TabBarViewController* categoriesTabBarViewController()
+  { return Field<"_categoriesTabBarViewController", TabBarViewController*>(); }
+};
+
+namespace chat_submit_binding
+{
+// Submit repair must distinguish an unavailable field from a confirmed false native gate. Qualify the exact
+// instance storage before reading or writing it; the ordinary zero-default field accessor is not permission.
+template <class Value> FieldInfo* Field(const char* name)
+{
+  auto* owner = ChatMessageListLocalViewController::Class::Raw();
+  auto* field = owner ? il2cpp_class_get_field_from_name(owner, name) : nullptr;
+  if (!field || !field->type || field->type->byref
+      || (field->type->attrs & (FIELD_ATTRIBUTE_STATIC | FIELD_ATTRIBUTE_LITERAL))
+      || field->offset < static_cast<int32_t>(sizeof(Il2CppObject)))
+    return nullptr;
+  const auto size = il2cpp_class_instance_size(owner);
+  if (size < sizeof(Value) || static_cast<uint32_t>(field->offset) > size - sizeof(Value))
+    return nullptr;
+  if constexpr (std::is_same_v<Value, bool>) {
+    if (field->type->type != IL2CPP_TYPE_BOOLEAN)
+      return nullptr;
+  } else {
+    using Binding  = std::remove_pointer_t<Value>;
+    auto* expected = Binding::Class::Raw();
+    if (field->type->type != IL2CPP_TYPE_CLASS || !expected || il2cpp_class_from_type(field->type) != expected)
+      return nullptr;
+  }
+  return field;
+}
+
+struct Fields {
+  FieldInfo *input = nullptr, *enabled = nullptr, *selected = nullptr;
+};
+
+inline const Fields& Native()
+{
+  static const Fields fields{Field<unity::TMP_InputField*>("_inputField"), Field<bool>("_enableFocusOnType"),
+                             Field<bool>("_inputFieldSelected")};
+  return fields;
+}
+
+// Immediately before the natural OnSubmit only: reconcile its native selection bit with an already focused,
+// exactly selected input held by this live list's native _inputField reference. No text, selection/focus callbacks
+// or send path is invoked; the serialized reference does not require a particular parent hierarchy.
+inline bool ReconcileSelection(ChatMessageListLocalViewController* receiver, bool physical_submit)
+{
+  if (!physical_submit || !receiver)
+    return false;
+  auto source = il2cpp::GcHandle::Strong(receiver);
+  if (!source || !source.Get<ChatMessageListLocalViewController>()->Is<ChatMessageListLocalViewController>())
+    return false;
+  const auto& fields = Native();
+  if (!fields.input || !fields.enabled || !fields.selected
+      || !il2cpp::detail::ReadField<bool>(fields.enabled, source.Get())
+      || il2cpp::detail::ReadField<bool>(fields.selected, source.Get()))
+    return false;
+  auto input = il2cpp::GcHandle::Strong(il2cpp::detail::ReadField<unity::TMP_InputField*>(fields.input, source.Get()));
+  if (!input || !input.Get<unity::TMP_InputField>()->Is<unity::TMP_InputField>())
+    return false;
+  const auto input_object = input.Get<unity::TMP_InputField>()->TryCall<"get_gameObject", unity::GameObject*>();
+  if (!input_object)
+    return false;
+  auto       object  = il2cpp::GcHandle::Strong(input_object.value);
+  const auto current = unity::EventSystem::Class::TryCall<"get_current", unity::EventSystem*>();
+  if (!current)
+    return false;
+  auto system = il2cpp::GcHandle::Strong(current.value);
+  if (!object || !object.Get<unity::GameObject>()->Is<unity::GameObject>() || !system
+      || !system.Get<unity::EventSystem>()->Is<unity::EventSystem>())
+    return false;
+
+  const auto qualifies = [&] {
+    const auto app_focus = unity::Application::Class::TryCall<"get_isFocused", bool>();
+    if (!app_focus || !app_focus.value)
+      return false;
+    for (auto* rooted : {source.Get(), input.Get(), object.Get(), system.Get()}) {
+      const auto alive = unity::TryAlive(rooted);
+      if (!alive || !alive.value)
+        return false;
+    }
+    const auto source_active =
+        source.Get<ChatMessageListLocalViewController>()->TryCall<"get_isActiveAndEnabled", bool>();
+    const auto input_active  = input.Get<unity::TMP_InputField>()->TryCall<"get_isActiveAndEnabled", bool>();
+    const auto system_active = system.Get<unity::EventSystem>()->TryCall<"get_isActiveAndEnabled", bool>();
+    const auto focused       = input.Get<unity::TMP_InputField>()->TryCall<"get_isFocused", bool>();
+    if (!source_active || !source_active.value || !input_active || !input_active.value || !system_active
+        || !system_active.value || !focused || !focused.value)
+      return false;
+    const auto same_object = input.Get<unity::TMP_InputField>()->TryCall<"get_gameObject", unity::GameObject*>();
+    const auto selecting   = system.Get<unity::EventSystem>()->TryCall<"get_alreadySelecting", bool>();
+    const auto navigation  = system.Get<unity::EventSystem>()->TryCall<"get_sendNavigationEvents", bool>();
+    const auto selected =
+        system.Get<unity::EventSystem>()->TryCall<"get_currentSelectedGameObject", unity::GameObject*>();
+    const auto same_system = unity::EventSystem::Class::TryCall<"get_current", unity::EventSystem*>();
+    return same_object && same_object.value == object.Get<unity::GameObject>() && selecting && !selecting.value
+           && navigation && navigation.value && selected && selected.value == object.Get<unity::GameObject>()
+           && same_system && same_system.value == system.Get<unity::EventSystem>();
+  };
+  // Managed observations can reenter game code. Recheck the rooted context, then compare the owner's direct
+  // reference and both native gates after all managed reads. Nothing calls back into managed code after the write.
+  if (!qualifies() || !qualifies()
+      || il2cpp::detail::ReadField<unity::TMP_InputField*>(fields.input, source.Get())
+             != input.Get<unity::TMP_InputField>()
+      || !il2cpp::detail::ReadField<bool>(fields.enabled, source.Get())
+      || il2cpp::detail::ReadField<bool>(fields.selected, source.Get()))
+    return false;
+  il2cpp::detail::WriteField(fields.selected, source.Get(), true);
+  return true;
+}
+} // namespace chat_submit_binding
+
+namespace chat_pointer
+{
+template <typename Owner> il2cpp::CallResult<bool> Under(unity::GameObject* object)
+{
+  auto* type = Owner::Class::TypeObject();
+  if (!type)
+    return {};
+  const auto owner =
+      object->TryCall<"GetComponentInParent", unity::Component*(Il2CppReflectionType*, bool)>(type, false);
+  if (!owner || (owner.value && !owner.value->template Is<Owner>()))
+    return {};
+  return {true, owner.value != nullptr};
+}
+
+inline il2cpp::CallResult<bool> OwnsPointer()
+{
+  auto hit = ui_pointer::TopObject();
+  if (!hit)
+    return {};
+  if (!hit.value)
+    return {true, false};
+  auto*      object   = hit.value.Get<unity::GameObject>();
+  const auto messages = Under<ChatMessageListLocalViewController>(object);
+  if (!messages || messages.value)
+    return messages;
+  const auto preview = Under<ChatPreviewController>(object);
+  if (!preview || preview.value)
+    return preview;
+  return Under<FullScreenChatViewController>(object);
+}
+} // namespace chat_pointer
+
+struct PlayerTitleWidget : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.PlayerAvatars", "PlayerTitleWidget">;
+};
+
+struct FrameAndAvatarWidget : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.PlayerAvatars", "FrameAndAvatarWidget">;
+};
+
+// A player's name, avatar and title, on chat rows and other screens.
+struct UserProfileWidget : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.PlayerProfile", "UserProfileWidget">;
+
+  PlayerTitleWidget* playerTitleWidget()
+  { return Field<"_playerTitleWidget", PlayerTitleWidget*>(); }
+};
+
+struct ChatMessageWidget : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatMessageWidget">;
+
+  enum class RetentionStatus { Unavailable, NativeBehavior, Ready };
+  static RetentionStatus AvatarRetentionStatus();
+  static il2cpp::Method  AvatarRetentionTarget();
+  // Retention is set before native child binding and remains set for asynchronous reloads.
+  // Null children need no change; false reports a runtime reference that failed qualification.
+  bool RetainAvatars();
+};
+
+namespace chat_title_binding
+{
+// Prefer the native scoped lookup, including inactive rows. Older/stripped
+// clients retain the bounded hierarchy walk; no parent cache survives pooling.
+template <class T> T* Parent(unity::Component* component)
+{
+  auto  source    = il2cpp::GcHandle::Strong(component);
+  auto* reflected = T::Class::TypeObject();
+  auto  type      = il2cpp::GcHandle::Strong(reflected ? &reflected->object : nullptr);
+  if (!source || !type)
+    return nullptr;
+  const auto found = component->TryCall<"GetComponentInParent", unity::Component*(Il2CppReflectionType*, bool)>(
+      reinterpret_cast<Il2CppReflectionType*>(type.Get()), true);
+  if (found)
+    return found.value ? found.value->template As<T>() : nullptr;
+  auto transform = il2cpp::GcHandle::Strong(component->transform());
+  for (int32_t depth = 0; transform && depth < 32; ++depth) {
+    auto object = il2cpp::GcHandle::Strong(transform.Get<unity::Transform>()->gameObject());
+    if (auto* owner = object ? object.Get<unity::GameObject>()->template GetComponent<T>() : nullptr)
+      if (auto* qualified = owner->template As<T>())
+        return qualified;
+    auto parent = il2cpp::GcHandle::Strong(transform.Get<unity::Transform>()->parent());
+    transform   = std::move(parent);
+  }
+  return nullptr;
+}
+} // namespace chat_title_binding
+
+namespace chat_avatar_binding
+{
+struct Fields {
+  ChatMessageWidget::RetentionStatus status  = ChatMessageWidget::RetentionStatus::Unavailable;
+  FieldInfo *                        profile = nullptr, *avatar = nullptr, *admin = nullptr, *keep = nullptr;
+  Il2CppClass*                       avatar_class = nullptr;
+};
+
+template <class Owner, class Value> FieldInfo* Field(const char* name)
+{
+  auto* owner = Owner::Class::Raw();
+  auto* field = owner ? il2cpp_class_get_field_from_name(owner, name) : nullptr;
+  if (!field || !field->type || field->type->byref || (field->type->attrs & FIELD_ATTRIBUTE_STATIC)
+      || field->offset < static_cast<int32_t>(sizeof(Il2CppObject)))
+    return nullptr;
+  const auto size = il2cpp_class_instance_size(owner);
+  if (size < sizeof(Value) || static_cast<uint32_t>(field->offset) > size - sizeof(Value))
+    return nullptr;
+  if constexpr (std::is_same_v<Value, bool>) {
+    if (field->type->type != IL2CPP_TYPE_BOOLEAN)
+      return nullptr;
+  } else {
+    using Binding  = std::remove_pointer_t<Value>;
+    auto* expected = Binding::Class::Raw();
+    if (field->type->type != IL2CPP_TYPE_CLASS || !expected || il2cpp_class_from_type(field->type) != expected)
+      return nullptr;
+  }
+  return field;
+}
+
+inline const Fields& RetentionFields()
+{
+  static const Fields fields = [] {
+    Fields result;
+    result.avatar_class = FrameAndAvatarWidget::Class::Raw();
+    if (!result.avatar_class)
+      return result;
+    // Older clients always retained downloaded portraits and have no serialized retention switch.
+    if (!il2cpp_class_get_field_from_name(result.avatar_class, "_keepInCache")) {
+      result.status = ChatMessageWidget::RetentionStatus::NativeBehavior;
+      return result;
+    }
+    result.profile = Field<ChatMessageWidget, UserProfileWidget*>("_userProfileWidget");
+    result.avatar  = Field<UserProfileWidget, FrameAndAvatarWidget*>("_profileFrameAndAvatar");
+    result.admin   = Field<ChatMessageWidget, FrameAndAvatarWidget*>("_adminAvatarWidget");
+    result.keep    = Field<FrameAndAvatarWidget, bool>("_keepInCache");
+    if (result.profile && result.avatar && result.admin && result.keep)
+      result.status = ChatMessageWidget::RetentionStatus::Ready;
+    return result;
+  }();
+  return fields;
+}
+} // namespace chat_avatar_binding
+
+inline ChatMessageWidget::RetentionStatus ChatMessageWidget::AvatarRetentionStatus()
+{ return chat_avatar_binding::RetentionFields().status; }
+
+inline il2cpp::Method ChatMessageWidget::AvatarRetentionTarget()
+{
+  auto        method = Class::Method<void()>("SetWidgetData");
+  const auto* info   = method.Info();
+  if (!info || info->klass != Class::Raw() || !info->methodPointer || info->is_generic || info->is_inflated
+      || (info->flags & METHOD_ATTRIBUTE_STATIC) || info->parameters_count != 0 || !info->return_type
+      || info->return_type->byref || info->return_type->type != IL2CPP_TYPE_VOID)
+    return {};
+  return method;
+}
+
+inline bool ChatMessageWidget::RetainAvatars()
+{
+  const auto& fields = chat_avatar_binding::RetentionFields();
+  if (fields.status != RetentionStatus::Ready)
+    return fields.status == RetentionStatus::NativeBehavior;
+  auto  source          = il2cpp::GcHandle::Strong(this);
+  auto* observed_source = source.Get<ChatMessageWidget>();
+  if (!observed_source || !observed_source->Is<ChatMessageWidget>())
+    return false;
+
+  auto* profile_value = il2cpp::detail::ReadField<UserProfileWidget*>(fields.profile, source.Get());
+  auto  profile       = il2cpp::GcHandle::Strong(profile_value);
+  bool  qualified     = !profile_value || (profile.Get() && profile.Get<UserProfileWidget>()->Is<UserProfileWidget>());
+  auto* avatar_value =
+      profile && qualified ? il2cpp::detail::ReadField<FrameAndAvatarWidget*>(fields.avatar, profile.Get()) : nullptr;
+  auto  avatar      = il2cpp::GcHandle::Strong(avatar_value);
+  auto* admin_value = il2cpp::detail::ReadField<FrameAndAvatarWidget*>(fields.admin, source.Get());
+  auto  admin       = il2cpp::GcHandle::Strong(admin_value);
+  qualified         = qualified && (!avatar_value || avatar.Get()) && (!admin_value || admin.Get());
+  const auto retain = [&](Il2CppObject* object) {
+    if (!object)
+      return;
+    // Preserve the original exact avatar-class guard rather than accepting an unrelated runtime object.
+    if (il2cpp_object_get_class(object) != fields.avatar_class) {
+      qualified = false;
+      return;
+    }
+    il2cpp::detail::WriteField(fields.keep, object, true);
+  };
+  retain(avatar.Get());
+  if (admin.Get() != avatar.Get())
+    retain(admin.Get());
+  return qualified;
+}

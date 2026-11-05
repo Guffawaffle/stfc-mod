@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/Guffawaffle/stfc-mod",
+  "revision": "45d1deaffddc3706e5c8232cf746ca46ef67be91",
+  "license": "GPL-3.0, enclosing repository LICENSE; upstream dependency notices retained",
+  "production_boundary": "Only inline editor.h is exposed; use the existing separately compiled toml++ 3.4.0 provider. No C ABI object, export macro, native library or private source path is required.",
+  "files": [
+    {
+      "upstream_path": "shared/toml/include/stfc_toml/editor.h",
+      "local_path": "include/stfc_toml/editor.h",
+      "bytes": 27309,
+      "sha256": "e519bb7d4d32ff9d64a15b3d7f6b6dc1c66187390d8aba033ef355f86f748f1a",
+      "git_blob": "6e7270ca99cb52383715f2ebccd394f6d3dae071",
+      "scope": "production-inline-engine"
+    },
+    {
+      "upstream_path": "shared/toml/THIRD_PARTY_NOTICES.txt",
+      "local_path": "THIRD_PARTY_NOTICES.txt",
+      "bytes": 1348,
+      "sha256": "eea08552c8fa029541f330ad106cf4a836a9eae4ce8ee87ded53ebefed8ed273",
+      "git_blob": "5ae270d3e9e78d330dd30f01df738366643fc511",
+      "scope": "license-notices"
+    },
+    {
+      "upstream_path": "shared/toml/include/stfc_toml/c_api.h",
+      "local_path": "test_support/include/stfc_toml/c_api.h",
+      "bytes": 887,
+      "sha256": "a544614959efc5cc1b31d204119fcb6717c6195650033b8ab64d210a3921fbd7",
+      "git_blob": "535702a3f2bb6b5727dd8e5c3a63527f71c24b2f",
+      "scope": "fixture-only; never product-linked"
+    },
+    {
+      "upstream_path": "shared/toml/src/native.cc",
+      "local_path": "test_support/native.cc",
+      "bytes": 5022,
+      "sha256": "458540d96d039ac9077a7f8424b288c5444cc653869cbcdbbc960b37226d8727",
+      "git_blob": "7aedcc78c3fd38adf2571701d3c894793c2fda10",
+      "scope": "fixture-only; never product-linked"
+    },
+    {
+      "upstream_path": "shared/toml/tests/editor_test.cc",
+      "local_path": "test_support/editor_test.cc",
+      "bytes": 10004,
+      "sha256": "980a59fcd73932b9349d41fd5392d293e5f952ccd548e7405766b2c311b2606b",
+      "git_blob": "92918638823add97ba71b1f1b0f88054a68c0f08",
+      "scope": "fixture-only; never product-linked"
+    }
+  ]
+}

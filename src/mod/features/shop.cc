@@ -1,0 +1,258 @@
+// The shop, gift and inventory popups: [ui] auto_open_bulk_claim_flyout on the gifts screen, the chest purchase and
+// donation limits, the view button on offers that are cooling down, always_skip_reveal_sequence,
+// only_show_first_popup for ads and offers, and disable_exchange_all on the artifact shards popup.
+
+#include "config.h"
+#include "features/features.h"
+
+#include "game/inventory.h"
+
+#include <il2cpp/hook.h>
+#include <il2cpp/il2cpp.h>
+
+#include <algorithm>
+#include <atomic>
+#include <utility>
+
+namespace
+{
+// --- Gifts: open the bulk claim drawer ---
+
+// Weak current landing and its show revision. Native callbacks may close or
+// replace a pooled controller; no scene object is retained strongly between calls.
+auto&    shown_scroller  = *new il2cpp::GcHandle;
+uint64_t drawer_revision = 0;
+bool     drawer_opened   = false;
+
+void OpenBulkClaimDrawer(ShopListScrollerViewController* controller)
+{
+  if (!Config::Get().ui.auto_open_bulk_claim_flyout || drawer_opened)
+    return;
+  const auto revision = drawer_revision;
+  auto       owner    = il2cpp::GcHandle::Strong(controller);
+  auto       current  = [&] {
+    return owner && revision == drawer_revision && shown_scroller.Get() == owner.Get()
+           && Config::Get().ui.auto_open_bulk_claim_flyout;
+  };
+  if (!current())
+    return;
+  auto       drawer  = il2cpp::GcHandle::Strong(controller->selectionDrawerWidget());
+  auto       context = drawer ? il2cpp::GcHandle::Strong(drawer.Get<DrawerWidget>()->Context()) : il2cpp::GcHandle{};
+  const bool enabled =
+      context && DrawerContext::Class::HasField<"Enabled", bool>() && context.Get<DrawerContext>()->Enabled();
+  if (!enabled || !current() || drawer_opened || controller->selectionDrawerWidget() != drawer.Get()
+      || drawer.Get<DrawerWidget>()->Context() != context.Get())
+    return;
+  if (!current() || drawer_opened)
+    return;
+
+  // Mark first so a native callback cannot cause a nested lifecycle update to open the drawer twice.
+  drawer_opened = true;
+  drawer.Get<DrawerWidget>()->OnOpenButtonClicked();
+}
+
+void ShopListScrollerViewController_AboutToShow_Hook(auto original, ShopListScrollerViewController* _this)
+{
+  const auto revision = ++drawer_revision;
+  auto       owner    = il2cpp::GcHandle::Strong(_this);
+  shown_scroller      = il2cpp::GcHandle::Weak(_this);
+  drawer_opened       = false;
+  original(_this);
+  if (revision == drawer_revision && owner && shown_scroller.Get() == owner.Get())
+    OpenBulkClaimDrawer(owner.Get<ShopListScrollerViewController>());
+}
+
+void ShopListScrollerViewController_AboutToHide_Hook(auto original, ShopListScrollerViewController* _this)
+{
+  if (shown_scroller.Get() == _this) {
+    ++drawer_revision;
+    shown_scroller.Reset();
+    drawer_opened = false;
+  }
+  original(_this);
+}
+
+// The drawer only becomes usable once the game fills it.
+void ShopListScrollerViewController_UpdateDrawer_Hook(auto original, ShopListScrollerViewController* _this)
+{
+  const auto revision = drawer_revision;
+  auto       owner    = il2cpp::GcHandle::Strong(_this);
+  original(_this);
+  if (revision == drawer_revision && owner && shown_scroller.Get() == owner.Get())
+    OpenBulkClaimDrawer(owner.Get<ShopListScrollerViewController>());
+}
+
+// --- Purchase and donation limits ---
+
+// The most the game's chest purchase popup handles; extend_chest_purchase_max is clamped to it.
+constexpr int64_t kMaximumChestPurchaseMax = 160;
+
+#if _WIN32
+// The native donation setup writes its ordinary cap of 50 after establishing
+// the initial limit. Nonpositive configured limits preserve that initial value.
+void InventoryForPopup_set_MaxItemsToUse_Hook(auto original, InventoryForPopup* _this, int64_t value)
+{
+  if (value == 50 && Config::Get().ui.extend_donation_slider) {
+    const auto donation = _this->TryCall<"get_IsDonationUse", bool>();
+    if (donation && donation.value && Config::Get().ui.extend_donation_slider) {
+      const auto cap = Config::Get().ui.extend_donation_max;
+      if (cap <= 0)
+        return;
+      value = cap;
+    }
+  }
+  original(_this, value);
+}
+#endif
+
+// The popup's limits are adjusted where its row is rendered. IsChestPurchase is set too late for the MaxItemsToUse
+// setter, and adjusting the context rather than the slider leaves every other slider alone.
+void InventoryUseRowWidget_SetWidgetData_Hook(auto original, InventoryUseRowWidget* _this)
+{
+  auto owner   = il2cpp::GcHandle::Strong(_this);
+  auto context = owner ? il2cpp::GcHandle::Strong(_this->Context()) : il2cpp::GcHandle{};
+  if (context) {
+    auto*      popup   = context.Get<InventoryForPopup>();
+    const auto current = [&] { return _this->Context() == context.Get(); };
+    const auto chest   = popup->TryCall<"get_IsChestPurchase", bool>();
+    if (chest && chest.value) {
+      const auto native_max = popup->TryCall<"get_MaxItemsToUse", int64_t>();
+      const auto extended   = std::min(int64_t{Config::Get().ui.extend_chest_purchase_max}, kMaximumChestPurchaseMax);
+      if (native_max && native_max.value > 0 && extended > native_max.value && current())
+        popup->SetMaxItemsToUse(extended);
+    }
+#if !_WIN32
+    else if (chest && Config::Get().ui.extend_donation_slider) {
+      const auto donation = popup->TryCall<"get_IsDonationUse", bool>();
+      if (donation && donation.value) {
+        // Only a known owned amount can qualify the scoped donation bound.
+        // Nonpositive configured limits use that amount, not a guessed infinity.
+        const auto owned      = popup->TryCall<"get_AmountOwned", int64_t>();
+        const auto native_max = popup->TryCall<"get_MaxItemsToUse", int64_t>();
+        if (owned && native_max && owned.value > 0 && current() && Config::Get().ui.extend_donation_slider) {
+          const auto configured = Config::Get().ui.extend_donation_max;
+          const auto cap        = configured > 0 ? int64_t{configured} : owned.value;
+          const auto target     = std::min(cap, owned.value);
+          if (target != native_max.value)
+            popup->SetMaxItemsToUse(target);
+        }
+      }
+    }
+#endif
+  }
+  original(_this);
+}
+
+// --- Offers on cooldown ---
+
+// An offer that is cooling down cannot be bought; its button opens the offer's details instead.
+void BundleDataWidget_OnActionButtonPressedCallback_Hook(auto original, BundleDataWidget* _this)
+{
+  if (_this->currentState() & BundleDataWidget::kCooldownTimerOn)
+    return _this->AuxViewButtonPressedHandler();
+  original(_this);
+}
+
+// --- Reveal sequence ---
+
+bool ShopSceneManager_ShouldShowRevealSequence_Hook(auto original, il2cpp::Object* _this, bool ignore)
+{ return original(_this, ignore) && !Config::Get().ui.always_skip_reveal_sequence; }
+
+// --- First popup only ---
+
+std::atomic_bool popup_shown{false};
+
+// True for every ad or offer popup after the first one this session.
+bool SuppressPopup()
+{
+  if (!Config::Get().ui.only_show_first_popup)
+    return false;
+  return popup_shown.exchange(true);
+}
+
+void InterstitialViewController_AboutToShow_Hook(auto original, InterstitialViewController* _this)
+{
+  // Native show establishes the popup lifecycle. Close subsequent popups through
+  // that lifecycle instead of skipping initialization and leaving a pending owner.
+  original(_this);
+  if (SuppressPopup())
+    _this->CloseWhenReady();
+}
+
+void ShopSceneManager_ShowPlcOfferPopup_Hook(auto original, il2cpp::Object* _this)
+{
+  if (!SuppressPopup())
+    original(_this);
+}
+
+// --- Artifact Exchange All ---
+
+// Hides the button after the popup binds. Individual exchanges stay available.
+void InventoryUsePopupViewController_OnDidBindCanvasContext_Hook(auto original, InventoryUsePopupViewController* _this)
+{
+  original(_this);
+  if (!Config::Get().ui.disable_exchange_all)
+    return;
+  auto* button = _this->convertAllButton();
+  if (auto* object = button ? button->gameObject() : nullptr)
+    object->SetActive(false);
+}
+
+bool InstallGiftsAutoOpen()
+{
+  using Scroller = ShopListScrollerViewController::Class;
+  il2cpp::HookSet hooks("GiftsAutoOpen");
+  IL2CPP_STAGE(hooks, Scroller::Method("AboutToShow"), ShopListScrollerViewController_AboutToShow_Hook);
+  IL2CPP_STAGE(hooks, Scroller::Method("AboutToHide"), ShopListScrollerViewController_AboutToHide_Hook);
+  IL2CPP_STAGE(hooks, Scroller::Method("UpdateDrawer"), ShopListScrollerViewController_UpdateDrawer_Hook);
+  return hooks.Commit();
+}
+
+bool InstallShopLimits()
+{
+  il2cpp::HookSet hooks("ShopLimits");
+  IL2CPP_STAGE(hooks, InventoryUseRowWidget::Class::Method("SetWidgetData", 0),
+               InventoryUseRowWidget_SetWidgetData_Hook);
+  IL2CPP_STAGE(hooks, BundleDataWidget::Class::Method("OnActionButtonPressedCallback"),
+               BundleDataWidget_OnActionButtonPressedCallback_Hook);
+  return hooks.Commit();
+}
+
+#if _WIN32
+bool InstallDonationLimit()
+{
+  il2cpp::HookSet hooks("DonationLimit");
+  IL2CPP_STAGE(hooks, InventoryForPopup::Class::Method<void(int64_t)>("set_MaxItemsToUse"),
+               InventoryForPopup_set_MaxItemsToUse_Hook);
+  return hooks.Commit();
+}
+#endif
+
+// The reveal sequence and the first-popup limit share the crash-fix group they were introduced with.
+bool InstallSkipRevealSequence()
+{
+  il2cpp::HookSet hooks("SkipRevealSequence");
+  IL2CPP_STAGE(hooks, ShopSceneManager::Method("ShouldShowRevealSequence"),
+               ShopSceneManager_ShouldShowRevealSequence_Hook);
+  IL2CPP_STAGE(hooks, ShopSceneManager::Method("ShowPlcOfferPopup", 0), ShopSceneManager_ShowPlcOfferPopup_Hook);
+  IL2CPP_STAGE(hooks, InterstitialViewController::Class::Method("AboutToShow", 0),
+               InterstitialViewController_AboutToShow_Hook);
+  return hooks.Commit();
+}
+
+bool InstallArtifactExchange()
+{
+  il2cpp::HookSet hooks("ArtifactExchange");
+  IL2CPP_STAGE(hooks, InventoryUsePopupViewController::Class::Method("OnDidBindCanvasContext", 0),
+               InventoryUsePopupViewController_OnDidBindCanvasContext_Hook);
+  return hooks.Commit();
+}
+} // namespace
+
+const Feature kGiftsAutoOpen{"GiftsAutoOpen", &Config::Patches::giftsbulkclaimhooks, InstallGiftsAutoOpen};
+const Feature kShopLimits{"ShopLimits", &Config::Patches::miscpatches, InstallShopLimits};
+#if _WIN32
+const Feature kDonationLimit{"DonationLimit", &Config::Patches::miscpatches, InstallDonationLimit};
+#endif
+const Feature kSkipRevealSequence{"SkipRevealSequence", &Config::Patches::tempcrashfixes, InstallSkipRevealSequence};
+const Feature kArtifactExchange{"ArtifactExchange", &Config::Patches::artifactexchangehooks, InstallArtifactExchange};

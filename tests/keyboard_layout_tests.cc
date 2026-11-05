@@ -1,6 +1,6 @@
-#include "patches/keyboard_layout_mapping.h"
-#include "patches/keyboard_layout_refresh.h"
-#include "patches/keyboard_layout_windows.h"
+#include "keyboard_layout_mapping.h"
+#include "keyboard_layout_refresh.h"
+#include "keyboard_layout_windows.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -26,30 +26,32 @@ int main()
 #if _WIN32
   // Use installed fixtures without loading/unloading system keyboard layouts.
   const auto before = GetKeyboardLayout(0);
-  HKL existing[256]{};
+  HKL        existing[256]{};
   const auto count = GetKeyboardLayoutList(256, existing);
   Check(count > 0, "existing Windows layouts available");
   HKL german = nullptr, american = nullptr;
   for (int i = 0; i < count && i < 256; ++i) {
     const auto id = reinterpret_cast<uintptr_t>(existing[i]) & 0xffffffffu;
-    if (id == 0x04070407u) german = existing[i];
-    if (id == 0x04090409u) american = existing[i];
+    if (id == 0x04070407u)
+      german = existing[i];
+    if (id == 0x04090409u)
+      american = existing[i];
   }
   if (german && american) {
-  Check(FindUnshiftedDeadKey('^', german) == KeyCode::BackQuote, "German circumflex physical position");
-  BYTE keyboard_state[256]{};
-  wchar_t translated[8]{};
-  const auto accent_vk = MapVirtualKeyExW(0x29, MAPVK_VSC_TO_VK_EX, german);
-  Check(ToUnicodeEx(accent_vk, 0x29, keyboard_state, translated, 8, 0, german) < 0, "seed pending accent");
-  Check(FindUnshiftedDeadKey('^', german) == KeyCode::BackQuote, "lookup with pending accent");
-  Check(ToUnicodeEx('A', 0x1e, keyboard_state, translated, 8, 0, german) == 1 && translated[0] == L'\u00e2',
-        "native lookup preserves pending accent composition");
-  for (const char symbol : {'/', '=', '`', 'a'})
-    Check(FindUnshiftedDeadKey(symbol, german) == KeyCode::None, "shifted and non-dead symbols excluded");
-  Check(FindUnshiftedDeadKey('^', american) == KeyCode::None, "US shifted caret excluded");
-  Check(FindUnshiftedDeadKey('^', nullptr) == KeyCode::None, "missing Windows layout fails closed");
-  Check(ResolveWindowsChord('^', "not-the-active-layout").key == KeyCode::None, "layout disagreement fails closed");
-  Check(GetKeyboardLayout(0) == before, "lookup does not activate a layout");
+    Check(FindUnshiftedDeadKey('^', german) == KeyCode::BackQuote, "German circumflex physical position");
+    BYTE       keyboard_state[256]{};
+    wchar_t    translated[8]{};
+    const auto accent_vk = MapVirtualKeyExW(0x29, MAPVK_VSC_TO_VK_EX, german);
+    Check(ToUnicodeEx(accent_vk, 0x29, keyboard_state, translated, 8, 0, german) < 0, "seed pending accent");
+    Check(FindUnshiftedDeadKey('^', german) == KeyCode::BackQuote, "lookup with pending accent");
+    Check(ToUnicodeEx('A', 0x1e, keyboard_state, translated, 8, 0, german) == 1 && translated[0] == L'\u00e2',
+          "native lookup preserves pending accent composition");
+    for (const char symbol : {'/', '=', '`', 'a'})
+      Check(FindUnshiftedDeadKey(symbol, german) == KeyCode::None, "shifted and non-dead symbols excluded");
+    Check(FindUnshiftedDeadKey('^', american) == KeyCode::None, "US shifted caret excluded");
+    Check(FindUnshiftedDeadKey('^', nullptr) == KeyCode::None, "missing Windows layout fails closed");
+    Check(ResolveWindowsChord('^', "not-the-active-layout").key == KeyCode::None, "layout disagreement fails closed");
+    Check(GetKeyboardLayout(0) == before, "lookup does not activate a layout");
   } else {
     std::cout << "SKIP: native dead-key fixtures require already-loaded US and German layouts\n";
   }
@@ -62,18 +64,26 @@ int main()
           "all US letter positions");
   }
   us[static_cast<int>(KeyCode::Alpha1)] = KeyCode::Alpha1;
-  us[static_cast<int>(KeyCode::Slash)] = KeyCode::Slash;
+  us[static_cast<int>(KeyCode::Slash)]  = KeyCode::Slash;
   std::array<bool, static_cast<int>(KeyCode::Max)> held{};
-  int frame = 10, clock_calls = 0, held_calls = 0;
-  auto is_held = [&](KeyCode key) { return held[static_cast<int>(key)]; };
-  BindingState state;
-  auto resolve = [&](KeyCode key) {
-    return state.Resolve(key, [&] { ++clock_calls; return frame; },
-                         [&](KeyCode physical) { ++held_calls; return is_held(physical); });
+  int                                              frame = 10, clock_calls = 0, held_calls = 0;
+  auto                                             is_held = [&](KeyCode key) { return held[static_cast<int>(key)]; };
+  BindingState                                     state;
+  auto                                             resolve = [&](KeyCode key) {
+    return state.Resolve(
+        key,
+        [&] {
+          ++clock_calls;
+          return frame;
+        },
+        [&](KeyCode physical) {
+          ++held_calls;
+          return is_held(physical);
+        });
   };
   Check(resolve(KeyCode::Z) == KeyCode::None && resolve(KeyCode::Alpha1) == KeyCode::None, "pending keys disabled");
   for (const auto key : {KeyCode::Escape, KeyCode::UpArrow, KeyCode::F1, KeyCode::Space, KeyCode::Return,
-                        KeyCode::LeftControl, KeyCode::Keypad1, KeyCode::KeypadPlus, KeyCode::Mouse0})
+                         KeyCode::LeftControl, KeyCode::Keypad1, KeyCode::KeypadPlus, KeyCode::Mouse0})
     Check(resolve(key) == key, "named controls keep identity");
   Check(clock_calls == 0 && held_calls == 0, "pending and named keys never query frame or input");
 
@@ -86,15 +96,16 @@ int main()
   for (int i = 0; i < 1000; ++i) {
     ++frame;
     Check(resolve(KeyCode::Z) == KeyCode::Z && resolve(KeyCode::Alpha1) == KeyCode::Alpha1
-              && resolve(KeyCode::Slash) == KeyCode::Slash, "quiet cached mappings");
+              && resolve(KeyCode::Slash) == KeyCode::Slash,
+          "quiet cached mappings");
   }
   Check(clock_calls == 0 && held_calls == 0, "quiet frames perform no clock or held-state polling");
 
-  auto de = us;
-  de[static_cast<int>(KeyCode::Y)] = KeyCode::Z;
-  de[static_cast<int>(KeyCode::Z)] = KeyCode::Y;
-  de[static_cast<int>(KeyCode::Plus)] = KeyCode::RightBracket;
-  held[static_cast<int>(KeyCode::Y)] = true;
+  auto de                                       = us;
+  de[static_cast<int>(KeyCode::Y)]              = KeyCode::Z;
+  de[static_cast<int>(KeyCode::Z)]              = KeyCode::Y;
+  de[static_cast<int>(KeyCode::Plus)]           = KeyCode::RightBracket;
+  held[static_cast<int>(KeyCode::Y)]            = true;
   held[static_cast<int>(KeyCode::RightBracket)] = true;
   state.Replace(de, is_held, frame);
   Check(resolve(KeyCode::Z) == KeyCode::None, "German transition suppressed");
@@ -114,7 +125,7 @@ int main()
         "released mapping cached");
   Check(clock_calls == 0 && held_calls == 0, "release checks stop once target is unblocked");
 
-  auto fr = us;
+  auto fr                          = us;
   fr[static_cast<int>(KeyCode::A)] = KeyCode::Q;
   fr[static_cast<int>(KeyCode::Q)] = KeyCode::A;
   fr[static_cast<int>(KeyCode::W)] = KeyCode::Z;
@@ -130,12 +141,13 @@ int main()
   RefreshState refresh;
   // A failed symbol lookup publishes a partial map, without losing unrelated
   // letters/digits. A later layout generation must restore that symbol.
-  auto partial = us;
+  auto partial                              = us;
   partial[static_cast<int>(KeyCode::Slash)] = KeyCode::None;
   state.Replace(partial, is_held, frame);
   ++frame;
   Check(resolve(KeyCode::Slash) == KeyCode::None && resolve(KeyCode::Z) == KeyCode::Z
-            && resolve(KeyCode::Alpha1) == KeyCode::Alpha1, "unavailable symbol isolates letters and digits");
+            && resolve(KeyCode::Alpha1) == KeyCode::Alpha1,
+        "unavailable symbol isolates letters and digits");
   state.Replace(us, is_held, frame);
   ++frame;
   Check(resolve(KeyCode::Slash) == KeyCode::Slash, "later mapping restores unavailable symbol");
@@ -157,12 +169,14 @@ int main()
   state.Clear();
   clock_calls = held_calls = 0;
   Check(resolve(KeyCode::Z) == KeyCode::None && resolve(KeyCode::Plus) == KeyCode::None
-            && resolve(KeyCode::Alpha1) == KeyCode::None, "device/setup failure clears all printable mappings");
+            && resolve(KeyCode::Alpha1) == KeyCode::None,
+        "device/setup failure clears all printable mappings");
   Check(clock_calls == 0 && held_calls == 0, "unavailable mappings never poll");
-  for (const auto key : {KeyCode::Alpha0, KeyCode::Alpha9, KeyCode::Exclaim, KeyCode::At,
-                        KeyCode::LeftBracket, KeyCode::Tilde, KeyCode::Pipe, KeyCode::Minus})
+  for (const auto key : {KeyCode::Alpha0, KeyCode::Alpha9, KeyCode::Exclaim, KeyCode::At, KeyCode::LeftBracket,
+                         KeyCode::Tilde, KeyCode::Pipe, KeyCode::Minus})
     Check(IsLayoutKey(key), "digits and punctuation eligible");
-  Check(!IsLayoutKey(KeyCode::None) && !IsLayoutKey(KeyCode::Delete)
-            && !IsLayoutKey(static_cast<KeyCode>(65)), "enum gaps excluded");
-  std::cout << "PASS: mapping, event-only refresh, zero quiet-frame polling, transitions, held keys, failure clearing\n";
+  Check(!IsLayoutKey(KeyCode::None) && !IsLayoutKey(KeyCode::Delete) && !IsLayoutKey(static_cast<KeyCode>(65)),
+        "enum gaps excluded");
+  std::cout
+      << "PASS: mapping, event-only refresh, zero quiet-frame polling, transitions, held keys, failure clearing\n";
 }
