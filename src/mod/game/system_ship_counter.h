@@ -28,8 +28,11 @@ struct Set : il2cpp::Object {
 struct Model : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IDeployedFleet">;
 };
-struct Events : il2cpp::Object {
-  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Events", "DeploymentEvents">;
+struct WorldService : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "GameWorldService">;
+};
+struct EventContainer : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "FleetEventContainer">;
 };
 
 inline bool FleetListClass(Il2CppClass* klass)
@@ -60,12 +63,11 @@ inline il2cpp::Method UpdateMethod()
 { return ServiceMethod<void(Set*, int64_t, Model*)>("UpdateDeployedFleet"); }
 inline il2cpp::Method AddMethod()
 { return ServiceMethod<void(Set*, int64_t, Model*)>("AddDeployedFleet"); }
-inline il2cpp::Method UpdatedEventMethod()
-{ return Events::Class::StaticMethod<void(FleetList*)>("TriggerFleetsUpdatedEvent"); }
-inline il2cpp::Method StateEventMethod()
-{ return Events::Class::StaticMethod<void(FleetList*)>("TriggerFleetStateChangeEvent"); }
-inline il2cpp::Method ExitEventMethod()
-{ return Events::Class::StaticMethod<void(NodeAddress*, FleetList*)>("TriggerFleetsExitSystemEvent"); }
+inline il2cpp::Method FireEventsMethod()
+{
+  const auto method = EventContainer::Class::Method<void(WorldService*)>("FireEvents");
+  return method && method.Info()->klass == EventContainer::Class::Raw() ? method : il2cpp::Method{};
+}
 
 template <class Visitor> bool VisitBatch(FleetList* fleets, Visitor&& visit)
 {
@@ -87,6 +89,25 @@ template <class Visitor> bool VisitBatch(FleetList* fleets, Visitor&& visit)
   return after && after.value == count.value && list->Field<"_version", int32_t>() == version;
 }
 
+// Client274 inlines static Trigger* dispatch into this substantive flush. Read
+// its pending lists before the original fires events and clears the container.
+template <class Visitor> bool VisitPending(EventContainer* events, Visitor&& visit)
+{
+  auto root = il2cpp::GcHandle::Strong(events);
+  if (!root)
+    return false;
+  auto*      container = root.Get<EventContainer>();
+  const auto batches   = {container->Field<"_fleetsAdded", ServerManagedReference*>(),
+                          container->Field<"_fleetsDisposed", ServerManagedReference*>(),
+                          container->Field<"_fleetsUpdated", ServerManagedReference*>(),
+                          container->Field<"_stateChangedFleets", ServerManagedReference*>(),
+                          container->Field<"_playerFleetsUpdated", ServerManagedReference*>()};
+  for (auto* batch : batches)
+    if (!VisitBatch(reinterpret_cast<FleetList*>(batch), visit))
+      return false;
+  return true;
+}
+
 inline il2cpp::CallResult<bool> ShouldTrack(Service* service, Set* set, Model* received)
 {
   if (!set || !received)
@@ -101,6 +122,8 @@ inline il2cpp::CallResult<bool> ShouldTrack(Service* service, Set* set, Model* r
 // defer the counter rather than present a zero count for that observation.
 inline int64_t ActiveSystem(Service* service)
 { return service->Field<"_activeSystem", int64_t>(); }
+inline EventContainer* PendingEvents(Service* service)
+{ return service->Field<"_fleetEventsContainer", EventContainer*>(); }
 inline il2cpp::CallResult<FleetDeployedData*> TryFleet(Service* service, int64_t id)
 { return service->TryCall<"GetDeployedFleet", FleetDeployedData*(int64_t)>(id); }
 inline il2cpp::CallResult<FleetRemovalReason> TryRemovalReason(FleetDeployedData* fleet)

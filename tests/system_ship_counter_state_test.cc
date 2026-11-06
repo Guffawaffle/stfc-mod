@@ -166,6 +166,46 @@ void CourseTickAddressReplay()
   Expect(counter, {}, "the next course tick can leave again without needing another server receipt");
 }
 
+void InitialPopulationSettlesReplay()
+{
+  Counter                  counter;
+  std::vector<Observation> initial;
+  for (int64_t id = 1; id <= 101; ++id)
+    initial.push_back(Player(id, id <= 3 ? here : Scope{-1, -1, -1}, id <= 3));
+  counter.Focus(here);
+  counter.Seed(initial);
+  Expect(counter, {3, 3, 0, 0, 3}, "an early seed initially sees only own ships with established system addresses");
+
+  // A newly constructed FleetData holds InvalidAddress until its native Tick.
+  // FireEvents must deliver those settled observations even when there is no
+  // further server receipt. A full bootstrap or Receipt would hide this bug.
+  std::vector<Observation> settled;
+  for (auto observation : initial) {
+    observation.address = here;
+    settled.push_back(observation);
+  }
+  for (size_t index = 3; index < 52; ++index)
+    counter.Apply(settled[index]);
+  Expect(counter, {52, 3, 0, 0, 52}, "the first delayed native batch adds settled ships without a new receipt");
+  for (size_t index = 52; index < settled.size(); ++index)
+    counter.Apply(settled[index]);
+  Expect(counter, {101, 3, 0, 0, 101}, "remaining initial contacts reach the full 101 without another seed or receipt");
+
+  for (const auto& observation : settled) {
+    counter.Apply(observation); // The same fleet can occur in Added, Updated and State lists.
+    counter.Apply(observation);
+  }
+  Expect(counter, {101, 3, 0, 0, 101}, "duplicate native event lists do not inflate the initialized population");
+
+  counter.Remove(50); // Native queue retains the object despite authoritative removal intent.
+  for (const auto& observation : settled)
+    counter.Apply(observation);
+  Expect(counter, {100, 3, 0, 0, 100}, "a delayed settled batch cannot resurrect a queue-retained removed ship");
+  counter.Receipt(50);
+  counter.Apply(settled[49]);
+  Expect(counter, {101, 3, 0, 0, 101}, "a later real server receipt can establish that removed ship's re-entry");
+}
+
 void RetainedQueueGhostReplay()
 {
   Counter    counter;
@@ -258,6 +298,7 @@ int main()
     UnknownIsDifferentFromEmpty();
     IdentityAndNativeEligibility();
     CourseTickAddressReplay();
+    InitialPopulationSettlesReplay();
     RetainedQueueGhostReplay();
     CloakedContactsAndUnknownMetadata();
     std::cout << "System ship counter: " << checks << " replay checks passed\n";

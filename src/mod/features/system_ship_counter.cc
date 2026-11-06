@@ -190,14 +190,18 @@ void DeploymentService_Reset_CounterHook(auto original, ship_binding::Service* _
     ShipCounterState().next_seed  = {};
   }
 }
-void QueueCounterBatch(ship_binding::FleetList* fleets)
+void QueuePendingCounterChanges(ship_binding::EventContainer* events)
 {
   if (!ShipCounterThread() || !ShipCounterEnabled())
+    return;
+  auto  owner   = il2cpp::GcHandle::Strong(ShipCounterState().service.Get());
+  auto* service = owner.Get<ship_binding::Service>();
+  if (!service || ship_binding::PendingEvents(service) != events)
     return;
   // Course ticks can move a ship to galaxy scope before its next server
   // receipt. Coalesce changed player IDs until the next display refresh;
   // neither a repeated movement event nor a render tick releases a marker.
-  const bool read = ship_binding::VisitBatch(fleets, [](FleetDeployedData* fleet) {
+  const bool read = ship_binding::VisitPending(events, [](FleetDeployedData* fleet) {
     const auto type = fleet->TryFleetType();
     if (!type)
       return false;
@@ -212,20 +216,11 @@ void QueueCounterBatch(ship_binding::FleetList* fleets)
   if (!read)
     ShipCounterUnavailable();
 }
-void DeploymentEvents_Updated_CounterHook(auto original, ship_binding::FleetList* fleets)
+void FleetEventContainer_FireEvents_CounterHook(auto original, ship_binding::EventContainer* _this,
+                                                ship_binding::WorldService* world)
 {
-  QueueCounterBatch(fleets);
-  original(fleets);
-}
-void DeploymentEvents_State_CounterHook(auto original, ship_binding::FleetList* fleets)
-{
-  QueueCounterBatch(fleets);
-  original(fleets);
-}
-void DeploymentEvents_Exit_CounterHook(auto original, NodeAddress* address, ship_binding::FleetList* fleets)
-{
-  QueueCounterBatch(fleets);
-  original(address, fleets);
+  QueuePendingCounterChanges(_this);
+  original(_this, world);
 }
 void SystemShipCounterFrame()
 {
@@ -330,10 +325,8 @@ bool InstallSystemShipCounter()
   IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ship_binding::ActiveSystemChangeMethod()),
                   DeploymentService_ActiveSystem_CounterHook);
   IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ship_binding::ResetMethod()), DeploymentService_Reset_CounterHook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ship_binding::UpdatedEventMethod()),
-                  DeploymentEvents_Updated_CounterHook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ship_binding::StateEventMethod()), DeploymentEvents_State_CounterHook);
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ship_binding::ExitEventMethod()), DeploymentEvents_Exit_CounterHook);
+  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ship_binding::FireEventsMethod()),
+                  FleetEventContainer_FireEvents_CounterHook);
   if (!hooks.Commit())
     return false;
   auto& state     = ShipCounterState();
