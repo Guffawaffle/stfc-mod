@@ -121,6 +121,8 @@ constexpr const Feature* kFeatures[] = {
     &kQueueAddressGuard,
     // anomaly_timer.cc
     &kAnomalyTimer,
+    // system_ship_counter.cc
+    &kSystemShipCounter,
     // audio.cc
     &kAudio,
     // base_card.cc

@@ -515,6 +515,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Enable focus search on supported game screens.");
   BOOL("travel", graphics, galactic_anomaly_timer, "Galactic Anomaly timer", Owner("AnomalyTimer"), Live,
        "Show the remaining lifetime on supported anomalies.");
+  BOOL("travel", ui, system_player_ship_counter, "Known player ships in system", Owner("SystemShipCounter"), Live,
+       "Show player ships known to this client in the viewed system. Ships not received from the server are not "
+       "counted.");
 
   BOOL("previews", ui, disable_preview_locate, "Block Locate with an open preview", hotkeys, Live,
        "Keep Locate from dismissing a target preview.");
