@@ -239,6 +239,21 @@ void NavigationPan_MoveCamera_OrbitHook(auto original, NavigationPan* _this, uni
   }
   original(_this, std::isfinite(delta.x) && std::isfinite(delta.y) ? delta : unity::Vector2{}, momentum);
 }
+bool NavigationOrbitExtendClip(unity::Camera* camera, float baseline, float expanded)
+{
+  auto& state = NavigationOrbit();
+  if (state.clip_camera && state.clip_camera.Get() != camera && !NavigationOrbitRestoreClip())
+    return false;
+  const bool owned = state.clip_camera.Get() == camera && baseline == state.applied_clip;
+  auto       owner = il2cpp::GcHandle::Strong(camera);
+  if (!owner || !camera->TryCall<"set_farClipPlane">(expanded))
+    return false;
+  if (!owned)
+    state.native_clip = baseline;
+  state.applied_clip = expanded;
+  state.clip_camera  = std::move(owner);
+  return true;
+}
 void NavigationOrbitDrawDistance(NavigationZoom* zoom)
 {
   auto& state = NavigationOrbit();
@@ -266,20 +281,9 @@ void NavigationOrbitDrawDistance(NavigationZoom* zoom)
       std::hypot(double(position.value.x) - center.value.x, double(position.value.y) - center.value.y,
                  double(position.value.z) - center.value.z);
   const double required = distance + 4.0 * radius.value;
-  if (required > baseline.value && required <= std::numeric_limits<float>::max()) {
-    if (state.clip_camera && state.clip_camera.Get() != camera.value && !NavigationOrbitRestoreClip())
-      return;
-    const bool owned   = state.clip_camera.Get() == camera.value && baseline.value == state.applied_clip;
-    auto       owner   = il2cpp::GcHandle::Strong(camera.value);
-    const auto applied = float(required);
-    if (owner && camera.value->TryCall<"set_farClipPlane">(applied)) {
-      if (!owned)
-        state.native_clip = baseline.value;
-      state.applied_clip = applied;
-      state.clip_camera  = std::move(owner);
-    }
-  }
-  navigation_environment::ApplyDrawDistance(camera.value);
+  if (required > baseline.value && required <= std::numeric_limits<float>::max())
+    NavigationOrbitExtendClip(camera.value, baseline.value, float(required));
+  navigation_environment::ApplyDrawDistance(camera.value, NavigationOrbitExtendClip);
 }
 void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom* _this)
 {
@@ -339,7 +343,7 @@ void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom
   NavigationOrbitTick();
   NavigationOrbitDrawDistance(_this);
   if (state.overridden && NavigationOrbitEnabled())
-    navigation_environment::Update(camera_root.Get<unity::Camera>());
+    navigation_environment::Update(camera_root.Get<unity::Camera>(), NavigationOrbitExtendClip);
 }
 bool InstallNavigationOrbit()
 {
@@ -356,6 +360,9 @@ bool InstallNavigationOrbit()
   return NavigationOrbit().installed;
 }
 } // namespace
+
+bool navigation_orbit::Available()
+{ return NavigationOrbit().installed; }
 
 void navigation_orbit::ApplyDrawDistance(NavigationZoom* zoom)
 { NavigationOrbitDrawDistance(zoom); }

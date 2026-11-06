@@ -5,6 +5,7 @@
 #undef main
 
 #include "game/navigation_orbit.h"
+#include "features/navigation_environment.h"
 
 namespace orbit_fixture
 {
@@ -40,6 +41,7 @@ inline Zoom*      zoom      = nullptr;
 inline bool       in_system = true, pointer_allowed = true, pointer_known = true, binding_available = true;
 inline bool       field_available = true, view_available = true, binding_present = true;
 inline bool       clip_read_fails = false, clip_write_fails = false;
+inline float      environment_draw_clip = 0, environment_update_clip = 0;
 inline int        view_sets = 0, pointer_reads = 0, anchor_sets = 0, clip_sets = 0;
 inline MethodInfo angles_tag{}, position_tag{}, forward_tag{};
 
@@ -161,14 +163,25 @@ bool Reanchor(NavigationZoom*)
 
 namespace orbit_under_test
 {
+bool Available();
 void ApplyDrawDistance(NavigationZoom*);
 }
-// Backdrop behavior is outside this camera-control regression. The existing owner remains unchanged.
+// Rendering is outside this camera-control fixture. Simulate the existing environment's clip requests.
 namespace navigation_environment
 {
 void Clear() {}
-void ApplyDrawDistance(unity::Camera*) {}
-void Update(unity::Camera*) {}
+void ApplyDrawDistance(unity::Camera* camera, ClipWriter write_clip)
+{
+  const auto baseline = camera->TryCall<"get_farClipPlane", float>();
+  if (baseline && orbit_fixture::environment_draw_clip > baseline.value)
+    write_clip(camera, baseline.value, orbit_fixture::environment_draw_clip);
+}
+void Update(unity::Camera* camera, ClipWriter write_clip)
+{
+  const auto baseline = camera->TryCall<"get_farClipPlane", float>();
+  if (baseline && orbit_fixture::environment_update_clip > baseline.value)
+    write_clip(camera, baseline.value, orbit_fixture::environment_update_clip);
+}
 } // namespace navigation_environment
 namespace Shortcut
 {
@@ -226,6 +239,7 @@ void RunOrbitCases()
   visual_alive                        = true;
   const auto initial_roots            = warp_roots.size();
   NavigationOrbit().installed         = true;
+  OrbitCheck(orbit_under_test::Available(), "runtime orbit capability reflects a successful installation");
   int        originals = 0, pans = 0, clamps = 0;
   float      native_yaw = 0;
   const auto frame      = [&] {
@@ -282,6 +296,22 @@ void RunOrbitCases()
   OrbitCheck(!NavigationOrbit().overridden && Near(transform.angles, {45, 0, 0}), "reset restores native orientation");
   OrbitCheck(camera.clip == 100, "reset restores the orbit-owned clip baseline");
 
+  // The ordinary Zoom feature is absent: environment extensions must share orbit's restoration owner.
+  environment_draw_clip   = 800;
+  environment_update_clip = 900;
+  fleet_native_keys       = {Action::kNavigationOrbitDrag};
+  camera_mouse            = {10, 20, 0};
+  frame();
+  camera_mouse = {40, 20, 0};
+  frame();
+  OrbitCheck(camera.clip == 900 && NavigationOrbit().native_clip == 100,
+             "both environment clip requests retain the original orbit baseline without a Zoom rewrite");
+  fleet_native_keys = {Action::kNavigationOrbitReset};
+  frame();
+  OrbitCheck(camera.clip == 100 && !NavigationOrbit().clip_camera,
+             "reset restores the shared orbit and scenery clip baseline");
+  environment_draw_clip = environment_update_clip = 0;
+
   fleet_native_keys = {Action::kNavigationOrbitDrag};
   camera_mouse      = {10, 20, 0};
   frame();
@@ -294,6 +324,24 @@ void RunOrbitCases()
                  && camera.clip == 100,
              "live disable releases rig and restores owned orientation and clip");
   OrbitCheck(warp_roots.size() == initial_roots, "disable releases all orbit roots");
+
+  // Scenery may extend the clip even when the ordinary orbit distance needs no extension.
+  camera.clip             = 1000;
+  environment_update_clip = 1200;
+  config.graphics.system_camera_orbit = true;
+  camera_mouse = {10, 20, 0};
+  frame();
+  bind_pan();
+  camera_mouse = {40, 20, 0};
+  frame();
+  OrbitCheck(camera.clip == 1200 && NavigationOrbit().native_clip == 1000,
+             "environment-only extension acquires clip cleanup ownership");
+  config.graphics.system_camera_orbit = false;
+  frame();
+  OrbitCheck(camera.clip == 1000 && !NavigationOrbit().clip_camera,
+             "live disable restores an environment-only clip extension");
+  camera.clip = 100;
+  environment_update_clip = 0;
 
   const auto rotate = [&] {
     config.graphics.system_camera_orbit = true;
@@ -326,6 +374,7 @@ void RunOrbitCases()
              "transient native setter failure can recover without re-enabling orbit");
   OrbitCheck(warp_roots.size() == initial_roots, "completed retry cleanup releases every retained camera root");
 
+  environment_update_clip = 900;
   config.graphics.system_camera_orbit = true;
   camera_mouse                        = {10, 20, 0};
   frame();
@@ -336,6 +385,7 @@ void RunOrbitCases()
   config.graphics.system_camera_orbit = false;
   frame();
   OrbitCheck(camera.clip == 222, "disable cannot overwrite a newer native or other-feature clip value");
+  environment_update_clip = 0;
 
   config.graphics.system_camera_orbit = true;
   camera.clip                         = 100;
@@ -420,7 +470,7 @@ void RunOrbitCases()
   pointer_allowed = true;
   pointer_known   = false;
   frame();
-  OrbitCheck(!NavigationOrbit().installed && !NavigationOrbit().zoom,
+  OrbitCheck(!orbit_under_test::Available() && !NavigationOrbit().installed && !NavigationOrbit().zoom,
              "unavailable pointer capability retains native behavior and disables this orbit owner");
   pointer_known     = true;
   binding_available = false;

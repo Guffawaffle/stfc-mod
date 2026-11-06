@@ -3,6 +3,7 @@
 #include "shortcut_settings.h"
 #include "config.h"
 #include "features/features.h"
+#include "features/navigation_orbit.h"
 #include "keyboard_layout.h"
 #include "native_controls.h"
 #include "page_catalog.h"
@@ -539,10 +540,11 @@ std::string ShortcutUnavailableReason(Action action)
   if (action == Action::kNavigationOrbitDrag || action == Action::kNavigationOrbitReset) {
     if (!control.hotkeys_enabled)
       return "Mod shortcuts are disabled.";
-    const bool orbit = std::ranges::any_of(FeatureInstallations(), [](const auto& feature) {
-      return feature.name && std::string_view(feature.name) == "NavigationOrbit"
-             && feature.state == InstallState::kInstalled && feature.frame_ready;
-    });
+    const bool orbit = navigation_orbit::Available()
+                       && std::ranges::any_of(FeatureInstallations(), [](const auto& feature) {
+                            return feature.name && std::string_view(feature.name) == "NavigationOrbit"
+                                   && feature.state == InstallState::kInstalled && feature.frame_ready;
+                          });
     if (!orbit)
       return "System camera rotation hooks are unavailable this session.";
     if (!Config::Get().graphics.system_camera_orbit)

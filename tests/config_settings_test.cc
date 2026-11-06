@@ -40,6 +40,7 @@ size_t                                        path_reads = 0, ship_rescales = 0,
 size_t                                        fleet_label_refreshes = 0;
 size_t                                        galaxy_refreshes      = 0;
 bool                                          starbase_available    = false;
+bool                                          orbit_available       = true;
 size_t                                        save_calls            = 0;
 std::vector<FeatureInstallation>              features;
 std::set<std::string>                         registered;
@@ -206,6 +207,11 @@ void Refresh()
 { ++galaxy_refreshes; }
 void SetOverlay(int32_t, bool) {}
 } // namespace galaxy_controls
+namespace navigation_orbit
+{
+bool Available()
+{ return orbit_available; }
+} // namespace navigation_orbit
 namespace mission_hud
 {
 bool Available() noexcept
@@ -778,6 +784,12 @@ int main()
             && !ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
         "unavailable system rotation frame delivery disables setting and shortcuts");
   features.back().frame_ready           = true;
+  orbit_available                      = false;
+  Check(!orbit->Observe().state.known()
+            && !ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known()
+            && !ShortcutEditorSetting(Action::kNavigationOrbitReset)->Observe().state.known(),
+        "runtime orbit failure disables setting and shortcuts despite a successful startup record");
+  orbit_available                      = true;
   Config::Get().control.hotkeys_enabled = false;
   Check(!ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
         "system rotation shortcut availability follows mod shortcut enablement");

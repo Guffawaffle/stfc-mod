@@ -321,7 +321,7 @@ void navigation_environment::Clear()
   state.bounds       = {};
   state.bounds_valid = false;
 }
-void navigation_environment::ApplyDrawDistance(unity::Camera* camera)
+void navigation_environment::ApplyDrawDistance(unity::Camera* camera, ClipWriter write_clip)
 {
   auto& state = SystemEnvironment();
   if (!state.ready || state.failed || !state.bounds_valid || state.camera.Get() != camera || !EnvironmentLive(camera)
@@ -339,10 +339,10 @@ void navigation_environment::ApplyDrawDistance(unity::Camera* camera)
   const float expanded =
       navigation_environment_art::SceneryFarClip(baseline.value, {position.value.x, position.value.y, position.value.z},
                                                  {center.x, center.y, center.z}, {extents.x, extents.y, extents.z});
-  if (expanded > baseline.value && !camera->TryCall<"set_farClipPlane">(expanded))
+  if (expanded > baseline.value && !write_clip(camera, baseline.value, expanded))
     EnvironmentFail("scenery draw distance");
 }
-void navigation_environment::Update(unity::Camera* camera)
+void navigation_environment::Update(unity::Camera* camera, ClipWriter write_clip)
 {
   auto& state = SystemEnvironment();
   if (!state.attempted) {
@@ -366,7 +366,7 @@ void navigation_environment::Update(unity::Camera* camera)
     EnvironmentFail("camera root");
     return;
   }
-  ApplyDrawDistance(camera);
+  ApplyDrawDistance(camera, write_clip);
   if (state.failed)
     return;
   const auto far                   = camera->TryCall<"get_farClipPlane", float>();

@@ -6,6 +6,8 @@ struct Camera;
 namespace navigation_environment
 {
 void Clear();
-void ApplyDrawDistance(unity::Camera* camera);
-void Update(unity::Camera* camera);
+// Orbit owns all clip extensions so reset/disable can restore their shared baseline.
+using ClipWriter = bool (*)(unity::Camera*, float baseline, float expanded);
+void ApplyDrawDistance(unity::Camera* camera, ClipWriter write_clip);
+void Update(unity::Camera* camera, ClipWriter write_clip);
 } // namespace navigation_environment

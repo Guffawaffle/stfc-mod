@@ -6,6 +6,7 @@
 #include "confirmation_settings.h"
 #include "features/features.h"
 #include "features/galaxy.h"
+#include "features/navigation_orbit.h"
 #include "features/notification_audio.h"
 #include "frame.h"
 #include "game/notifications.h"
@@ -461,10 +462,11 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("camera", graphics, hide_haven_water, "Hide Haven water", Owner("HavenZoom"), Live,
        "Hide water while in Haven.");
   const Available system_orbit = [] {
-    return std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
-      return feature.name && std::string_view(feature.name) == "NavigationOrbit"
-             && feature.state == InstallState::kInstalled && feature.frame_ready;
-    });
+    return navigation_orbit::Available()
+           && std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
+                return feature.name && std::string_view(feature.name) == "NavigationOrbit"
+                       && feature.state == InstallState::kInstalled && feature.frame_ready;
+              });
   };
   BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
        "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");

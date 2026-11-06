@@ -25,10 +25,12 @@ existing controls. Haven rotation is already enabled by default through
 `[patches] havenzoomhooks = true` and its existing `haven_orbit_drag` /
 `haven_orbit_reset` bindings, also middle-mouse and Alt + middle-mouse. No separate
 Haven feature flag is added. Explicit disabled hooks, empty bindings and custom
-bindings remain respected for both views. Existing backdrop code and settings
-are unchanged by this request; no new backdrop adjustment is introduced.
+bindings remain respected for both views. Existing backdrop appearance,
+calculations and settings are unchanged. Its existing draw-distance requests
+share orbit's clip owner so reset and disable restore their original baseline,
+including when ordinary zoom hooks are disabled.
 
 The settings and shortcut controls report an unavailable owner instead of treating
-failed hook installation or missing frame delivery as a usable feature. Native
+failed hook installation, missing frame delivery or runtime capability failure as a usable feature. Native
 validation applies only to the exact artifact and client tested. Native Mac
 runtime behavior remains unverified until tested there.
