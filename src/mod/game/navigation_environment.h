@@ -12,6 +12,11 @@ struct Flat : il2cpp::Object {
 struct Loader : unity::Behaviour {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderableLoader">;
 };
+struct Config : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Rendering", "FlatRenderableConfig">;
+};
+inline il2cpp::CallResult<Config*> Configuration(Loader* loader)
+{ return navigation_orbit_binding::Field<"FlatRenderableConfig", Config*>(loader); }
 inline il2cpp::CallResult<il2cpp::Array<il2cpp::Object*>*> Loaders()
 {
   auto*      type     = Loader::Class::TypeObject();
@@ -30,6 +35,7 @@ inline il2cpp::CallResult<unity::MeshRenderer*> Renderer(Flat* flat)
 inline bool Available()
 {
   return Loader::Class::HasField<"_pool", il2cpp::Array<Flat*>*>()
+         && Loader::Class::HasField<"FlatRenderableConfig", Config*>()
          && Flat::Class::HasField<"MeshRenderer", unity::MeshRenderer*>()
          && Loader::Class::Method<Flat*()>("get_Background")
          && unity::UnityObject::Class::StaticMethod<il2cpp::ArrayObject*(Il2CppReflectionType*)>("FindObjectsOfType")

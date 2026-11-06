@@ -466,6 +466,28 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         addFixture(ctx, build_tests, test_mod, "action-queue-tests", module);
     }
 
+    // Opt-in local camera regressions. Keep this outside the existing CI/build-tests
+    // aggregate; contributors can reproduce the focused checks with one command.
+    const test_navigation = b.step("test-navigation", "Run local camera batching, scenery and pixel-worker regressions");
+    inline for (.{ "system_orbit", "environment_efficiency", "navigation_environment_pixels" }) |fixture| {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
+        if (comptime !std.mem.eql(u8, fixture, "navigation_environment_pixels")) {
+            libs.il2cpp.linkInto(module);
+            if (ctx.options.use_original_bg and ctx.options.bg_image.len == 0) module.addCMacro("_USE_ORIGINAL_BG", "1");
+            libs.spdlog.linkInto(module);
+            libs.toml.includeInto(module);
+            deps.nlohmannJson(ctx).includeInto(module);
+            module.addIncludePath(b.path("src/libs/unity/include"));
+            @import("mod.zig").embedImages(ctx, module);
+            module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
+            if (ctx.isWindows()) inline for (.{ "runtimeobject", "ole32", "oleaut32" }) |lib| module.linkSystemLibrary(lib, .{});
+        }
+        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-Wno-invalid-constexpr", "-Wno-invalid-offsetof", "-Wno-deprecated-declarations", "-UNDEBUG" }) });
+        const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
+        test_navigation.dependOn(&b.addRunArtifact(exe).step);
+    }
+
     // IL2CPP bindings and GC handles against a fake runtime API defined in each test file.
     {
         const module = ctx.createModule(true);

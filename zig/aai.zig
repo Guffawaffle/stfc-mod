@@ -232,10 +232,10 @@ fn addNative(ctx: *const Ctx, source: Source, deps: Dependencies, options: Optio
     // decoder and other UI TUs remain byte-for-byte pinned source.
     const native_flags = ctx.cxxFlags("c++23", &.{ "-fms-extensions", "-Wno-invalid-offsetof" });
     const platform_flags = ctx.cxxFlags("c++23", &.{
-        "-fms-extensions", "-Wno-invalid-offsetof", "-include", b.pathFromRoot("src/mod/aai_native_platform.h"),
+        "-fms-extensions", "-Wno-invalid-offsetof", "-include", compat.pathFromRoot(b, "src/mod/aai_native_platform.h"),
     });
     const hook_flags = if (options.host) std.mem.concat(b.allocator, []const u8, &.{
-        platform_flags, &.{ "-include", b.pathFromRoot("src/mod/aai_host_detour.h") },
+        platform_flags, &.{ "-include", compat.pathFromRoot(b, "src/mod/aai_host_detour.h") },
     }) catch @panic("OOM") else platform_flags;
     module.addCSourceFile(.{ .file = source.root.path(b, "src/battle_log_analysis.cc"), .flags = hook_flags });
     module.addCSourceFiles(.{
