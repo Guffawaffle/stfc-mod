@@ -86,9 +86,9 @@ void NavigationOrbitClear(bool restore_view = true)
   state.frame                                                  = -1;
   state.dragging = state.overridden = false;
 }
-void NavigationOrbitFail(const char* operation)
+void NavigationOrbitFail(const char* operation, bool restore_view = true)
 {
-  NavigationOrbitClear();
+  NavigationOrbitClear(restore_view);
   NavigationOrbit().installed = false;
   spdlog::warn("[NavigationOrbit] {} unavailable; orbit disabled after camera cleanup", operation);
 }
@@ -108,7 +108,11 @@ void NavigationOrbitTick()
     NavigationOrbitRestoreClip();
   if (!state.zoom)
     return;
-  if (!NavigationOrbitEnabled() || !NavigationOrbitSection()) {
+  if (!NavigationOrbitSection()) {
+    NavigationOrbitClear(false);
+    return;
+  }
+  if (!NavigationOrbitEnabled()) {
     NavigationOrbitClear();
     return;
   }
@@ -281,8 +285,12 @@ void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom
 {
   unity::Key::Poll();
   auto& state = NavigationOrbit();
-  if (state.zoom && (!NavigationOrbitEnabled() || state.zoom.Get() != _this || !NavigationOrbitSection()))
-    NavigationOrbitClear();
+  if (state.zoom) {
+    if (state.zoom.Get() != _this || !NavigationOrbitSection())
+      NavigationOrbitClear(false);
+    else if (!NavigationOrbitEnabled())
+      NavigationOrbitClear();
+  }
   original(_this);
   const auto depth = system_orbit::Field<"_depth", NodeDepth>(_this);
   if (!NavigationOrbitEnabled() || !depth || depth.value != NodeDepth::SolarSystem || !system_orbit::InSystem())
@@ -298,7 +306,7 @@ void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom
   const auto distance = system_orbit::Field<"_actualDistance", float>(_this);
   if (!camera_root || !transform_root || !camera_transform_root || !angles || !distance
       || !std::isfinite(distance.value) || distance.value <= 0) {
-    NavigationOrbitFail("camera rig query");
+    NavigationOrbitFail("camera rig query", false);
     return;
   }
   if (transform_root.Get() != camera_transform_root.Get() || std::abs(std::remainder(angles.value.y, 360.0f)) > 0.01f

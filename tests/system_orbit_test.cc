@@ -346,7 +346,47 @@ void RunOrbitCases()
                  && view_sets == before_new_rig,
              "post-native rig rejection never overwrites newly authored native yaw with an old orientation");
   OrbitCheck(camera.clip == 100, "native rig replacement releases its orbit-owned clip extension");
-  native_yaw  = 0;
+  native_yaw = 0;
+  rotate();
+  transform.angles               = {30, 17, 0}; // A new section's camera owner has already authored its view.
+  in_system                      = false;
+  const auto before_section_exit = view_sets;
+  NavigationOrbitTick();
+  OrbitCheck(!NavigationOrbit().zoom && !NavigationOrbit().overridden && transform.angles.y == 17
+                 && view_sets == before_section_exit,
+             "direct frame cleanup on section exit never restores a stale system view over its new native owner");
+  OrbitCheck(camera.clip == 100, "section exit still releases the orbit-owned clip extension");
+
+  in_system = true;
+  rotate();
+  transform.angles                    = {32, 19, 0};
+  in_system                           = false;
+  config.graphics.system_camera_orbit = false;
+  const auto before_off_exit          = view_sets;
+  NavigationOrbitTick();
+  OrbitCheck(!NavigationOrbit().zoom && transform.angles.y == 19 && view_sets == before_off_exit && camera.clip == 100,
+             "simultaneous feature disable and section exit preserves the new section's native view");
+
+  in_system = true;
+  rotate();
+  Zoom replacement{{&zoom_class.klass}};
+  replacement.camera             = object.camera;
+  auto*      replacement_owner   = reinterpret_cast<NavigationZoom*>(&replacement);
+  const auto before_owner_change = view_sets;
+  transform.angles               = {37, 23, 0};
+  ++input_frame;
+  NavigationZoom_UpdateCameraPosition_OrbitHook(
+      [&](NavigationZoom* actual) {
+        OrbitCheck(actual == replacement_owner && transform.angles.y == 23 && view_sets == before_owner_change,
+                   "owner replacement does not stamp the old system transform before native camera processing");
+        transform.angles = {40, 31, 0};
+      },
+      replacement_owner);
+  OrbitCheck(!NavigationOrbit().zoom && !NavigationOrbit().overridden && transform.angles.y == 31
+                 && view_sets == before_owner_change,
+             "a replacement owner's native yaw survives both pre-native cleanup and the post-native rig gate");
+  OrbitCheck(warp_roots.size() == initial_roots && camera.clip == 100,
+             "owner replacement releases old rig roots and its owned clip without altering the new view");
   camera.clip = 222;
 
   config.graphics.system_camera_orbit = true;
