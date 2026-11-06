@@ -284,9 +284,9 @@ haven_zoom = 4000.0
 # Hide Haven's water surface. Live; false keeps native visibility.
 hide_haven_water = false
 
-# Opt-in system camera rotation. Requires mod shortcuts; Galaxy and Haven keep their own controls.
-# Hold middle-mouse and drag to rotate; Alt + middle-mouse resets the view. Live; default off.
-system_camera_orbit = false
+# System camera rotation. Requires mod shortcuts; Galaxy and Haven keep their own controls.
+# Hold middle-mouse and drag to rotate; Alt + middle-mouse resets the view. Live; default on.
+system_camera_orbit = true
 
 # Station-interior zoom-out multiplier; 1 preserves native behavior. Default 2.
 interior_zoom_scale = 2.0

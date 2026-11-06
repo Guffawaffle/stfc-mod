@@ -757,8 +757,14 @@ int main()
   Check(orbit && registered.contains("graphics.system_camera_orbit") && !orbit->Observe().state.known(),
         "system rotation setting is registered but unavailable without its own hooks");
   Enable("NavigationOrbit");
-  Check(orbit->Observe().state.known() && orbit->Observe().state.value == false,
-        "qualified system rotation owner exposes a disabled opt-in preference");
+  Check(orbit->Observe().state.known() && orbit->Observe().state.value == true,
+        "qualified system rotation owner exposes an enabled default preference");
+  Check(ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known()
+            && ShortcutEditorSetting(Action::kNavigationOrbitReset)->Observe().state.known(),
+        "default-enabled system rotation exposes both shortcut editors");
+  Check(orbit->SetFromUser(false, orbit->Observe()).outcome == Outcome::AppliedVerified
+            && !Config::Get().graphics.system_camera_orbit && !std::get<bool>(saved.at("graphics.system_camera_orbit")),
+        "system rotation can be explicitly disabled and persisted despite its enabled default");
   Check(!ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
         "system rotation shortcuts remain inactive while the feature is off");
   Check(orbit->SetFromUser(true, orbit->Observe()).outcome == Outcome::AppliedVerified

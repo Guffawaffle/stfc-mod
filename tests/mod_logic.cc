@@ -569,8 +569,8 @@ void FrozenSettingsDefaults()
         Check(same, "actual frozen loader defaults survive missing and mistyped settings");
       }
     Check(!candidate->graphics.galaxy_overlays[1] && candidate->graphics.galaxy_overlays[0]
-              && candidate->patches.navigationorbithooks && !candidate->graphics.system_camera_orbit,
-          "source overlay fallback and opt-in system rotation stay distinct");
+              && candidate->patches.navigationorbithooks && candidate->graphics.system_camera_orbit,
+          "source overlay fallback and default-enabled system rotation stay distinct");
   }
   {
     toml::table parsed;
@@ -579,7 +579,35 @@ void FrozenSettingsDefaults()
     Check(enabled->graphics.system_camera_orbit && !enabled->patches.navigationorbithooks,
           "rotation preference and restart-only hook switch parse independently");
     const auto mistyped = Config::Parse(toml::parse("[graphics]\nsystem_camera_orbit=[]"), parsed, false);
-    Check(!mistyped->graphics.system_camera_orbit, "mistyped system rotation preference retains its disabled default");
+    Check(mistyped->graphics.system_camera_orbit, "mistyped system rotation preference retains its enabled default");
+    const auto defaults = Config::Parse(toml::table{}, parsed, false);
+    Check(defaults->graphics.system_camera_orbit && defaults->patches.navigationorbithooks
+              && defaults->patches.havenzoomhooks && defaults->control.hotkeys_enabled
+              && !defaults->control.use_scopely_hotkeys,
+          "empty configuration enables the existing system and Haven rotation paths");
+    const auto disabled = Config::Parse(
+        toml::parse(
+            "[graphics]\nsystem_camera_orbit=false\n[patches]\nnavigationorbithooks=false\nhavenzoomhooks=false"),
+        parsed, false);
+    Check(!disabled->graphics.system_camera_orbit && !disabled->patches.navigationorbithooks
+              && !disabled->patches.havenzoomhooks,
+          "explicit rotation opt-out and hook compatibility switches remain respected");
+    toml::table shortcut_defaults;
+    (void)Shortcut::Parse(toml::table{}, shortcut_defaults, true, false);
+    Check(Value(shortcut_defaults, "shortcuts", "navigation_orbit_drag") == "MOUSE2"
+              && Value(shortcut_defaults, "shortcuts", "navigation_orbit_reset") == "ALT-MOUSE2"
+              && Value(shortcut_defaults, "shortcuts", "haven_orbit_drag") == "MOUSE2"
+              && Value(shortcut_defaults, "shortcuts", "haven_orbit_reset") == "ALT-MOUSE2",
+          "empty configuration supplies existing system and Haven rotation bindings without experimental mode");
+    toml::table custom;
+    (void)Shortcut::Parse(toml::parse("[shortcuts]\nnavigation_orbit_drag=''\nnavigation_orbit_reset='CTRL-MOUSE2'\n"
+                                      "haven_orbit_drag=''\nhaven_orbit_reset='SHIFT-MOUSE2'"),
+                          custom, true, false);
+    Check(Value(custom, "shortcuts", "navigation_orbit_drag") == "NONE"
+              && Value(custom, "shortcuts", "haven_orbit_drag") == "NONE"
+              && Value(custom, "shortcuts", "navigation_orbit_reset") == "CTRL-MOUSE2"
+              && Value(custom, "shortcuts", "haven_orbit_reset") == "SHIFT-MOUSE2",
+          "default-on rotation preserves explicit blank and customized orbit bindings");
   }
   toml::table effective;
   const auto  experimental = Config::Parse(toml::parse("[control]\nenable_experimental=true"), effective, false);

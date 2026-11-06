@@ -215,14 +215,17 @@ void RunOrbitCases()
   auto* owner                = reinterpret_cast<NavigationZoom*>(&object);
   auto* panner               = reinterpret_cast<NavigationPan*>(&pan);
   auto& config               = Config::Get();
-  OrbitCheck(!config.graphics.system_camera_orbit, "system orbit starts disabled independently of installed hooks");
-  config.control.hotkeys_enabled     = true;
-  config.control.use_scopely_hotkeys = false;
-  selected                           = nullptr;
-  has_event_system                   = true;
-  visual_alive                       = true;
-  const auto initial_roots           = warp_roots.size();
-  NavigationOrbit().installed        = true;
+  OrbitCheck(config.graphics.system_camera_orbit && config.patches.navigationorbithooks,
+             "system camera orbit and its hook group are available by default");
+  OrbitCheck(config.patches.havenzoomhooks, "Haven keeps its existing enabled hook-group default");
+  config.graphics.system_camera_orbit = false;
+  config.control.hotkeys_enabled      = true;
+  config.control.use_scopely_hotkeys  = false;
+  selected                            = nullptr;
+  has_event_system                    = true;
+  visual_alive                        = true;
+  const auto initial_roots            = warp_roots.size();
+  NavigationOrbit().installed         = true;
   int        originals = 0, pans = 0, clamps = 0;
   float      native_yaw = 0;
   const auto frame      = [&] {
@@ -256,6 +259,9 @@ void RunOrbitCases()
   OrbitCheck(Near(clamp(), {1, 2, 3}) && clamps == 1, "disabled clamp remains native");
 
   config.graphics.system_camera_orbit = true;
+  binding_present                     = false;
+  OrbitCheck(!NavigationOrbitEnabled(), "an explicitly empty drag binding suppresses default-on system rotation");
+  binding_present                     = true;
   config.patches.navigationorbithooks = false;
   OrbitCheck(NavigationOrbitEnabled(), "restart-only hook switch is not a live feature toggle after installation");
   config.patches.navigationorbithooks = true;
