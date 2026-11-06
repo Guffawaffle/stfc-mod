@@ -355,16 +355,28 @@ void EnvironmentBoundsSlice(system_environment::Loader* loader, int32_t mask)
     if (state.epoch == epoch)
       record(background);
   };
-  if (!state.sweep_started)
-    begin();
-  if (state.epoch != epoch)
-    return;
-  if (!length) {
+  const auto finish = [&] {
     if (state.sweep_known) {
       state.bounds       = state.sweep_bounds;
       state.bounds_valid = state.sweep_valid;
     }
     state.sweep_started = false;
+    if (state.sweep_known && state.search_layer >= 0 && !state.source && !state.pixel_ticket) {
+      // A completely observed unusable loader must not hide another active loader.
+      state.loader        = {};
+      state.pool          = {};
+      state.configuration = {};
+      state.background    = {};
+      state.search_layer  = -1;
+      state.next_probe    = 0;
+    }
+  };
+  if (!state.sweep_started)
+    begin();
+  if (state.epoch != epoch)
+    return;
+  if (!length) {
+    finish();
     return;
   }
   for (size_t visited = 0; visited < std::min(budget, length); ++visited) {
@@ -397,21 +409,7 @@ void EnvironmentBoundsSlice(system_environment::Loader* loader, int32_t mask)
       record(observed_bounds);
     }
     if (state.cursor == length) {
-      if (state.sweep_known) {
-        state.bounds       = state.sweep_bounds;
-        state.bounds_valid = state.sweep_valid;
-      }
-      state.sweep_started = false;
-      if (state.sweep_known && state.search_layer >= 0 && !state.source && !state.pixel_ticket) {
-        // A completely observed unusable loader must not hide another active loader.
-        state.loader        = {};
-        state.pool          = {};
-        state.configuration = {};
-        state.background    = {};
-        state.search_layer  = -1;
-        state.next_probe    = 0;
-        return;
-      }
+      finish();
       // End this cohort even when the last slice used less than the budget.
       // The caller paces the next complete refresh instead of oversampling small pools.
       return;
@@ -455,6 +453,7 @@ void EnvironmentDropArtwork()
   state.bounds        = {};
   state.bounds_valid  = false;
   state.sweep_started = false;
+  state.cursor        = 0;
   state.search_layer  = -1;
   state.next_bounds   = 0;
   state.applied_scale = 0;

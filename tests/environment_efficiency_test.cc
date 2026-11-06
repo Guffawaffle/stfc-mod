@@ -107,7 +107,7 @@ Il2CppObject* Material(Il2CppObject* object, const MethodInfo*)
 {
   if (!material_known)
     throw Il2CppExceptionWrapper(&thrown);
-  return material_null || object == &bad_renderer ? nullptr : &material;
+  return material_null || object == &bad_renderer || object == &far_renderer ? nullptr : &material;
 }
 Il2CppObject* Texture(Il2CppObject*, const MethodInfo*)
 {
@@ -689,11 +689,19 @@ try {
     navigation_environment::Clear();
     bad_background = true;
     pool.items.fill(nullptr);
+    pool.items[0]   = reinterpret_cast<navigation_environment_binding::Flat*>(&far_flat);
     pool.items[200] = reinterpret_cast<navigation_environment_binding::Flat*>(&flat);
     for (unsigned i = 0; i < 100 && !state.pixel_ticket; ++i)
       frame();
     check(state.pixel_ticket != 0 && state.pending_flat.Get() == &flat,
           "natural Update reaches a fallback at slot 200 across periodic source probes");
+    check(!state.sweep_started && state.cursor == 0,
+          "mid-sweep artwork replacement invalidates the old cohort and resets its cursor");
+    const auto restart_far_reads = far_bounds_reads;
+    frame();
+    check(far_bounds_reads == restart_far_reads + 1 && state.bounds_valid
+              && state.bounds.center.x + state.bounds.extents.x == 10010,
+          "the replacement cohort reobserves its far prefix before scanning the tail");
     check(gate->entered.get_future().wait_for(std::chrono::seconds(2)) == std::future_status::ready,
           "the fallback CPU generation is actually blocked during the following observations");
     const auto pending_ticket = state.pixel_ticket;
@@ -719,6 +727,28 @@ try {
     check(state.loader.Get() == &secondary_loader,
           "the next paced discovery considers a second active loader with usable artwork");
     navigation_environment::Clear();
+
+    Array<navigation_environment_binding::Flat*, 0> empty_pool;
+    for (auto* empty : {static_cast<il2cpp::Array<navigation_environment_binding::Flat*>*>(nullptr),
+                        reinterpret_cast<il2cpp::Array<navigation_environment_binding::Flat*>*>(&empty_pool)}) {
+      seed();
+      frame();
+      bad_background       = true;
+      renderer_null        = true;
+      loaders.items[1]     = &secondary_loader;
+      pool_value           = empty;
+      state.next_probe     = 0;
+      state.next_discovery = {};
+      frame();
+      check(!state.loader && !state.shell && state.search_layer < 0,
+            "a known null or empty pool also retires a cached loader with no usable artwork");
+      state.next_discovery = {};
+      state.next_probe     = 0;
+      frame();
+      check(state.loader.Get() == &secondary_loader,
+            "empty-pool retirement allows discovery of a second usable loader");
+      navigation_environment::Clear();
+    }
 
     seed();
     frame();
