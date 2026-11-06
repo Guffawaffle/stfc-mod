@@ -11,10 +11,18 @@ bool Owns(unity::KeyCode)
 { return false; }
 } // namespace Shortcut
 
-
 namespace navigation_orbit
 {
+#ifndef STFC_ORBIT_FIXTURE
+ZoomUpdateScope::ZoomUpdateScope(NavigationZoom* value)
+    : zoom(value)
+    , previous(nullptr)
+{
+}
+ZoomUpdateScope::~ZoomUpdateScope() noexcept = default;
+void ZoomUpdateScope::Complete() {}
 void ApplyDrawDistance(NavigationZoom*) {}
+#endif
 } // namespace navigation_orbit
 
 namespace haven_orbit

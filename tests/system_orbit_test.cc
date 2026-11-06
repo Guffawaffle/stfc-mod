@@ -1,11 +1,13 @@
 // Focused local fixture: reuse the controlled runtime without modifying its existing driver or CI registration.
 // Native pointer/rig observations are substituted; actual orbit callbacks, handles, focus/frame and camera calls run.
 #define main ExistingBindingsMain
+#define STFC_ORBIT_FIXTURE
 #include "il2cpp_bindings.cc"
+#undef STFC_ORBIT_FIXTURE
 #undef main
 
-#include "game/navigation_orbit.h"
 #include "features/navigation_environment.h"
+#include "game/navigation_orbit.h"
 
 namespace orbit_fixture
 {
@@ -35,14 +37,16 @@ struct Pan {
   float                          radius = 100, speed = .5f;
   unity::Vector2                 drag{4, 2};
 };
-inline Rig*       rig       = nullptr;
-inline Scene*     scene     = nullptr;
-inline Zoom*      zoom      = nullptr;
-inline bool       in_system = true, pointer_allowed = true, pointer_known = true, binding_available = true;
-inline bool       field_available = true, view_available = true, binding_present = true;
-inline bool       clip_read_fails = false, clip_write_fails = false;
-inline float      environment_draw_clip = 0, environment_update_clip = 0;
-inline int        view_sets = 0, pointer_reads = 0, anchor_sets = 0, clip_sets = 0;
+inline Rig*   rig       = nullptr;
+inline Scene* scene     = nullptr;
+inline Zoom*  zoom      = nullptr;
+inline bool   in_system = true, pointer_allowed = true, pointer_known = true, binding_available = true;
+inline bool   field_available = true, view_available = true, binding_present = true;
+inline bool   clip_read_fails = false, clip_write_fails = false;
+inline float  environment_draw_clip = 0, environment_update_clip = 0;
+inline int    view_sets = 0, pointer_reads = 0, anchor_sets = 0, clip_sets = 0;
+inline int    transform_reads = 0, vector_reads = 0, environment_updates = 0;
+inline void (*environment_callback)() = nullptr;
 inline MethodInfo angles_tag{}, position_tag{}, forward_tag{};
 
 bool Focus(const MethodInfo*)
@@ -122,6 +126,7 @@ il2cpp::CallResult<bool> PointerAvailable(bool)
 }
 il2cpp::CallResult<unity::Transform*> Transform(Il2CppObject*)
 {
+  ++orbit_fixture::transform_reads;
   return orbit_fixture::rig
              ? il2cpp::CallResult<unity::Transform*>{true, reinterpret_cast<unity::Transform*>(orbit_fixture::rig)}
              : il2cpp::CallResult<unity::Transform*>{};
@@ -137,6 +142,7 @@ template <il2cpp::Name N> const MethodInfo* VectorGetter()
 }
 il2cpp::CallResult<Vector3> Vector(const MethodInfo* method, Il2CppObject*)
 {
+  ++orbit_fixture::vector_reads;
   if (!orbit_fixture::rig || !orbit_fixture::view_available)
     return {};
   if (method == &orbit_fixture::angles_tag)
@@ -161,26 +167,21 @@ bool Reanchor(NavigationZoom*)
 }
 } // namespace orbit_fixture_binding
 
-namespace orbit_under_test
-{
-bool Available();
-void ApplyDrawDistance(NavigationZoom*);
-}
 // Rendering is outside this camera-control fixture. Simulate the existing environment's clip requests.
 namespace navigation_environment
 {
 void Clear() {}
-void ApplyDrawDistance(unity::Camera* camera, ClipWriter write_clip)
+void ApplyDrawDistance(unity::Camera* camera, unity::Vector3, float clip, ClipWriter write_clip)
 {
-  const auto baseline = camera->TryCall<"get_farClipPlane", float>();
-  if (baseline && orbit_fixture::environment_draw_clip > baseline.value)
-    write_clip(camera, baseline.value, orbit_fixture::environment_draw_clip);
+  const auto expanded = std::max(orbit_fixture::environment_draw_clip, orbit_fixture::environment_update_clip);
+  if (expanded > clip)
+    write_clip(camera, clip, expanded);
 }
-void Update(unity::Camera* camera, ClipWriter write_clip)
+void Update(unity::Camera*, unity::Transform*)
 {
-  const auto baseline = camera->TryCall<"get_farClipPlane", float>();
-  if (baseline && orbit_fixture::environment_update_clip > baseline.value)
-    write_clip(camera, baseline.value, orbit_fixture::environment_update_clip);
+  ++orbit_fixture::environment_updates;
+  if (auto callback = std::exchange(orbit_fixture::environment_callback, nullptr))
+    callback();
 }
 } // namespace navigation_environment
 namespace Shortcut
@@ -188,11 +189,10 @@ namespace Shortcut
 bool HasBinding(Action)
 { return orbit_fixture::binding_present; }
 } // namespace Shortcut
-#define navigation_orbit orbit_under_test
 #define navigation_orbit_binding orbit_fixture_binding
 #include "../src/mod/features/navigation_orbit.cc"
 #undef navigation_orbit_binding
-#undef navigation_orbit
+namespace orbit_under_test = navigation_orbit;
 
 namespace
 {
@@ -279,6 +279,16 @@ void RunOrbitCases()
   config.patches.navigationorbithooks = false;
   OrbitCheck(NavigationOrbitEnabled(), "restart-only hook switch is not a live feature toggle after installation");
   config.patches.navigationorbithooks = true;
+  fleet_native_keys.clear();
+  const auto quiet_roots      = warp_next_root;
+  const auto quiet_transforms = transform_reads, quiet_vectors = vector_reads;
+  const auto quiet_originals = originals;
+  for (int i = 0; i < 240; ++i)
+    frame();
+  OrbitCheck(originals == quiet_originals + 240 && transform_reads == quiet_transforms && vector_reads == quiet_vectors
+                 && warp_next_root == quiet_roots && !NavigationOrbit().zoom,
+             "240 enabled idle callbacks preserve every original with zero rig reads or handle allocations");
+  fleet_native_keys = {Action::kNavigationOrbitDrag};
   frame();
   bind_pan();
   OrbitCheck(NavigationOrbit().zoom && NavigationOrbit().dragging && !NavigationOrbit().overridden,
@@ -290,6 +300,50 @@ void RunOrbitCases()
   OrbitCheck(anchor_sets == 1, "rotation reanchors ordinary mouse zoom exactly once");
   OrbitCheck(camera.clip > 100 && clip_sets > 0, "rotated system extends owned camera clip");
   OrbitCheck(Near(clamp(), {8, 9, 10}) && clamps == 1, "only rotated system bypasses pan boundary");
+
+  const auto same_frame_yaw     = transform.angles.y;
+  const auto same_frame_anchors = anchor_sets;
+  NavigationZoom_UpdateCameraPosition_OrbitHook(
+      [&](NavigationZoom*) {
+        ++originals;
+        transform.angles = {45, 0, 0};
+      },
+      owner);
+  OrbitCheck(transform.angles.y == same_frame_yaw && anchor_sets == same_frame_anchors,
+             "a second original in one frame still reapplies orbit without advancing input twice");
+  const auto before_coalesced = environment_updates;
+  {
+    navigation_orbit::ZoomUpdateScope outer(owner);
+    navigation_orbit::ApplyDrawDistance(owner);
+    NavigationZoom_UpdateCameraPosition_OrbitHook(
+        [&](NavigationZoom*) {
+          ++originals;
+          transform.angles = {45, 0, 0};
+        },
+        owner);
+    camera.clip = 100; // The post-native zoom pass authors its baseline again.
+    navigation_orbit::ApplyDrawDistance(owner);
+    OrbitCheck(environment_updates == before_coalesced, "zoom's pre/native/post span defers all scenery work");
+    outer.Complete();
+  }
+  OrbitCheck(environment_updates == before_coalesced + 1 && camera.clip > 100 && transform.angles.y == same_frame_yaw,
+             "one final pass observes the post-native clip and preserves the final orbit pose");
+  const auto before_unwind = environment_updates;
+  try {
+    navigation_orbit::ZoomUpdateScope failed(owner);
+    navigation_orbit::ApplyDrawDistance(owner);
+    throw std::runtime_error("synthetic native unwind");
+  } catch (const std::runtime_error&) {
+  }
+  OrbitCheck(environment_updates == before_unwind && !NavigationOrbitUpdates(),
+             "exception unwinding pops the authoring scope without fresh managed work");
+  environment_callback = [] {
+    navigation_orbit::ApplyDrawDistance(orbit_fixture::zoom ? reinterpret_cast<NavigationZoom*>(orbit_fixture::zoom)
+                                                            : nullptr);
+  };
+  navigation_orbit::ApplyDrawDistance(owner);
+  OrbitCheck(environment_updates == before_unwind + 1 && !NavigationOrbitUpdates(),
+             "managed reentry during a final pass cannot recursively flush scenery");
 
   fleet_native_keys = {Action::kNavigationOrbitReset};
   frame();
@@ -326,10 +380,10 @@ void RunOrbitCases()
   OrbitCheck(warp_roots.size() == initial_roots, "disable releases all orbit roots");
 
   // Scenery may extend the clip even when the ordinary orbit distance needs no extension.
-  camera.clip             = 1000;
-  environment_update_clip = 1200;
+  camera.clip                         = 1000;
+  environment_update_clip             = 1200;
   config.graphics.system_camera_orbit = true;
-  camera_mouse = {10, 20, 0};
+  camera_mouse                        = {10, 20, 0};
   frame();
   bind_pan();
   camera_mouse = {40, 20, 0};
@@ -340,7 +394,7 @@ void RunOrbitCases()
   frame();
   OrbitCheck(camera.clip == 1000 && !NavigationOrbit().clip_camera,
              "live disable restores an environment-only clip extension");
-  camera.clip = 100;
+  camera.clip             = 100;
   environment_update_clip = 0;
 
   const auto rotate = [&] {
@@ -374,7 +428,7 @@ void RunOrbitCases()
              "transient native setter failure can recover without re-enabling orbit");
   OrbitCheck(warp_roots.size() == initial_roots, "completed retry cleanup releases every retained camera root");
 
-  environment_update_clip = 900;
+  environment_update_clip             = 900;
   config.graphics.system_camera_orbit = true;
   camera_mouse                        = {10, 20, 0};
   frame();
@@ -443,6 +497,39 @@ void RunOrbitCases()
              "a replacement owner's native yaw survives both pre-native cleanup and the post-native rig gate");
   OrbitCheck(warp_roots.size() == initial_roots && camera.clip == 100,
              "owner replacement releases old rig roots and its owned clip without altering the new view");
+
+  rotate();
+  const auto before_nested = environment_updates;
+  {
+    navigation_orbit::ZoomUpdateScope outer(owner);
+    {
+      navigation_orbit::ZoomUpdateScope inner(owner);
+      navigation_orbit::ApplyDrawDistance(owner);
+      inner.Complete();
+    }
+    {
+      navigation_orbit::ZoomUpdateScope other(replacement_owner);
+      navigation_orbit::ApplyDrawDistance(replacement_owner);
+      other.Complete();
+    }
+    OrbitCheck(environment_updates == before_nested,
+               "nested matching scopes coalesce while unrelated receiver scopes cannot flush this owner");
+    outer.Complete();
+  }
+  OrbitCheck(environment_updates == before_nested + 1, "nested same-receiver spans finish in one final pass");
+  {
+    navigation_orbit::ZoomUpdateScope old_owner(owner);
+    navigation_orbit::ApplyDrawDistance(owner);
+    NavigationZoom_UpdateCameraPosition_OrbitHook([&](NavigationZoom*) { transform.angles = {45, 0, 0}; },
+                                                  replacement_owner);
+    old_owner.Complete();
+  }
+  OrbitCheck(NavigationOrbit().zoom.Get() == replacement_owner && !NavigationOrbit().overridden
+                 && environment_updates == before_nested + 1 && camera.clip == 100,
+             "a nested receiver takeover invalidates the older owner's pending completion");
+  config.graphics.system_camera_orbit = false;
+  NavigationOrbitTick();
+  OrbitCheck(warp_roots.size() == initial_roots, "nested takeover cleanup releases all retained owners");
   camera.clip = 222;
 
   config.graphics.system_camera_orbit = true;

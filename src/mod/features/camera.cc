@@ -353,10 +353,12 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
     original(_this);
     return;
   }
+  navigation_orbit::ZoomUpdateScope camera_update(_this);
   FleetLabelsFollowDepth(_this, _this->depth());
   if (!camera_zoom_installed) {
     NativeZoomUpdateScope native_update(_this);
     original(_this);
+    camera_update.Complete();
     FleetLabelsAfterZoom(_this);
     galaxy_controls::AfterZoom(_this);
     return;
@@ -369,14 +371,17 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
     ZoomAtMouse(_this, Config::Get().graphics.default_system_zoom, true);
   else if (!unity::Key::IsInputFocused())
     run_game_update = KeyboardZoom(_this);
-  if (!run_game_update)
+  if (!run_game_update) {
+    camera_update.Complete();
     return;
+  }
 
   {
     NativeZoomUpdateScope native_update(_this);
     original(_this);
   }
   KeepZoomRange(_this);
+  camera_update.Complete();
   FleetLabelsAfterZoom(_this);
   galaxy_controls::AfterZoom(_this);
 }
@@ -395,9 +400,11 @@ void EnterDepth(Original original, NavigationZoom* zoom, NodeDepth depth, float 
       PendingDefaultZoom().Reset();
     return original(zoom, args...);
   }
+  navigation_orbit::ZoomUpdateScope camera_update(zoom);
   ApplyZoomRange(zoom, radius);
   original(zoom, args...);
   ApplyZoomRange(zoom, 0.0f);
+  camera_update.Complete();
   if (generation == zoom_default_generation)
     PendingDefaultZoom() = il2cpp::GcHandle::Weak(zoom);
 }
