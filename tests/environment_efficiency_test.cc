@@ -688,6 +688,7 @@ try {
     seed();
     navigation_environment::Clear();
     bad_background = true;
+    far_member_x   = 10000;
     pool.items.fill(nullptr);
     pool.items[0]   = reinterpret_cast<navigation_environment_binding::Flat*>(&far_flat);
     pool.items[200] = reinterpret_cast<navigation_environment_binding::Flat*>(&flat);
