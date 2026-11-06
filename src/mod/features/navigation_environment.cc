@@ -25,7 +25,7 @@ using EnvironmentVector2     = unity::Vector2;
 
 struct NavigationEnvironmentState {
   il2cpp::GcHandle shell, mesh, material, source, renderer, native_background, texture, camera;
-  il2cpp::GcHandle loader, pool, parent, shell_transform, source_flat;
+  il2cpp::GcHandle loader, pool, parent, shell_transform, source_flat, background;
   il2cpp::GcHandle configuration, pending_source, pending_background, pending_flat;
   std::unique_ptr<navigation_environment_art::PixelGenerator>           pixels;
   std::shared_ptr<const std::vector<navigation_environment_art::Pixel>> upload_pixels;
@@ -40,10 +40,11 @@ struct NavigationEnvironmentState {
   std::string                           artwork_key;
   size_t                                cursor          = 0;
   size_t                                discovery_start = 0;
-  int32_t                               frame = -1, next_probe = 0, mask = 0;
+  int32_t                               frame = -1, next_probe = 0, next_bounds = 0, mask = 0;
   int32_t                               search_layer  = -1;
   float                                 applied_scale = 0;
   std::chrono::steady_clock::time_point next_discovery{};
+  bool                                  scene_known = false;
   bool                                  attempted = false, ready = false, failed = false, bounds_valid = false;
 };
 NavigationEnvironmentState& SystemEnvironment()
@@ -216,10 +217,12 @@ il2cpp::CallResult<bool> EnvironmentArtworkFor(system_environment::Flat* flat, i
   const auto layer       = object_root ? object_root.Get<unity::GameObject>()->TryCall<"get_layer", int32_t>()
                                        : il2cpp::CallResult<int32_t>{};
   art.layer              = layer ? layer.value : -1;
-  if (!enabled || !object || !layer)
+  const auto active      = object_root ? object_root.Get<unity::GameObject>()->TryCall<"get_activeInHierarchy", bool>()
+                                       : il2cpp::CallResult<bool>{};
+  if (!enabled || !object || !layer || !active)
     return {};
-  if (!enabled.value || art.layer < 0 || art.layer > 31 || !(static_cast<uint32_t>(mask) & (1u << art.layer))
-      || (required_layer >= 0 && art.layer != required_layer))
+  if (!enabled.value || !active.value || art.layer < 0 || art.layer > 31
+      || !(static_cast<uint32_t>(mask) & (1u << art.layer)) || (required_layer >= 0 && art.layer != required_layer))
     return {true, false};
   const auto material      = art.renderer->TryCall<"get_sharedMaterial", unity::Material*>();
   auto       material_root = il2cpp::GcHandle::Strong(material ? material.value : nullptr);
@@ -327,7 +330,6 @@ void EnvironmentBoundsSlice(system_environment::Loader* loader, int32_t mask)
     state.bounds        = {};
     state.bounds_valid  = false;
     state.sweep_started = false;
-    EnvironmentIncludeScenery(state.native_background.Get<unity::MeshRenderer>(), mask);
   }
   auto  pool_root = il2cpp::GcHandle::Strong(state.pool.Get());
   auto* pool      = pool_root.Get<il2cpp::Array<system_environment::Flat*>>();
@@ -405,10 +407,14 @@ void EnvironmentBoundsSlice(system_environment::Loader* loader, int32_t mask)
         state.loader        = {};
         state.pool          = {};
         state.configuration = {};
+        state.background    = {};
         state.search_layer  = -1;
         state.next_probe    = 0;
         return;
       }
+      // End this cohort even when the last slice used less than the budget.
+      // The caller paces the next complete refresh instead of oversampling small pools.
+      return;
     }
   }
 }
@@ -449,6 +455,8 @@ void EnvironmentDropArtwork()
   state.bounds        = {};
   state.bounds_valid  = false;
   state.sweep_started = false;
+  state.search_layer  = -1;
+  state.next_bounds   = 0;
   state.applied_scale = 0;
   state.artwork_key.clear();
 }
@@ -566,9 +574,10 @@ void EnvironmentFinishArtwork()
 }
 void EnvironmentScan(unity::Camera* camera)
 {
-  auto&      state = SystemEnvironment();
-  auto       epoch = state.epoch;
-  const auto mask  = camera->TryCall<"get_cullingMask", int32_t>();
+  SystemEnvironment().scene_known = false;
+  auto&      state                = SystemEnvironment();
+  auto       epoch                = state.epoch;
+  const auto mask                 = camera->TryCall<"get_cullingMask", int32_t>();
   if (!mask || state.epoch != epoch)
     return;
   if (state.mask != mask.value) {
@@ -577,6 +586,8 @@ void EnvironmentScan(unity::Camera* camera)
     state.bounds_valid  = false;
     state.sweep_started = false;
     state.cursor        = 0;
+    state.search_layer  = -1;
+    state.next_bounds   = 0;
   }
   auto* loader      = state.loader.Get<system_environment::Loader>();
   auto  loader_root = il2cpp::GcHandle::Strong(loader);
@@ -592,6 +603,7 @@ void EnvironmentScan(unity::Camera* camera)
       state.loader        = {};
       state.pool          = {};
       state.configuration = {};
+      state.background    = {};
       EnvironmentDropArtwork();
       epoch  = state.epoch;
       loader = nullptr;
@@ -657,6 +669,7 @@ void EnvironmentScan(unity::Camera* camera)
     state.pool          = {};
     state.configuration = std::move(root);
     state.cursor        = 0;
+    state.background    = {};
   }
   const auto flat = loader->TryCall<"get_Background", system_environment::Flat*>();
   if (!flat || state.epoch != epoch)
@@ -671,26 +684,50 @@ void EnvironmentScan(unity::Camera* camera)
     state.loader        = {};
     state.pool          = {};
     state.configuration = {};
+    state.background    = {};
     return;
+  }
+  const bool background_changed = state.background.Get() != flat.value;
+  if (background_changed) {
+    if (!flat_root)
+      return;
+    state.background   = std::move(flat_root);
+    state.search_layer = -1;
   }
   EnvironmentArtwork art;
   const auto         artwork = EnvironmentArtworkFor(flat.value, mask.value, -1, art);
   if (!artwork || state.epoch != epoch)
     return;
+  state.scene_known = true;
   if (!artwork.value) {
     const int32_t required_layer = art.layer;
-    if (required_layer < 0)
+    if (required_layer < 0) {
+      EnvironmentDropArtwork();
+      state.loader        = {};
+      state.pool          = {};
+      state.configuration = {};
+      state.background    = {};
+      state.next_probe    = 0;
       return;
-    if (auto* cached = state.source_flat.Get<system_environment::Flat>()) {
+    }
+    auto* cached = state.source_flat.Get<system_environment::Flat>();
+    if (!cached && state.pixel_ticket)
+      cached = state.pending_flat.Get<system_environment::Flat>();
+    if (cached) {
       const auto fallback = EnvironmentArtworkFor(cached, mask.value, required_layer, art);
       if (!fallback || state.epoch != epoch)
         return;
       if (fallback.value) {
-        if (art.texture != state.source.Get() || art.renderer != state.native_background.Get())
+        const bool owned   = art.texture == state.source.Get() && art.renderer == state.native_background.Get();
+        const bool pending = state.pixel_ticket && art.texture == state.pending_source.Get()
+                             && art.renderer == state.pending_background.Get() && art.layer == state.pending_layer;
+        if (!owned && !pending)
           EnvironmentAdopt(art, cached);
         return;
       }
     }
+    if (state.search_layer == required_layer)
+      return;
     EnvironmentDropArtwork();
     state.search_layer = required_layer;
     state.cursor       = 0;
@@ -706,14 +743,17 @@ void EnvironmentScan(unity::Camera* camera)
 
 void navigation_environment::Clear()
 {
+  SystemEnvironment().scene_known = false;
   EnvironmentDropArtwork();
   auto& state           = SystemEnvironment();
   state.camera          = {};
   state.loader          = {};
   state.pool            = {};
   state.configuration   = {};
+  state.background      = {};
   state.frame           = -1;
   state.next_probe      = 0;
+  state.next_bounds     = 0;
   state.cursor          = 0;
   state.discovery_start = 0;
   state.search_layer    = -1;
@@ -786,9 +826,14 @@ void navigation_environment::Update(unity::Camera* camera, unity::Transform* tra
       state.next_probe = frame + 30;
       EnvironmentScan(camera);
     }
-    if (auto* loader = state.loader.Get<system_environment::Loader>())
+    if (auto* loader = state.loader.Get<system_environment::Loader>();
+        loader && state.scene_known && (state.sweep_started || frame >= state.next_bounds)) {
+      if (!state.sweep_started)
+        state.next_bounds = frame + 30;
       EnvironmentBoundsSlice(loader, state.mask);
-    EnvironmentFinishArtwork();
+    }
+    if (state.scene_known)
+      EnvironmentFinishArtwork();
   }
   if (!EnvironmentLive(state.shell.Get()))
     return;

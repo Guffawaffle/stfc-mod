@@ -43,7 +43,8 @@ Quiet, unrotated cameras do not acquire the rig or read boxed Euler angles.
 
 The environment retains its selected loader while healthy. Scenery bounds are
 refreshed in four-slot slices per frame, including empty and unavailable slots,
-without truncating large pools. Positive partial observations may expand bounds;
+without truncating large pools. A completed sweep waits until its 30-frame refresh
+interval; small pools do not incur extra sweeps. Positive partial observations may expand bounds;
 only a complete known sweep can shrink them. Owner, configuration and camera
 changes invalidate the cached scene. Unknown observations retain recovery state.
 Parenting is established once per shell/camera pair, and unchanged clip values
@@ -55,3 +56,8 @@ rejects stale results without waiting. The worker receives only a palette and
 seed. Unity resource creation, upload, parenting and destruction stay on the game
 thread. Partial uploads cannot commit to a replacement scene. No backdrop artwork
 or camera bindings are changed by this efficiency pass.
+
+Run the opt-in local regressions with `zig build test-navigation` on a native
+target. This covers the production camera callbacks, real environment maintenance
+over controlled metadata, and worker cancellation/pixel parity. It is separate
+from the existing CI aggregates.

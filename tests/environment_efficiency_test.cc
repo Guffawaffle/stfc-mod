@@ -11,6 +11,7 @@
 #endif
 #include "features/navigation_environment.h"
 #include "game/navigation_environment.h"
+#include <future>
 #undef near
 #undef far
 
@@ -25,13 +26,15 @@ template <class T, size_t N> struct Array {
 };
 Il2CppObject loader{}, flat{}, renderer{}, material{}, texture{}, game_object{}, transform{}, camera{}, shell{},
     shell_transform{}, replacement_camera{}, config_object{}, dead_flat{}, bad_loader{}, bad_flat{}, bad_renderer{},
-    bad_game_object{}, replacement_texture{}, far_flat{}, far_renderer{}, unknown_flat{}, near_renderer{};
+    bad_game_object{}, replacement_texture{}, far_flat{}, far_renderer{}, unknown_flat{}, near_renderer{},
+    secondary_loader{}, secondary_flat{}, secondary_renderer{};
 Array<Il2CppObject*, 2>                             loaders;
 Array<navigation_environment_binding::Flat*, kPool> pool, replacement_pool;
 Array<navigation_environment_binding::Flat*, 256>   cohort_pool;
 float                                               far_member_x     = 10000;
 uint64_t                                            far_bounds_reads = 0;
 bool pool_known = true, configuration_known = true, background_known = true;
+bool renderer_known = true, renderer_null = false;
 bool material_known = true, texture_known = true, material_null = false, texture_null = false, background_null = false,
      bad_background = false, bad_layer = false;
 Il2CppObject* texture_value = &texture;
@@ -88,6 +91,8 @@ float Near(Il2CppObject*, const MethodInfo*)
 { return near_clip; }
 Il2CppObject* Background(Il2CppObject* object, const MethodInfo*)
 {
+  if (object == &secondary_loader)
+    return &secondary_flat;
   if (!background_known)
     throw Il2CppExceptionWrapper(&thrown);
   if (background_callback) {
@@ -206,6 +211,11 @@ il2cpp::CallResult<il2cpp::Array<Flat*>*> Pool(Loader*)
 il2cpp::CallResult<unity::MeshRenderer*> Renderer(Flat* flat)
 {
   ++env_fixture::renderer_reads;
+  if (flat == reinterpret_cast<Flat*>(&env_fixture::secondary_flat))
+    return {true, reinterpret_cast<unity::MeshRenderer*>(&env_fixture::secondary_renderer)};
+  if (flat == reinterpret_cast<Flat*>(&env_fixture::flat)
+      && (!env_fixture::renderer_known || env_fixture::renderer_null))
+    return {env_fixture::renderer_known, nullptr};
   return {true, reinterpret_cast<unity::MeshRenderer*>(
                     flat == reinterpret_cast<Flat*>(&env_fixture::bad_flat)       ? &env_fixture::bad_renderer
                     : flat == reinterpret_cast<Flat*>(&env_fixture::far_flat)     ? &env_fixture::far_renderer
@@ -239,6 +249,9 @@ try {
   dead_flat.klass                         = &flat_class.klass;
   renderer.klass = bad_renderer.klass = far_renderer.klass = near_renderer.klass = &mesh_renderer_class.klass;
   loader.klass = bad_loader.klass = &loader_class.klass;
+  secondary_loader.klass          = &loader_class.klass;
+  secondary_flat.klass            = &flat_class.klass;
+  secondary_renderer.klass        = &mesh_renderer_class.klass;
   flat.klass = bad_flat.klass = far_flat.klass = unknown_flat.klass = &flat_class.klass;
   replacement_texture.klass                                         = &texture_class.klass;
   bad_game_object.klass                                             = &game_object_class.klass;
@@ -350,10 +363,11 @@ try {
   for (unsigned i = 0; i < 65; ++i) {
     const auto before = state.cursor;
     EnvironmentBoundsSlice(reinterpret_cast<navigation_environment_binding::Loader*>(&loader), 1);
-    check((state.cursor + kPool - (before % kPool)) % kPool == 4,
+    check((state.cursor + kPool - (before % kPool)) % kPool > 0
+              && (state.cursor + kPool - (before % kPool)) % kPool <= 4,
           "null slots consume the four-slot budget and keep advancing");
   }
-  check(state.cursor == 3, "257-slot null pool completes a sweep without truncation");
+  check(state.cursor == kPool, "257-slot null pool completes a sweep without truncation");
   pool.items.fill(reinterpret_cast<navigation_environment_binding::Flat*>(&dead_flat));
   visual_dead_object        = &dead_flat;
   state.cursor              = 0;
@@ -361,10 +375,11 @@ try {
   for (unsigned i = 0; i < 65; ++i) {
     const auto before = state.cursor;
     EnvironmentBoundsSlice(reinterpret_cast<navigation_environment_binding::Loader*>(&loader), 1);
-    check((state.cursor + kPool - (before % kPool)) % kPool == 4,
+    check((state.cursor + kPool - (before % kPool)) % kPool > 0
+              && (state.cursor + kPool - (before % kPool)) % kPool <= 4,
           "dead slots consume the four-slot budget and keep advancing");
   }
-  check(renderer_reads == dead_renderers && state.cursor == 3,
+  check(renderer_reads == dead_renderers && state.cursor == kPool,
         "dead entries never read renderers or starve later slots");
   // Shrink only after a complete known sweep, preserving conservative extents meanwhile.
   state.bounds        = {{0, 0, 0}, {1000, 1000, 1000}};
@@ -388,8 +403,8 @@ try {
   for (unsigned i = 0; i < 65; ++i)
     EnvironmentBoundsSlice(reinterpret_cast<navigation_environment_binding::Loader*>(&loader), 1);
   check(state.bounds.extents.x == 1000, "complete sweep containing unavailable entries cannot shrink published bounds");
-  check(unknown_alive_throws == flat_unknown_before + 260,
-        "all260 unavailable pooled-slot observations actually invoke and throw from the per-object liveness delegate");
+  check(unknown_alive_throws == flat_unknown_before + kPool,
+        "every unavailable pooled slot invokes and throws from the per-object liveness delegate");
   env_alive_throw_object = nullptr;
 
   const auto kept_pool   = state.pool.Get();
@@ -445,6 +460,8 @@ try {
     loaders.items[1]              = nullptr;
     pool_known = configuration_known = background_known = true;
     material_known = texture_known = true;
+    renderer_known                 = true;
+    renderer_null                  = false;
     material_null = texture_null = background_null = bad_background = bad_layer = false;
     texture_value                                                               = &texture;
     pool_value          = reinterpret_cast<il2cpp::Array<navigation_environment_binding::Flat*>*>(&pool);
@@ -627,6 +644,114 @@ try {
         "complete known refresh retires the moved renderer's old location with all identities unchanged");
   navigation_environment::Clear();
   check(warp_roots.empty(), "natural cohort cases release all retained roots");
+
+  // Small pools retain the old refresh cadence while their work is spread out.
+  {
+    Array<navigation_environment_binding::Flat*, 32> compact_pool;
+    compact_pool.items.fill(reinterpret_cast<navigation_environment_binding::Flat*>(&flat));
+    seed();
+    pool_value               = reinterpret_cast<il2cpp::Array<navigation_environment_binding::Flat*>*>(&compact_pool);
+    const auto before_bounds = bounds_reads, before_pool = pool_reads;
+    for (unsigned i = 0; i < 120; ++i)
+      frame();
+    check(bounds_reads - before_bounds == 4 * (32 + 1) && pool_reads - before_pool == 4 * 8,
+          "a 32-slot scene completes four paced sweeps instead of oversampling every frame");
+    navigation_environment::Clear();
+  }
+
+  // Hold generation across multiple native probes. Finding a late fallback must
+  // not depend on either a small pool or a fast CPU completion.
+  struct Gate {
+    std::promise<void>       entered, release;
+    std::shared_future<void> released = release.get_future().share();
+    std::atomic<unsigned>    calls{0};
+    std::atomic<bool>        opened{false};
+    void                     Open()
+    {
+      if (!opened.exchange(true))
+        release.set_value();
+    }
+  };
+  auto gate = std::make_shared<Gate>();
+  {
+    struct Release {
+      std::shared_ptr<Gate> gate;
+      ~Release()
+      { gate->Open(); }
+    } release{gate};
+    state.pixels = std::make_unique<navigation_environment_art::PixelGenerator>([gate](auto) {
+      if (++gate->calls == 1)
+        gate->entered.set_value();
+      gate->released.wait();
+      return std::vector<navigation_environment_art::Pixel>(1024 * 512);
+    });
+    seed();
+    navigation_environment::Clear();
+    bad_background = true;
+    pool.items.fill(nullptr);
+    pool.items[200] = reinterpret_cast<navigation_environment_binding::Flat*>(&flat);
+    for (unsigned i = 0; i < 100 && !state.pixel_ticket; ++i)
+      frame();
+    check(state.pixel_ticket != 0 && state.pending_flat.Get() == &flat,
+          "natural Update reaches a fallback at slot 200 across periodic source probes");
+    check(gate->entered.get_future().wait_for(std::chrono::seconds(2)) == std::future_status::ready,
+          "the fallback CPU generation is actually blocked during the following observations");
+    const auto pending_ticket = state.pixel_ticket;
+    for (unsigned i = 0; i < 130; ++i)
+      frame();
+    check(state.pixel_ticket == pending_ticket && gate->calls == 1 && state.pending_flat.Get() == &flat,
+          "periodic probes preserve the same blocked fallback generation and selected owner");
+    navigation_environment::Clear();
+
+    // A fully unusable large loader must finish its bounded search and yield.
+    seed();
+    navigation_environment::Clear();
+    bad_background   = true;
+    loaders.items[1] = &secondary_loader;
+    pool.items.fill(nullptr);
+    for (unsigned i = 0; i < 66; ++i)
+      frame();
+    check(!state.loader && state.search_layer < 0,
+          "a complete unusable 257-slot search releases its loader across repeated probes");
+    state.next_discovery = {};
+    for (unsigned i = 0; i < 30 && state.loader.Get() != &secondary_loader; ++i)
+      frame();
+    check(state.loader.Get() == &secondary_loader,
+          "the next paced discovery considers a second active loader with usable artwork");
+    navigation_environment::Clear();
+
+    seed();
+    frame();
+    const auto unknown_shell = state.shell.Get();
+    renderer_known           = false;
+    state.next_probe         = 0;
+    frame();
+    check(state.shell.Get() == unknown_shell && state.loader.Get() == &loader,
+          "unavailable background renderer observation retains recoverable artwork and owner");
+    renderer_known   = true;
+    renderer_null    = true;
+    state.next_probe = 0;
+    frame();
+    check(!state.shell && !state.loader && !state.background,
+          "confirmed null background renderer retires stale artwork and its loader");
+    loaders.items[1]     = &secondary_loader;
+    state.next_probe     = 0;
+    state.next_discovery = {};
+    frame();
+    check(state.loader.Get() == &secondary_loader, "confirmed renderer loss cannot hide another usable loader");
+    navigation_environment::Clear();
+
+    seed();
+    frame();
+    visual_dead_object = &renderer;
+    state.next_probe   = 0;
+    frame();
+    check(!state.shell && !state.loader, "confirmed destroyed background renderer also retires cached artwork");
+    visual_dead_object = nullptr;
+    navigation_environment::Clear();
+  }
+  state.pixels.reset(); // The test joins only after releasing its blocked work, outside a game callback.
+  check(warp_roots.empty(), "paced refresh, fallback and renderer-loss cases release every retained root");
   artwork_name = nullptr;
 
   std::cout << "Production environment efficiency/lifecycle: " << checks << " checks passed\n";
