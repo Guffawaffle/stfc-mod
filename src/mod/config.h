@@ -158,6 +158,7 @@ public:
     bool missionhudtweakshooks      = true;
     bool navigationorbithooks       = true;
     bool objecttracker              = true;
+    bool officercompatibilityhooks  = true;
     bool officerpresetreorderhooks  = true;
     bool officersorthooks           = true;
     bool opcindicatorhooks          = true;
@@ -292,7 +293,8 @@ public:
     bool show_player_title               = true;
     bool allow_officer_preset_reordering = false;
     // The optional private native product reads this live, including teardown.
-    bool battle_log_summary_preview = true;
+    bool battle_log_summary_preview   = true;
+    bool officer_compatibility_filter = true;
 
     bool                     auto_open_bulk_claim_flyout = false;
     std::vector<std::string> daily_bulk_claim_factions{"federation", "klingon", "romulan"};

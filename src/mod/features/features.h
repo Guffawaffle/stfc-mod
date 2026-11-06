@@ -48,6 +48,7 @@ std::span<const FeatureInstallation> FeatureInstallations();
 extern const Feature kAaiReportObserver;
 extern const Feature kAaiBack;
 extern const Feature kBattleLogSummary;
+extern const Feature kOfficerCompatibility;
 #endif
 
 // runtime_config.cc: registered-key saves and native quit/drain lifecycle.

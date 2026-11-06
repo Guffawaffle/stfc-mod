@@ -198,6 +198,7 @@ constexpr const Feature* kFeatures[] = {
     &kAaiReportObserver,
     &kAaiBack,
     &kBattleLogSummary,
+    &kOfficerCompatibility,
 #endif
     // settings.cc
     &kNativeSettings,

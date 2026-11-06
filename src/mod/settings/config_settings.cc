@@ -498,6 +498,11 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("interface", ui, battle_log_summary_preview, "Battle Analysis (AAI)", aai, Live,
        "Show Battle Analysis on combat reports. Turning this off closes analysis on the next update. "
        "Requires an AAI-enabled build and battle-log hooks; reopen the report after enabling it.");
+  BOOL("interface", ui, officer_compatibility_filter, "Officer encounter compatibility", Owner("OfficerCompatibility"),
+       Live,
+       "Include general abilities permitted by understood encounter rules in the officer Outposts filter. "
+       "Use Specialists only for the original narrow filter, or inspect unresolved cases separately. "
+       "Requires an AAI-enabled build and officer compatibility hooks.");
   BOOL("interface", ui, disable_escape_exit, "Block Escape exit prompt", hotkeys, Live,
        "Block the exit prompt except for an enabled double-tap.");
   INT("interface", ui, disable_escape_exit_timer, "Escape double-tap interval", hotkeys, Live,
