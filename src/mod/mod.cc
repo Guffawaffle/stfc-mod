@@ -161,7 +161,7 @@ constexpr const Feature* kFeatures[] = {
     &kFleetNodeDepletion,
     // mining_preview.cc
     &kMiningPreview,
-    // System orbit is parked by product decision; its code is retained but not installed.
+    &kNavigationOrbit,
     // fleet_labels.cc
     &kFleetLabels,
     // galaxy.cc and galaxy_selection.cc reuse the existing navigation camera/LOD owners.

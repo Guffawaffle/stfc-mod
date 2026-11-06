@@ -1,0 +1,397 @@
+// Focused local fixture: reuse the controlled runtime without modifying its existing driver or CI registration.
+// Native pointer/rig observations are substituted; actual orbit callbacks, handles, focus/frame and camera calls run.
+#define main ExistingBindingsMain
+#include "il2cpp_bindings.cc"
+#undef main
+
+#include "game/navigation_orbit.h"
+
+namespace orbit_fixture
+{
+using Vector3 = unity::Vector3;
+struct Rig {
+  Il2CppObject header;
+  Vector3      angles{45, 0, 0};
+  Vector3      position{0, 0, -30};
+};
+struct Scene {
+  Il2CppObject header;
+  float        clip = 100, fov = 60;
+  int32_t      height = 1000;
+};
+struct Zoom {
+  Il2CppObject   header;
+  NodeDepth      depth    = NodeDepth::SolarSystem;
+  unity::Camera* camera   = nullptr;
+  float          distance = 30, normalized = 0;
+};
+struct Pan {
+  Il2CppObject                   header;
+  NodeDepth                      depth    = NodeDepth::SolarSystem;
+  unity::Camera*                 camera   = nullptr;
+  navigation_orbit_binding::Poi* tracking = nullptr;
+  Vector3                        center{};
+  float                          radius = 100, speed = .5f;
+  unity::Vector2                 drag{4, 2};
+};
+inline Rig*       rig       = nullptr;
+inline Scene*     scene     = nullptr;
+inline Zoom*      zoom      = nullptr;
+inline bool       in_system = true, pointer_allowed = true, pointer_known = true, binding_available = true;
+inline bool       field_available = true, view_available = true, binding_present = true;
+inline bool       clip_read_fails = false, clip_write_fails = false;
+inline int        view_sets = 0, pointer_reads = 0, anchor_sets = 0, clip_sets = 0;
+inline MethodInfo angles_tag{}, position_tag{}, forward_tag{};
+
+bool Focus(const MethodInfo*)
+{ return true; }
+float Clip(unity::Camera* object, const MethodInfo*)
+{
+  if (clip_read_fails)
+    throw Il2CppExceptionWrapper(&thrown);
+  return reinterpret_cast<Scene*>(object)->clip;
+}
+void SetClip(unity::Camera* object, float value, const MethodInfo*)
+{
+  ++clip_sets;
+  if (clip_write_fails)
+    throw Il2CppExceptionWrapper(&thrown);
+  reinterpret_cast<Scene*>(object)->clip = value;
+}
+float Fov(unity::Camera* object, const MethodInfo*)
+{ return reinterpret_cast<Scene*>(object)->fov; }
+int32_t Height(unity::Camera* object, const MethodInfo*)
+{ return reinterpret_cast<Scene*>(object)->height; }
+bool Near(Vector3 a, Vector3 b)
+{ return std::abs(a.x - b.x) < .001f && std::abs(a.y - b.y) < .001f && std::abs(a.z - b.z) < .001f; }
+} // namespace orbit_fixture
+
+namespace orbit_fixture_binding
+{
+using Vector3 = unity::Vector3;
+using Poi     = navigation_orbit_binding::Poi;
+bool Finite(Vector3 v)
+{ return navigation_orbit_binding::Finite(v); }
+template <il2cpp::Name N, class T, class B> il2cpp::CallResult<T> Field(B* object)
+{
+  if (!object || !orbit_fixture::field_available)
+    return {};
+  if constexpr (std::is_same_v<B, NavigationZoom>) {
+    const auto& value = *reinterpret_cast<orbit_fixture::Zoom*>(object);
+    if constexpr (N.View() == "_depth")
+      return {true, value.depth};
+    else if constexpr (N.View() == "_sceneCamera")
+      return {true, value.camera};
+    else if constexpr (N.View() == "_actualDistance")
+      return {true, value.distance};
+    else if constexpr (N.View() == "<NormalizedZoom>k__BackingField")
+      return {true, value.normalized};
+    else
+      return {};
+  } else if constexpr (std::is_same_v<B, NavigationPan>) {
+    const auto& value = *reinterpret_cast<orbit_fixture::Pan*>(object);
+    if constexpr (N.View() == "_nodeDepth")
+      return {true, value.depth};
+    else if constexpr (N.View() == "_sceneCamera")
+      return {true, value.camera};
+    else if constexpr (N.View() == "_trackingPOI")
+      return {true, value.tracking};
+    else if constexpr (N.View() == "_systemPosition")
+      return {true, value.center};
+    else if constexpr (N.View() == "_viewRadius")
+      return {true, value.radius};
+    else if constexpr (N.View() == "_dragDelta")
+      return {true, value.drag};
+    else if constexpr (N.View() == "_minPanSpeed")
+      return {true, value.speed};
+    else
+      return {};
+  } else
+    return {};
+}
+bool InSystem()
+{ return orbit_fixture::in_system; }
+bool Available()
+{ return orbit_fixture::binding_available; }
+il2cpp::CallResult<bool> PointerAvailable(bool)
+{
+  ++orbit_fixture::pointer_reads;
+  return {orbit_fixture::pointer_known, orbit_fixture::pointer_allowed};
+}
+il2cpp::CallResult<unity::Transform*> Transform(Il2CppObject*)
+{
+  return orbit_fixture::rig
+             ? il2cpp::CallResult<unity::Transform*>{true, reinterpret_cast<unity::Transform*>(orbit_fixture::rig)}
+             : il2cpp::CallResult<unity::Transform*>{};
+}
+template <il2cpp::Name N> const MethodInfo* VectorGetter()
+{
+  if constexpr (N.View() == "get_localEulerAngles")
+    return &orbit_fixture::angles_tag;
+  else if constexpr (N.View() == "get_position")
+    return &orbit_fixture::position_tag;
+  else
+    return &orbit_fixture::forward_tag;
+}
+il2cpp::CallResult<Vector3> Vector(const MethodInfo* method, Il2CppObject*)
+{
+  if (!orbit_fixture::rig || !orbit_fixture::view_available)
+    return {};
+  if (method == &orbit_fixture::angles_tag)
+    return {true, orbit_fixture::rig->angles};
+  if (method == &orbit_fixture::position_tag)
+    return {true, orbit_fixture::rig->position};
+  return {true, {0, 0, 1}};
+}
+bool SetView(unity::Transform*, Vector3 angles, float distance)
+{
+  if (!orbit_fixture::rig || !orbit_fixture::view_available)
+    return false;
+  ++orbit_fixture::view_sets;
+  orbit_fixture::rig->angles   = angles;
+  orbit_fixture::rig->position = {0, 0, -distance};
+  return true;
+}
+bool Reanchor(NavigationZoom*)
+{
+  ++orbit_fixture::anchor_sets;
+  return true;
+}
+} // namespace orbit_fixture_binding
+
+namespace orbit_under_test
+{
+void ApplyDrawDistance(NavigationZoom*);
+}
+// Backdrop behavior is outside this camera-control regression. The existing owner remains unchanged.
+namespace navigation_environment
+{
+void Clear() {}
+void ApplyDrawDistance(unity::Camera*) {}
+void Update(unity::Camera*) {}
+} // namespace navigation_environment
+namespace Shortcut
+{
+bool HasBinding(Action)
+{ return orbit_fixture::binding_present; }
+} // namespace Shortcut
+#define navigation_orbit orbit_under_test
+#define navigation_orbit_binding orbit_fixture_binding
+#include "../src/mod/features/navigation_orbit.cc"
+#undef navigation_orbit_binding
+#undef navigation_orbit
+
+namespace
+{
+int  orbit_checks = 0;
+void OrbitCheck(bool value, const char* message)
+{
+  ++orbit_checks;
+  Require(value, message);
+}
+
+void RunOrbitCases()
+{
+  using namespace orbit_fixture;
+  auto& camera_class    = Define("UnityEngine", "Camera", IL2CPP_TYPE_CLASS, &unity_object_class);
+  auto& transform_class = Define("UnityEngine", "Transform", IL2CPP_TYPE_CLASS, &unity_object_class);
+  auto& zoom_class      = Define("Digit.Prime.Navigation", "NavigationZoom", IL2CPP_TYPE_CLASS, &object_class);
+  auto& pan_class       = Define("Digit.Prime.Navigation", "NavigationPan", IL2CPP_TYPE_CLASS, &object_class);
+  auto& app_class       = Define("UnityEngine", "Application", IL2CPP_TYPE_CLASS, &object_class);
+  AddMethod(app_class, "get_isFocused", reinterpret_cast<void*>(&Focus), T(bool_class), {},
+            METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddMethod(camera_class, "get_farClipPlane", reinterpret_cast<void*>(&Clip), T(float_class), {});
+  AddMethod(camera_class, "set_farClipPlane", reinterpret_cast<void*>(&SetClip), T(void_class), {T(float_class)});
+  AddMethod(camera_class, "get_fieldOfView", reinterpret_cast<void*>(&Fov), T(float_class), {});
+  AddMethod(camera_class, "get_pixelHeight", reinterpret_cast<void*>(&Height), T(int_class), {});
+  Rig   transform{{&transform_class.klass}};
+  Scene camera{{&camera_class.klass}};
+  Zoom  object{{&zoom_class.klass}};
+  Pan   pan{{&pan_class.klass}};
+  rig           = &transform;
+  scene         = &camera;
+  zoom          = &object;
+  object.camera = pan.camera = reinterpret_cast<unity::Camera*>(&camera);
+  auto* owner                = reinterpret_cast<NavigationZoom*>(&object);
+  auto* panner               = reinterpret_cast<NavigationPan*>(&pan);
+  auto& config               = Config::Get();
+  OrbitCheck(!config.graphics.system_camera_orbit, "system orbit starts disabled independently of installed hooks");
+  config.control.hotkeys_enabled     = true;
+  config.control.use_scopely_hotkeys = false;
+  selected                           = nullptr;
+  has_event_system                   = true;
+  visual_alive                       = true;
+  const auto initial_roots           = warp_roots.size();
+  NavigationOrbit().installed        = true;
+  int        originals = 0, pans = 0, clamps = 0;
+  float      native_yaw = 0;
+  const auto frame      = [&] {
+    ++input_frame;
+    NavigationZoom_UpdateCameraPosition_OrbitHook(
+        [&](NavigationZoom* actual) {
+          OrbitCheck(actual == owner, "native zoom retains its receiver");
+          ++originals;
+          transform.angles   = {45, native_yaw, 0};
+          transform.position = {0, 0, -object.distance};
+        },
+        owner);
+  };
+  const auto bind_pan = [&] {
+    NavigationPan_MoveCamera_OrbitHook([&](NavigationPan*, unity::Vector2, bool) { ++pans; }, panner, {}, true);
+  };
+  const auto clamp = [&] {
+    return NavigationPan_ClampPositionInside_OrbitHook(
+        [&](NavigationPan*, unity::Vector3) {
+          ++clamps;
+          return unity::Vector3{1, 2, 3};
+        },
+        panner, {8, 9, 10});
+  };
+  fleet_native_keys = {Action::kNavigationOrbitDrag};
+  camera_mouse      = {10, 20, 0};
+  frame();
+  bind_pan();
+  OrbitCheck(originals == 1 && view_sets == 0 && !NavigationOrbit().zoom && camera.clip == 100,
+             "disabled orbit preserves native update, orientation, clip and ownership");
+  OrbitCheck(Near(clamp(), {1, 2, 3}) && clamps == 1, "disabled clamp remains native");
+
+  config.graphics.system_camera_orbit = true;
+  config.patches.navigationorbithooks = false;
+  OrbitCheck(NavigationOrbitEnabled(), "restart-only hook switch is not a live feature toggle after installation");
+  config.patches.navigationorbithooks = true;
+  frame();
+  bind_pan();
+  OrbitCheck(NavigationOrbit().zoom && NavigationOrbit().dragging && !NavigationOrbit().overridden,
+             "first held frame acquires system rig but does not jump orientation");
+  camera_mouse = {30, 50, 0};
+  frame();
+  OrbitCheck(NavigationOrbit().overridden && std::abs(transform.angles.y - 3) < .001f,
+             "subsequent pointer movement applies production yaw");
+  OrbitCheck(anchor_sets == 1, "rotation reanchors ordinary mouse zoom exactly once");
+  OrbitCheck(camera.clip > 100 && clip_sets > 0, "rotated system extends owned camera clip");
+  OrbitCheck(Near(clamp(), {8, 9, 10}) && clamps == 1, "only rotated system bypasses pan boundary");
+
+  fleet_native_keys = {Action::kNavigationOrbitReset};
+  frame();
+  OrbitCheck(!NavigationOrbit().overridden && Near(transform.angles, {45, 0, 0}), "reset restores native orientation");
+  OrbitCheck(camera.clip == 100, "reset restores the orbit-owned clip baseline");
+
+  fleet_native_keys = {Action::kNavigationOrbitDrag};
+  camera_mouse      = {10, 20, 0};
+  frame();
+  camera_mouse = {40, 20, 0};
+  frame();
+  OrbitCheck(NavigationOrbit().overridden && camera.clip > 100, "rotation can resume after reset");
+  config.graphics.system_camera_orbit = false;
+  frame();
+  OrbitCheck(!NavigationOrbit().zoom && !NavigationOrbit().overridden && Near(transform.angles, {45, 0, 0})
+                 && camera.clip == 100,
+             "live disable releases rig and restores owned orientation and clip");
+  OrbitCheck(warp_roots.size() == initial_roots, "disable releases all orbit roots");
+
+  const auto rotate = [&] {
+    config.graphics.system_camera_orbit = true;
+    camera_mouse                        = {10, 20, 0};
+    frame();
+    bind_pan();
+    camera_mouse = {40, 20, 0};
+    frame();
+    OrbitCheck(NavigationOrbit().overridden && camera.clip > 100, "cleanup retry begins from an owned clip");
+  };
+  rotate();
+  clip_read_fails                     = true;
+  config.graphics.system_camera_orbit = false;
+  frame();
+  OrbitCheck(!NavigationOrbit().zoom && NavigationOrbit().clip_camera && camera.clip > 100,
+             "unavailable clip read retains cleanup ownership rather than inventing zero or abandoning it");
+  clip_read_fails = false;
+  NavigationOrbitTick();
+  OrbitCheck(!NavigationOrbit().clip_camera && camera.clip == 100,
+             "later frame retries clip cleanup even after its zoom rig was released");
+  rotate();
+  clip_write_fails                    = true;
+  config.graphics.system_camera_orbit = false;
+  frame();
+  OrbitCheck(NavigationOrbit().clip_camera && camera.clip > 100,
+             "failed native clip setter keeps the original baseline and its cleanup owner");
+  clip_write_fails = false;
+  NavigationOrbitTick();
+  OrbitCheck(!NavigationOrbit().clip_camera && camera.clip == 100,
+             "transient native setter failure can recover without re-enabling orbit");
+  OrbitCheck(warp_roots.size() == initial_roots, "completed retry cleanup releases every retained camera root");
+
+  config.graphics.system_camera_orbit = true;
+  camera_mouse                        = {10, 20, 0};
+  frame();
+  bind_pan();
+  camera_mouse = {40, 20, 0};
+  frame();
+  camera.clip                         = 222;
+  config.graphics.system_camera_orbit = false;
+  frame();
+  OrbitCheck(camera.clip == 222, "disable cannot overwrite a newer native or other-feature clip value");
+
+  config.graphics.system_camera_orbit = true;
+  camera.clip                         = 100;
+  camera_mouse                        = {10, 20, 0};
+  frame();
+  bind_pan();
+  camera_mouse = {40, 20, 0};
+  frame();
+  OrbitCheck(NavigationOrbit().overridden, "native-rig replacement begins from an actual orbit override");
+  const auto before_new_rig = view_sets;
+  native_yaw                = 17;
+  frame();
+  OrbitCheck(!NavigationOrbit().zoom && !NavigationOrbit().overridden && transform.angles.y == 17
+                 && view_sets == before_new_rig,
+             "post-native rig rejection never overwrites newly authored native yaw with an old orientation");
+  OrbitCheck(camera.clip == 100, "native rig replacement releases its orbit-owned clip extension");
+  native_yaw  = 0;
+  camera.clip = 222;
+
+  config.graphics.system_camera_orbit = true;
+  const auto before_views             = view_sets;
+  in_system                           = false;
+  object.depth                        = NodeDepth::Galaxy;
+  frame();
+  bind_pan();
+  OrbitCheck(!NavigationOrbit().zoom && view_sets == before_views && camera.clip == 222,
+             "Galaxy remains native even with the system setting enabled");
+  object.depth = NodeDepth::Starbase;
+  frame();
+  OrbitCheck(!NavigationOrbit().zoom && view_sets == before_views,
+             "station or Haven sections never acquire the system rig");
+
+  in_system       = true;
+  object.depth    = NodeDepth::SolarSystem;
+  pointer_allowed = false;
+  camera_mouse    = {10, 20, 0};
+  frame();
+  camera_mouse = {50, 20, 0};
+  frame();
+  OrbitCheck(!NavigationOrbit().overridden && view_sets == before_views,
+             "pointer-owned UI blocks starting system rotation");
+  pointer_allowed = true;
+  pointer_known   = false;
+  frame();
+  OrbitCheck(!NavigationOrbit().installed && !NavigationOrbit().zoom,
+             "unavailable pointer capability retains native behavior and disables this orbit owner");
+  pointer_known     = true;
+  binding_available = false;
+  OrbitCheck(!InstallNavigationOrbit(), "unavailable installation capability refuses orbit hooks");
+  OrbitCheck(warp_roots.size() == initial_roots, "failure paths release every retained rig");
+  fleet_native_keys.clear();
+  std::cout << "System orbit production callbacks: " << orbit_checks << " checks passed\n";
+}
+} // namespace
+
+int main()
+try {
+  BuildRuntime();
+  il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  RunOrbitCases();
+  return 0;
+} catch (const std::exception& error) {
+  std::cerr << error.what() << '\n';
+  return 1;
+}

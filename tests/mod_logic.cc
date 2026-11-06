@@ -569,8 +569,17 @@ void FrozenSettingsDefaults()
         Check(same, "actual frozen loader defaults survive missing and mistyped settings");
       }
     Check(!candidate->graphics.galaxy_overlays[1] && candidate->graphics.galaxy_overlays[0]
-              && !candidate->patches.navigationorbithooks,
-          "source overlay fallback and deliberately parked orbit stay distinct");
+              && candidate->patches.navigationorbithooks && !candidate->graphics.system_camera_orbit,
+          "source overlay fallback and opt-in system rotation stay distinct");
+  }
+  {
+    toml::table parsed;
+    const auto  enabled = Config::Parse(
+        toml::parse("[graphics]\nsystem_camera_orbit=true\n[patches]\nnavigationorbithooks=false"), parsed, false);
+    Check(enabled->graphics.system_camera_orbit && !enabled->patches.navigationorbithooks,
+          "rotation preference and restart-only hook switch parse independently");
+    const auto mistyped = Config::Parse(toml::parse("[graphics]\nsystem_camera_orbit=[]"), parsed, false);
+    Check(!mistyped->graphics.system_camera_orbit, "mistyped system rotation preference retains its disabled default");
   }
   toml::table effective;
   const auto  experimental = Config::Parse(toml::parse("[control]\nenable_experimental=true"), effective, false);

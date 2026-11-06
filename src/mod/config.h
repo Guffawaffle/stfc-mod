@@ -156,7 +156,7 @@ public:
     bool loadingtiphooks            = true;
     bool miscpatches                = true;
     bool missionhudtweakshooks      = true;
-    bool navigationorbithooks       = false; // Parked; not registered in the current product.
+    bool navigationorbithooks       = true;
     bool objecttracker              = true;
     bool officerpresetreorderhooks  = true;
     bool officersorthooks           = true;
@@ -213,6 +213,8 @@ public:
     float zoom             = 5000.0f;
     float haven_zoom       = 4000.0f;
     bool  hide_haven_water = false;
+    // Opt-in system rotation; hook installation remains a separate restart-only compatibility switch.
+    bool system_camera_orbit = false;
     // A multiple of the station interior's own zoom-out distance, at least 1.
     float             interior_zoom_scale = 2.0f;
     float             fr_scale            = 2.0f;

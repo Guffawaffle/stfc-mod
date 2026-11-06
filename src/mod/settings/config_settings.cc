@@ -460,6 +460,14 @@ void RegisterConfigSettings(PageCatalog& catalog)
         "distance", 0, largest, 6000, 50);
   BOOL("camera", graphics, hide_haven_water, "Hide Haven water", Owner("HavenZoom"), Live,
        "Hide water while in Haven.");
+  const Available system_orbit = [] {
+    return std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
+      return feature.name && std::string_view(feature.name) == "NavigationOrbit"
+             && feature.state == InstallState::kInstalled && feature.frame_ready;
+    });
+  };
+  BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
+       "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");
 
   FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
         "multiplier", 0, largest, 2, .05f);

@@ -23,10 +23,11 @@ namespace system_orbit = navigation_orbit_binding;
 using OrbitVector3     = unity::Vector3;
 
 struct NavigationOrbitState {
-  il2cpp::GcHandle zoom, transform, pan;
+  il2cpp::GcHandle zoom, transform, pan, clip_camera;
   NodeDepth        depth = NodeDepth::Starbase;
   OrbitVector3     native_angles{};
-  float            distance = 0;
+  float            distance    = 0;
+  float            native_clip = 0, applied_clip = 0;
   float            yaw = 0, pitch = 0, x = 0, y = 0;
   int32_t          frame     = -1;
   bool             installed = false, dragging = false, overridden = false;
@@ -41,19 +42,41 @@ NavigationOrbitState& NavigationOrbit()
 bool NavigationOrbitEnabled()
 {
   const auto& config = Config::Get();
-  return NavigationOrbit().installed && config.patches.navigationorbithooks && config.control.hotkeys_enabled
+  return NavigationOrbit().installed && config.graphics.system_camera_orbit && config.control.hotkeys_enabled
          && !config.control.use_scopely_hotkeys && Shortcut::HasBinding(Action::kNavigationOrbitDrag);
 }
-void NavigationOrbitClear()
+bool NavigationOrbitRestoreClip()
+{
+  auto& state  = NavigationOrbit();
+  auto* camera = state.clip_camera.Get<unity::Camera>();
+  if (camera) {
+    const auto alive = unity::TryAlive(camera);
+    if (!alive)
+      return false;
+    if (alive.value) {
+      const auto clip = camera->TryCall<"get_farClipPlane", float>();
+      if (!clip)
+        return false;
+      // Restore only a value still owned by orbit. A later zoom/native owner wins.
+      if (clip.value == state.applied_clip && !camera->TryCall<"set_farClipPlane">(state.native_clip))
+        return false;
+    }
+  }
+  state.clip_camera = {};
+  state.native_clip = state.applied_clip = 0;
+  return true;
+}
+void NavigationOrbitClear(bool restore_view = true)
 {
   navigation_environment::Clear();
   auto& state     = NavigationOrbit();
   auto* transform = state.transform.Get<unity::Transform>();
-  if (state.overridden && transform) {
+  if (restore_view && state.overridden && transform) {
     const auto alive = unity::TryAlive(transform);
     if (alive && alive.value)
       (void)system_orbit::SetView(transform, state.native_angles, state.distance);
   }
+  NavigationOrbitRestoreClip();
   state.zoom          = {};
   state.transform     = {};
   state.pan           = {};
@@ -67,7 +90,7 @@ void NavigationOrbitFail(const char* operation)
 {
   NavigationOrbitClear();
   NavigationOrbit().installed = false;
-  spdlog::warn("[NavigationOrbit] {} unavailable; native orientation restored and orbit disabled", operation);
+  spdlog::warn("[NavigationOrbit] {} unavailable; orbit disabled after camera cleanup", operation);
 }
 bool NavigationOrbitSection()
 {
@@ -80,6 +103,9 @@ bool NavigationOrbitSection()
 void NavigationOrbitTick()
 {
   auto& state = NavigationOrbit();
+  // Failed observations do not release ownership. Finish pending cleanup even after the zoom rig was cleared.
+  if (!state.overridden)
+    NavigationOrbitRestoreClip();
   if (!state.zoom)
     return;
   if (!NavigationOrbitEnabled() || !NavigationOrbitSection()) {
@@ -117,6 +143,7 @@ void NavigationOrbitTick()
     changed          = state.overridden;
     state.overridden = state.dragging = false;
     navigation_environment::Clear();
+    NavigationOrbitRestoreClip();
     state.yaw = 0;
   } else {
     const auto position = unity::Input::TryMousePosition();
@@ -235,8 +262,19 @@ void NavigationOrbitDrawDistance(NavigationZoom* zoom)
       std::hypot(double(position.value.x) - center.value.x, double(position.value.y) - center.value.y,
                  double(position.value.z) - center.value.z);
   const double required = distance + 4.0 * radius.value;
-  if (required > baseline.value && required <= std::numeric_limits<float>::max())
-    (void)camera.value->TryCall<"set_farClipPlane">(float(required));
+  if (required > baseline.value && required <= std::numeric_limits<float>::max()) {
+    if (state.clip_camera && state.clip_camera.Get() != camera.value && !NavigationOrbitRestoreClip())
+      return;
+    const bool owned   = state.clip_camera.Get() == camera.value && baseline.value == state.applied_clip;
+    auto       owner   = il2cpp::GcHandle::Strong(camera.value);
+    const auto applied = float(required);
+    if (owner && camera.value->TryCall<"set_farClipPlane">(applied)) {
+      if (!owned)
+        state.native_clip = baseline.value;
+      state.applied_clip = applied;
+      state.clip_camera  = std::move(owner);
+    }
+  }
   navigation_environment::ApplyDrawDistance(camera.value);
 }
 void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom* _this)
@@ -269,7 +307,8 @@ void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom
     if (!std::exchange(reported, true))
       spdlog::warn("[NavigationOrbit] native rig differs; native view retained (same-transform={} yaw={} roll={})",
                    transform_root.Get() == camera_transform_root.Get(), angles.value.y, angles.value.z);
-    NavigationOrbitClear();
+    // original() already authored the new native rig; do not overwrite it with our previous orientation.
+    NavigationOrbitClear(false);
     return;
   }
   if (!state.zoom) {
