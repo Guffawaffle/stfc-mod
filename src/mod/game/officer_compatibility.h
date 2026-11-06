@@ -29,6 +29,11 @@ struct SortComparer : il2cpp::Object {
 struct Context : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Officers", "OfficerFilterContext">;
 
+  static il2cpp::Method ConstructorMethod()
+  {
+    const auto method = Class::Method<void()>(".ctor");
+    return method && method.Info()->klass == Class::Raw() ? method : il2cpp::Method{};
+  }
   SettingsContainerContext* AbilityOptions()
   { return Get<"AbilityOptionContext", SettingsContainerContext*>(); }
   static il2cpp::Method AddToggleMethod()

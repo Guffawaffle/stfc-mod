@@ -8,6 +8,7 @@
 #include "settings/native_row_insertion.h"
 #include "settings/native_row_quarantine.h"
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <il2cpp/hook.h>
 #include <map>
@@ -66,12 +67,14 @@ struct CompatibilityContext {
   il2cpp::GcHandle                                    owner, parent;
   CompatibilityPolicy                                 pending, committed;
   std::array<CompatibilityRow, kCompatibilityOptions> rows;
-  bool                                                dirty        = true;
-  bool                                                updating     = false;
-  bool                                                appending    = false;
-  bool                                                usable       = true;
-  bool                                                ui_failed    = false;
-  bool                                                parent_bound = false;
+  bool                                                dirty           = true;
+  bool                                                updating        = false;
+  bool                                                appending       = false;
+  bool                                                usable          = true;
+  bool                                                ui_failed       = false;
+  bool                                                parent_bound    = false;
+  bool                                                controls_logged = false;
+  bool                                                callback_failed = false;
 };
 struct OfficerCompatibilityState {
   std::map<ocb::Context*, std::shared_ptr<CompatibilityContext>>              contexts;
@@ -84,12 +87,15 @@ struct OfficerCompatibilityState {
   Throttle        maintenance{std::chrono::milliseconds(250)};
   Throttle        service_probe{std::chrono::seconds(1)};
   std::thread::id thread;
-  uint64_t        revision    = 0;
-  bool            ready       = false;
-  bool            enabled     = true;
-  bool            active      = false;
-  bool            full_logged = false;
-  bool            ui_logged   = false;
+  uint64_t        revision          = 0;
+  bool            ready             = false;
+  bool            enabled           = true;
+  bool            active            = false;
+  bool            full_logged       = false;
+  bool            ui_logged         = false;
+  bool            callback_logged   = false;
+  bool            terminal_logged   = false;
+  uint64_t        terminal_revision = 0;
 };
 OfficerCompatibilityState& OfficerCompatibility()
 {
@@ -99,7 +105,15 @@ OfficerCompatibilityState& OfficerCompatibility()
 bool OfficerCompatibilityThread()
 {
   const auto& state = OfficerCompatibility();
-  return state.active && state.thread == std::this_thread::get_id();
+  if (!state.active)
+    return false;
+  if (state.thread == std::this_thread::get_id())
+    return true;
+  static std::atomic_flag logged = ATOMIC_FLAG_INIT;
+  if (!logged.test_and_set())
+    spdlog::warn(
+        "[OfficerCompatibility] Native callback rejected outside the installation thread; preserving native behavior.");
+  return false;
 }
 std::shared_ptr<CompatibilityContext> FindCompatibilityContext(ocb::Context* context)
 {
@@ -114,6 +128,12 @@ void CompatibilityUiFailure()
   auto& state = OfficerCompatibility();
   if (!std::exchange(state.ui_logged, true))
     spdlog::warn("[OfficerCompatibility] Native filter controls could not be qualified; preserving native filtering.");
+}
+void CompatibilityCallbackFailure(const std::shared_ptr<CompatibilityContext>& context, const char* stage)
+{
+  auto& logged = context ? context->callback_failed : OfficerCompatibility().callback_logged;
+  if (!std::exchange(logged, true))
+    spdlog::warn("[OfficerCompatibility] Native callback could not qualify {}; preserving native behavior.", stage);
 }
 void ProbeCompatibilityService()
 {
@@ -206,7 +226,11 @@ template <size_t Index> bool CompatibilityGetter(Il2CppObject* owner, const Meth
     return false;
   auto* context = reinterpret_cast<il2cpp::Object*>(owner)->As<ocb::Context>();
   auto  state   = context ? FindCompatibilityContext(context) : nullptr;
-  return SameCompatibilityParent(context, state) && state->pending.Option(Index);
+  if (!SameCompatibilityParent(context, state)) {
+    CompatibilityCallbackFailure(state, "its current context and parent");
+    return false;
+  }
+  return state->pending.Option(Index);
 }
 template <size_t Index> void CompatibilitySetter(Il2CppObject* owner, bool value, const MethodInfo*)
 {
@@ -214,16 +238,24 @@ template <size_t Index> void CompatibilitySetter(Il2CppObject* owner, bool value
     return;
   auto* context = reinterpret_cast<il2cpp::Object*>(owner)->As<ocb::Context>();
   auto  state   = context ? FindCompatibilityContext(context) : nullptr;
-  if (!SameCompatibilityParent(context, state) || state->ui_failed || state->updating || state->appending)
+  if (!SameCompatibilityParent(context, state)) {
+    CompatibilityCallbackFailure(state, "its current context and parent");
+    return;
+  }
+  if (state->ui_failed || state->updating || state->appending)
     return;
   const auto& slot = state->rows[Index];
   auto        row  = il2cpp::GcHandle::Strong(slot.row.Get());
-  if (!slot.configured || !row)
+  if (!slot.configured || !row) {
+    CompatibilityCallbackFailure(state, "its configured control");
     return;
+  }
   const auto member = ocb::Contains(state->parent.Get<SettingsContainerContext>(), row.Get());
   const auto owned  = row.Get<ToggleOptionContext>()->CreatedWith(slot.getter.Get(), slot.setter.Get());
-  if (!member || !*member || !owned || !*owned)
+  if (!member || !*member || !owned || !*owned) {
+    CompatibilityCallbackFailure(state, "its control membership and delegates");
     return;
+  }
   if (state->pending.Option(Index) != value) {
     state->pending.Option(Index) = value;
     state->dirty                 = true;
@@ -296,6 +328,10 @@ void AppendCompatibilityRows(ocb::Context* context, const std::shared_ptr<Compat
     }
   }
   state->appending = false;
+  if (!state->controls_logged && std::ranges::all_of(state->rows, [](const auto& row) { return row.configured; })) {
+    state->controls_logged = true;
+    spdlog::info("[OfficerCompatibility] Seven native filter controls configured.");
+  }
 }
 void CompleteCompatibilityContext(ocb::Context* context, const std::shared_ptr<CompatibilityContext>& state)
 {
@@ -342,37 +378,45 @@ void OfficerCompatibility_InitFilters_Hook(auto original, ocb::Context* _this)
   }
   state        = std::make_shared<CompatibilityContext>();
   state->owner = il2cpp::GcHandle::Weak(_this);
-  if (!state->owner)
+  if (!state->owner) {
+    CompatibilityCallbackFailure({}, "its filter context lifetime");
     return;
+  }
   adapter.contexts.insert_or_assign(_this, state);
+  spdlog::info("[OfficerCompatibility] Native filter context registered; control setup pending.");
   ProbeCompatibilityService();
   // Native construction creates AbilityOptionContext after this method returns.
-  // The factory hook completes rows before its caller can bind the panel.
+  // The constructor post-hook completes rows before its caller can bind the panel.
 }
-ocb::Context* OfficerCompatibility_CreateContext_Hook(auto original)
+void OfficerCompatibility_Constructor_Hook(auto original, ocb::Context* _this)
 {
-  auto* context = original();
-  if (context && OfficerCompatibilityThread()) {
-    auto root = il2cpp::GcHandle::Strong(context);
+  original(_this);
+  if (_this && OfficerCompatibilityThread()) {
+    auto root = il2cpp::GcHandle::Strong(_this);
     if (root)
       CompleteCompatibilityContext(root.template Get<ocb::Context>(),
                                    FindCompatibilityContext(root.template Get<ocb::Context>()));
   }
-  return context;
 }
 bool OfficerCompatibility_Outposts_Hook(auto original, ocb::Context* _this, il2cpp::Object* argument)
 {
   if (!OfficerCompatibilityThread() || !Config::Get().ui.officer_compatibility_filter)
     return original(_this, argument);
   const auto state = FindCompatibilityContext(_this);
-  if (!state || !state->usable || !state->parent.Get() || state->ui_failed || !state->pending.use_compatibility)
+  if (!state || !state->usable || !state->parent.Get() || state->ui_failed) {
+    CompatibilityCallbackFailure(state, "its filter context and option parent");
+    return original(_this, argument);
+  }
+  if (!state->pending.use_compatibility)
     return original(_this, argument);
   const auto& policy = state->pending;
   if (policy.specialists_only && !policy.unresolved_only)
     return original(_this, argument);
   const auto id = ocb::OfficerId(argument);
-  if (!id)
+  if (!id) {
+    CompatibilityCallbackFailure(state, "its native officer argument");
     return original(_this, argument);
+  }
   const int role_mask = policy.RoleMask();
   if (!role_mask)
     return false;
@@ -418,6 +462,15 @@ void OfficerCompatibilityTick()
   const bool enabled  = Config::Get().ui.officer_compatibility_filter;
   const bool ready    = bridge::Ready();
   const auto revision = bridge::Revision();
+  if ((ready || bridge::Unavailable()) && (!adapter.terminal_logged || adapter.terminal_revision != revision)) {
+    adapter.terminal_logged   = true;
+    adapter.terminal_revision = revision;
+    if (ready)
+      spdlog::info("[OfficerCompatibility] Catalog ready at revision {}.", revision);
+    else
+      spdlog::warn("[OfficerCompatibility] Catalog unavailable at revision {}: {}; preserving native filtering.",
+                   revision, bridge::FailureReason());
+  }
   if (enabled != adapter.enabled || ready != adapter.ready || revision != adapter.revision) {
     for (const auto& [context, state] : adapter.contexts) {
       if (!enabled)
@@ -474,8 +527,8 @@ bool InstallOfficerCompatibility()
     if (!state.getters[i].Initialize(get.Info(), getters[i]) || !state.setters[i].Initialize(set.Info(), setters[i]))
       return false;
   il2cpp::HookSet hooks("OfficerCompatibility");
-  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ocb::Context::Class::StaticMethod<ocb::Context*()>("CreateContext")),
-                  OfficerCompatibility_CreateContext_Hook);
+  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ocb::Context::ConstructorMethod()),
+                  OfficerCompatibility_Constructor_Hook);
   IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(ocb::Context::Class::Method<void()>("InitFilters")),
                   OfficerCompatibility_InitFilters_Hook);
   IL2CPP_STAGE_AT(hooks,
