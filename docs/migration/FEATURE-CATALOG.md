@@ -88,7 +88,7 @@ when their migration is deferred.
 | PLAY-CAMERA-BACKDROP | Planet/backdrop scale without compounding | Implemented, unverified | mods/src/patches/parts/zoom.cc |
 | PLAY-CAMERA-PAN | System pan and glide with modal gates | Implemented, unverified | mods/src/patches/parts/fix_pan.cc |
 | PLAY-CAMERA-STATION | Exterior rotation and interior zoom restoration | Implemented, unverified | mods/src/patches/parts/interior_zoom.cc |
-| PLAY-SYSTEM-ORBIT | System orbit/free pan/environment artwork | Intentionally excluded | mods/src/patches/parts/navigation_orbit.cc |
+| PLAY-SYSTEM-ORBIT | Configurable system camera rotation controls | Default-on restoration; native Mac gameplay unverified | [Current contract](features/PLAY-SYSTEM-ORBIT.md) |
 | PLAY-HAVEN-ZOOM | Qualified planetary zoom | Implemented, unverified | mods/src/patches/parts/haven_zoom.cc |
 | PLAY-HAVEN-VISUALS | Reversible road depth and water visibility | Implemented, unverified | mods/src/patches/parts/haven_road_depth.cc |
 | PLAY-HAVEN-ORBIT | Haven right-drag and modifier reset | Implemented, unverified | mods/src/patches/parts/haven_zoom.cc |

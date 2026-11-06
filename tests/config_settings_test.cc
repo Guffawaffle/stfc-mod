@@ -40,6 +40,7 @@ size_t                                        path_reads = 0, ship_rescales = 0,
 size_t                                        fleet_label_refreshes = 0;
 size_t                                        galaxy_refreshes      = 0;
 bool                                          starbase_available    = false;
+bool                                          orbit_available       = true;
 size_t                                        save_calls            = 0;
 std::vector<FeatureInstallation>              features;
 std::set<std::string>                         registered;
@@ -206,6 +207,11 @@ void Refresh()
 { ++galaxy_refreshes; }
 void SetOverlay(int32_t, bool) {}
 } // namespace galaxy_controls
+namespace navigation_orbit
+{
+bool Available()
+{ return orbit_available; }
+} // namespace navigation_orbit
 namespace mission_hud
 {
 bool Available() noexcept
@@ -752,7 +758,45 @@ int main()
         "extended action availability follows the active tier");
   Config::Get().control.hotkeys_extended = true;
   Check(!ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
-        "parked system orbit remains unavailable");
+        "system rotation shortcuts require their own installed owner");
+  auto* orbit = Find<BooleanSetting>(catalog, "graphics.system_camera_orbit");
+  Check(orbit && registered.contains("graphics.system_camera_orbit") && !orbit->Observe().state.known(),
+        "system rotation setting is registered but unavailable without its own hooks");
+  Enable("NavigationOrbit");
+  Check(orbit->Observe().state.known() && orbit->Observe().state.value == true,
+        "qualified system rotation owner exposes an enabled default preference");
+  Check(ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known()
+            && ShortcutEditorSetting(Action::kNavigationOrbitReset)->Observe().state.known(),
+        "default-enabled system rotation exposes both shortcut editors");
+  Check(orbit->SetFromUser(false, orbit->Observe()).outcome == Outcome::AppliedVerified
+            && !Config::Get().graphics.system_camera_orbit && !std::get<bool>(saved.at("graphics.system_camera_orbit")),
+        "system rotation can be explicitly disabled and persisted despite its enabled default");
+  Check(!ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
+        "system rotation shortcuts remain inactive while the feature is off");
+  Check(orbit->SetFromUser(true, orbit->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().graphics.system_camera_orbit && std::get<bool>(saved.at("graphics.system_camera_orbit")),
+        "system rotation preference applies live and persists its own graphics key");
+  Check(ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known()
+            && ShortcutEditorSetting(Action::kNavigationOrbitReset)->Observe().state.known(),
+        "enabled system rotation exposes both shortcut editors");
+  features.back().frame_ready = false;
+  Check(!orbit->Observe().state.known()
+            && !ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
+        "unavailable system rotation frame delivery disables setting and shortcuts");
+  features.back().frame_ready           = true;
+  orbit_available                      = false;
+  Check(!orbit->Observe().state.known()
+            && !ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known()
+            && !ShortcutEditorSetting(Action::kNavigationOrbitReset)->Observe().state.known(),
+        "runtime orbit failure disables setting and shortcuts despite a successful startup record");
+  orbit_available                      = true;
+  Config::Get().control.hotkeys_enabled = false;
+  Check(!ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
+        "system rotation shortcut availability follows mod shortcut enablement");
+  Config::Get().control.hotkeys_enabled = true;
+  Check(orbit->SetFromUser(false, orbit->Observe()).outcome == Outcome::AppliedVerified
+            && !Config::Get().graphics.system_camera_orbit,
+        "system rotation can be disabled live independently of hook installation");
   Config::Get().control.use_scopely_hotkeys = true;
   Check(!shortcuts->Observe().state.known(), "native shortcut mode disables mod shortcut editing");
   Config::Get().control.use_scopely_hotkeys = false;
