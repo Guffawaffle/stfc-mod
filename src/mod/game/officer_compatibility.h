@@ -160,7 +160,7 @@ template <typename Manager, il2cpp::Name Field> SpecService* ExistingCachedServi
   auto       owner    = il2cpp::GcHandle::Strong(existing ? existing.value : nullptr);
   if (!owner)
     return nullptr;
-  auto*             manager   = owner.Get<Manager>();
+  auto*             manager   = owner.template Get<Manager>();
   static auto*      field     = il2cpp::detail::ResolveField(Manager::Class::Raw(), Field.View(),
                                                              il2cpp::detail::SlotOf<CachedSpecService>(), false);
   static const bool qualified = [] {

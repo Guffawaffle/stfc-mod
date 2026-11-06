@@ -355,7 +355,8 @@ ocb::Context* OfficerCompatibility_CreateContext_Hook(auto original)
   if (context && OfficerCompatibilityThread()) {
     auto root = il2cpp::GcHandle::Strong(context);
     if (root)
-      CompleteCompatibilityContext(root.Get<ocb::Context>(), FindCompatibilityContext(root.Get<ocb::Context>()));
+      CompleteCompatibilityContext(root.template Get<ocb::Context>(),
+                                   FindCompatibilityContext(root.template Get<ocb::Context>()));
   }
   return context;
 }
