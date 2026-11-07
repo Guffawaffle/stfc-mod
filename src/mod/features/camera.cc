@@ -367,9 +367,12 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
 
   // The jump on entering a system is not keyboard input, so it happens even while a text field has focus.
   bool run_game_update = true;
-  if (TakeDefaultZoom(_this))
-    ZoomAtMouse(_this, Config::Get().graphics.default_system_zoom, true);
-  else if (!unity::Key::IsInputFocused())
+  if (TakeDefaultZoom(_this)) {
+    // Zero preserves the game's entry zoom. Consume this camera's pending entry even when no jump is requested.
+    const auto default_zoom = Config::Get().graphics.default_system_zoom;
+    if (default_zoom != 0.0f)
+      ZoomAtMouse(_this, default_zoom, true);
+  } else if (!unity::Key::IsInputFocused())
     run_game_update = KeyboardZoom(_this);
   if (!run_game_update) {
     camera_update.Complete();

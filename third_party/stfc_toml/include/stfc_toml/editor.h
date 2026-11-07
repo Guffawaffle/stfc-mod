@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <iterator>
 #include <map>
@@ -86,6 +88,18 @@ inline toml::table Parse(std::string_view text)
 }
 inline std::string Render(const toml::node& value)
 {
+  if (const auto* number = value.as_floating_point(); number && std::isfinite(number->get())) {
+    // A shortest round-trip double token preserves the exact value without the
+    // formatter's decimal expansion. Keep integer-looking tokens typed as floats.
+    char       text[64];
+    const auto written = std::to_chars(text, text + sizeof(text), number->get());
+    if (written.ec != std::errc{})
+      throw Failure("InvalidValue");
+    std::string encoded(text, written.ptr);
+    if (encoded.find_first_of(".eE") == std::string::npos)
+      encoded += ".0";
+    return encoded;
+  }
   std::ostringstream output;
   output.exceptions(std::ios::badbit | std::ios::failbit);
   output << toml::toml_formatter(value, toml::format_flags::none);

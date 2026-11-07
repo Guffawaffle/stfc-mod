@@ -45,5 +45,18 @@
       "git_blob": "92918638823add97ba71b1f1b0f88054a68c0f08",
       "scope": "fixture-only; never product-linked"
     }
+  ],
+  "local_patches": [
+    {
+      "id": "shortest-lossless-scalar-floats",
+      "description": "Render finite scalar floating-point nodes as shortest round-trip double tokens, adding .0 when needed to preserve TOML floating-point type. Other nodes retain the original formatter.",
+      "files": [
+        {
+          "local_path": "include/stfc_toml/editor.h",
+          "bytes": 27934,
+          "sha256": "08c43dc25fc001dee84d2a89432832afa9a629842a5280fffb765bc9fdc7e95c"
+        }
+      ]
+    }
   ]
 }
