@@ -1,10 +1,15 @@
+#include "config_number.h"
 #include "config_save.h"
 #include "config_save_fixture.h"
 #include "toml_editor.h"
+#include <stfc_toml/editor.h>
+#include <bit>
 #include <cassert>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <sstream>
 
 using namespace config_edit;
 static Request Mode(std::optional<Value> expected, std::string desired)
@@ -75,6 +80,59 @@ int main()
   assert(numeric.outcome == Outcome::Prepared && numeric.text == "[graphics]\nthreshold = 0.75 # keep\n");
   assert(editor.Prepare("[graphics]\nthreshold = 0.6\n", {"graphics", "threshold", Value{0.5}, 0.75}).outcome
          == Outcome::Conflict);
+  // The engine renders finite scalar doubles losslessly; its preparation pass
+  // must not re-expand the adapter's already canonicalized float-origin token.
+  assert(stfc::toml_edit::Render(toml::value(.55)) == "0.55");
+  assert(stfc::toml_edit::Render(toml::value(1750.0)) == "1750.0");
+  assert(stfc::toml_edit::Render(toml::value(-0.0)) == "-0.0");
+  // Float-origin values use short tokens without losing their original bits.
+  // Check through the production TOML float reader, including its range checks.
+  for (const float value : {.55f, .7f, .26f, .1234567f, 1e-8f, -0.0f,
+                            std::numeric_limits<float>::denorm_min(), std::numeric_limits<float>::min(),
+                            std::numeric_limits<float>::max(), -std::numeric_limits<float>::max()}) {
+    const auto canonical = config_number::ForToml(value);
+    const auto edit = editor.Prepare("[graphics]\nthreshold = 0.5 # keep\n",
+                                     {"graphics", "threshold", Value{0.5}, canonical});
+    assert(edit.outcome == Outcome::Prepared);
+    const auto parsed_float = toml::parse(edit.text)["graphics"]["threshold"].value<float>();
+    assert(parsed_float && std::bit_cast<uint32_t>(*parsed_float) == std::bit_cast<uint32_t>(value));
+    assert(editor.Prepare(edit.text, {"graphics", "threshold", Value{canonical}, canonical}).outcome
+           == Outcome::AlreadySaved);
+  }
+  const auto short_float = editor.Prepare("[graphics]\nthreshold = 0.5 # keep\n",
+                                           {"graphics", "threshold", Value{0.5}, config_number::ForToml(.55f)});
+  assert(short_float.text == "[graphics]\nthreshold = 0.55 # keep\n");
+  const double genuine_double = 0.55000001192092896;
+  assert(config_number::ForToml(genuine_double) == genuine_double);
+  const auto precise_double = editor.Prepare("[graphics]\nthreshold = 0.5 # keep\n",
+                                              {"graphics", "threshold", Value{0.5},
+                                               config_number::ForToml(genuine_double)});
+  assert(toml::parse(precise_double.text)["graphics"]["threshold"].value<double>() == genuine_double);
+  assert(precise_double.text != short_float.text);
+  for (const double value : {std::numeric_limits<double>::denorm_min(), std::numeric_limits<double>::min(),
+                             std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(),
+                             std::nextafter(.55, 0.0), -0.0}) {
+    const auto edit = editor.Prepare("[graphics]\nthreshold = 0.5 # keep\n",
+                                     {"graphics", "threshold", Value{0.5}, value});
+    if (value == std::numeric_limits<double>::denorm_min() && edit.outcome == Outcome::Unsupported) {
+      // Some pinned parser providers reject double subnormals even in the old
+      // formatter's output. Keep that safe refusal; do not skip supported values.
+      std::ostringstream legacy;
+      legacy << toml::toml_formatter(toml::value(value), toml::format_flags::none);
+      bool legacy_rejected = false;
+      try {
+        (void)toml::parse("threshold = " + legacy.str());
+      } catch (const toml::parse_error&) {
+        legacy_rejected = true;
+      }
+      assert(legacy_rejected && edit.text.empty());
+      continue;
+    }
+    assert(edit.outcome == Outcome::Prepared);
+    const auto restored = toml::parse(edit.text)["graphics"]["threshold"].value<double>();
+    assert(restored && std::bit_cast<uint64_t>(*restored) == std::bit_cast<uint64_t>(value));
+    assert(editor.Prepare(edit.text, {"graphics", "threshold", Value{value}, value}).outcome == Outcome::AlreadySaved);
+  }
   const auto integer =
       editor.Prepare("[graphics]\nthreshold = 0\n", {"graphics", "threshold", Value{std::int64_t{0}}, 0.5});
   assert(integer.outcome == Outcome::Prepared

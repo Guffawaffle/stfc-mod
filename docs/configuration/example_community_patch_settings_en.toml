@@ -275,7 +275,7 @@ use_presets_as_default = true
 # Subgroup: Zoom
 # --------------
 
-# Set to 0.0 to disable custom zoom; enter system at specified zoom otherwise
+# Set to 0.0 to keep the game's system-entry zoom; otherwise use this distance on entry and reset.
 default_system_zoom = 1750.0
 
 # Maximum zoom-out distance in Haven; 0 preserves native behavior.
