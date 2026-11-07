@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config_number.h"
 #include "runtime_config.h"
 #include "value_settings.h"
 #include <concepts>
@@ -43,7 +44,7 @@ ValueDefinition<T> PersistedDefinition(ValueDefinition<T> definition, SettingMet
         else if constexpr (std::is_integral_v<T>)
           return static_cast<std::int64_t>(value);
         else if constexpr (std::is_floating_point_v<T>)
-          return static_cast<double>(value);
+          return config_number::ForToml(value);
         else
           static_assert(std::is_same_v<T, void>, "setting requires an explicit serializer");
       },

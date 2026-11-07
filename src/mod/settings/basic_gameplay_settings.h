@@ -2,6 +2,7 @@
 
 // Shared identities and mutations for existing native shortcuts. No game
 // objects, files or UI catalog: callers supply the registered save boundary.
+#include "config_number.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -69,7 +70,7 @@ template <class Submit> ScaleChange AdjustScale(float& value, float step, bool u
     return {false, previous, previous, previous};
   const auto requested = value + (up ? 1.0f : -1.0f) * step * definition.step_multiplier;
   value                = std::clamp(requested, 0.1f, definition.maximum);
-  submit(definition.identity, static_cast<double>(value)); // Exact float; no display rounding.
+  submit(definition.identity, config_number::ForToml(value)); // Lossless float; no display rounding.
   return {true, previous, requested, value};
 }
 template <class Submit> void SetBoolean(bool& value, bool desired, Boolean option, Submit&& submit)
@@ -117,13 +118,13 @@ inline std::optional<float> QualifiedZoomDistance(float value, float minimum, fl
 template <class Submit> void StoreZoom(float& value, float observed, Zoom option, Submit&& submit)
 {
   value = observed;
-  submit(Identity(option), static_cast<double>(value));
+  submit(Identity(option), config_number::ForToml(value));
 }
 template <class Retain> void UsePresetAsDefault(float& value, float observed, Retain&& retain)
 {
   value = observed;
   // Old automatic StoreZoom supplied no save key: keep it session-only.
-  retain(Identity(Zoom::Default), static_cast<double>(value));
+  retain(Identity(Zoom::Default), config_number::ForToml(value));
 }
 
 inline constexpr Key                     warp_mode{"ui", "auto_confirm_instant_warp"};

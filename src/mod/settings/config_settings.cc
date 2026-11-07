@@ -3,6 +3,7 @@
 #include "config_settings.h"
 #include "config.h"
 #include "config_filters.h"
+#include "config_number.h"
 #include "confirmation_settings.h"
 #include "features/features.h"
 #include "features/galaxy.h"
@@ -81,7 +82,7 @@ namespace
     else if constexpr (std::is_integral_v<T>)
       return static_cast<int64_t>(value);
     else
-      return static_cast<double>(value);
+      return config_number::ForToml(value);
   }
 
   template <class T, class Read, class Write, class Serialize>
@@ -444,7 +445,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
   FLOAT("camera", graphics, interior_zoom_scale, "Station interior zoom-out", Owner("InteriorZoom"), Live,
         "A multiplier of one uses the native interior limit.", "multiplier", 1, largest, 4, .1f);
   FLOAT("camera", graphics, default_system_zoom, "Default system zoom", zoom, Live,
-        "Distance used by reset and entering a system.", "distance", 0, largest, 6000, 50);
+        "Zero keeps the game's system-entry zoom; otherwise used on entry and reset.", "distance", 0, largest, 6000, 50);
   FLOAT("camera", graphics, system_pan_momentum_falloff, "Pan glide", pan, Live,
         "Retained motion per pan update; higher values glide longer.", "ratio", 0, .999999f, .99f, .01f);
   BOOL("camera", graphics, use_presets_as_default, "Use last preset as default zoom", zoom, Live,
