@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <sstream>
 
 using namespace config_edit;
 static Request Mode(std::optional<Value> expected, std::string desired)
@@ -113,6 +114,20 @@ int main()
                              std::nextafter(.55, 0.0), -0.0}) {
     const auto edit = editor.Prepare("[graphics]\nthreshold = 0.5 # keep\n",
                                      {"graphics", "threshold", Value{0.5}, value});
+    if (value == std::numeric_limits<double>::denorm_min() && edit.outcome == Outcome::Unsupported) {
+      // Some pinned parser providers reject double subnormals even in the old
+      // formatter's output. Keep that safe refusal; do not skip supported values.
+      std::ostringstream legacy;
+      legacy << toml::toml_formatter(toml::value(value), toml::format_flags::none);
+      bool legacy_rejected = false;
+      try {
+        (void)toml::parse("threshold = " + legacy.str());
+      } catch (const toml::parse_error&) {
+        legacy_rejected = true;
+      }
+      assert(legacy_rejected && edit.text.empty());
+      continue;
+    }
     assert(edit.outcome == Outcome::Prepared);
     const auto restored = toml::parse(edit.text)["graphics"]["threshold"].value<double>();
     assert(restored && std::bit_cast<uint64_t>(*restored) == std::bit_cast<uint64_t>(value));
