@@ -404,6 +404,10 @@ queueaddressguardhooks = true
 # Enable automatic confirmation of the Excelsior Decloaking Deflector when configured.
 revealconfirmhooks = true
 syncpatches = true
+
+# Enable client-known system player ship tracking. Restart required after changing this switch.
+systemshipcounterhooks = true
+
 tempcrashfixes = true
 testpatches = true
 
@@ -790,6 +794,10 @@ notify_incoming_player_attack = false
 notify_fleet_events = ""
 # Allow moving officer presets into occupied slots.
 allow_officer_preset_reordering = false
+
+# Show player ships known to this client in the viewed system.
+# Ships not received from the server are not counted. Applies live.
+system_player_ship_counter = true
 
 # Native Battle Analysis when built with AAI; applies live, without changing the native Battle Log.
 battle_log_summary_preview = true
