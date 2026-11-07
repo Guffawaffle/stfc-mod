@@ -1,8 +1,11 @@
 # Pinned TOML preparation engine
 
-These files are copied without changes from downstream
+These files originate from downstream
 `45d1deaffddc3706e5c8232cf746ca46ef67be91`. Original paths, Git blobs,
-SHA-256 hashes and production/test scope are recorded in `SOURCE.json`.
+SHA-256 hashes and production/test scope are recorded in `SOURCE.json`, alongside
+the current local patch identity. The inline engine has one local change: finite
+scalar floating-point values use shortest lossless double tokens, retaining their
+TOML floating-point type. Other values retain the original formatter.
 The enclosing repository's GPL-3.0 license applies; original dependency
 notices remain in `THIRD_PARTY_NOTICES.txt`.
 

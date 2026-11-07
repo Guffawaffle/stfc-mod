@@ -263,10 +263,29 @@ void CameraNativeCases(std::string_view mode)
   NavigationZoom_Update_Hook([&](auto*) { ++originals; }, zoom);
   Require(camera_native_zoom_calls == before_focus && originals == 1,
           "text focus retains the ordinary native update without key zoom");
+  const auto native_entry_distance    = object.distance;
+  const auto before_entry_sets        = camera_native_distance_sets;
+  const auto before_entry_saves       = fleet_native_save_calls;
+  config.graphics.default_system_zoom = 0.0f;
+  PendingDefaultZoom()                = il2cpp::GcHandle::Weak(zoom);
+  NavigationZoom_Update_Hook([&](auto*) { ++originals; }, other_zoom);
+  Require(PendingDefaultZoom().Get<NavigationZoom>() == zoom && camera_native_zoom_calls == before_focus
+              && camera_native_distance_sets == before_entry_sets && originals == 2,
+          "another camera's update cannot consume or apply a zero system-entry default");
+  NavigationZoom_Update_Hook([&](auto*) { ++originals; }, zoom);
+  Require(!PendingDefaultZoom() && object.distance == native_entry_distance && camera_native_zoom_calls == before_focus
+              && camera_native_distance_sets == before_entry_sets && originals == 3
+              && config.graphics.default_system_zoom == 0.0f && fleet_native_save_calls == before_entry_saves,
+          "zero entry default preserves native distance and saved preference while consuming its pending owner");
+  config.graphics.default_system_zoom = 800.0f;
+  NavigationZoom_Update_Hook([&](auto*) { ++originals; }, zoom);
+  Require(object.distance == native_entry_distance && camera_native_zoom_calls == before_focus && originals == 4,
+          "a consumed zero entry cannot apply a later positive default without a new system entry");
   PendingDefaultZoom() = il2cpp::GcHandle::Weak(zoom);
   NavigationZoom_Update_Hook([&](auto*) { ++originals; }, zoom);
-  Require(camera_native_zoom_calls == before_focus + 1 && originals == 2,
-          "system-entry default remains nonkeyboard behavior while text has focus");
+  Require(!PendingDefaultZoom() && object.distance == 802.0f && camera_native_zoom_calls == before_focus + 1
+              && camera_native_distance_sets == before_entry_sets + 1 && originals == 5,
+          "positive system-entry default still applies once while text has focus");
   selected = nullptr;
   fleet_native_keys.clear();
   ++input_frame;

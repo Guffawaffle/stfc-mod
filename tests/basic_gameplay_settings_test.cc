@@ -6,6 +6,7 @@
 #include "runtime_reload.h"
 #include "settings/basic_gameplay_settings.h"
 
+#include <bit>
 #include <cassert>
 #include <chrono>
 #include <fstream>
@@ -148,6 +149,43 @@ int main()
         value);
   }
 
+  // Real repeated same-key saves must track the canonical TOML double, not
+  // the widened float that would conflict with our own previous short token.
+  const auto number_path = directory.Root() / "float-values.toml";
+  ReplaceConfigText(number_path, "[graphics]\nthreshold = 0.5 # keep\n[unrelated]\nvalue = 'untouched'\n");
+  config_edit::RuntimeConfigWriter number_writer(number_path);
+  assert(number_writer.Register("graphics", "threshold", Value{0.5}));
+  bool first_number = true;
+  for (const auto [value, token] : std::initializer_list<std::pair<float, const char*>>{
+           {.55f, "0.55"}, {.7f, "0.7"}, {.26f, "0.26"}, {.1234567f, "0.1234567"},
+           {std::numeric_limits<float>::denorm_min(), nullptr}, {std::numeric_limits<float>::max(), nullptr},
+           {-0.0f, "-0.0"}, {.55f, "0.55"}, {.55f, "0.55"}, {.7f, "0.7"}}) {
+    if (!first_number)
+      assert(number_writer.Resume());
+    first_number = false;
+    assert(number_writer.Submit("graphics", "threshold", config_number::ForToml(value)));
+    Drain(number_writer);
+    assert(!number_writer.HasFailures());
+    const auto number_text = ReadConfigText(number_path);
+    const auto number_file = toml::parse(number_text);
+    const auto restored = number_file["graphics"]["threshold"].value<float>();
+    assert(restored && std::bit_cast<uint32_t>(*restored) == std::bit_cast<uint32_t>(value));
+    const auto status = number_writer.GetStatus("graphics", "threshold");
+    assert(status.outcome == config_edit::Outcome::Saved || status.outcome == config_edit::Outcome::AlreadySaved);
+    if (token)
+      assert(number_text.find(std::string("threshold = ") + token + " # keep") != number_text.npos);
+    assert(number_file["unrelated"]["value"].value<std::string>() == "untouched");
+  }
+  const auto before_external_number = ReadConfigText(number_path);
+  const std::string external_number =
+      "[graphics]\nthreshold = 0.45 # external\n[unrelated]\nvalue = 'untouched'\n";
+  assert(ReplaceConfigText(number_path, external_number, before_external_number));
+  assert(number_writer.Resume());
+  assert(number_writer.Submit("graphics", "threshold", config_number::ForToml(.26f)));
+  Drain(number_writer);
+  assert(number_writer.GetStatus("graphics", "threshold").outcome == config_edit::Outcome::Conflict);
+  assert(ReadConfigText(number_path) == external_number);
+
   // Ctrl-Q uses this same registered boolean path in both directions, without
   // changing its native recovery-reset action. Wait for real save receipts.
   assert(writer.Resume());
@@ -189,8 +227,8 @@ int main()
   });
   assert(submissions == before_session && ReadConfigText(path) == text && !writer.HasFailures());
   runtime_config::ApplyReloadSnapshot(saved, session);
-  assert(saved["graphics"]["default_system_zoom"].value<double>() == static_cast<double>(zoom));
-  assert(toml::parse(text)["graphics"]["default_system_zoom"].value<double>() != static_cast<double>(zoom));
+  assert(saved["graphics"]["default_system_zoom"].value<double>() == config_number::ForToml(zoom));
+  assert(toml::parse(text)["graphics"]["default_system_zoom"].value<double>() != config_number::ForToml(zoom));
 
   // A repeated registration must never rebase over an intervening external edit.
   assert(writer.Resume());

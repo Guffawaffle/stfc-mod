@@ -1,6 +1,7 @@
 // Production catalog/models with synthetic feature readiness, registered-key saves and filesystem paths.
 #include "config.h"
 #include "config_filters.h"
+#include "config_number.h"
 #include "config_save_fixture.h"
 #include "features/features.h"
 #include "features/fleet_notification_settings.h"
@@ -442,8 +443,8 @@ int main()
             && slider->state().Observe().state.reason == UnavailableReason::OutsideRange,
         "full-range canonical values survive convenience slider limits");
   Check(canonical->SetFromUser(1.175f, canonical->Observe()).outcome == Outcome::AppliedVerified
-            && std::get<double>(saved.at("graphics.ui_scale")) == double(1.175f),
-        "numeric writes retain exact float values rather than display rounding");
+            && std::get<double>(saved.at("graphics.ui_scale")) == 1.175,
+        "numeric writes use short TOML values that preserve the float on reload");
   auto* ship = Number<float>("graphics.ui_scale_ship");
   Check(ship && ship->SetFromUser(1.5f, ship->Observe()).outcome == Outcome::AppliedVerified && ship_rescales == 1,
         "ship scale calls its loaded-model owner");
@@ -502,7 +503,9 @@ int main()
           "modal seed is shortest round-trip text rather than an approximately rounded readout");
     Check(editor->commit(editor->value) && save_calls == calls + 1
               && std::bit_cast<uint32_t>(Config::Get().graphics.ui_scale) == std::bit_cast<uint32_t>(value)
-              && std::get<double>(saved.at("graphics.ui_scale")) == double(value),
+              && std::get<double>(saved.at("graphics.ui_scale")) == config_number::ForToml(value)
+              && std::bit_cast<uint32_t>(static_cast<float>(std::get<double>(saved.at("graphics.ui_scale"))))
+                     == std::bit_cast<uint32_t>(value),
           "unchanged modal submission preserves float bits and the existing explicit-save/retry contract");
   }
   for (const float value : {1e-8f, std::numeric_limits<float>::max()}) {
@@ -515,12 +518,14 @@ int main()
     input >> parsed_value;
     Check(input && input.peek() == std::char_traits<char>::eof()
               && std::bit_cast<uint32_t>(parsed_value) == std::bit_cast<uint32_t>(value)
-              && std::get<double>(saved.at("graphics.ui_scale")) == double(value),
+              && std::get<double>(saved.at("graphics.ui_scale")) == config_number::ForToml(value)
+              && std::bit_cast<uint32_t>(static_cast<float>(std::get<double>(saved.at("graphics.ui_scale"))))
+                     == std::bit_cast<uint32_t>(value),
           "readout retains tiny/large values and persistence keeps the original float, not display rounding");
     float_editor->invoke(0);
     const auto calls = save_calls;
     Check(editor->commit(editor->value) && save_calls == calls + 1
-              && std::get<double>(saved.at("graphics.ui_scale")) == double(value),
+              && std::get<double>(saved.at("graphics.ui_scale")) == config_number::ForToml(value),
           "unchanged tiny/large exact-editor values retain the existing exact-value save contract");
   }
   Check(interval->SetFromUser(std::numeric_limits<int>::max(), interval->Observe()).outcome == Outcome::AppliedVerified
