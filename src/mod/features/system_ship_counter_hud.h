@@ -190,7 +190,7 @@ private:
       return nullptr;
     }
     // Independent child geometry leaves the localized title and its layout intact.
-    rect->Place({0.5f, 0.5f}, {0.5f, 0.5f}, {0.5f, 0.5f}, {320, 24}, {0, -26});
+    rect->Place({0.5f, 0.5f}, {0.5f, 0.5f}, {0.5f, 0.5f}, {320, 24}, {0, -42});
     text->SetFont(font);
     text->SetFontSize(16);
     text->SetAlignment(unity::TMP_Text::Alignment::Center);
