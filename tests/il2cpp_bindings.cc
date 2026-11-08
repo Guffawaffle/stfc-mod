@@ -2190,8 +2190,8 @@ try {
     CameraNativeCases(argv[1]);
     return 0;
   }
-  if (argc == 2 && std::string_view(argv[1]).starts_with("galaxy-presentation-")) {
-    GalaxyPresentationCases(argv[1]);
+  if ((argc == 2 || argc == 3) && std::string_view(argv[1]).starts_with("galaxy-presentation-")) {
+    GalaxyPresentationCases(argv[1], argc == 3 ? argv[2] : nullptr);
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]).starts_with("galaxy-selection-")) {

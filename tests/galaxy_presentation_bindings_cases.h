@@ -4,6 +4,10 @@
 // Only native layout/marker bodies are substituted. No Unity scene or player files are used.
 #include "../src/mod/features/galaxy.cc"
 
+#if __APPLE__
+#include <dlfcn.h>
+#endif
+
 namespace
 {
 // The fleet consumer is included later in this controlled-runtime translation unit.
@@ -74,13 +78,24 @@ void GalaxyPresentationExpire(Il2CppObject* object)
     if (target == object)
       target = nullptr;
 }
-void* GalaxyPresentationVisibilityMetadata(bool alias_hud)
+void* GalaxyPresentationVisibilityMetadata(bool alias_hud, [[maybe_unused]] const char* native_image)
 {
   auto& level   = Define("Digit.Prime.Navigation", "ZoomLevels", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
   level.is_enum = true;
   auto& handler = Define("Digit.Prime.Navigation", "NavigationZoomEventHandler", IL2CPP_TYPE_CLASS, &component_class);
-  // This substantial native body is only an entry address here; neither signature may be invoked or patched.
+  // These are metadata-only addresses: neither signature may be invoked or patched. Zig 0.16 leaves the Mac
+  // executable's LC_FUNCTION_STARTS empty, so reuse the Apple-linked image from the native detour fixture.
+#if __APPLE__
+  Require(native_image, "Galaxy visibility metadata requires the Apple-linked native fixture");
+  auto* image = dlopen(native_image, RTLD_NOW | RTLD_LOCAL);
+  Require(image, "the Apple-linked native fixture must load");
+  auto* entry = dlsym(image, "AaiDetourTarget");
+  Require(entry && il2cpp::CheckedNativeEntry(entry) == entry,
+          "the fixture entry must pass the unchanged production native-fit check");
+  // Cached production entries retain this address until process exit; keep the image loaded for that lifetime.
+#else
   auto* entry = reinterpret_cast<void*>(&GalaxyPresentationSpacing);
+#endif
   AddMethod(handler, "OnZoomChanged", entry, T(void_class), {T(level)});
   if (alias_hud) {
     auto& hud = Define("Digit.Prime.Navigation.UI", "HudNavigationViewController", IL2CPP_TYPE_CLASS, &component_class);
@@ -96,7 +111,7 @@ std::shared_ptr<GalaxyShift> GalaxyPresentationShift(GalaxyPresentationGroup& gr
   return shift; // A collected moved child, with a surviving row needing restoration.
 }
 
-void GalaxyPresentationCases(std::string_view mode)
+void GalaxyPresentationCases(std::string_view mode, const char* native_image = nullptr)
 {
   auto& group_class = Define("UnityEngine.UI", "HorizontalLayoutGroup", IL2CPP_TYPE_CLASS, &component_class);
   AddMethod(group_class, "set_spacing", reinterpret_cast<void*>(&GalaxyPresentationSpacing), T(void_class),
@@ -149,7 +164,7 @@ void GalaxyPresentationCases(std::string_view mode)
     entries[0] = entries[1] = nullptr;
     Require(GalaxyTargetsDistinct(entries),
             "missing targets remain the transaction's missing-target decision, not aliasing");
-    auto* target = GalaxyPresentationVisibilityMetadata(true);
+    auto* target = GalaxyPresentationVisibilityMetadata(true, native_image);
     Require(NavigationVisibilityEntry() == target && GalaxyHookEntries()[4] == target
                 && GalaxyHookEntries()[6] == target && !galaxy_controls::VisibilityHookCompatible(),
             "typed metadata exposes the incompatible HUD/shared-visibility alias before either feature installs");
@@ -170,7 +185,7 @@ void GalaxyPresentationCases(std::string_view mode)
   }
 
   if (mode == "galaxy-presentation-profiles") {
-    GalaxyPresentationVisibilityMetadata(false);
+    GalaxyPresentationVisibilityMetadata(false, native_image);
     Require(galaxy_controls::VisibilityHookCompatible(),
             "missing unrelated Galaxy targets do not block an independent compatible base visibility entry");
     auto& graphics              = Config::Get().graphics;
