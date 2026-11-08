@@ -339,12 +339,14 @@ template <class T> std::optional<Values<T>> ReadValues(Reference* repeated, int3
   const auto count = il2cpp::detail::ReadField<int32_t>(count_field, repeated);
   auto*      array = il2cpp::detail::ReadField<Il2CppArray*>(array_field, repeated);
   result.array     = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(array));
-  if (!result.array || count != expected || !array || array->max_length < static_cast<size_t>(count)
+  if (!result.array || count < expected || !array || array->max_length < static_cast<size_t>(count)
       || !il2cpp_class_get_type(array->klass) || il2cpp_class_get_type(array->klass)->type != IL2CPP_TYPE_SZARRAY
       || il2cpp_class_get_element_class(array->klass) != il2cpp::PrimitiveClass<T>())
     return std::nullopt;
+  // MergeFrom can retain a longer repeated-field suffix without changing NodesCount. Native Galaxy lookup
+  // and culling address only [0, NodesCount); retain the full backing validation but expose that same prefix.
   result.data = {reinterpret_cast<const T*>(reinterpret_cast<const char*>(array) + kIl2CppSizeOfArray),
-                 static_cast<size_t>(count)};
+                 static_cast<size_t>(expected)};
   return result;
 }
 struct PinReader {
