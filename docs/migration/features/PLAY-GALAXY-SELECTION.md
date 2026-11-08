@@ -81,10 +81,18 @@ late GC API calls during C++ static destruction.
 ## Qualification boundaries and recovery
 
 `tests/galaxy_selection_bindings_cases.h` includes the actual production adapter.
-Its controlled runtime replaces native method bodies, current scene objects,
+The backing-array reader follows the native `NodesCount` prefix. A merged Galaxy
+can retain longer ID and coordinate lists; each list must contain at least that
+many entries, fit within its allocated capacity and retain the exact element
+type. Only that prefix participates in selection. Client 274's node lookup and
+culling use this same prefix.
+
+The controlled runtime replaces native method bodies, current scene objects,
 input/config and object creation state. It exercises source-span enumeration,
 native lookup failure, current-source identity, dispatch/original counts,
-cleanup and pool ownership. It does **not** run Unity GameObject creation,
+cleanup and pool ownership. Full enabled taps also cover longer logical lists
+and replacement of the World, Galaxy and camera without toggling the feature.
+It does **not** run Unity GameObject creation,
 coordinate projection, actual POI hit testing, real view pooling or SPUD native
 installation. The alias case proves refusal before a transaction, not successful
 game detouring. Existing array, pin/dictionary, policy and Settings tests retain
