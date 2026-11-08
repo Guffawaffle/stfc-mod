@@ -13,6 +13,7 @@ bool       StarbaseAvailable();
 void       AfterZoom(NavigationZoom* zoom);
 ZoomLevels LodLevel(NavigationLOD* lod, ZoomLevels native);
 ZoomLevels VisibilityLevel(NavigationZoomEventHandler* handler, ZoomLevels native);
+bool       VisibilityHookCompatible();
 void       Refresh();
 void       SetOverlay(int32_t mode, bool enabled);
 } // namespace galaxy_controls

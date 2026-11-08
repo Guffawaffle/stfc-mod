@@ -798,8 +798,28 @@ bool GalaxyTargetsDistinct(std::span<void* const> entries)
       return false;
   return true;
 }
+const std::array<void*, 8>& GalaxyHookEntries()
+{
+  // Qualify once before either feature installs the shared visibility hook. Later installers must not inspect
+  // already-patched entry instructions, and base labels need only reject aliases of their own shared target.
+  static std::array<void*, 8> entries{
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void(ZoomLevels)>("UpdateStarData")),
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void(bool, bool, bool, bool)>("UpdateStarName")),
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnDidBindContext")),
+      il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnAboutToReleaseContext")),
+      il2cpp::CheckedEntry(gb::Hud::Method<void(int32_t)>("ChangeGalaxyViewInfo")),
+      il2cpp::CheckedEntry(gb::ToggleHandler::Method<void(bool, bool, bool, bool)>("UpdateSelectedAnimation")),
+      NavigationVisibilityEntry(),
+      il2cpp::CheckedEntry(gb::Filter::Class::Method<void()>("RebuildCullingGroup"))};
+  return entries;
+}
 bool InstallGalaxyLabels()
 {
+  const auto& entries = GalaxyHookEntries();
+  if (!GalaxyTargetsDistinct(entries)) {
+    spdlog::warn("[GalaxyLabels] incompatible callbacks share a native entry; leaving native labels unchanged");
+    return false;
+  }
   if (!gb::Star::LayoutReady() || !gb::World::MinorMethod() || !gb::Director::ModeField()
       || !gb::Filter::Class::HasField<"_currentLevel", ZoomLevels>()
       || !gb::Filter::Class::HasField<"_cullingDirty", bool>()
@@ -810,19 +830,6 @@ bool InstallGalaxyLabels()
   for (const char* key :
        {"galaxy_overlay_default", "galaxy_overlay_mining", "galaxy_overlay_hostiles", "galaxy_overlay_hazards"})
     (void)runtime_config::RegisterSetting("graphics", key);
-  const std::array entries{
-      il2cpp::CheckedEntry(gb::Star::Class::Method<void(ZoomLevels)>("UpdateStarData")),
-      il2cpp::CheckedEntry(gb::Star::Class::Method<void(bool, bool, bool, bool)>("UpdateStarName")),
-      il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnDidBindContext")),
-      il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnAboutToReleaseContext")),
-      il2cpp::CheckedEntry(gb::Hud::Method<void(int32_t)>("ChangeGalaxyViewInfo")),
-      il2cpp::CheckedEntry(gb::ToggleHandler::Method<void(bool, bool, bool, bool)>("UpdateSelectedAnimation")),
-      NavigationVisibilityEntry(),
-      il2cpp::CheckedEntry(gb::Filter::Class::Method<void()>("RebuildCullingGroup"))};
-  if (!GalaxyTargetsDistinct(entries)) {
-    spdlog::warn("[GalaxyLabels] incompatible callbacks share a native entry; leaving native labels unchanged");
-    return false;
-  }
   il2cpp::HookSet hooks("GalaxyLabels");
   IL2CPP_STAGE_AT(hooks, entries[0], NavigationStarEntityWidget_UpdateStarData_Hook);
   IL2CPP_STAGE_AT(hooks, entries[1], NavigationStarEntityWidget_UpdateStarName_Hook);
@@ -1010,6 +1017,11 @@ ZoomLevels galaxy_controls::LodLevel(NavigationLOD* lod, ZoomLevels native)
 }
 ZoomLevels galaxy_controls::VisibilityLevel(NavigationZoomEventHandler* handler, ZoomLevels native)
 { return GalaxyVisibilityLevel(handler, native); }
+bool galaxy_controls::VisibilityHookCompatible()
+{
+  auto* target = NavigationVisibilityEntry();
+  return target && std::ranges::count(GalaxyHookEntries(), target) == 1;
+}
 void galaxy_controls::AfterZoom(NavigationZoom* zoom)
 {
   auto& state = Galaxy();

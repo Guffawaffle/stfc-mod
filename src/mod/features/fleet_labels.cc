@@ -597,7 +597,7 @@ bool InstallBaseLabels()
 {
   // The base lifecycle is independent: unsupported base hooks must not disable ship labels.
   // Both label kinds use the single camera observer and NavigationLOD.UpdateLOD owner.
-  if (!EnsureNavigationZoomUpdates() || !EnsureNavigationLodUpdates() || !EnsureNavigationVisibilityUpdates())
+  if (!EnsureNavigationVisibilityUpdates() || !EnsureNavigationZoomUpdates() || !EnsureNavigationLodUpdates())
     return false;
   il2cpp::HookSet hooks("BaseLabels");
   IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(NavigationStarbaseWidget::Class::Method("OnDidBindContext")),
@@ -647,6 +647,11 @@ void* NavigationVisibilityEntry()
 bool EnsureNavigationVisibilityUpdates()
 {
   static const bool installed = [] {
+    if (!galaxy_controls::VisibilityHookCompatible()) {
+      spdlog::warn(
+          "[NavigationVisibilityUpdates] incompatible callbacks share a native entry; retaining native visibility");
+      return false;
+    }
     il2cpp::HookSet hooks("NavigationVisibilityUpdates");
     IL2CPP_STAGE_AT(hooks, NavigationVisibilityEntry(), NavigationZoomEventHandler_OnZoomChanged_Hook);
     return hooks.Commit();
