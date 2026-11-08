@@ -5,7 +5,7 @@ namespace navigation_orbit
 // Runtime capability, independent of the saved preference and startup install record.
 bool Available();
 // One game-thread camera-authoring span. Native camera callbacks still reapply
-// their pose; clipping and scene maintenance are completed after zoom's final write.
+// their pose; clipping is completed after zoom's final write.
 struct ZoomUpdateScope {
   explicit ZoomUpdateScope(NavigationZoom*);
   ZoomUpdateScope(const ZoomUpdateScope&)            = delete;
