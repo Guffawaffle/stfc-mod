@@ -776,18 +776,18 @@ void GalaxyDataFilterSystem_RebuildCullingGroup_Hook(auto original, gb::Filter* 
     filter->SetCurrent(ZoomLevels::Middle);
   original(filter);
 }
-void NavigationZoomEventHandler_OnZoomChanged_Hook(auto original, gb::ZoomHandler* handler, ZoomLevels level)
+ZoomLevels GalaxyVisibilityLevel(gb::ZoomHandler* handler, ZoomLevels level)
 {
   if (!GalaxyThread())
-    return original(handler, level);
+    return level;
   auto  keep = il2cpp::GcHandle::Strong(handler);
   auto* star = gb::StarFor(handler);
   if (!star)
     star = gb::StarFor(handler->Lod());
   if (!star || !star->Bound())
-    return original(handler, level);
+    return level;
   Galaxy().handlers.insert_or_assign(handler, il2cpp::GcHandle::Weak(handler));
-  original(handler, GalaxyEffective(star, level));
+  return GalaxyEffective(star, level);
 }
 // This family uses different receiver and argument contracts. Native entry aliasing must not chain a star
 // lifecycle callback into a HUD/filter callback, even on platforms where the generic HookSet allows chains.
@@ -805,7 +805,7 @@ bool InstallGalaxyLabels()
       || !gb::Filter::Class::HasField<"_cullingDirty", bool>()
       || !gb::ZoomHandler::Class::HasField<"_navigationLod", NavigationLOD*>()
       || !BaseListContainer::Class::HasField<"m_container", unity::Transform*>() || !EnsureNavigationLodUpdates()
-      || !EnsureNavigationZoomUpdates())
+      || !EnsureNavigationZoomUpdates() || !EnsureNavigationVisibilityUpdates())
     return false;
   for (const char* key :
        {"galaxy_overlay_default", "galaxy_overlay_mining", "galaxy_overlay_hostiles", "galaxy_overlay_hazards"})
@@ -817,7 +817,7 @@ bool InstallGalaxyLabels()
       il2cpp::CheckedEntry(gb::Star::Class::Method<void()>("OnAboutToReleaseContext")),
       il2cpp::CheckedEntry(gb::Hud::Method<void(int32_t)>("ChangeGalaxyViewInfo")),
       il2cpp::CheckedEntry(gb::ToggleHandler::Method<void(bool, bool, bool, bool)>("UpdateSelectedAnimation")),
-      il2cpp::CheckedEntry(gb::ZoomHandler::Class::Method<void(ZoomLevels)>("OnZoomChanged")),
+      NavigationVisibilityEntry(),
       il2cpp::CheckedEntry(gb::Filter::Class::Method<void()>("RebuildCullingGroup"))};
   if (!GalaxyTargetsDistinct(entries)) {
     spdlog::warn("[GalaxyLabels] incompatible callbacks share a native entry; leaving native labels unchanged");
@@ -830,7 +830,7 @@ bool InstallGalaxyLabels()
   IL2CPP_STAGE_AT(hooks, entries[3], NavigationStarEntityWidget_OnAboutToReleaseContext_Hook);
   IL2CPP_STAGE_AT(hooks, entries[4], HudNavigationViewController_ChangeGalaxyViewInfo_Hook);
   IL2CPP_STAGE_AT(hooks, entries[5], GalaxyToggleHandler_UpdateSelectedAnimation_Hook);
-  IL2CPP_STAGE_AT(hooks, entries[6], NavigationZoomEventHandler_OnZoomChanged_Hook);
+  // entries[6] belongs to the shared visibility owner; retain it above for incompatible-entry rejection.
   IL2CPP_STAGE_AT(hooks, entries[7], GalaxyDataFilterSystem_RebuildCullingGroup_Hook);
   if (!hooks.Commit())
     return false;
@@ -1008,6 +1008,8 @@ ZoomLevels galaxy_controls::LodLevel(NavigationLOD* lod, ZoomLevels native)
   Galaxy().lods.insert_or_assign(lod, il2cpp::GcHandle::Weak(lod));
   return GalaxyEffective(star, native);
 }
+ZoomLevels galaxy_controls::VisibilityLevel(NavigationZoomEventHandler* handler, ZoomLevels native)
+{ return GalaxyVisibilityLevel(handler, native); }
 void galaxy_controls::AfterZoom(NavigationZoom* zoom)
 {
   auto& state = Galaxy();

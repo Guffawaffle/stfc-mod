@@ -388,7 +388,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
                                                                   {"chat", "Chat"},
                                                                   {"notifications", "Notifications"},
                                                                   {"hud", "HUD Buttons"},
-                                                                  {"labels", "Fleet Labels"},
+                                                                  {"labels", "System Labels"},
                                                                   {"loading", "Loading Screens"},
                                                                   {"advanced", "Advanced & Configuration"},
                                                                   {"galaxy", "Galaxy Labels"},
@@ -445,7 +445,8 @@ void RegisterConfigSettings(PageCatalog& catalog)
   FLOAT("camera", graphics, interior_zoom_scale, "Station interior zoom-out", Owner("InteriorZoom"), Live,
         "A multiplier of one uses the native interior limit.", "multiplier", 1, largest, 4, .1f);
   FLOAT("camera", graphics, default_system_zoom, "Default system zoom", zoom, Live,
-        "Zero keeps the game's system-entry zoom; otherwise used on entry and reset.", "distance", 0, largest, 6000, 50);
+        "Zero keeps the game's system-entry zoom; otherwise used on entry and reset.", "distance", 0, largest, 6000,
+        50);
   FLOAT("camera", graphics, system_pan_momentum_falloff, "Pan glide", pan, Live,
         "Retained motion per pan update; higher values glide longer.", "ratio", 0, .999999f, .99f, .01f);
   BOOL("camera", graphics, use_presets_as_default, "Use last preset as default zoom", zoom, Live,
@@ -712,36 +713,47 @@ void RegisterConfigSettings(PageCatalog& catalog)
                  && profile(Config::Get()).mode == galaxy_controls::ZoomMode::Threshold;
         });
   }
-  for (const bool player : {true, false}) {
-    auto profile = [player](auto& config) -> auto& {
-      return player ? config.graphics.zoom_label_player : config.graphics.zoom_label_non_player;
-    };
+  struct LabelProfileControl {
+    const char*       detail_key;
+    const char*       threshold_key;
+    const char*       detail_label;
+    const char*       threshold_label;
+    const char*       owner;
+    FleetLabelProfile Config::Graphics::* profile;
+  };
+  for (const auto& item : std::initializer_list<LabelProfileControl>{
+           {"zoom_label_player_detail", "zoom_label_player_threshold", "Player label detail", "Player detail threshold",
+            "FleetLabels", &Config::Graphics::zoom_label_player},
+           {"zoom_label_non_player_detail", "zoom_label_non_player_threshold", "Non-player label detail",
+            "Non-player detail threshold", "FleetLabels", &Config::Graphics::zoom_label_non_player},
+           {"zoom_label_base_detail", "zoom_label_base_threshold", "Player base label detail",
+            "Player base detail threshold", "BaseLabels", &Config::Graphics::zoom_label_base}}) {
+    auto       profile = [member = item.profile](auto& config) -> auto& { return config.graphics.*member; };
+    const auto owner   = Owner(item.owner);
     Choice(
-        catalog, "community_mod.labels", "graphics",
-        player ? "zoom_label_player_detail" : "zoom_label_non_player_detail",
-        player ? "Player label detail" : "Non-player label detail", 0,
-        [profile] { return int(profile(Config::Get()).detail); },
+        catalog, "community_mod.labels", "graphics", item.detail_key, item.detail_label,
+        int(profile(Defaults()).detail), [profile] { return int(profile(Config::Get()).detail); },
         [profile](int value) {
           profile(Config::Get()).detail = static_cast<FleetLabelDetail>(value);
           RefreshFleetLabelControls();
           return true;
         },
-        Owner("FleetLabels"), Timing::Live, "Choose the information shown on system fleet labels.",
+        owner, Timing::Live,
+        item.profile == &Config::Graphics::zoom_label_base
+            ? "Control player base level and diplomacy badges. Full names remain close-up."
+            : "Choose the information shown on system fleet labels.",
         {"Native", "Expanded", "Compact", "Threshold"}, {"native", "expanded", "compact", "threshold"});
     Number<float>(
-        catalog, "community_mod.labels", "graphics",
-        player ? "zoom_label_player_threshold" : "zoom_label_non_player_threshold",
-        player ? "Player detail threshold" : "Non-player detail threshold",
-        [profile](auto& config) -> auto& { return profile(config).zoom_threshold; }, Owner("FleetLabels"), Timing::Live,
-        "Threshold label-detail ratio from zero to one.", "ratio", 0, 1, 1, .01f,
+        catalog, "community_mod.labels", "graphics", item.threshold_key, item.threshold_label,
+        [profile](auto& config) -> auto& { return profile(config).zoom_threshold; }, owner, Timing::Live,
+        "Threshold label-detail ratio from zero to one: zero stays compact, one stays expanded.", "ratio", 0, 1, 1,
+        .01f,
         [profile](float value) {
           profile(Config::Get()).zoom_threshold = value;
           RefreshFleetLabelControls();
           return true;
         },
-        [profile] {
-          return Installed("FleetLabels") && profile(Config::Get()).detail == FleetLabelDetail::kThreshold;
-        });
+        [profile, owner] { return owner() && profile(Config::Get()).detail == FleetLabelDetail::kThreshold; });
   }
   struct Hud {
     const char*          key;

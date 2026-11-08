@@ -28,6 +28,23 @@ struct NavigationLOD : il2cpp::Object {
   { Call<"UpdateLOD">(level); }
 };
 
+struct NavigationZoomEventHandler : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoomEventHandler">;
+  NavigationLOD* Lod()
+  { return Field<"_navigationLod", NavigationLOD*>(); }
+  void OnZoomChanged(ZoomLevels level)
+  { Call<"OnZoomChanged", void(ZoomLevels)>(level); }
+  void Evaluate()
+  { Call<"Evaluate">(); }
+};
+
+namespace base_label_binding
+{
+struct AlphaHandler : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationCanvasAlphaEventHandler">;
+};
+} // namespace base_label_binding
+
 struct NavigationPan : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationPan">;
 
@@ -212,6 +229,55 @@ struct NavigationFleetWidget : Widget<FleetDeployedData> {
     static const bool available = Class::HasField<"_fleetLevel", TextLocalizer*>();
     return available ? il2cpp::CallResult<TextLocalizer*>{true, Field<"_fleetLevel", TextLocalizer*>()}
                      : il2cpp::CallResult<TextLocalizer*>{};
+  }
+};
+
+// Player station labels; Alliance Starbases have a different widget/model.
+struct NavigationStarbaseWidget : Widget<discovery_tow_binding::Starbase> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationStarbaseWidget">;
+
+  NavigationLOD* lod()
+  { return Field<"_navigationLod", NavigationLOD*>(); }
+  // The root canvas's authored dependencies identify its zoom visibility gate. The handler's optional LOD
+  // reference may be absent or belong to another component, so it cannot establish label ownership.
+  il2cpp::CallResult<NavigationZoomEventHandler*> TryZoomVisibilityHandler()
+  {
+    using Alpha                 = base_label_binding::AlphaHandler;
+    static const bool available = Class::HasField<"_group", il2cpp::Object*>()
+                                  && Alpha::Class::HasField<"_canvasGroup", il2cpp::Object*>()
+                                  && Alpha::Class::HasField<"handlers", il2cpp::Object*>();
+    if (!available)
+      return {};
+    auto group = il2cpp::GcHandle::Strong(Field<"_group", il2cpp::Object*>());
+    if (!group)
+      return {};
+    const auto observed_go = group.Get<il2cpp::Object>()->TryCall<"get_gameObject", unity::GameObject*>();
+    auto       go = observed_go && observed_go.value ? il2cpp::GcHandle::Strong(observed_go.value) : il2cpp::GcHandle{};
+    auto*      reflected = Alpha::Class::TypeObject();
+    auto       type      = il2cpp::GcHandle::Strong(reflected ? &reflected->object : nullptr);
+    if (!go || !type)
+      return {};
+    const auto observed = go.Get<unity::GameObject>()->TryCall<"GetComponentInParent", Alpha*>(
+        reinterpret_cast<Il2CppReflectionType*>(type.Get()), true);
+    auto alpha = observed && observed.value ? il2cpp::GcHandle::Strong(observed.value) : il2cpp::GcHandle{};
+    if (!alpha || alpha.Get<Alpha>()->Field<"_canvasGroup", il2cpp::Object*>() != group.Get())
+      return {};
+    auto       dependencies = il2cpp::GcHandle::Strong(alpha.Get<Alpha>()->Field<"handlers", il2cpp::Object*>());
+    const auto array        = dependencies ? il2cpp::TryReferenceArray<il2cpp::Object*>(dependencies.Get())
+                                           : il2cpp::CallResult<il2cpp::Array<il2cpp::Object*>*>{};
+    if (!array || !array.value)
+      return {};
+    NavigationZoomEventHandler* result = nullptr;
+    for (size_t i = 0; i < array.value->size(); ++i) {
+      auto  dependency = il2cpp::GcHandle::Strong((*array.value)[i]);
+      auto* zoom       = dependency ? dependency.Get<il2cpp::Object>()->As<NavigationZoomEventHandler>() : nullptr;
+      if (!zoom)
+        continue;
+      if (result && result != zoom)
+        return {}; // An ambiguous graph is not authority to alter either gate.
+      result = zoom;
+    }
+    return {true, result};
   }
 };
 

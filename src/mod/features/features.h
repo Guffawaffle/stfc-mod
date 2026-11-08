@@ -154,8 +154,11 @@ bool FleetActionShortcuts();
 // fleet_labels.cc
 bool                 EnsureNavigationFleetLifecycle();
 bool                 EnsureNavigationLodUpdates();
+bool                 EnsureNavigationVisibilityUpdates();
+void*                NavigationVisibilityEntry();
 bool                 EnsureNavigationZoomUpdates();
 extern const Feature kFleetLabels;
+extern const Feature kBaseLabels;
 extern const Feature kGalaxyLabels;
 extern const Feature kGalaxySelection;
 extern const Feature kShipShortcutBadges;

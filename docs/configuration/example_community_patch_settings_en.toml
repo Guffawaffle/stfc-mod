@@ -198,8 +198,8 @@ ui_scale_viewer = 1.2
 # Native hotkey mode and disabling this option restore the game's labels.
 ship_hotkey_badges = true
 
-# Subgroup: Fleet Labels
-# ----------------------
+# Subgroup: System Labels
+# -----------------------
 
 # Label detail shown for non-player and unknown fleets in System View
 #   "native" - Use Scopely's Near/Middle/Far behaviour
@@ -220,6 +220,16 @@ zoom_label_player_detail = "native"
 
 # Normalized zoom crossover used when player fleet label detail is "threshold"; 0 is always compact and 1 is always expanded
 zoom_label_player_threshold = 0.5
+
+# Label detail shown for player bases in System View, independently of fleet labels
+#   "native" - Use Scopely's Near/Middle/Far behaviour
+#   "expanded" - Keep level and diplomacy badges visible at any system zoom; full names remain close-up
+#   "compact" - Hide player base label details
+#   "threshold" - Show level and diplomacy badges up to the configured zoom threshold
+zoom_label_base_detail = "native"
+
+# Normalized zoom crossover used when player base label detail is "threshold"; 0 is always compact and 1 is always expanded
+zoom_label_base_threshold = 0.5
 
 # Subgroup: Keyboard
 # ------------------
