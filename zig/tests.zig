@@ -392,6 +392,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         }
     }
 
+    var mac_native_detour_target: ?std.Build.LazyPath = null;
     {
         const module = ctx.createModule(true);
         libs.il2cpp.includeInto(module);
@@ -414,6 +415,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             target.addFileArg(b.path("tests/aai_detour_target.cc"));
             target.addArg("-o");
             const image = target.addOutputFileArg("libaai-detour-target.dylib");
+            mac_native_detour_target = image;
             run.addFileArg(image);
             build_tests.dependOn(&b.addInstallFile(image, "lib/libaai-detour-target.dylib").step);
         }
@@ -468,23 +470,21 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
 
     // Opt-in local camera regressions. Keep this outside the existing CI/build-tests
     // aggregate; contributors can reproduce the focused checks with one command.
-    const test_navigation = b.step("test-navigation", "Run local camera batching, scenery and pixel-worker regressions");
-    inline for (.{ "system_orbit", "environment_efficiency", "navigation_environment_pixels" }) |fixture| {
+    const test_navigation = b.step("test-navigation", "Run local orbit and camera batching regressions");
+    {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
-        if (comptime !std.mem.eql(u8, fixture, "navigation_environment_pixels")) {
-            libs.il2cpp.linkInto(module);
-            if (ctx.options.use_original_bg and ctx.options.bg_image.len == 0) module.addCMacro("_USE_ORIGINAL_BG", "1");
-            libs.spdlog.linkInto(module);
-            libs.toml.includeInto(module);
-            deps.nlohmannJson(ctx).includeInto(module);
-            module.addIncludePath(b.path("src/libs/unity/include"));
-            @import("mod.zig").embedImages(ctx, module);
-            module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
-            if (ctx.isWindows()) inline for (.{ "runtimeobject", "ole32", "oleaut32" }) |lib| module.linkSystemLibrary(lib, .{});
-        }
-        module.addCSourceFile(.{ .file = b.path(b.fmt("tests/{s}_test.cc", .{fixture})), .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-Wno-invalid-constexpr", "-Wno-invalid-offsetof", "-Wno-deprecated-declarations", "-UNDEBUG" }) });
-        const exe = ctx.executable(b.fmt("{s}-tests", .{fixture}), module);
+        libs.il2cpp.linkInto(module);
+        if (ctx.options.use_original_bg and ctx.options.bg_image.len == 0) module.addCMacro("_USE_ORIGINAL_BG", "1");
+        libs.spdlog.linkInto(module);
+        libs.toml.includeInto(module);
+        deps.nlohmannJson(ctx).includeInto(module);
+        module.addIncludePath(b.path("src/libs/unity/include"));
+        @import("mod.zig").embedImages(ctx, module);
+        module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
+        if (ctx.isWindows()) inline for (.{ "runtimeobject", "ole32", "oleaut32" }) |lib| module.linkSystemLibrary(lib, .{});
+        module.addCSourceFile(.{ .file = b.path("tests/system_orbit_test.cc"), .flags = ctx.cxxFlags("c++23", &.{ "-Wno-deprecated-literal-operator", "-Wno-invalid-constexpr", "-Wno-invalid-offsetof", "-Wno-deprecated-declarations", "-UNDEBUG" }) });
+        const exe = ctx.executable("system_orbit-tests", module);
         test_navigation.dependOn(&b.addRunArtifact(exe).step);
     }
 
@@ -538,6 +538,10 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         inline for (.{ "camera-native", "camera-missing-minimum", "galaxy-presentation-lifecycle", "galaxy-presentation-overlays", "galaxy-presentation-profiles", "galaxy-presentation-alias", "galaxy-selection-native", "galaxy-selection-alias", "galaxy-selection-fallback-alias", "galaxy-selection-resolved-alias" }) |mode| {
             const map_case = b.addRunArtifact(exe);
             map_case.addArg(mode);
+            if (mac_native_detour_target) |image| {
+                if (std.mem.eql(u8, mode, "galaxy-presentation-alias") or std.mem.eql(u8, mode, "galaxy-presentation-profiles"))
+                    map_case.addFileArg(image);
+            }
             test_il2cpp.dependOn(&map_case.step);
         }
         if (ctx.isWindows()) {

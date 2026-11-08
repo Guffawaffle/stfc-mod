@@ -458,6 +458,44 @@ void UpstreamSettings()
   Check(!hidden_badges->graphics.ship_hotkey_badges
             && effective["graphics"]["ship_hotkey_badges"].value<bool>() == false,
         "ship shortcut badges can be disabled independently of native keybind hints");
+  Check(defaults->graphics.zoom_label_base.detail == FleetLabelDetail::kNative
+            && defaults->graphics.zoom_label_base.zoom_threshold == .5f,
+        "player base labels default to native presentation independently of fleets");
+  const auto labels = Config::Parse(toml::parse(R"(
+    [graphics]
+    zoom_label_player_detail = "expanded"
+    zoom_label_player_threshold = 0.25
+    zoom_label_non_player_detail = "compact"
+    zoom_label_non_player_threshold = 0.75
+    zoom_label_base_detail = " THRESHOLD "
+    zoom_label_base_threshold = 0.55
+  )"),
+                                    effective, false);
+  Check(labels->graphics.zoom_label_player.detail == FleetLabelDetail::kExpanded
+            && labels->graphics.zoom_label_player.zoom_threshold == .25f
+            && labels->graphics.zoom_label_non_player.detail == FleetLabelDetail::kCompact
+            && labels->graphics.zoom_label_non_player.zoom_threshold == .75f
+            && labels->graphics.zoom_label_base.detail == FleetLabelDetail::kThreshold
+            && labels->graphics.zoom_label_base.zoom_threshold == .55f,
+        "ship and base labels parse independent detail modes and zoom thresholds");
+  for (const auto value : {"-0.01", "1.01", "nan", "inf", "[]"}) {
+    const auto invalid_base = Config::Parse(
+        toml::parse(std::string("[graphics]\nzoom_label_base_detail='invalid'\nzoom_label_base_threshold=") + value),
+        effective, false);
+    Check(invalid_base->graphics.zoom_label_base.detail == FleetLabelDetail::kNative
+              && invalid_base->graphics.zoom_label_base.zoom_threshold == .5f
+              && effective["graphics"]["zoom_label_base_threshold"].value<float>() == .5f,
+          "invalid base label modes and thresholds keep native defaults and truthful effective values");
+  }
+  for (const float boundary : {0.f, 1.f}) {
+    const auto base = Config::Parse(
+        toml::parse(std::string("[graphics]\nzoom_label_base_detail='threshold'\nzoom_label_base_threshold=")
+                    + std::to_string(boundary)),
+        effective, false);
+    Check(base->graphics.zoom_label_base.detail == FleetLabelDetail::kThreshold
+              && base->graphics.zoom_label_base.zoom_threshold == boundary,
+          "base label threshold accepts both compact and expanded boundary values");
+  }
   Check(defaults->graphics.haven_zoom == 4000.0f && defaults->ui.reverse_haven_history,
         "Haven defaults match upstream");
   Check(!defaults->graphics.hide_haven_water && effective["graphics"]["hide_haven_water"].value<bool>() == false,

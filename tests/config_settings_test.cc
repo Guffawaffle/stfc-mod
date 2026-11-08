@@ -409,13 +409,29 @@ int main()
         "AAI live toggle retains the registered TOML owner and exact key");
   Check(!Find<BooleanSetting>(catalog, "graphics.borderless_fullscreen"), "dormant borderless behavior is not revived");
 
-  for (const bool player : {true, false}) {
-    auto* detail = Find<ChoiceSetting>(catalog, player ? "graphics.zoom_label_player_detail"
-                                                       : "graphics.zoom_label_non_player_detail");
-    auto* threshold =
-        Number<float>(player ? "graphics.zoom_label_player_threshold" : "graphics.zoom_label_non_player_threshold");
-    Check(detail && threshold, "both fleet-label profiles have their production controls");
-    const auto refreshes = fleet_label_refreshes;
+  auto* base_detail    = Find<ChoiceSetting>(catalog, "graphics.zoom_label_base_detail");
+  auto* base_threshold = Number<float>("graphics.zoom_label_base_threshold");
+  auto* player_detail  = Find<ChoiceSetting>(catalog, "graphics.zoom_label_player_detail");
+  Check(base_detail && base_threshold && player_detail && !base_detail->state().Observe().state.known()
+            && !base_threshold->Observe().state.known() && player_detail->state().Observe().state.known(),
+        "an unavailable base owner leaves ship label controls available");
+  Enable("BaseLabels");
+  struct LabelProfileFixture {
+    const char*       prefix;
+    FleetLabelProfile Config::Graphics::* profile;
+  };
+  const LabelProfileFixture label_profiles[]{{"zoom_label_player", &Config::Graphics::zoom_label_player},
+                                             {"zoom_label_non_player", &Config::Graphics::zoom_label_non_player},
+                                             {"zoom_label_base", &Config::Graphics::zoom_label_base}};
+  for (const auto& item : label_profiles) {
+    const auto detail_key    = std::string("graphics.") + item.prefix + "_detail";
+    const auto threshold_key = std::string("graphics.") + item.prefix + "_threshold";
+    auto*      detail        = Find<ChoiceSetting>(catalog, detail_key);
+    auto*      threshold     = Number<float>(threshold_key);
+    Check(detail && threshold, "ship and base label profiles have independent production controls");
+    const std::array before{Config::Get().graphics.zoom_label_player, Config::Get().graphics.zoom_label_non_player,
+                            Config::Get().graphics.zoom_label_base};
+    const auto       refreshes = fleet_label_refreshes;
     Check(detail->state().SetFromUser(int(FleetLabelDetail::kExpanded), detail->state().Observe()).outcome
                   == Outcome::AppliedVerified
               && fleet_label_refreshes == refreshes + 1,
@@ -435,6 +451,14 @@ int main()
                   == Outcome::Rejected
               && fleet_label_refreshes == refreshes + 3,
           "rejected threshold writes never request native refresh work");
+    Check(std::get<std::string>(saved.at(detail_key)) == "native" && std::get<double>(saved.at(threshold_key)) == .75,
+          "each profile persists its own canonical detail and threshold keys");
+    for (size_t i = 0; i < std::size(label_profiles); ++i)
+      if (label_profiles[i].profile != item.profile) {
+        const auto& current = Config::Get().graphics.*label_profiles[i].profile;
+        Check(current.detail == before[i].detail && current.zoom_threshold == before[i].zoom_threshold,
+              "changing one label profile leaves every other ship/base profile unchanged");
+      }
   }
 
   auto* canonical = Number<float>("graphics.ui_scale");

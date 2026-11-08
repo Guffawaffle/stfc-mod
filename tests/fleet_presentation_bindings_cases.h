@@ -41,6 +41,48 @@ struct FpWidget {
   FpLod*       lod   = nullptr;
   FpLabel*     label = nullptr;
 };
+struct FpBase {
+  Il2CppObject header;
+};
+struct FpAlpha;
+struct FpGroup;
+struct FpBaseObject {
+  Il2CppObject header;
+  FpAlpha*     alpha = nullptr;
+};
+struct FpGroup {
+  Il2CppObject  header;
+  FpBaseObject* object = nullptr;
+};
+struct FpVisibility {
+  Il2CppObject header;
+  FpLod*       lod     = nullptr;
+  ZoomLevels   seen    = ZoomLevels::None;
+  bool         visible = false;
+  int          calls = 0, evaluations = 0;
+  bool         skip_evaluation = false;
+};
+struct FpViewRect {
+  Il2CppObject header;
+  bool         visible = true;
+};
+struct FpDependencies {
+  Il2CppObject        header;
+  Il2CppArrayBounds*  bounds = nullptr;
+  il2cpp_array_size_t length = 2;
+  Il2CppObject*       values[2]{};
+};
+struct FpAlpha {
+  Il2CppObject    header;
+  FpGroup*        group    = nullptr;
+  FpDependencies* handlers = nullptr;
+};
+struct FpBaseWidget {
+  Il2CppObject header;
+  FpBase*      base  = nullptr;
+  FpLod*       lod   = nullptr;
+  FpGroup*     group = nullptr;
+};
 struct FpZoom {
   Il2CppObject header;
   NodeDepth    depth      = NodeDepth::SolarSystem;
@@ -83,6 +125,34 @@ DeployedFleetType FpKind(FpFleet* fleet, const MethodInfo*)
 }
 FpFleet* FpGetContext(FpWidget* widget, const MethodInfo*)
 { return widget->fleet; }
+FpBase* FpBaseContext(FpBaseWidget* widget, const MethodInfo*)
+{ return widget->base; }
+FpBaseObject* FpGroupObject(FpGroup* group, const MethodInfo*)
+{ return group->object; }
+FpAlpha* FpParentAlpha(FpBaseObject* object, Il2CppReflectionType*, bool include_inactive, const MethodInfo*)
+{
+  Require(include_inactive, "base visibility discovery includes a temporarily faded parent");
+  return object->alpha;
+}
+void FpEvaluateVisibility(NavigationZoomEventHandler* handler, const MethodInfo*)
+{
+  auto* value = reinterpret_cast<FpVisibility*>(handler);
+  ++value->evaluations;
+  // Authored badge zoom dependency accepts Near/Middle. Its independent view-rect
+  // dependency is deliberately outside this callback and must remain untouched.
+  value->visible = value->seen == ZoomLevels::Near || value->seen == ZoomLevels::Middle;
+}
+void FpOriginalVisibility(NavigationZoomEventHandler* handler, ZoomLevels level)
+{
+  auto* value = reinterpret_cast<FpVisibility*>(handler);
+  ++value->calls;
+  value->seen = level;
+  // Native can skip Evaluate when two authored LOD groups compare equal.
+  if (!value->skip_evaluation)
+    FpEvaluateVisibility(handler, nullptr);
+}
+void FpVisibilityChanged(NavigationZoomEventHandler* handler, ZoomLevels level, const MethodInfo*)
+{ NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, handler, level); }
 void FpOverride(FpLabel* label, Il2CppString* text, const MethodInfo*)
 {
   if (fp_write_throws)
@@ -136,25 +206,59 @@ void FpUpdateLod(NavigationLOD* lod, ZoomLevels level, const MethodInfo*)
 
 void FleetPresentationCases(std::string_view mode)
 {
-  auto& deployed = Define("Digit.PrimeServer.Models", "FleetDeployedData", IL2CPP_TYPE_CLASS, &object_class);
-  auto& kind     = Define("Digit.PrimeServer.Models", "DeployedFleetType", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
-  auto& level    = Define("Digit.Prime.Navigation", "ZoomLevels", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
-  auto& depth    = Define("Digit.Prime.Navigation", "NodeDepth", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  auto& deployed  = Define("Digit.PrimeServer.Models", "FleetDeployedData", IL2CPP_TYPE_CLASS, &object_class);
+  auto& base_data = Define("Digit.PrimeServer.Models", "StarbaseData", IL2CPP_TYPE_CLASS, &object_class);
+  auto& base_widget_class =
+      Define("Digit.Prime.Navigation", "NavigationStarbaseWidget", IL2CPP_TYPE_CLASS, &unity_object_class);
+  auto& kind   = Define("Digit.PrimeServer.Models", "DeployedFleetType", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  auto& level  = Define("Digit.Prime.Navigation", "ZoomLevels", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  auto& depth  = Define("Digit.Prime.Navigation", "NodeDepth", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
   kind.is_enum = level.is_enum = depth.is_enum = true;
   auto& lod_class = Define("Digit.Prime.Navigation", "NavigationLOD", IL2CPP_TYPE_CLASS, &unity_object_class);
   auto& widget_class =
       Define("Digit.Prime.Navigation", "NavigationFleetWidget", IL2CPP_TYPE_CLASS, &unity_object_class);
+  auto& group_class = Define("UnityEngine", "CanvasGroup", IL2CPP_TYPE_CLASS, &component_class);
+  auto& visibility_class =
+      Define("Digit.Prime.Navigation", "BaseNavigationEventHandler", IL2CPP_TYPE_CLASS, &component_class);
+  auto& zoom_handler_class =
+      Define("Digit.Prime.Navigation", "NavigationZoomEventHandler", IL2CPP_TYPE_CLASS, &visibility_class);
+  auto& view_rect_class =
+      Define("Digit.Prime.Navigation", "NavigationViewRectEventHandler", IL2CPP_TYPE_CLASS, &visibility_class);
+  auto& alpha_class =
+      Define("Digit.Prime.Navigation", "NavigationCanvasAlphaEventHandler", IL2CPP_TYPE_CLASS, &visibility_class);
+  auto& dependencies_class =
+      Define("Digit.Prime.Navigation", "BaseNavigationEventHandler[]", IL2CPP_TYPE_SZARRAY, &array_class);
+  dependencies_class.klass.byval_arg.data.type = T(visibility_class);
   auto& label_class   = Define("Digit.Client.UI", "TextLocalizer", IL2CPP_TYPE_CLASS, &unity_object_class);
   auto& zoom_class    = Define("Digit.Prime.Navigation", "NavigationZoom", IL2CPP_TYPE_CLASS, &unity_object_class);
   auto& manager_class = Define("Digit.Prime.FleetManagement", "FleetsManager", IL2CPP_TYPE_CLASS, &object_class);
   auto& bar_class     = Define("Digit.Prime.HUD", "FleetBarViewController", IL2CPP_TYPE_CLASS, &object_class);
   auto& context_class = Define("Digit.Prime.HUD", "FleetBarContext", IL2CPP_TYPE_CLASS, &object_class);
   auto& array         = Define("Digit.PrimeServer.Models", "FleetPlayerData[]", IL2CPP_TYPE_SZARRAY, &array_class);
-  array.klass.byval_arg.data.type  = T(fleet_data_class);
-  lod_class.klass.instance_size    = sizeof(FpLod);
-  widget_class.klass.instance_size = sizeof(FpWidget);
-  zoom_class.klass.instance_size   = sizeof(FpZoom);
+  array.klass.byval_arg.data.type        = T(fleet_data_class);
+  lod_class.klass.instance_size          = sizeof(FpLod);
+  widget_class.klass.instance_size       = sizeof(FpWidget);
+  zoom_class.klass.instance_size         = sizeof(FpZoom);
+  group_class.klass.instance_size        = sizeof(FpGroup);
+  alpha_class.klass.instance_size        = sizeof(FpAlpha);
+  zoom_handler_class.klass.instance_size = sizeof(FpVisibility);
+  view_rect_class.klass.instance_size    = sizeof(FpViewRect);
   AddField(lod_class, "<TargetLevel>k__BackingField", level, offsetof(FpLod, target));
+  base_widget_class.klass.instance_size = sizeof(FpBaseWidget);
+  AddField(base_widget_class, "_navigationLod", lod_class, offsetof(FpBaseWidget, lod));
+  AddField(base_widget_class, "_group", group_class, offsetof(FpBaseWidget, group));
+  AddField(alpha_class, "_canvasGroup", group_class, offsetof(FpAlpha, group));
+  AddField(alpha_class, "handlers", dependencies_class, offsetof(FpAlpha, handlers));
+  AddField(zoom_handler_class, "_navigationLod", lod_class, offsetof(FpVisibility, lod));
+  AddMethod(group_class, "get_gameObject", reinterpret_cast<void*>(&FpGroupObject), T(game_object_class), {});
+  AddMethod(game_object_class, "GetComponentInParent", reinterpret_cast<void*>(&FpParentAlpha), T(component_class),
+            {T(type_class), T(bool_class)});
+  AddMethod(zoom_handler_class, "OnZoomChanged", reinterpret_cast<void*>(&FpVisibilityChanged), T(void_class),
+            {T(level)});
+  AddMethod(zoom_handler_class, "Evaluate", reinterpret_cast<void*>(&FpEvaluateVisibility), T(void_class), {});
+  auto& base_context =
+      AddMethod(base_widget_class, "get_Context", reinterpret_cast<void*>(&FpBaseContext), T(base_data), {});
+  AddProperty(base_widget_class, "Context", &base_context);
   AddField(widget_class, "_lod", lod_class, offsetof(FpWidget, lod));
   AddField(widget_class, "_fleetLevel", label_class, offsetof(FpWidget, label));
   AddField(zoom_class, "_depth", depth, offsetof(FpZoom, depth));
@@ -203,6 +307,8 @@ void FleetPresentationCases(std::string_view mode)
   config.graphics.zoom_label_non_player = {FleetLabelDetail::kNative, .5f};
   ShipBadges().installed                = true;
   fleet_labels.MarkInstalled();
+  fleet_labels.MarkBasesInstalled();
+  config.graphics.zoom_label_base = {FleetLabelDetail::kNative, .5f};
   ship_shortcut_badges::Bind(receiver);
   if (mode == "fleet-presentation-missing-index") {
     Require(label.overrides == 0 && fp_index_reads == 0 && label.text == "H",
@@ -287,6 +393,161 @@ void FleetPresentationCases(std::string_view mode)
     Require(mode == "fleet-presentation-native", "unknown fleet presentation fixture mode");
     Require(lod.seen == ZoomLevels::Middle && lod.target == ZoomLevels::Middle,
             "actual threshold consumer includes equality and restores its target after original");
+    {
+      FpBase base{{&base_data.klass}};
+      FpLod  base_lod{{&lod_class.klass}}, replacement_lod{{&lod_class.klass}};
+      // The authored zoom dependency belongs to a different LOD, as observed in
+      // the client. Ownership must come from the exact alpha dependency graph.
+      FpVisibility   zoom_gate{{&zoom_handler_class.klass}, &foreign_lod};
+      FpVisibility   foreign_gate{{&zoom_handler_class.klass}, &base_lod};
+      FpViewRect     view_rect{{&view_rect_class.klass}};
+      FpDependencies dependencies{{&dependencies_class.klass}, nullptr, 2, {&zoom_gate.header, &view_rect.header}};
+      FpBaseObject   base_object{{&game_object_class.klass}};
+      FpGroup        group{{&group_class.klass}, &base_object}, other_group{{&group_class.klass}};
+      FpAlpha        alpha{{&alpha_class.klass}, &group, &dependencies};
+      base_object.alpha = &alpha;
+      FpBaseWidget base_widget{{&base_widget_class.klass}, nullptr, &base_lod, &group};
+      auto*        base_receiver     = reinterpret_cast<NavigationStarbaseWidget*>(&base_widget);
+      auto*        base_lod_receiver = reinterpret_cast<NavigationLOD*>(&base_lod);
+      auto*        zoom_receiver     = reinterpret_cast<NavigationZoomEventHandler*>(&zoom_gate);
+      auto*        foreign_receiver  = reinterpret_cast<NavigationZoomEventHandler*>(&foreign_gate);
+      const auto   discovered        = base_receiver->TryZoomVisibilityHandler();
+      Require(discovered && discovered.value == zoom_receiver,
+              "root canvas dependency graph identifies the zoom gate independently of its LOD pointer");
+      alpha.group = &other_group;
+      Require(!base_receiver->TryZoomVisibilityHandler(),
+              "a different canvas alpha owner is not base visibility authority");
+      alpha.group            = &group;
+      dependencies.values[1] = &foreign_gate.header;
+      Require(!base_receiver->TryZoomVisibilityHandler(), "multiple distinct zoom dependencies remain unresolved");
+      dependencies.values[1] = &view_rect.header;
+      dependencies.values[0] = &view_rect.header;
+      const auto no_zoom     = base_receiver->TryZoomVisibilityHandler();
+      Require(no_zoom && !no_zoom.value, "a root without a zoom dependency does not invent visibility authority");
+      dependencies.values[0]          = &zoom_gate.header;
+      config.graphics.zoom_label_base = {FleetLabelDetail::kThreshold, .3f};
+      fleet_labels.Track(base_receiver);
+      Require(!fleet_labels.Revision(base_lod_receiver) && !fleet_labels.VisibilityRevision(zoom_receiver),
+              "unbound pooled base labels retain native LOD and visibility");
+      int binds = 0;
+      NavigationStarbaseWidget_OnDidBindContext_Hook(
+          [&](auto*) {
+            ++binds;
+            base_widget.base = &base;
+          },
+          base_receiver);
+      FleetLabelsAfterZoom(camera);
+      Require(binds == 1 && base_lod.seen == ZoomLevels::Far && lod.seen == ZoomLevels::Middle
+                  && zoom_gate.seen == ZoomLevels::Far && !zoom_gate.visible,
+              "late-bound base label updates its LOD and zoom gate independently of ship labels");
+      const auto stable_calls            = base_lod.calls;
+      const auto stable_visibility_calls = zoom_gate.calls;
+      const auto stable_evaluations      = zoom_gate.evaluations;
+      zoom.normalized                    = .4f;
+      FleetLabelsAfterZoom(camera);
+      Require(base_lod.calls == stable_calls && zoom_gate.calls == stable_visibility_calls
+                  && zoom_gate.evaluations == stable_evaluations,
+              "same side of every threshold avoids repeated base LOD and visibility work");
+      zoom.normalized = .3f;
+      FleetLabelsAfterZoom(camera);
+      Require(base_lod.seen == ZoomLevels::Middle && zoom_gate.seen == ZoomLevels::Middle && zoom_gate.visible,
+              "crossing the base threshold at equality refreshes both LOD and the native zoom gate");
+      config.graphics.zoom_label_base.zoom_threshold = 0;
+      zoom.normalized                                = 0;
+      FleetLabelsAfterZoom(camera);
+      Require(base_lod.seen == ZoomLevels::Far && lod.seen == ZoomLevels::Middle && zoom_gate.seen == ZoomLevels::Far
+                  && !zoom_gate.visible,
+              "base threshold zero keeps its LOD and zoom gate compact independently of player ships");
+      config.graphics.zoom_label_base.zoom_threshold = 1;
+      FleetLabelsAfterZoom(camera);
+      Require(base_lod.seen == ZoomLevels::Middle && zoom_gate.seen == ZoomLevels::Middle && zoom_gate.visible,
+              "base threshold one expands both the label and its native zoom gate");
+      config.graphics.zoom_label_base.detail = FleetLabelDetail::kNative;
+      FleetLabelsAfterZoom(camera);
+      Require(base_lod.seen == ZoomLevels::Far && base_lod.target == ZoomLevels::Far
+                  && zoom_gate.seen == ZoomLevels::Far && !zoom_gate.visible,
+              "returning bases to Native restores the native LOD target and zoom gate after forced detail");
+      config.graphics.zoom_label_base.detail = FleetLabelDetail::kExpanded;
+      FleetLabelsAfterZoom(camera);
+      Require(base_lod.seen == ZoomLevels::Middle && zoom_gate.seen == ZoomLevels::Middle && zoom_gate.visible,
+              "Expanded keeps the authored zoom visibility dependency open at native Far");
+      zoom_gate.skip_evaluation      = true;
+      zoom_gate.visible              = false;
+      const auto before_equal_groups = zoom_gate.evaluations;
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, zoom_receiver, ZoomLevels::Far);
+      Require(zoom_gate.seen == ZoomLevels::Middle && zoom_gate.visible
+                  && zoom_gate.evaluations == before_equal_groups + 1,
+              "forced base detail evaluates visibility even when the native LOD groups compare equal");
+      zoom_gate.skip_evaluation = false;
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, foreign_receiver, ZoomLevels::Far);
+      Require(foreign_gate.seen == ZoomLevels::Far && !foreign_gate.visible
+                  && !fleet_labels.VisibilityRevision(foreign_receiver),
+              "an untracked handler retains native visibility even when its LOD matches a tracked base");
+      view_rect.visible = false;
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, zoom_receiver, ZoomLevels::Far);
+      Require(zoom_gate.visible && !view_rect.visible && !(zoom_gate.visible && view_rect.visible),
+              "Expanded alters only the zoom dependency and preserves native offscreen clipping");
+      view_rect.visible                      = true;
+      config.graphics.zoom_label_base.detail = FleetLabelDetail::kCompact;
+      FleetLabelsAfterZoom(camera);
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, zoom_receiver, ZoomLevels::Near);
+      Require(base_lod.seen == ZoomLevels::Far && zoom_gate.seen == ZoomLevels::Far && !zoom_gate.visible,
+              "live Compact mode returns both base LOD and authored zoom gate to compact detail");
+      config.graphics.zoom_label_base.detail = FleetLabelDetail::kNative;
+      FleetLabelsAfterZoom(camera);
+      const auto native_evaluations = zoom_gate.evaluations;
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, zoom_receiver, ZoomLevels::Near);
+      Require(zoom_gate.seen == ZoomLevels::Near && zoom_gate.visible
+                  && zoom_gate.evaluations == native_evaluations + 1,
+              "Native mode passes the actual level through without an extra mod visibility evaluation");
+      config.graphics.zoom_label_base.detail = FleetLabelDetail::kExpanded;
+      FleetLabelsAfterZoom(camera);
+      FleetLabelsFollowDepth(camera, NodeDepth::Galaxy);
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, zoom_receiver, ZoomLevels::Far);
+      Require(zoom_gate.seen == ZoomLevels::Far && !zoom_gate.visible,
+              "base visibility override has no authority outside an observed system camera");
+      FleetLabelsAfterZoom(camera);
+      Require(zoom_gate.visible, "returning to the system reapplies Expanded zoom visibility");
+      // A shared native zoom dependency cannot inherit either label's preference.
+      FpBaseWidget sibling{{&base_widget_class.klass}, &base, &replacement_lod, &group};
+      auto*        sibling_receiver = reinterpret_cast<NavigationStarbaseWidget*>(&sibling);
+      fleet_labels.Track(sibling_receiver);
+      Require(zoom_gate.seen == ZoomLevels::Far && !zoom_gate.visible
+                  && !fleet_labels.VisibilityRevision(zoom_receiver),
+              "ambiguous shared zoom ownership restores native visibility instead of choosing a base");
+      fleet_labels.Untrack(sibling_receiver);
+      fleet_labels.Refresh();
+      FleetLabelsAfterZoom(camera);
+      Require(zoom_gate.visible && fleet_labels.VisibilityRevision(zoom_receiver),
+              "a unique surviving base can resume visibility ownership after a shared owner is released");
+      NavigationLOD_UpdateLOD_Hook(FpOriginalLod, base_lod_receiver, ZoomLevels::Near);
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, zoom_receiver, ZoomLevels::Near);
+      Require(base_lod.seen == ZoomLevels::Near && zoom_gate.seen == ZoomLevels::Near && zoom_gate.visible,
+              "expanded bases preserve native Near LOD formatting and visibility");
+      fp_on_original = [&] {
+        NavigationStarbaseWidget_OnAboutToReleaseContext_Hook([](auto*) {}, base_receiver);
+        base_widget.lod = &replacement_lod;
+        fleet_labels.Track(base_receiver);
+        base_lod.target = ZoomLevels::Far;
+      };
+      NavigationLOD_UpdateLOD_Hook(FpOriginalLod, base_lod_receiver, ZoomLevels::Middle);
+      Require(!fleet_labels.Revision(base_lod_receiver) && base_lod.target == ZoomLevels::Far,
+              "pooled base release/rebind retires old LOD generation before native completion");
+      NavigationStarbaseWidget_OnAboutToReleaseContext_Hook(
+          [&](auto*) {
+            Require(!fleet_labels.VisibilityRevision(zoom_receiver) && zoom_gate.seen == ZoomLevels::Far
+                        && !zoom_gate.visible,
+                    "pool release erases zoom ownership and restores its native gate before native context cleanup");
+            base_widget.base = nullptr;
+          },
+          base_receiver);
+      NavigationZoomEventHandler_OnZoomChanged_Hook(FpOriginalVisibility, zoom_receiver, ZoomLevels::Far);
+      Require(zoom_gate.seen == ZoomLevels::Far && !zoom_gate.visible,
+              "a released pooled base cannot keep overriding a later native zoom callback");
+      config.graphics.zoom_label_base = {FleetLabelDetail::kNative, .5f};
+      zoom.normalized                 = .5f;
+      FleetLabelsAfterZoom(camera);
+    }
     zoom.normalized = .6f;
     FleetLabelsAfterZoom(camera);
     Require(lod.seen == ZoomLevels::Far, "crossing past threshold compacts actual tracked labels");

@@ -166,6 +166,7 @@ constexpr const Feature* kFeatures[] = {
     &kNavigationOrbit,
     // fleet_labels.cc
     &kFleetLabels,
+    &kBaseLabels,
     // galaxy.cc and galaxy_selection.cc reuse the existing navigation camera/LOD owners.
     &kGalaxyLabels,
     &kGalaxySelection,

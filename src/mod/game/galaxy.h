@@ -154,11 +154,7 @@ inline Star* StarFor(il2cpp::Object* component)
   auto* type = Star::Class::TypeObject();
   return component && type ? component->Call<"GetComponent", Star*>(type) : nullptr;
 }
-struct ZoomHandler : unity::Behaviour {
-  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationZoomEventHandler">;
-  NavigationLOD* Lod()
-  { return Field<"_navigationLod", NavigationLOD*>(); }
-};
+using ZoomHandler = NavigationZoomEventHandler;
 struct Filter : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Core.Systems", "GalaxyDataFilterSystem">;
   ZoomLevels Current()

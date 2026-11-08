@@ -221,6 +221,7 @@ public:
     float             fr_scale            = 2.0f;
     FleetLabelProfile zoom_label_player;
     FleetLabelProfile zoom_label_non_player;
+    FleetLabelProfile zoom_label_base;
     bool              free_resize         = true;
     bool              allow_cursor        = true;
     float             keyboard_zoom_speed = 350.0f;

@@ -3,7 +3,6 @@
 #include "features/navigation_orbit.h"
 #include "config.h"
 #include "features/features.h"
-#include "features/navigation_environment.h"
 #include "shortcuts.h"
 
 #include "game/navigation_orbit.h"
@@ -29,9 +28,8 @@ struct NavigationOrbitState {
   float            distance    = 0;
   float            native_clip = 0, applied_clip = 0;
   float            yaw = 0, pitch = 0, x = 0, y = 0;
-  int32_t          frame          = -1;
-  uint64_t         view_revision  = 0;
-  uint64_t         owner_revision = 0;
+  int32_t          frame         = -1;
+  uint64_t         view_revision = 0;
   bool             installed = false, dragging = false, overridden = false, clearing = false;
 };
 NavigationOrbitState& NavigationOrbit()
@@ -82,8 +80,6 @@ void NavigationOrbitClear(bool restore_view = true)
     ~ClearScope()
     { active = false; }
   } clearing(state.clearing);
-  ++state.owner_revision;
-  navigation_environment::Clear();
   auto* transform = state.transform.Get<unity::Transform>();
   if (restore_view && state.overridden && transform) {
     const auto alive = unity::TryAlive(transform);
@@ -165,7 +161,6 @@ void NavigationOrbitTick()
     }
     changed          = state.overridden;
     state.overridden = state.dragging = false;
-    navigation_environment::Clear();
     NavigationOrbitRestoreClip();
     state.yaw = 0;
   } else {
@@ -296,18 +291,16 @@ void NavigationOrbitDrawDistance(NavigationZoom* zoom)
   const auto radius   = system_orbit::Field<"_viewRadius", float>(pan);
   if (!position || !baseline || !std::isfinite(baseline.value) || baseline.value <= 0)
     return;
-  float clip = baseline.value;
+  const float clip = baseline.value;
   if (pan_camera && pan_camera.value == camera.value && depth && depth.value == state.depth && center && radius
       && system_orbit::Finite(center.value) && std::isfinite(radius.value) && radius.value > 0) {
     const double distance =
         std::hypot(double(position.value.x) - center.value.x, double(position.value.y) - center.value.y,
                    double(position.value.z) - center.value.z);
     const double required = distance + 4.0 * radius.value;
-    if (required > clip && required <= std::numeric_limits<float>::max()
-        && NavigationOrbitExtendClip(camera.value, clip, float(required)))
-      clip = float(required);
+    if (required > clip && required <= std::numeric_limits<float>::max())
+      NavigationOrbitExtendClip(camera.value, clip, float(required));
   }
-  navigation_environment::ApplyDrawDistance(camera.value, position.value, clip, NavigationOrbitExtendClip);
 }
 navigation_orbit::ZoomUpdateScope*& NavigationOrbitUpdates()
 {
@@ -315,18 +308,7 @@ navigation_orbit::ZoomUpdateScope*& NavigationOrbitUpdates()
   return current;
 }
 void NavigationOrbitFlush(NavigationZoom* zoom)
-{
-  auto& state = NavigationOrbit();
-  if (state.zoom.Get() != zoom || !state.overridden || !NavigationOrbitEnabled() || !NavigationOrbitSection())
-    return;
-  const auto camera = system_orbit::Field<"_sceneCamera", unity::Camera*>(zoom);
-  if (!camera || camera.value != state.camera.Get())
-    return;
-  const auto revision = state.owner_revision;
-  navigation_environment::Update(state.camera.Get<unity::Camera>(), state.transform.Get<unity::Transform>());
-  if (state.owner_revision == revision && state.zoom.Get() == zoom && state.overridden)
-    NavigationOrbitDrawDistance(zoom);
-}
+{ NavigationOrbitDrawDistance(zoom); }
 void NavigationOrbitRequestFlush(NavigationZoom* zoom)
 {
   for (auto* scope = NavigationOrbitUpdates(); scope; scope = scope->previous)
@@ -412,7 +394,6 @@ void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom
       return;
     }
     state.zoom = std::move(zoom_root);
-    ++state.owner_revision;
     if (transform_root)
       state.transform = std::move(transform_root);
     if (camera_root)
