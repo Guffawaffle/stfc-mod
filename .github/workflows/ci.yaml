@@ -44,7 +44,7 @@ jobs:
         shell: pwsh
         run: |
           "run_attempt=${{ github.run_attempt }}" >> $env:GITHUB_OUTPUT
-          zig build install test-toolchains test-codegen test-deps test-il2cpp test-mod test-sync test-spud `
+          python scripts/ci-build-retry.py -- zig build install test-toolchains test-codegen test-deps test-il2cpp test-mod test-sync test-spud `
             -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug `
             "-Dstfc_source_state_id=git:${{ github.sha }}" `
             "-Dstfc_base_commit=${{ github.sha }}" `
@@ -85,7 +85,7 @@ jobs:
         with:
           version: ${{ env.ZIG_VERSION }}
       - name: Test
-        run: zig build test-toolchains test-codegen test-il2cpp test-mod test-sync test-launcher test-spud
+        run: python3 scripts/ci-build-retry.py -- zig build test-toolchains test-codegen test-il2cpp test-mod test-sync test-launcher test-spud
 
   build-mac:
     name: build-mac (${{ matrix.arch }})
@@ -114,7 +114,7 @@ jobs:
         run: python3 scripts/stamp-version-hash.py "${{ github.sha }}"
       - name: Build and test
         run: |
-          zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
+          python3 scripts/ci-build-retry.py -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
             -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all
       - name: Verify portable linkage
         run: |
