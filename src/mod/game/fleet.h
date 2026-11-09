@@ -326,6 +326,74 @@ enum class ActionBehaviour : int32_t {
   RequestConfirmation = 32,
 };
 
+enum class JobState : int32_t {
+  Unknown   = -1,
+  Inactive  = 0,
+  Active    = 1,
+  Complete  = 2,
+  Collected = 3,
+};
+
+struct IJob : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IJob">;
+
+  il2cpp::CallResult<JobState> TryState()
+  { return planned_warp_binding::Scalar<"get_State", JobState>(this); }
+};
+
+struct ActionElementWidget : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Actions", "ActionElementWidget">;
+
+  il2cpp::CallResult<ActionType> TryActionType()
+  {
+    static const auto* getter = il2cpp::detail::MethodCall<ActionType()>::Resolve(Class::Raw(), "get_ActionType", false);
+    using ManagedActionType = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "ActionType">;
+    if (!getter || !il2cpp::detail::ValueClassMatches(getter->return_type, ManagedActionType::Raw(), sizeof(ActionType)))
+      return {};
+    return il2cpp::detail::TryInvoke<ActionType>(getter, this);
+  }
+  il2cpp::CallResult<il2cpp::Object*> TryContext()
+  {
+    // Context is declared as IActionData. Qualify the managed-reference getter, then check its runtime class below.
+    const auto context = planned_warp_binding::Reference<"get_Context", FleetPlayerData>(this);
+    return {context.succeeded, context.value};
+  }
+  GenericButtonWidget* instantButton()
+  { return Field<"_instantButton", GenericButtonWidget*>(); }
+
+  il2cpp::CallResult<bool> TryHasInstantRepairIntent()
+  {
+    const auto type = TryActionType();
+    if (!type)
+      return {};
+    if (type.value != ActionType::Repair)
+      return {true, false};
+    const auto context = TryContext();
+    if (!context)
+      return {};
+    if (!context.value)
+      return {true, false};
+    auto context_root = il2cpp::GcHandle::Strong(context.value);
+    auto* rooted_context = context_root.Get<il2cpp::Object>();
+    if (!rooted_context)
+      return {};
+    auto* fleet = rooted_context->As<FleetPlayerData>();
+    if (!fleet)
+      return {true, false};
+    const auto job = fleet->TryCall<"GetActionJob", IJob*(ActionType)>(type.value);
+    if (!job)
+      return {};
+    if (!job.value)
+      return {true, true};
+    auto job_root = il2cpp::GcHandle::Strong(job.value);
+    auto* rooted_job = job_root.Get<IJob>();
+    if (!rooted_job)
+      return {};
+    const auto state = rooted_job->TryState();
+    return state ? il2cpp::CallResult<bool>{true, state.value == JobState::Inactive} : il2cpp::CallResult<bool>{};
+  }
+};
+
 // Digit.PrimeServer.Models.TimerDataContext, read on its runtime class: the mod only needs the remaining time, and
 // the class has moved between client builds.
 struct TimerDataContext : il2cpp::Object {

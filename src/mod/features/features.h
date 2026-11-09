@@ -140,6 +140,7 @@ extern const Feature kDockSelection;
 extern const Feature kQueueSwitch;
 extern const Feature kFleetActionMaintenance;
 extern const Feature kAbilityButtons;
+extern const Feature kInstantRepairButton;
 // The pre-scan cargo hooks; installed with the hotkeys.
 void InstallFleetActions();
 // A target or object viewer card is open in space.

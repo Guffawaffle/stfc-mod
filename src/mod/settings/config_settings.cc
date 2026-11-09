@@ -655,6 +655,14 @@ void RegisterConfigSettings(PageCatalog& catalog)
   Boolean(catalog, "community_mod.galaxy", "graphics", "galaxy_multi_select", "Select multiple overlays",
           ACCESS(graphics, galaxy_multi_select), galaxy_controls::LabelsAvailable, Timing::Live,
           "Select several Galaxy overlays together.", galaxy_controls::Refresh);
+  const Available instant_repair = [] {
+    return std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
+      return feature.name && std::string_view(feature.name) == "InstantRepairButton"
+             && feature.state == InstallState::kInstalled && feature.frame_ready;
+    });
+  };
+  BOOL("hud", ui, hide_instant_repair_button, "Hide Instant Repair button", instant_repair, Live,
+       "Hide Instant Repair for damaged ships. Normal Repair and in-progress repair speedups stay available.");
 #undef BOOL
 #undef FLOAT
 #undef INT

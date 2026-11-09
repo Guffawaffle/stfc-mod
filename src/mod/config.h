@@ -151,6 +151,7 @@ public:
     bool havenzoomhooks             = true;
     bool hotkeyhooks                = true;
     bool instantcargocounterhooks   = true;
+    bool instantrepairbuttonhooks   = true;
     bool interiorzoomhooks          = true;
     bool loadingscreenhooks         = true;
     bool loadingtiphooks            = true;
@@ -342,11 +343,12 @@ public:
 
     bool always_skip_reveal_sequence = true;
     // Hides the artifact shards popup's Exchange All button; single exchanges stay. Takes effect on the next popup.
-    bool                 disable_exchange_all = false;
-    MissionHudVisibility hud_q_trials         = MissionHudVisibility::kAuto;
-    MissionHudVisibility hud_field_training   = MissionHudVisibility::kAuto;
-    MissionHudVisibility hud_outposts         = MissionHudVisibility::kAuto;
-    MissionHudVisibility hud_missions         = MissionHudVisibility::kAuto;
+    bool                 disable_exchange_all       = false;
+    bool                 hide_instant_repair_button = false;
+    MissionHudVisibility hud_q_trials               = MissionHudVisibility::kAuto;
+    MissionHudVisibility hud_field_training         = MissionHudVisibility::kAuto;
+    MissionHudVisibility hud_outposts               = MissionHudVisibility::kAuto;
+    MissionHudVisibility hud_missions               = MissionHudVisibility::kAuto;
 
     // ToastState values.
     std::vector<int>      disabled_banner_types;

@@ -3,6 +3,7 @@
 // Retained client273 native Settings navigation. Keep the untyped Widget virtual slot distinct from Widget<IList>.
 #include "settings.h"
 #include <optional>
+#include <unity/ui.h>
 #include <vector>
 
 namespace settings_pages_binding
@@ -185,4 +186,13 @@ struct SettingsTextWidget : Widget<SettingsTextContext> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "TextOptionWidget">;
   TextLocalizer* Label()
   { return Field<"_label", TextLocalizer*>(); }
+  unity::Image* Background()
+  {
+    // Client274's TextOption prefab keeps its Image on the direct BG child; the root has no Image.
+    const auto transform  = TryCall<"get_transform", unity::Transform*>();
+    auto       root       = il2cpp::GcHandle::Strong(transform ? transform.value : nullptr);
+    auto       background = il2cpp::GcHandle::Strong(root ? root.Get<unity::Transform>()->Find("BG") : nullptr);
+    auto object = il2cpp::GcHandle::Strong(background ? background.Get<unity::Transform>()->gameObject() : nullptr);
+    return object ? object.Get<unity::GameObject>()->GetComponent<unity::Image>() : nullptr;
+  }
 };

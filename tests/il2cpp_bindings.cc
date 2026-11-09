@@ -276,6 +276,43 @@ struct FleetIdentityObject {
 bool ship_read_throws = false, ship_id_throws = false;
 int  fleet_identity_reads = 0;
 
+struct InstantRepairFixture {
+  ActionType      action    = ActionType::Repair;
+  il2cpp::Object* context   = nullptr;
+  IJob*           job       = nullptr;
+  JobState        state     = JobState::Inactive;
+  bool            job_fails = false, state_fails = false, job_root_fails = false;
+  int             job_reads = 0;
+} instant_repair;
+
+bool RepairRooted(Il2CppObject* object)
+{
+  return std::ranges::any_of(warp_roots, [object](const auto& entry) { return entry.second == object; });
+}
+ActionType RepairActionType(Il2CppObject*, const MethodInfo*)
+{ return instant_repair.action; }
+il2cpp::Object* RepairContext(Il2CppObject*, const MethodInfo*)
+{ return instant_repair.context; }
+IJob* RepairActionJob(Il2CppObject* fleet, ActionType action, const MethodInfo*)
+{
+  ++instant_repair.job_reads;
+  Require(fleet == instant_repair.context && RepairRooted(fleet) && action == ActionType::Repair,
+          "repair job lookup retains the actual fleet and passes the four-byte action value");
+  if (instant_repair.job_fails)
+    throw std::runtime_error("unavailable repair job");
+  if (instant_repair.job_root_fails)
+    warp_root_failure = true;
+  return instant_repair.job;
+}
+JobState RepairJobState(Il2CppObject* job, const MethodInfo*)
+{
+  Require(RepairRooted(instant_repair.context) && RepairRooted(job),
+          "repair state lookup retains both the fleet context and job");
+  if (instant_repair.state_fails)
+    throw std::runtime_error("unavailable repair job state");
+  return instant_repair.state;
+}
+
 FakeClass& event_system_class    = Define("UnityEngine.EventSystems", "EventSystem", IL2CPP_TYPE_CLASS, &object_class);
 FakeClass& unity_object_class    = Define("UnityEngine", "Object", IL2CPP_TYPE_CLASS, &object_class);
 FakeClass& game_object_class     = Define("UnityEngine", "GameObject", IL2CPP_TYPE_CLASS, &unity_object_class);
@@ -1085,9 +1122,13 @@ API(bool, il2cpp_class_is_assignable_from, (Il2CppClass * klass, Il2CppClass* ot
   // including unmanaged-pointer classes. Signature checks must reject those kinds themselves.
   if (klass == &object_class.klass)
     return true;
-  for (; other; other = other->parent)
+  for (; other; other = other->parent) {
     if (other == klass)
       return true;
+    for (uint16_t i = 0; i < other->interfaces_count; ++i)
+      if (il2cpp_class_is_assignable_from(klass, other->implementedInterfaces[i]))
+        return true;
+  }
   return false;
 }
 END_API
@@ -1502,6 +1543,87 @@ void ShipIdentityObservations()
   identity_fleet.ship = &identity_ship.header;
   Require(fleet->ShipInstanceId() == 42 && fleet_identity_reads == 0,
           "ship identity never substitutes FleetPlayerData.Id, hull or display name");
+}
+
+void InstantRepairIntentObservations()
+{
+  auto& action_type  = Define("Digit.PrimeServer.Models", "ActionType", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  auto& action_data  = Define("Digit.Prime.Actions", "IActionData", IL2CPP_TYPE_CLASS, &object_class);
+  auto& job_state    = Define("Digit.PrimeServer.Models", "JobState", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  auto& job_type     = Define("Digit.PrimeServer.Models", "IJob", IL2CPP_TYPE_CLASS, &object_class);
+  auto& job_class    = Define("Digit.PrimeServer.Models", "Job", IL2CPP_TYPE_CLASS, &object_class);
+  auto& widget_class = Define("Digit.Prime.Actions", "ActionElementWidget", IL2CPP_TYPE_CLASS, &object_class);
+  auto& other_action = Define("Game", "OtherActionData", IL2CPP_TYPE_CLASS, &object_class);
+  static std::array<Il2CppClass*, 1> fleet_interfaces{&action_data.klass}, job_interfaces{&job_type.klass};
+  fleet_data_class.klass.implementedInterfaces = fleet_interfaces.data();
+  fleet_data_class.klass.interfaces_count      = 1;
+  other_action.klass.implementedInterfaces     = fleet_interfaces.data();
+  other_action.klass.interfaces_count          = 1;
+  job_class.klass.implementedInterfaces        = job_interfaces.data();
+  job_class.klass.interfaces_count             = 1;
+  job_state.is_enum                            = true;
+  AddField(job_state, "value__", int_class, sizeof(Il2CppObject));
+  auto& action_getter =
+      AddMethod(widget_class, "get_ActionType", reinterpret_cast<void*>(&RepairActionType), T(action_type), {});
+  auto& context_getter =
+      AddMethod(widget_class, "get_Context", reinterpret_cast<void*>(&RepairContext), T(action_data), {});
+  AddMethod(fleet_data_class, "GetActionJob", reinterpret_cast<void*>(&RepairActionJob), T(job_type), {T(action_type)});
+  auto& interface_state = AddMethod(job_type, "get_State", nullptr, T(job_state), {},
+                                    METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL | METHOD_ATTRIBUTE_ABSTRACT);
+  auto& concrete_state  = AddMethod(job_class, "get_State", reinterpret_cast<void*>(&RepairJobState), T(job_state), {},
+                                    METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
+  interface_state.slot = concrete_state.slot = 3;
+  Il2CppObject widget_object{}, job_object{}, other_context{};
+  widget_object.klass     = &widget_class.klass;
+  job_object.klass        = &job_class.klass;
+  other_context.klass     = &other_action.klass;
+  auto* widget            = reinterpret_cast<ActionElementWidget*>(&widget_object);
+  instant_repair.context  = reinterpret_cast<il2cpp::Object*>(&identity_fleet);
+  const auto roots_before = warp_roots.size();
+  const auto expect       = [widget](bool wanted, const char* what) {
+    const auto observed = widget->TryHasInstantRepairIntent();
+    Require(observed && observed.value == wanted, what);
+  };
+
+  expect(true, "a successfully observed null repair job is Instant intent");
+  instant_repair.job = reinterpret_cast<IJob*>(&job_object);
+  expect(true, "an inactive repair job is Instant intent through virtual IJob state");
+  for (const auto state : {JobState::Active, JobState::Complete, JobState::Unknown, JobState::Collected}) {
+    instant_repair.state = state;
+    expect(false, "speedup, collection and unknown repair states retain native controls");
+  }
+  instant_repair.state     = JobState::Inactive;
+  instant_repair.job_fails = true;
+  Require(!widget->TryHasInstantRepairIntent(), "failed job lookup is not an observed null job");
+  instant_repair.job_fails   = false;
+  instant_repair.state_fails = true;
+  Require(!widget->TryHasInstantRepairIntent(), "failed state lookup is not an observed inactive job");
+  instant_repair.state_fails = false;
+  warp_root_failure          = true;
+  Require(!widget->TryHasInstantRepairIntent(), "unavailable context root refuses repair intent");
+  warp_root_failure             = false;
+  instant_repair.job_root_fails = true;
+  Require(!widget->TryHasInstantRepairIntent(), "unavailable job root refuses repair intent");
+  instant_repair.job_root_fails = warp_root_failure = false;
+
+  const auto job_reads  = instant_repair.job_reads;
+  instant_repair.action = ActionType::Recall;
+  expect(false, "another action does not become repair intent");
+  instant_repair.action  = ActionType::Repair;
+  instant_repair.context = reinterpret_cast<il2cpp::Object*>(&other_context);
+  expect(false, "a non-fleet IActionData context is not used as FleetPlayerData");
+  instant_repair.context = nullptr;
+  expect(false, "an unbound widget has no repair intent");
+  Require(instant_repair.job_reads == job_reads, "nonmatching action and context never request a repair job");
+  instant_repair.context    = reinterpret_cast<il2cpp::Object*>(&identity_fleet);
+  action_getter.return_type = T(state_class);
+  Require(!widget->TryHasInstantRepairIntent(), "another four-byte value class is not ActionType");
+  action_getter.return_type  = T(action_type);
+  context_getter.return_type = T(pointer_class);
+  Require(!widget->TryHasInstantRepairIntent(), "an unmanaged context getter cannot qualify a fleet reference");
+  context_getter.return_type = T(action_data);
+  expect(true, "valid repair observations resume after unavailable metadata");
+  Require(warp_roots.size() == roots_before, "repair intent releases its temporary managed roots");
 }
 
 struct GalaxyTestDictionary {
@@ -2327,6 +2449,7 @@ try {
   }
   ChatAvatarRetentionObservations();
   ShipIdentityObservations();
+  InstantRepairIntentObservations();
   GalaxyObservations();
   ReferenceArrayObservations();
   ReferenceArrayGetterObservations();

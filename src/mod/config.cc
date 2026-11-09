@@ -57,6 +57,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"havenzoomhooks", &Config::Patches::havenzoomhooks},
     {"hotkeyhooks", &Config::Patches::hotkeyhooks},
     {"instantcargocounterhooks", &Config::Patches::instantcargocounterhooks},
+    {"instantrepairbuttonhooks", &Config::Patches::instantrepairbuttonhooks},
     {"interiorzoomhooks", &Config::Patches::interiorzoomhooks},
     {"loadingscreenhooks", &Config::Patches::loadingscreenhooks},
     {"loadingtiphooks", &Config::Patches::loadingtiphooks},
@@ -1017,6 +1018,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "cargo_significant_decimals", u.cargo_significant_decimals);
   r.Read("ui", "always_skip_reveal_sequence", u.always_skip_reveal_sequence);
   r.ReadRenamed("ui", "disable_exchange_all", "hide_artifact_exchange_all", u.disable_exchange_all);
+  r.Read("ui", "hide_instant_repair_button", u.hide_instant_repair_button);
   r.Choose("ui", "hud_q_trials", u.hud_q_trials, kHudVisibility);
   r.Choose("ui", "hud_field_training", u.hud_field_training, kHudVisibility);
   r.Choose("ui", "hud_outposts", u.hud_outposts, kHudVisibility);

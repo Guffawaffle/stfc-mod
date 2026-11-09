@@ -384,6 +384,7 @@ runtimeconfighooks = true
 
 # Show cargo totals immediately instead of counting up
 instantcargocounterhooks = true
+instantrepairbuttonhooks = true
 
 # Enable station-interior zoom hooks.
 interiorzoomhooks = true
@@ -965,6 +966,9 @@ hud_q_trials = "auto"
 
 # Hide the Exchange All button in the Artifact Gallery
 disable_exchange_all = false
+
+# Hide damaged ships' Instant Repair button. Normal Repair and in-progress repair speedups remain available.
+hide_instant_repair_button = false
 
 # Enable the shortcut that focuses the search box on supported screens
 focus_search = true
