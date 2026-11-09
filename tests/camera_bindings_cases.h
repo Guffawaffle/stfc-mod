@@ -37,10 +37,17 @@ struct CameraNativeScene {
   Il2CppObject              header;
   float                     clip  = 0.0f;
   unity::Camera::ClearFlags flags = unity::Camera::ClearFlags::Skybox;
-  unity::Color              background{};
+  unity::Color              background{1, 2, 3, 4};
 };
 int     camera_native_distance_sets = 0, camera_native_zoom_calls = 0;
+int     camera_native_clip_gets = 0, camera_native_clip_sets = 0, camera_native_flags_sets = 0,
+        camera_native_background_gets = 0, camera_native_background_sets = 0, camera_native_boxed_calls = 0;
 bool    camera_native_distance_throws = false, camera_native_set_throws = false, camera_native_zoom_throws = false;
+bool    camera_native_clip_get_throws = false, camera_native_flags_throws = false, camera_native_background_throws = false;
+bool    camera_native_flags_replace_config = false;
+NavigationZoom* camera_native_flags_rebind_owner = nullptr;
+bool    camera_native_background_get_throws = false, camera_native_background_get_replace_config = false;
+NavigationZoom* camera_native_background_get_rebind_owner = nullptr;
 bool    camera_native_replace_config      = false;
 Config* camera_replacement_config         = nullptr;
 unity::Camera* camera_native_rebind_scene = nullptr;
@@ -70,12 +77,61 @@ void CameraNativeZoom(NavigationZoom*, const MethodInfo*)
     throw Il2CppExceptionWrapper(&thrown);
   ++camera_native_zoom_calls;
 }
+float CameraNativeGetClip(unity::Camera* scene, const MethodInfo*)
+{
+  ++camera_native_clip_gets;
+  if (camera_native_clip_get_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return reinterpret_cast<CameraNativeScene*>(scene)->clip;
+}
 void CameraNativeClip(unity::Camera* scene, float value, const MethodInfo*)
-{ reinterpret_cast<CameraNativeScene*>(scene)->clip = value; }
+{
+  ++camera_native_clip_sets;
+  reinterpret_cast<CameraNativeScene*>(scene)->clip = value;
+}
 void CameraNativeFlags(unity::Camera* scene, unity::Camera::ClearFlags value, const MethodInfo*)
-{ reinterpret_cast<CameraNativeScene*>(scene)->flags = value; }
+{
+  ++camera_native_flags_sets;
+  if (camera_native_flags_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  reinterpret_cast<CameraNativeScene*>(scene)->flags = value;
+  if (camera_native_flags_rebind_owner)
+    reinterpret_cast<CameraNativeObject*>(camera_native_flags_rebind_owner)->camera = camera_native_rebind_scene;
+  if (std::exchange(camera_native_flags_replace_config, false)) {
+    bindings_replace_config   = true;
+    camera_replacement_config = &Config::Get();
+    camera_replacement_config->graphics.zoom = 1200.0f;
+  }
+}
+unity::Camera::ClearFlags CameraNativeGetFlags(unity::Camera* scene, const MethodInfo*)
+{ return reinterpret_cast<CameraNativeScene*>(scene)->flags; }
+unity::Color CameraNativeGetBackground(unity::Camera* scene, const MethodInfo*)
+{
+  ++camera_native_background_gets;
+  if (camera_native_background_get_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  if (camera_native_background_get_rebind_owner)
+    reinterpret_cast<CameraNativeObject*>(camera_native_background_get_rebind_owner)->camera = camera_native_rebind_scene;
+  if (std::exchange(camera_native_background_get_replace_config, false)) {
+    bindings_replace_config = true;
+    camera_replacement_config = &Config::Get();
+    camera_replacement_config->graphics.zoom = 1200.0f;
+  }
+  return reinterpret_cast<CameraNativeScene*>(scene)->background;
+}
+Il2CppObject* CameraNativeObserveBoxed(const MethodInfo*, void*, void**, Il2CppException**, bool& handled)
+{
+  ++camera_native_boxed_calls;
+  handled = false;
+  return nullptr;
+}
 void CameraNativeBackground(unity::Camera* scene, unity::Color value, const MethodInfo*)
-{ reinterpret_cast<CameraNativeScene*>(scene)->background = value; }
+{
+  ++camera_native_background_sets;
+  if (camera_native_background_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  reinterpret_cast<CameraNativeScene*>(scene)->background = value;
+}
 unity::Vector3 CameraNativeWorld(unity::Camera*, unity::Vector3, const MethodInfo*)
 { return {}; } // The controlled runtime's boxed route validates arguments.
 
@@ -111,15 +167,23 @@ void CameraNativeCases(std::string_view mode)
                                  T(void_class), {T(float_class)});
   AddProperty(zoom_class, "Distance", &get_distance, &set_distance);
   AddMethod(zoom_class, "ZoomCameraAtWorldPoint", reinterpret_cast<void*>(&CameraNativeZoom), T(void_class), {});
+  auto& clip_getter = AddMethod(scene_class, "get_farClipPlane", reinterpret_cast<void*>(&CameraNativeGetClip),
+                                T(float_class), {});
   auto& clip_setter = AddMethod(scene_class, "set_farClipPlane", reinterpret_cast<void*>(&CameraNativeClip),
                                 T(void_class), {T(float_class)});
-  AddProperty(scene_class, "farClipPlane", nullptr, &clip_setter);
+  AddProperty(scene_class, "farClipPlane", &clip_getter, &clip_setter);
   auto& flags_setter =
       AddMethod(scene_class, "set_clearFlags", reinterpret_cast<void*>(&CameraNativeFlags), T(void_class), {T(flags)});
-  AddProperty(scene_class, "clearFlags", nullptr, &flags_setter);
+  auto& flags_getter =
+      AddMethod(scene_class, "get_clearFlags", reinterpret_cast<void*>(&CameraNativeGetFlags), T(flags), {});
+  AddProperty(scene_class, "clearFlags", &flags_getter, &flags_setter);
   auto& color_setter = AddMethod(scene_class, "set_backgroundColor", reinterpret_cast<void*>(&CameraNativeBackground),
                                  T(void_class), {T(color)});
-  AddProperty(scene_class, "backgroundColor", nullptr, &color_setter);
+  const MethodInfo* color_getter = nullptr;
+  if (mode != "camera-missing-minimum")
+    color_getter = &AddMethod(scene_class, "get_backgroundColor", reinterpret_cast<void*>(&CameraNativeGetBackground),
+                              T(color), {});
+  AddProperty(scene_class, "backgroundColor", color_getter, &color_setter);
   camera_world_method =
       &AddMethod(maths, "GetMouseWorldPos", reinterpret_cast<void*>(&CameraNativeWorld), T(vec3_class),
                  {T(scene_class), T(vec3_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
@@ -153,6 +217,9 @@ void CameraNativeCases(std::string_view mode)
     KeepZoomRange(zoom);
     Require(object.maximum == 110.0f && object.normal == 0.0f && object.extended == 0.0f,
             "unavailable range leaves native geometry unchanged");
+    Require(ApplyZoomRange(zoom, 500.0f) && camera_native_background_sets == 1 && scene.background.r == 0
+                && scene.background.g == 0 && scene.background.b == 0 && scene.background.a == 0,
+            "a missing background getter conservatively invokes the native setter");
     return;
   }
   Require(mode == "camera-native", "unknown camera fixture mode");
@@ -234,7 +301,132 @@ void CameraNativeCases(std::string_view mode)
   KeepZoomRange(zoom);
   Require(object.maximum == 1000.0f && object.total == 990.0f && object.extended == 2.0f && scene.clip == 3750.0f
               && scene.flags == unity::Camera::ClearFlags::SolidColor,
-          "system range/cache and clip use the original finite ratios and multiplier");
+          "system range and legacy pinch field retain the original finite ratios and multiplier");
+  Require(camera_native_clip_sets == 1 && camera_native_flags_sets == 1 && camera_native_background_sets == 1,
+          "first camera observation applies clip and appearance exactly once");
+  tow_runtime_invoke_override = &CameraNativeObserveBoxed;
+  const auto idle_roots = warp_roots.size();
+  KeepZoomRange(zoom);
+  KeepZoomRange(zoom);
+  tow_runtime_invoke_override = nullptr;
+  Require(camera_native_clip_gets == 3 && camera_native_clip_sets == 1 && camera_native_flags_sets == 1
+              && camera_native_background_gets == 3 && camera_native_background_sets == 1
+              && camera_native_boxed_calls == 0 && warp_roots.size() == idle_roots,
+          "idle pre/post camera observations use no boxing or persistent roots and rewrite no unchanged properties");
+  object.maximum = 110.0f;
+  object.normal = object.extended = object.total = 0.0f;
+  scene.clip = 20.0f;
+  KeepZoomRange(zoom);
+  Require(object.maximum == 1000.0f && object.total == 990.0f && object.normal == 1.1f && object.extended == 2.0f
+              && scene.clip == 3750.0f && camera_native_clip_sets == 2 && camera_native_flags_sets == 1,
+          "native range and clip resets are repaired without repeating constant appearance writes");
+  scene.clip = 5000.0f;
+  KeepZoomRange(zoom);
+  Require(scene.clip == 3750.0f && camera_native_clip_sets == 3,
+          "orbit expansion still receives the configured base before its final draw-distance reapply");
+  scene.flags = unity::Camera::ClearFlags::Depth;
+  KeepZoomRange(zoom);
+  Require(scene.flags == unity::Camera::ClearFlags::SolidColor && camera_native_flags_sets == 2
+              && camera_native_background_sets == 1,
+          "an external CameraController clear-flags write is repaired without rewriting background color");
+  object.camera = reinterpret_cast<unity::Camera*>(&rebound_scene);
+  KeepZoomRange(zoom);
+  Require(rebound_scene.clip == 3750.0f && camera_native_flags_sets == 3 && camera_native_background_sets == 2,
+          "a replacement camera gets its own clip and appearance");
+  config.graphics.zoom = 1200.0f;
+  KeepZoomRange(zoom);
+  Require(rebound_scene.clip == 4500.0f && object.extended == 2.4f && camera_native_flags_sets == 3
+              && camera_native_background_sets == 2,
+          "changed configuration repairs clip and ratios without rewriting already correct appearance");
+  config.graphics.zoom = 1000.0f;
+  object.camera = reinterpret_cast<unity::Camera*>(&scene);
+  KeepZoomRange(zoom);
+  const auto before_failed_flags = camera_native_flags_sets;
+  scene.flags = unity::Camera::ClearFlags::Depth;
+  camera_native_flags_throws = true;
+  ApplyZoomRange(zoom, 500.0f);
+  Require(scene.flags == unity::Camera::ClearFlags::Depth, "failed flags setter retains the observed native value");
+  camera_native_flags_throws = false;
+  KeepZoomRange(zoom);
+  KeepZoomRange(zoom);
+  Require(camera_native_flags_sets == before_failed_flags + 2,
+          "failed flags setter retries on the next update and then becomes quiet");
+  const auto before_failed_background = camera_native_background_sets;
+  scene.background = {1, 0, 0, 0};
+  camera_native_background_throws = true;
+  ApplyZoomRange(zoom, 500.0f);
+  camera_native_background_throws = false;
+  KeepZoomRange(zoom);
+  KeepZoomRange(zoom);
+  Require(camera_native_background_sets == before_failed_background + 2,
+          "failed background setter retries from the next native observation");
+  for (const auto changed : {unity::Color{1, 0, 0, 0}, unity::Color{0, 1, 0, 0}, unity::Color{0, 0, 1, 0},
+                             unity::Color{0, 0, 0, 1}}) {
+    scene.background = changed;
+    const auto before_external_background = camera_native_background_sets;
+    KeepZoomRange(zoom);
+    Require(scene.background.r == 0 && scene.background.g == 0 && scene.background.b == 0 && scene.background.a == 0
+                && camera_native_background_sets == before_external_background + 1,
+            "external writes to every background component are repaired without an entry callback");
+  }
+  const auto before_unknown_background = camera_native_background_sets;
+  camera_native_background_get_throws = true;
+  KeepZoomRange(zoom);
+  camera_native_background_get_throws = false;
+  Require(camera_native_background_sets == before_unknown_background + 1,
+          "a throwing background getter preserves conservative native repair");
+  const auto before_unknown_clip = camera_native_clip_sets;
+  camera_native_clip_get_throws = true;
+  KeepZoomRange(zoom);
+  camera_native_clip_get_throws = false;
+  Require(camera_native_clip_sets == before_unknown_clip + 1,
+          "an unavailable clip observation preserves conservative native repair");
+  camera_native_flags_rebind_owner = zoom;
+  camera_native_rebind_scene = reinterpret_cast<unity::Camera*>(&rebound_scene);
+  scene.flags = unity::Camera::ClearFlags::Depth;
+  const auto before_rebind_background = camera_native_background_sets;
+  Require(!ApplyZoomRange(zoom, 500.0f) && camera_native_background_sets == before_rebind_background,
+          "camera replacement during flags setter cannot continue the old appearance refresh");
+  camera_native_flags_rebind_owner = nullptr;
+  camera_native_rebind_scene = nullptr;
+  KeepZoomRange(zoom);
+  Require(rebound_scene.clip == 3750.0f && rebound_scene.flags == unity::Camera::ClearFlags::SolidColor,
+          "replacement camera is retried after a reentrant setter changed ownership");
+  rebound_scene.flags = unity::Camera::ClearFlags::Depth;
+  camera_native_flags_replace_config = true;
+  Require(!ApplyZoomRange(zoom, 500.0f),
+          "configuration replacement during flags setter cannot continue with old configuration inputs");
+  KeepZoomRange(zoom);
+  Require(object.extended == 2.4f && rebound_scene.clip == 4500.0f,
+          "the replacement configuration is applied on the next observation");
+  bindings_config_override = nullptr;
+  bindings_replacement_config.reset();
+  camera_replacement_config = nullptr;
+  object.camera = reinterpret_cast<unity::Camera*>(&scene);
+  KeepZoomRange(zoom);
+  camera_native_background_get_rebind_owner = zoom;
+  camera_native_rebind_scene = reinterpret_cast<unity::Camera*>(&rebound_scene);
+  scene.background = {1, 0, 0, 0};
+  const auto before_getter_rebind = camera_native_background_sets;
+  Require(!ApplyZoomRange(zoom, 500.0f) && camera_native_background_sets == before_getter_rebind,
+          "camera replacement during background getter cannot write to the old camera");
+  camera_native_background_get_rebind_owner = nullptr;
+  camera_native_rebind_scene = nullptr;
+  KeepZoomRange(zoom);
+  rebound_scene.background = {0, 1, 0, 0};
+  camera_native_background_get_replace_config = true;
+  const auto before_getter_config = camera_native_background_sets;
+  Require(!ApplyZoomRange(zoom, 500.0f) && camera_native_background_sets == before_getter_config,
+          "configuration replacement during background getter cannot apply old inputs");
+  KeepZoomRange(zoom);
+  Require(rebound_scene.clip == 4500.0f && rebound_scene.background.g == 0
+              && camera_native_background_sets == before_getter_config + 1,
+          "new configuration and background are repaired after getter reentry");
+  bindings_config_override = nullptr;
+  bindings_replacement_config.reset();
+  camera_replacement_config = nullptr;
+  object.camera = reinterpret_cast<unity::Camera*>(&scene);
+  KeepZoomRange(zoom);
   object.depth   = NodeDepth::Galaxy;
   object.maximum = 110.0f;
   KeepZoomRange(zoom);

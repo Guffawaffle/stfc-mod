@@ -283,24 +283,22 @@ void NavigationOrbitDrawDistance(NavigationZoom* zoom)
   const auto camera     = system_orbit::Field<"_sceneCamera", unity::Camera*>(zoom);
   const auto pan_camera = system_orbit::Field<"_sceneCamera", unity::Camera*>(pan);
   const auto depth      = system_orbit::Field<"_nodeDepth", NodeDepth>(pan);
-  if (!camera || !camera.value || state.camera.Get() != camera.value)
+  const auto center     = system_orbit::Field<"_systemPosition", OrbitVector3>(pan);
+  const auto radius     = system_orbit::Field<"_viewRadius", float>(pan);
+  if (!camera || !camera.value || state.camera.Get() != camera.value || !pan_camera
+      || pan_camera.value != camera.value || !depth || depth.value != state.depth || !center || !radius
+      || !system_orbit::Finite(center.value) || !std::isfinite(radius.value) || radius.value <= 0)
     return;
   const auto position = system_orbit::Vector(system_orbit::VectorGetter<"get_position">(), state.transform.Get());
   const auto baseline = camera.value->TryCall<"get_farClipPlane", float>();
-  const auto center   = system_orbit::Field<"_systemPosition", OrbitVector3>(pan);
-  const auto radius   = system_orbit::Field<"_viewRadius", float>(pan);
   if (!position || !baseline || !std::isfinite(baseline.value) || baseline.value <= 0)
     return;
-  const float clip = baseline.value;
-  if (pan_camera && pan_camera.value == camera.value && depth && depth.value == state.depth && center && radius
-      && system_orbit::Finite(center.value) && std::isfinite(radius.value) && radius.value > 0) {
-    const double distance =
-        std::hypot(double(position.value.x) - center.value.x, double(position.value.y) - center.value.y,
-                   double(position.value.z) - center.value.z);
-    const double required = distance + 4.0 * radius.value;
-    if (required > clip && required <= std::numeric_limits<float>::max())
-      NavigationOrbitExtendClip(camera.value, clip, float(required));
-  }
+  const double distance =
+      std::hypot(double(position.value.x) - center.value.x, double(position.value.y) - center.value.y,
+                 double(position.value.z) - center.value.z);
+  const double required = distance + 4.0 * radius.value;
+  if (required > baseline.value && required <= std::numeric_limits<float>::max())
+    NavigationOrbitExtendClip(camera.value, baseline.value, float(required));
 }
 navigation_orbit::ZoomUpdateScope*& NavigationOrbitUpdates()
 {
@@ -414,6 +412,14 @@ void NavigationZoom_UpdateCameraPosition_OrbitHook(auto original, NavigationZoom
   NavigationOrbitRequestFlush(_this);
   update.Complete();
 }
+void NavigationZoom_LateUpdate_OrbitHook(auto original, NavigationZoom* _this)
+{
+  // LateUpdate can author the native pose twice through ZoomCamera. Correct each
+  // write immediately, then observe and extend the final camera clip once.
+  navigation_orbit::ZoomUpdateScope update(_this);
+  original(_this);
+  update.Complete();
+}
 bool InstallNavigationOrbit()
 {
   if (!system_orbit::Available())
@@ -425,6 +431,8 @@ bool InstallNavigationOrbit()
                NavigationPan_MoveCamera_OrbitHook);
   IL2CPP_STAGE(hooks, NavigationZoom::Class::Method<void()>("UpdateCameraPosition"),
                NavigationZoom_UpdateCameraPosition_OrbitHook);
+  IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(NavigationZoom::Class::Method<void()>("LateUpdate")),
+                  NavigationZoom_LateUpdate_OrbitHook);
   NavigationOrbit().installed = hooks.Commit();
   return NavigationOrbit().installed;
 }
