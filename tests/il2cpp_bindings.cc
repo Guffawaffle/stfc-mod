@@ -257,6 +257,7 @@ int64_t                                           warp_seen_fleet = 0, warp_seen
 unity::Vector3                                    warp_seen_position{};
 std::unordered_map<Il2CppGCHandle, Il2CppObject*> warp_roots;
 uintptr_t                                         warp_next_root = 1;
+uintptr_t                                         warp_root_reads      = 0;
 bool                                              gc_runtime_available = true;
 FakeClass&                                        long_class = Define("System", "Int64", IL2CPP_TYPE_I8, nullptr, 8);
 FakeClass& ship_model_class    = Define("Digit.PrimeServer.Models", "IShipModel", IL2CPP_TYPE_CLASS, &object_class);
@@ -1225,7 +1226,10 @@ API(Il2CppGCHandle, il2cpp_gchandle_new, (Il2CppObject * object, bool))
 }
 END_API
 API(Il2CppObject*, il2cpp_gchandle_get_target, (Il2CppGCHandle handle))
-{ return warp_roots.contains(handle) ? warp_roots.at(handle) : nullptr; }
+{
+  ++warp_root_reads;
+  return warp_roots.contains(handle) ? warp_roots.at(handle) : nullptr;
+}
 END_API
 API(void, il2cpp_gchandle_free, (Il2CppGCHandle handle))
 {

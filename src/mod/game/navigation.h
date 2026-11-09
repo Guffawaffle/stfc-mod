@@ -198,8 +198,12 @@ struct NavigationZoom : il2cpp::Object {
   { SetField<"_worldPoint">(value); }
   void SetFarRatioSystemNormal(float value)
   { SetField<"_farRatioSystemNormal">(value); }
+  float farRatioSystemNormal()
+  { return Field<"_farRatioSystemNormal", float>(); }
   void SetFarRatioSystemExtended(float value)
   { SetField<"_farRatioSystemExtended">(value); }
+  float farRatioSystemExtended()
+  { return Field<"_farRatioSystemExtended", float>(); }
 
   void ZoomCameraAtWorldPoint()
   { Call<"ZoomCameraAtWorldPoint">(); }

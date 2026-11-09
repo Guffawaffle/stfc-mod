@@ -28,6 +28,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <deque>
 #include <optional>
 #include <unordered_map>
 #include <utility>
@@ -190,22 +191,55 @@ bool ApplyZoomRange(NavigationZoom* zoom, float radius)
     const auto ratio = max_zoom / radius;
     if (!std::isfinite(ratio))
       return false;
-    zoom->SetFarRatioSystemNormal(0.55f * max_zoom / radius);
-    zoom->SetFarRatioSystemExtended(ratio);
+    const auto normal = 0.55f * max_zoom / radius;
+    if (zoom->farRatioSystemNormal() != normal)
+      zoom->SetFarRatioSystemNormal(normal);
+    if (zoom->farRatioSystemExtended() != ratio)
+      zoom->SetFarRatioSystemExtended(ratio);
   }
   // At max_zoom the camera still has to reach the far side of the system and its backdrop, hence the 3.75x clip.
   // Clearing to black instead of the skybox hides the void past the backdrop's edge.
   if (camera) {
-    camera.Get<unity::Camera>()->SetFarClipPlane(clip);
-    camera.Get<unity::Camera>()->SetClearFlags(unity::Camera::ClearFlags::SolidColor);
-    camera.Get<unity::Camera>()->SetBackgroundColor({0, 0, 0, 0});
+    auto* scene = camera.Get<unity::Camera>();
+    const auto same_inputs = [&] {
+      const auto current = zoom->TrySceneCamera();
+      return current && current.value == scene && Config::Get().graphics.zoom == max_zoom;
+    };
+    // Other native camera owners can reset the clip independently of the range callbacks.
+    // Keep observing it, including orbit's later expansion, but avoid an unchanged setter.
+    const auto observed_clip = scene->TryCall<"get_farClipPlane", float>();
+    if (!same_inputs())
+      return false;
+    if (!observed_clip || observed_clip.value != clip) {
+      scene->TryCall<"set_farClipPlane">(clip);
+      if (!same_inputs())
+        return false;
+    }
+    // Observe appearance too: other native or reflected camera writes need no entry callback.
+    const auto flags = scene->TryCall<"get_clearFlags", unity::Camera::ClearFlags>();
+    if (!same_inputs())
+      return false;
+    if (!flags || flags.value != unity::Camera::ClearFlags::SolidColor) {
+      scene->TryCall<"set_clearFlags">(unity::Camera::ClearFlags::SolidColor);
+      if (!same_inputs())
+        return false;
+    }
+    const auto background = scene->TryCall<"get_backgroundColor", unity::Color>();
+    if (!same_inputs())
+      return false;
+    if (!background || background.value.r != 0 || background.value.g != 0 || background.value.b != 0
+        || background.value.a != 0) {
+      scene->TryCall<"set_backgroundColor">(unity::Color{0, 0, 0, 0});
+      if (!same_inputs())
+        return false;
+    }
   }
   navigation_orbit::ApplyDrawDistance(zoom);
   return true;
 }
 
-// The game resets the range now and then; reapply it around every update. _zoomtotal caches maximum - minimum and
-// must follow the widened maximum.
+// Repair native range resets around every update. Preserve the existing _zoomtotal writes;
+// the native camera uses that field for pinch inertia, rather than as a range cache.
 void KeepZoomRange(NavigationZoom* zoom)
 {
   const auto max_zoom = Config::Get().graphics.zoom;
@@ -435,11 +469,38 @@ struct BackdropScale {
   il2cpp::GcHandle transform;
   float            applied;
 };
+struct BackdropScaleCache {
+  std::unordered_map<unity::Transform*, BackdropScale> scaled;
+  std::deque<unity::Transform*>                        pending;
+
+  void Prune()
+  {
+    // Keys survive map rehashes and replacements. Each retained identity has one
+    // queue slot; checking a fixed number keeps a planet zoom broadcast linear.
+    const auto count = std::min(size_t(4), pending.size());
+    for (size_t i = 0; i < count; ++i) {
+      auto* transform = pending.front();
+      pending.pop_front();
+      const auto it = scaled.find(transform);
+      if (it->second.transform.Get() != transform)
+        scaled.erase(it);
+      else
+        pending.push_back(transform);
+    }
+  }
+
+  void Store(unity::Transform* transform, BackdropScale scale)
+  {
+    const auto [_, inserted] = scaled.insert_or_assign(transform, std::move(scale));
+    if (inserted)
+      pending.push_back(transform);
+  }
+};
 auto& BackdropScales()
 {
   // Retire expired identities instead of forgetting still-live transforms. Do not release handles after runtime
   // teardown; weak custody does not keep scenes alive and distinguishes a recycled managed address.
-  static auto* scaled = new std::unordered_map<unity::Transform*, BackdropScale>;
+  static auto* scaled = new BackdropScaleCache;
   return *scaled;
 }
 
@@ -462,17 +523,18 @@ void ScaleFlatRenderable(unity::Component* renderable, bool authored)
   if (!observed || !std::isfinite(observed.value.x) || !std::isfinite(observed.value.y)
       || !std::isfinite(observed.value.z) || Config::Get().graphics.fr_scale != factor)
     return;
-  auto& scaled = BackdropScales();
-  std::erase_if(scaled, [](const auto& item) { return item.second.transform.Get() != item.first; });
-  if (const auto it = scaled.find(transform);
-      !authored && it != scaled.end() && std::fabs(observed.value.x - it->second.applied) < 0.1f)
+  auto& cache = BackdropScales();
+  cache.Prune();
+  if (const auto it = cache.scaled.find(transform); !authored && it != cache.scaled.end()
+                                                    && it->second.transform.Get() == transform
+                                                    && std::fabs(observed.value.x - it->second.applied) < 0.1f)
     return;
   const auto new_scale = observed.value * factor;
   if (!std::isfinite(new_scale.x) || !std::isfinite(new_scale.y) || !std::isfinite(new_scale.z))
     return;
   auto identity = il2cpp::GcHandle::Weak(transform);
   if (identity && transform->TrySetLocalScale(new_scale))
-    scaled.insert_or_assign(transform, BackdropScale{std::move(identity), new_scale.x});
+    cache.Store(transform, BackdropScale{std::move(identity), new_scale.x});
 }
 
 unity::Component* PlanetViewUtils_get_FlatRenderable_Hook(auto original, PlanetViewUtils* _this)

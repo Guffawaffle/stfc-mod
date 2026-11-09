@@ -43,7 +43,7 @@ inline bool   in_system = true, pointer_allowed = true, pointer_known = true, bi
 inline bool   field_available = true, view_available = true, binding_present = true;
 inline bool   clip_read_fails = false, clip_write_fails = false;
 inline int    view_sets = 0, pointer_reads = 0, anchor_sets = 0, clip_sets = 0, clip_reads = 0;
-inline int    transform_reads = 0, vector_reads = 0;
+inline int    transform_reads = 0, vector_reads = 0, position_reads = 0;
 inline void (*clip_callback)() = nullptr;
 inline MethodInfo angles_tag{}, position_tag{}, forward_tag{};
 
@@ -148,8 +148,10 @@ il2cpp::CallResult<Vector3> Vector(const MethodInfo* method, Il2CppObject*)
     return {};
   if (method == &orbit_fixture::angles_tag)
     return {true, orbit_fixture::rig->angles};
-  if (method == &orbit_fixture::position_tag)
+  if (method == &orbit_fixture::position_tag) {
+    ++orbit_fixture::position_reads;
     return {true, orbit_fixture::rig->position};
+  }
   return {true, {0, 0, 1}};
 }
 bool SetView(unity::Transform*, Vector3 angles, float distance)
@@ -268,10 +270,19 @@ void RunOrbitCases()
   const auto quiet_transforms = transform_reads, quiet_vectors = vector_reads;
   const auto quiet_clips     = clip_reads;
   const auto quiet_originals = originals;
-  for (int i = 0; i < 240; ++i)
-    frame();
+  int        quiet_late_originals = 0;
+  for (int i = 0; i < 240; ++i) {
+    NavigationZoom_LateUpdate_OrbitHook(
+        [&](NavigationZoom* actual) {
+          OrbitCheck(actual == owner, "quiet LateUpdate retains its native receiver");
+          ++quiet_late_originals;
+          frame();
+        },
+        owner);
+  }
   OrbitCheck(originals == quiet_originals + 240 && transform_reads == quiet_transforms && vector_reads == quiet_vectors
-                 && clip_reads == quiet_clips && warp_next_root == quiet_roots && !NavigationOrbit().zoom,
+                 && clip_reads == quiet_clips && warp_next_root == quiet_roots && !NavigationOrbit().zoom
+                 && quiet_late_originals == 240,
              "240 enabled idle callbacks preserve every original with zero rig/clip reads or handle allocations");
   fleet_native_keys = {Action::kNavigationOrbitDrag};
   frame();
@@ -296,6 +307,61 @@ void RunOrbitCases()
       owner);
   OrbitCheck(transform.angles.y == same_frame_yaw && anchor_sets == same_frame_anchors,
              "a second original in one frame still reapplies orbit without advancing input twice");
+  const auto before_late_views = view_sets, before_late_positions = position_reads;
+  const auto before_late_reads = clip_reads, before_late_writes = clip_sets;
+  int        late_originals = 0, late_position_originals = 0;
+  NavigationZoom_LateUpdate_OrbitHook(
+      [&](NavigationZoom* actual) {
+        OrbitCheck(actual == owner, "LateUpdate retains its native receiver");
+        ++late_originals;
+        camera.clip = 100;
+        for (int pass = 0; pass < 2; ++pass) {
+          NavigationZoom_UpdateCameraPosition_OrbitHook(
+              [&](NavigationZoom* position_owner) {
+                OrbitCheck(position_owner == actual, "each LateUpdate pose write retains its receiver");
+                ++late_position_originals;
+                object.distance    = 40.0f + 10.0f * static_cast<float>(pass);
+                transform.angles   = {45, 0, 0};
+                transform.position = {0, 0, -object.distance};
+              },
+              actual);
+          OrbitCheck(view_sets == before_late_views + pass + 1 && transform.angles.y == same_frame_yaw,
+                     "each native LateUpdate pose write receives its immediate orbit correction");
+          OrbitCheck(position_reads == before_late_positions && clip_reads == before_late_reads
+                         && clip_sets == before_late_writes,
+                     "LateUpdate defers both intermediate clip passes until its native work finishes");
+        }
+      },
+      owner);
+  OrbitCheck(late_originals == 1 && late_position_originals == 2 && view_sets == before_late_views + 2
+                 && position_reads == before_late_positions + 1 && clip_reads == before_late_reads + 1
+                 && clip_sets == before_late_writes + 1 && NavigationOrbit().distance == 50
+                 && Near(transform.position, {0, 0, -50}) && camera.clip == 450 && !NavigationOrbitUpdates(),
+             "one native LateUpdate preserves both pose corrections and completes exactly one final clip pass");
+
+  const auto no_clip_observation = [&](const char* message) {
+    const auto before_positions = position_reads, before_reads = clip_reads, before_writes = clip_sets;
+    navigation_orbit::ApplyDrawDistance(owner);
+    OrbitCheck(position_reads == before_positions && clip_reads == before_reads && clip_sets == before_writes,
+               message);
+  };
+  NavigationOrbit().pan = {};
+  no_clip_observation("a missing pan owner skips boxed camera position and clip observations");
+  bind_pan();
+  Scene mismatched_camera{{&camera_class.klass}};
+  pan.camera = reinterpret_cast<unity::Camera*>(&mismatched_camera);
+  no_clip_observation("a mismatched pan camera skips boxed camera position and clip observations");
+  pan.camera = object.camera;
+  pan.depth  = NodeDepth::Galaxy;
+  no_clip_observation("a mismatched pan depth skips boxed camera position and clip observations");
+  pan.depth  = NodeDepth::SolarSystem;
+  pan.radius = 0;
+  no_clip_observation("an unusable pan radius skips boxed camera position and clip observations");
+  pan.radius   = 100;
+  pan.center.x = std::numeric_limits<float>::quiet_NaN();
+  no_clip_observation("a nonfinite pan center skips boxed camera position and clip observations");
+  pan.center = {};
+
   const auto before_coalesced_reads = clip_reads, before_coalesced_writes = clip_sets;
   {
     navigation_orbit::ZoomUpdateScope outer(owner);

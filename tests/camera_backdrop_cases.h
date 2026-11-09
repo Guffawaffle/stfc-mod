@@ -140,22 +140,47 @@ void Cases(std::string_view mode)
     Require(model.attempts == 2 && model.writes == 1 && Equal(model.scale, {4, 6, 8}),
             "failed scale write does not suppress its next retry");
   } else if (mode == "camera-backdrop-cache-cap") {
+    const auto                  roots_before = warp_roots.size();
     std::deque<TransformObject> models;
     std::deque<ComponentObject> renderables;
-    for (int i = 0; i < 300; ++i) {
+    for (int i = 0; i < 512; ++i) {
       auto& entry = models.emplace_back(TransformObject{{&transform_class.klass}});
       auto& item  = renderables.emplace_back(
           ComponentObject{{&component_class.klass}, reinterpret_cast<unity::Transform*>(&entry)});
       ScaleFlatRenderable(reinterpret_cast<unity::Component*>(&item), false);
     }
-    for (auto& item : renderables)
-      ScaleFlatRenderable(reinterpret_cast<unity::Component*>(&item), false);
+    for (int pass = 0; pass < 4; ++pass)
+      for (auto& item : renderables) {
+        const auto reads = warp_root_reads;
+        ScaleFlatRenderable(reinterpret_cast<unity::Component*>(&item), false);
+        Require(warp_root_reads - reads <= 12,
+                "an unchanged cache hit has bounded handle reads even with 512 retained transforms");
+      }
     Require(std::ranges::all_of(models,
                                 [](const auto& entry) { return entry.writes == 1 && Equal(entry.scale, {4, 6, 8}); }),
             "more than 256 still-live transforms retain their own applied scale without compounding");
+    for (auto& [_, target] : warp_roots)
+      for (size_t i = 1; i < models.size(); ++i)
+        if (target == &models[i].header)
+          target = nullptr;
+    for (size_t i = 0; i < models.size(); ++i) {
+      const auto reads = warp_root_reads;
+      ScaleFlatRenderable(reinterpret_cast<unity::Component*>(&renderables.front()), false);
+      Require(warp_root_reads - reads <= 12, "retiring expired identities never adds an unbounded cleanup pass");
+    }
+    Require(warp_roots.size() == roots_before + 1 && models.front().writes == 1,
+            "repeated access to one live transform fairly retires all other expired identities");
   } else if (mode == "camera-backdrop-reuse") {
     ScaleFlatRenderable(component, false);
     Require(Equal(model.scale, {4, 6, 8}), "first managed transform receives its authored multiplier");
+    // Keep the selected identity behind a slice of other live entries, so its
+    // address-reuse check cannot depend on the background pruning reaching it.
+    std::deque<TransformObject> peers;
+    for (int i = 0; i < 9; ++i) {
+      auto&           peer = peers.emplace_back(TransformObject{{&transform_class.klass}});
+      ComponentObject item{{&component_class.klass}, reinterpret_cast<unity::Transform*>(&peer)};
+      ScaleFlatRenderable(reinterpret_cast<unity::Component*>(&item), false);
+    }
     for (auto& [_, target] : warp_roots)
       if (target == &model.header)
         target = nullptr; // The old weak identity expires before this storage is reused.
