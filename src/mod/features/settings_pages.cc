@@ -67,6 +67,10 @@ struct SettingsPageLabel {
   SettingsPageLabelKind kind;
   bool                  restoring = false;
 };
+struct SettingsHeadingTint {
+  il2cpp::GcHandle widget, image;
+  unity::Color     original, applied;
+};
 struct SettingsPageItemAdapter {
   PageItemAppender append     = nullptr;
   PageItemResolver resolve    = nullptr;
@@ -77,6 +81,7 @@ struct NativePagesState {
   std::array<SettingsPageItemAdapter, static_cast<std::size_t>(PageItemKind::Count)> adapters;
   std::vector<std::shared_ptr<SettingsPageTree>>                                     trees;
   std::map<il2cpp::Object*, std::shared_ptr<SettingsPageLabel>>                      labels;
+  std::map<il2cpp::Object*, std::shared_ptr<SettingsHeadingTint>>                    heading_tints;
   std::shared_ptr<SettingsPageVisit>                                                 visit;
   std::optional<SettingsPageNavigation>                                              pending;
   PageVisitObserver                                                                  observer = nullptr;
@@ -93,6 +98,38 @@ NativePagesState& NativePages()
 }
 bool PagesThread()
 { return NativePages().active && NativePages().thread == std::this_thread::get_id(); }
+void PruneHeadingTints()
+{
+  std::erase_if(NativePages().heading_tints,
+                [](const auto& row) { return !row.second->widget.Get() || !row.second->image.Get(); });
+}
+bool RestoreHeadingTint(SettingsTextWidget* widget)
+{
+  PruneHeadingTints();
+  auto&      tints = NativePages().heading_tints;
+  const auto found = tints.find(widget);
+  if (found == tints.end())
+    return true;
+  const auto tint  = found->second;
+  auto       image = il2cpp::GcHandle::Strong(tint->image.Get());
+  const auto alive = image ? unity::TryAlive(image.Get()) : il2cpp::CallResult<bool>{true, false};
+  if (!alive)
+    return false;
+  if (alive.value) {
+    const auto color = image.Get<unity::Image>()->TryCall<"get_color", unity::Color>();
+    if (!color)
+      return false;
+    const auto& current = color.value;
+    const auto& applied = tint->applied;
+    if (current.r == applied.r && current.g == applied.g && current.b == applied.b && current.a == applied.a
+        && !image.Get<unity::Image>()->TryCall<"set_color", void(unity::Color)>(tint->original))
+      return false;
+  }
+  const auto current = tints.find(widget);
+  if (current != tints.end() && current->second == tint)
+    tints.erase(current);
+  return true;
+}
 std::optional<std::size_t> PageChildOccurrences(SettingsContainerContext* parent, SettingsOptionContext* row)
 {
   auto children = settings_pages_binding::Children(parent);
@@ -147,6 +184,31 @@ std::optional<SettingsPageReference> PageBinding(SettingsOptionContext* context,
     }
   }
   return {};
+}
+void ApplyHeadingTint(SettingsTextWidget* widget)
+{
+  auto& tints = NativePages().heading_tints;
+  if (tints.contains(widget))
+    return;
+  auto widget_root = il2cpp::GcHandle::Strong(widget);
+  auto context     = il2cpp::GcHandle::Strong(widget->Context());
+  if (!widget_root || !context || !PageBinding(context.Get<SettingsOptionContext>()))
+    return;
+  auto image = il2cpp::GcHandle::Strong(widget->Background());
+  if (!image || !unity::Alive(image.Get()))
+    return;
+  const auto color = image.Get<unity::Image>()->TryCall<"get_color", unity::Color>();
+  if (!color)
+    return;
+  auto tint      = std::make_shared<SettingsHeadingTint>();
+  tint->widget   = il2cpp::GcHandle::Weak(widget);
+  tint->image    = il2cpp::GcHandle::Weak(image.Get());
+  tint->original = color.value;
+  tint->applied  = {color.value.r * .32f, color.value.g * .32f, color.value.b * .32f, color.value.a};
+  if (!tint->widget || !tint->image)
+    return;
+  tints.insert_or_assign(widget, tint);
+  (void)image.Get<unity::Image>()->TryCall<"set_color", void(unity::Color)>(tint->applied);
 }
 BooleanSetting* ResolvePageBoolean(SettingsOptionContext* context)
 {
@@ -424,16 +486,22 @@ void SettingsCategoryWidget_OnAboutToReleaseContext_Hook(auto original, Settings
 }
 void SettingsTextWidget_SetWidgetData_Hook(auto original, SettingsTextWidget* widget)
 {
-  if (PagesThread())
+  if (PagesThread()) {
+    RestoreHeadingTint(widget);
     ReleasePageLabel(widget);
+  }
   original(widget);
-  if (PagesThread())
+  if (PagesThread()) {
     RenderPageWidget(widget, SettingsPageLabelKind::Text);
+    ApplyHeadingTint(widget);
+  }
 }
 void SettingsTextWidget_ClearWidgetData_Hook(auto original, SettingsTextWidget* widget)
 {
-  if (PagesThread())
+  if (PagesThread()) {
+    RestoreHeadingTint(widget);
     ReleasePageLabel(widget);
+  }
   original(widget);
 }
 void SettingsPageController_OnCategorySelected_Hook(auto original, SettingsPageController* controller,

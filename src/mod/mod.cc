@@ -158,6 +158,7 @@ constexpr const Feature* kFeatures[] = {
     &kQueueSwitch,
     &kFleetActionMaintenance,
     &kAbilityButtons,
+    &kInstantRepairButton,
     // fleet_notifications.cc: independent polling and depletion-hook availability.
     &kFleetNotifications,
     &kFleetNodeDepletion,

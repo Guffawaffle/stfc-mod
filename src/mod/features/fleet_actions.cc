@@ -1,7 +1,8 @@
 // The selected fleet and the target viewers in space: selecting ships with the number keys, Discovery towing
 // with Shift+ship, engaging, scanning,
 // mining, queueing, warping, recalling and repairing from the keyboard, dismissing viewers with Escape, opening a
-// target's cargo when it is scanned, the action queue switch, and re-enabling ability buttons whose cooldown ended.
+// target's cargo when it is scanned, the action queue switch, re-enabling ability buttons whose cooldown ended,
+// and [ui] hide_instant_repair_button.
 
 #include "config.h"
 #include "discovery_tow_policy.h"
@@ -25,6 +26,7 @@
 #include <spdlog/spdlog.h>
 #include <unity/input.h>
 #include <unity/tracker.h>
+#include <unity/ui.h>
 
 #include <algorithm>
 #include <array>
@@ -39,6 +41,139 @@
 
 namespace
 {
+// --- Instant Repair button ---
+
+struct InstantRepairControl {
+  il2cpp::GcHandle widget, button, group;
+  bool             applying = false;
+};
+struct InstantRepairState {
+  std::vector<std::shared_ptr<InstantRepairControl>> controls;
+  bool                                               last_hidden = false;
+};
+InstantRepairState& RepairButtonState()
+{
+  // Weak roots are retired on the game thread, never from static destruction after runtime shutdown.
+  static auto* state = new InstantRepairState;
+  return *state;
+}
+std::shared_ptr<InstantRepairControl> RepairButtonControl(ActionElementWidget* widget, bool create)
+{
+  auto& controls = RepairButtonState().controls;
+  std::erase_if(controls, [](const auto& row) { return !row->widget.Get(); });
+  for (const auto& row : controls)
+    if (row->widget.Get() == widget)
+      return row;
+  if (!create)
+    return {};
+  auto row    = std::make_shared<InstantRepairControl>();
+  row->widget = il2cpp::GcHandle::Weak(widget);
+  if (!row->widget)
+    return {};
+  controls.push_back(row);
+  return row;
+}
+void RestoreRepairButton(const std::shared_ptr<InstantRepairControl>& row)
+{
+  auto group = il2cpp::GcHandle::Strong(row->group.Get());
+  if (unity::Alive(group.Get()))
+    group.Get<unity::CanvasGroup>()->SetHidden(false);
+}
+void ApplyRepairButton(ActionElementWidget* widget)
+{
+  auto row = RepairButtonControl(widget, true);
+  if (!row || std::exchange(row->applying, true))
+    return;
+  struct Finish {
+    InstantRepairControl& row;
+    ~Finish()
+    { row.applying = false; }
+  } finish{*row};
+  auto widget_root = il2cpp::GcHandle::Strong(widget);
+  if (!widget_root || !unity::Alive(widget))
+    return;
+  const auto intent = Config::Get().ui.hide_instant_repair_button ? widget->TryHasInstantRepairIntent()
+                                                                  : il2cpp::CallResult<bool>{true, false};
+  if (!intent || !intent.value) {
+    RestoreRepairButton(row); // Failed observations never hide an unqualified action.
+    return;
+  }
+  auto button = il2cpp::GcHandle::Strong(widget->instantButton());
+  if (!button || !unity::Alive(button.Get())) {
+    RestoreRepairButton(row);
+    return;
+  }
+  auto group = il2cpp::GcHandle::Strong(row->group.Get());
+  if (row->button.Get() != button.Get() || !unity::Alive(group.Get())) {
+    RestoreRepairButton(row);
+    if (unity::Alive(group.Get()))
+      unity::Destroy(group.Get());
+    row->group.Reset();
+    row->button.Reset();
+    const auto object      = button.Get<GenericButtonWidget>()->TryCall<"get_gameObject", unity::GameObject*>();
+    auto       object_root = il2cpp::GcHandle::Strong(object ? object.value : nullptr);
+    if (!object_root || !unity::Alive(object_root.Get()))
+      return;
+    // Add our own group; never overwrite the game's group, activeSelf, context or animation state. Neutralizing
+    // this extra group restores native visibility, including native-hidden buttons and pooled/rebound widgets.
+    group = il2cpp::GcHandle::Strong(object_root.Get<unity::GameObject>()->AddComponent<unity::CanvasGroup>());
+    if (!group || !unity::Alive(group.Get()))
+      return;
+    row->button = il2cpp::GcHandle::Weak(button.Get());
+    row->group  = il2cpp::GcHandle::Weak(group.Get());
+    if (!row->button || !row->group) {
+      group.Get<unity::CanvasGroup>()->SetHidden(false);
+      unity::Destroy(group.Get());
+      return;
+    }
+  }
+  if (!group.Get<unity::CanvasGroup>()->SetHidden(true))
+    group.Get<unity::CanvasGroup>()->SetHidden(false);
+}
+void ActionElementWidget_SetUpInstantButton_Hook(auto original, ActionElementWidget* _this)
+{
+  original(_this);
+  ApplyRepairButton(_this);
+}
+void ActionElementWidget_ClearWidgetData_RepairHook(auto original, ActionElementWidget* _this)
+{
+  if (auto row = RepairButtonControl(_this, false))
+    RestoreRepairButton(row);
+  original(_this);
+}
+void InstantRepairButtonFrame()
+{
+  auto&      state  = RepairButtonState();
+  const bool hidden = Config::Get().ui.hide_instant_repair_button;
+  if (std::exchange(state.last_hidden, hidden) == hidden)
+    return;
+  // Only a setting change visits the known controls. Normal frames do no game lookups or hierarchy scans.
+  std::vector<il2cpp::GcHandle> widgets;
+  for (const auto& row : state.controls) {
+    auto root = il2cpp::GcHandle::Strong(row->widget.Get());
+    if (root)
+      widgets.push_back(std::move(root));
+  }
+  for (const auto& root : widgets)
+    if (unity::Alive(root.Get()))
+      ApplyRepairButton(root.Get<ActionElementWidget>());
+}
+bool InstallInstantRepairButton()
+{
+  if (!unity::CanvasGroup::Available()) {
+    spdlog::warn("[InstantRepairButton] control visibility binding unavailable; keeping native buttons");
+    return false;
+  }
+  const auto setup = il2cpp::CheckedEntry(ActionElementWidget::Class::Method<void()>("SetUpInstantButton"));
+  const auto clear = il2cpp::CheckedEntry(ActionElementWidget::Class::Method<void()>("ClearWidgetData"));
+  if (!setup || !clear || setup == clear)
+    return false;
+  il2cpp::HookSet hooks("InstantRepairButton");
+  IL2CPP_STAGE_AT(hooks, setup, ActionElementWidget_SetUpInstantButton_Hook);
+  IL2CPP_STAGE_AT(hooks, clear, ActionElementWidget_ClearWidgetData_RepairHook);
+  return hooks.Commit();
+}
+
 // --- Fleet actions ---
 
 struct FleetPress {
@@ -1538,3 +1673,5 @@ const Feature kFleetActionMaintenance{"FleetActionMaintenance", &Config::Patches
                                       FleetActionMaintenanceFrame};
 const Feature kAbilityButtons{"AbilityButtons", &Config::Patches::abilitybuttonrecoveryhooks, nullptr,
                               AbilityButtonsFrame};
+const Feature kInstantRepairButton{"InstantRepairButton", &Config::Patches::instantrepairbuttonhooks,
+                                   InstallInstantRepairButton, InstantRepairButtonFrame};

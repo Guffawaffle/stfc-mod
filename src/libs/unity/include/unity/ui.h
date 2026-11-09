@@ -64,6 +64,25 @@ struct Button : Behaviour {
   { Call<"Press">(); }
 };
 
+// An independently owned CanvasGroup can suppress a control without changing the game's active state or its
+// existing animation groups. Neutral values contribute no additional visibility or interaction restriction.
+struct CanvasGroup : Behaviour {
+  using Class = il2cpp::Class<"UnityEngine.UIModule", "UnityEngine", "CanvasGroup">;
+
+  static bool Available()
+  {
+    return Class::Method<void(float)>("set_alpha") && Class::Method<void(bool)>("set_interactable")
+           && Class::Method<void(bool)>("set_blocksRaycasts");
+  }
+  bool SetHidden(bool hidden)
+  {
+    const auto alpha       = TryCall<"set_alpha", void(float)>(hidden ? 0.0f : 1.0f);
+    const auto interaction = TryCall<"set_interactable", void(bool)>(!hidden);
+    const auto raycasts    = TryCall<"set_blocksRaycasts", void(bool)>(!hidden);
+    return alpha && interaction && raycasts;
+  }
+};
+
 struct EventSystem : Behaviour {
   using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.EventSystems", "EventSystem">;
 
