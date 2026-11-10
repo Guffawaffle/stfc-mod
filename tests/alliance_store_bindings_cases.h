@@ -72,6 +72,7 @@ int                   store_test_context_reads = 0, store_test_release_at_contex
 int                   store_test_notifications           = 0;
 bool                  store_test_release_on_notification = false;
 bool                  store_test_regenerate_description = false, store_test_localize_throws = false;
+int                   store_test_localize_calls        = 0;
 Il2CppString*         store_test_native_override       = nullptr;
 Il2CppString*         store_test_localized_description = nullptr;
 std::function<void()> store_test_on_localize;
@@ -152,6 +153,7 @@ LocaleTextContext* StoreTestGetDescription(StoreFixtureTrigger* self, const Meth
 }
 Il2CppString* StoreTestLocalize(LocaleTextContext* context, bool parameters, bool invariant, const MethodInfo*)
 {
+  ++store_test_localize_calls;
   Require(context && !parameters && !invariant,
           "native material text uses its actual context with normal localization options");
   if (store_test_localize_throws)
@@ -417,8 +419,11 @@ void AllianceStoreNativeCases(std::string_view mode)
               && !store_test_plain.enabled && store_test_action.enabled,
           "actual typed consumer upgrades once with exact Int64 resource identity and native eligibility");
   store_test_eligibility_throws = true;
-  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable && store_test_widget.action,
-          "failed eligibility is unavailable, not confirmed ineligibility");
+  Require(
+      ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable && !store_test_widget.action
+          && store_test_widget.trigger == reinterpret_cast<StoreTooltipTrigger*>(&store_test_plain)
+          && store_test_plain.enabled && !store_test_action.enabled && !store_test_plain.description_override,
+      "failed eligibility restores the plain tooltip without keeping a stale action or publishing a negative notice");
   store_test_eligibility_throws = false;
   store_test_eligible           = false;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated && !store_test_widget.action
@@ -702,6 +707,56 @@ void AllianceStoreNativeCases(std::string_view mode)
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated
               && notice_text() == "Material description\nMaximum reached\n\nNo Available Research",
           "repeated card reconciliation appends exactly one research status");
+
+  // Native resource notifications can refresh a bound tooltip without causing
+  // any shop/card lifecycle event. Repair only the affected owned notice.
+  alliance_store_work.pending = alliance_store_work.currency = alliance_store_work.layout = false;
+  alliance_store_work.research_pending                                                    = false;
+  alliance_store_work.research_enabled                                                    = true;
+  alliance_store_work.notice_due                                                          = {};
+  store_test_native_override = il2cpp::NewString("Updated native resource text");
+  StoreTestDescription(&store_test_widget, nullptr);
+  const auto eligibility_before_native_refresh = store_test_eligibility_calls;
+  const auto localize_before_native_refresh    = store_test_localize_calls;
+  const auto pool_before_native_refresh        = store_test_pool_reads;
+  const auto currency_before_native_refresh    = store_test_currency;
+  const auto layout_before_native_refresh      = store_test_notifications;
+  AllianceStoreFrame();
+  Require(notice_text() == "Updated native resource text\n\nNo Available Research"
+              && store_test_eligibility_calls == eligibility_before_native_refresh + 1
+              && store_test_localize_calls == localize_before_native_refresh
+              && store_test_pool_reads == pool_before_native_refresh
+              && store_test_currency == currency_before_native_refresh
+              && store_test_notifications == layout_before_native_refresh && !alliance_store_work.pending,
+          "an idle native tooltip refresh recovers its notice from fresh text without scanning cards or refreshing the "
+          "store");
+  alliance_store_work.notice_due = {};
+  AllianceStoreFrame();
+  Require(store_test_eligibility_calls == eligibility_before_native_refresh + 1
+              && store_test_localize_calls == localize_before_native_refresh
+              && store_test_pool_reads == pool_before_native_refresh
+              && store_test_currency == currency_before_native_refresh
+              && store_test_notifications == layout_before_native_refresh,
+          "an unchanged owned notice performs no repeated eligibility, localization, pool or currency work");
+  store_test_native_override = il2cpp::NewString("Refresh while store obscured");
+  StoreTestDescription(&store_test_widget, nullptr);
+  store_test_shop_active         = false;
+  alliance_store_work.notice_due = {};
+  AllianceStoreFrame();
+  Require(notice_text() == "Refresh while store obscured"
+              && store_test_eligibility_calls == eligibility_before_native_refresh + 1
+              && store_test_localize_calls == localize_before_native_refresh
+              && store_test_pool_reads == pool_before_native_refresh,
+          "idle notice repair does not reconcile an obscured store");
+  store_test_shop_active         = true;
+  alliance_store_work.notice_due = {};
+  AllianceStoreFrame();
+  Require(notice_text() == "Refresh while store obscured\n\nNo Available Research"
+              && store_test_eligibility_calls == eligibility_before_native_refresh + 2
+              && store_test_pool_reads == pool_before_native_refresh
+              && store_test_currency == currency_before_native_refresh
+              && store_test_notifications == layout_before_native_refresh,
+          "notice repair resumes for the active store without triggering a full pool pass");
   store_test_eligibility_throws = true;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable
               && store_test_plain.description_override == store_test_native_override && !store_test_widget.action,
@@ -748,19 +803,27 @@ void AllianceStoreNativeCases(std::string_view mode)
           "a preference change inside localization revokes notice publication");
   research = true;
 
-  store_test_plain.override_locale = true;
-  store_test_plain.description     = nullptr;
-  store_test_native_override       = il2cpp::NewString("First material description");
+  store_test_plain.override_locale   = false;
+  store_test_plain.show_description  = {false, false, false};
+  const auto hidden_description_bits = store_test_plain.show_description;
+  store_test_plain.description       = reinterpret_cast<LocaleTextContext*>(&description_context);
+  store_test_native_override         = nullptr;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated,
-          "native composite body can be annotated again after localization failure");
+          "a hidden native description can display the passive research status");
   auto* foreign_description             = il2cpp::NewString("Native replacement description");
   store_test_plain.description_override = foreign_description;
   research                              = false;
-  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Restored
-              && store_test_plain.description_override == foreign_description,
-          "cleanup does not overwrite native text that replaced the owned notice");
+  Require(
+      ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Restored
+          && store_test_plain.description_override == foreign_description && !store_test_plain.override_locale
+          && std::memcmp(&store_test_plain.show_description, &hidden_description_bits, sizeof(hidden_description_bits))
+                 == 0,
+      "cleanup preserves replacement native text while restoring the independently owned locale and visibility fields");
   research                          = true;
   store_test_plain.show_description = description_bits;
+  store_test_plain.override_locale  = true;
+  store_test_plain.description      = nullptr;
+  store_test_native_override        = il2cpp::NewString("First material description");
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated,
           "a fresh native description can acquire notice ownership after replacement");
   store_test_widget.item     = reinterpret_cast<InventoryItem*>(&store_test_other_item);
