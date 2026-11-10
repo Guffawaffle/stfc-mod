@@ -71,8 +71,12 @@ std::function<void()> store_test_on_setup, store_test_on_eligibility, store_test
 int                   store_test_context_reads = 0, store_test_release_at_context = 0;
 int                   store_test_notifications           = 0;
 bool                  store_test_release_on_notification = false;
-const MethodInfo*     store_test_position_method         = nullptr;
-const MethodInfo*     store_test_notify_method           = nullptr;
+bool                  store_test_regenerate_description = false, store_test_localize_throws = false;
+Il2CppString*         store_test_native_override       = nullptr;
+Il2CppString*         store_test_localized_description = nullptr;
+std::function<void()> store_test_on_localize;
+const MethodInfo*     store_test_position_method = nullptr;
+const MethodInfo*     store_test_notify_method   = nullptr;
 struct StorePositionBox {
   Il2CppObject   header;
   unity::Vector2 value{0.0f, 0.4f};
@@ -134,10 +138,27 @@ void StoreTestSetEnabled(StoreFixtureTrigger* self, bool enabled, const MethodIn
     if (auto callback = std::exchange(store_test_on_enable, {}))
       callback();
 }
-void StoreTestDescription(StoreInventoryTooltip*, const MethodInfo*)
+void StoreTestDescription(StoreFixtureWidget* self, const MethodInfo*)
 {
+  if (store_test_regenerate_description && self->trigger)
+    reinterpret_cast<StoreFixtureTrigger*>(self->trigger)->description_override = store_test_native_override;
   if (auto callback = std::exchange(store_test_on_description, {}))
     callback();
+}
+LocaleTextContext* StoreTestGetDescription(StoreFixtureTrigger* self, const MethodInfo*)
+{
+  const auto show = self->show_description;
+  return (show.modified ? show.current : show.serialized) ? self->description : nullptr;
+}
+Il2CppString* StoreTestLocalize(LocaleTextContext* context, bool parameters, bool invariant, const MethodInfo*)
+{
+  Require(context && !parameters && !invariant,
+          "native material text uses its actual context with normal localization options");
+  if (store_test_localize_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  if (auto callback = std::exchange(store_test_on_localize, {}))
+    callback();
+  return store_test_localized_description;
 }
 void StoreTestSetup(StoreInventoryTooltip*, const MethodInfo*)
 {
@@ -228,12 +249,13 @@ void AllianceStoreNativeCases(std::string_view mode)
       Define("Digit.Prime.Alliances.Games", "AllianceGamesStoreScrollerViewController", IL2CPP_TYPE_CLASS, &shop);
   auto& context =
       Define("Digit.Prime.Alliances.Games", "AllianceGamesSectionContext", IL2CPP_TYPE_CLASS, &object_class);
-  auto& currencies = Define("Digit.Prime.HUD", "GenericHudResourcesData", IL2CPP_TYPE_CLASS, &object_class);
-  auto& smart      = Define("Digit.Client.UI", "SmartScrollerBase", IL2CPP_TYPE_CLASS, &component_class);
-  auto& list       = Define("System.Collections.Generic", "List`1", IL2CPP_TYPE_CLASS, &object_class);
-  auto& bundle     = Define("Digit.Prime.Shop", "BundleDataWidget", IL2CPP_TYPE_CLASS, &component_class);
-  auto& resources  = Define("UnityEngine", "Resources", IL2CPP_TYPE_CLASS, &object_class);
-  auto& templates  = Define("UnityEngine", "Object[]", IL2CPP_TYPE_SZARRAY, &array_class);
+  auto& currencies       = Define("Digit.Prime.HUD", "GenericHudResourcesData", IL2CPP_TYPE_CLASS, &object_class);
+  auto& smart            = Define("Digit.Client.UI", "SmartScrollerBase", IL2CPP_TYPE_CLASS, &component_class);
+  auto& list             = Define("System.Collections.Generic", "List`1", IL2CPP_TYPE_CLASS, &object_class);
+  auto& bundle           = Define("Digit.Prime.Shop", "BundleDataWidget", IL2CPP_TYPE_CLASS, &component_class);
+  auto& resources        = Define("UnityEngine", "Resources", IL2CPP_TYPE_CLASS, &object_class);
+  auto& templates        = Define("UnityEngine", "Object[]", IL2CPP_TYPE_SZARRAY, &array_class);
+  auto& locale_utilities = Define("Digit.Client.Localization", "LocaleUtilities", IL2CPP_TYPE_CLASS, &object_class);
   templates.klass.byval_arg.data.type = T(object_class);
 
   AddField(widget, "_tooltipTrigger", plain, offsetof(StoreFixtureWidget, trigger));
@@ -309,6 +331,9 @@ void AllianceStoreNativeCases(std::string_view mode)
   AddMethod(game_object_class, "AddComponent", reinterpret_cast<void*>(&StoreTestAddAction), T(action),
             {T(type_class)});
   AddMethod(plain, "get_enabled", reinterpret_cast<void*>(&StoreTestEnabled), T(bool_class), {});
+  AddMethod(plain, "get_Description", reinterpret_cast<void*>(&StoreTestGetDescription), T(warp_locale_class), {});
+  AddMethod(locale_utilities, "Localize", reinterpret_cast<void*>(&StoreTestLocalize), T(string_class),
+            {T(warp_locale_class), T(bool_class), T(bool_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
   AddMethod(behaviour, "set_enabled", reinterpret_cast<void*>(&StoreTestSetEnabled), T(void_class), {T(bool_class)});
   AddMethod(item, "get_ResourceSpec", reinterpret_cast<void*>(&StoreTestSpec), T(spec), {});
   AddMethod(spec, "get_Id", reinterpret_cast<void*>(&StoreTestResource),
@@ -358,14 +383,25 @@ void AllianceStoreNativeCases(std::string_view mode)
     alliance_store_work.source.Reset();
     return;
   }
-  warp_root_failure = true;
+  store_test_eligible = false;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated && !store_test_added
+              && !store_test_widget.action && store_test_plain.enabled
+              && il2cpp::ToUtf8(store_test_plain.description_override) == "No Available Research",
+          "a confirmed empty research result annotates the plain tooltip without adding an action component");
+  Config::Get().ui.show_alliance_games_research = false;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Restored
+              && !store_test_plain.description_override && !store_test_widget.action && !store_test_adds,
+          "a notice-only tooltip restores without needing an action owner");
+  Config::Get().ui.show_alliance_games_research = true;
+  store_test_eligible                           = true;
+  warp_root_failure                             = true;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable && !store_test_adds,
           "failed strong custody prevents all component changes");
   warp_root_failure = false;
   weak_root_refusal = [](Il2CppObject* object) { return object == &store_test_source.header; };
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable && store_test_plain.enabled
-              && !store_test_action.enabled && !store_test_widget.action,
-          "failed store custody cannot commit a replacement without a release owner");
+              && !store_test_added && !store_test_widget.action,
+          "failed store custody prevents creation of a replacement without a release owner");
   weak_root_refusal = nullptr;
   auto expired      = std::make_shared<OwnedStoreTooltip>();
   alliance_store_tooltips.insert(alliance_store_tooltips.begin(), expired);
@@ -385,13 +421,15 @@ void AllianceStoreNativeCases(std::string_view mode)
           "failed eligibility is unavailable, not confirmed ineligibility");
   store_test_eligibility_throws = false;
   store_test_eligible           = false;
-  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Restored && !store_test_widget.action
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated && !store_test_widget.action
               && store_test_widget.trigger == reinterpret_cast<StoreTooltipTrigger*>(&store_test_plain)
-              && store_test_plain.enabled && !store_test_action.enabled && !store_test_widget.search,
-          "confirmed ineligible reuse restores all original wrapper and enabled state");
+              && store_test_plain.enabled && !store_test_action.enabled && !store_test_widget.search
+              && il2cpp::ToUtf8(store_test_plain.description_override) == "No Available Research",
+          "confirmed ineligible reuse restores the plain wrapper and explains its lack of research");
   store_test_eligible = true;
-  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Upgraded && store_test_adds == 1,
-          "eligible pooled reuse retains a single owned native action component");
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Upgraded && store_test_adds == 1
+              && !store_test_action.description_override,
+          "eligible pooled reuse clears the notice before copying appearance to its single native action");
   store_test_setup_throws = true;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Failed && !store_test_widget.action
               && store_test_plain.enabled && !store_test_action.enabled && !store_test_widget.search,
@@ -645,7 +683,115 @@ void AllianceStoreNativeCases(std::string_view mode)
               && !store_test_widget.action && store_test_plain.enabled && !store_test_action.enabled
               && store_test_adds == 1,
           "policy-off during final enable revokes publication without adding another action");
+
+  // Exercise the displayed plain-tooltip body, including native composite text,
+  // rather than treating a false eligibility result as an empty description.
+  research                              = true;
+  store_test_eligible                   = false;
+  store_test_regenerate_description     = true;
+  store_test_native_override            = il2cpp::NewString("Material description\nMaximum reached");
+  store_test_plain.description_override = store_test_native_override;
+  const auto description_bits           = store_test_plain.show_description;
+  const auto adds_before_notice = store_test_adds, setups_before_notice = store_test_setups;
+  auto       notice_text = [&] { return il2cpp::ToUtf8(store_test_plain.description_override); };
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated
+              && notice_text() == "Material description\nMaximum reached\n\nNo Available Research"
+              && !store_test_widget.action && store_test_plain.enabled && store_test_adds == adds_before_notice
+              && store_test_setups == setups_before_notice,
+          "confirmed no research preserves native material and maximum text without creating a fake action");
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated
+              && notice_text() == "Material description\nMaximum reached\n\nNo Available Research",
+          "repeated card reconciliation appends exactly one research status");
+  store_test_eligibility_throws = true;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable
+              && store_test_plain.description_override == store_test_native_override && !store_test_widget.action,
+          "an unreadable later research result removes the previous negative notice and preserves native text");
+  store_test_eligibility_throws = false;
+
+  // The regular localized-body path must retain its native locale and visibility
+  // settings when the feature is disabled again.
+  Il2CppObject description_context{};
+  description_context.klass        = &warp_locale_class.klass;
+  store_test_plain.description     = reinterpret_cast<LocaleTextContext*>(&description_context);
+  store_test_plain.override_locale = false;
+  store_test_native_override = store_test_plain.description_override = nullptr;
+  store_test_localized_description = il2cpp::NewString("Localized material description");
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated
+              && notice_text() == "Localized material description\n\nNo Available Research"
+              && store_test_plain.override_locale,
+          "plain localized material text is retained ahead of the passive research status");
+  research = false;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Restored
+              && !store_test_plain.description_override && !store_test_plain.override_locale
+              && std::memcmp(&store_test_plain.show_description, &description_bits, sizeof(description_bits)) == 0
+              && store_test_plain.description == reinterpret_cast<LocaleTextContext*>(&description_context),
+          "disabling the research setting restores the original description, locale and visibility fields");
+  research                   = true;
+  store_test_localize_throws = true;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable
+              && !store_test_plain.description_override && !store_test_plain.override_locale,
+          "failed native localization leaves the ordinary material tooltip unchanged");
+  store_test_localize_throws       = false;
+  store_test_localized_description = nullptr;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable
+              && !store_test_plain.description_override && !store_test_plain.override_locale,
+          "an unreadable localized body is not replaced by a negative research status");
+  store_test_localized_description = il2cpp::NewString("Localized material description");
+  store_test_on_localize           = [&] { warp_root_failure = true; };
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable
+              && !store_test_plain.description_override && !store_test_plain.override_locale,
+          "lost custody of localized text cannot publish an unrooted status string");
+  warp_root_failure      = false;
+  store_test_on_localize = [&] { research = false; };
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unavailable
+              && !store_test_plain.description_override && !store_test_plain.override_locale,
+          "a preference change inside localization revokes notice publication");
   research = true;
+
+  store_test_plain.override_locale = true;
+  store_test_plain.description     = nullptr;
+  store_test_native_override       = il2cpp::NewString("First material description");
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated,
+          "native composite body can be annotated again after localization failure");
+  auto* foreign_description             = il2cpp::NewString("Native replacement description");
+  store_test_plain.description_override = foreign_description;
+  research                              = false;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Restored
+              && store_test_plain.description_override == foreign_description,
+          "cleanup does not overwrite native text that replaced the owned notice");
+  research                          = true;
+  store_test_plain.show_description = description_bits;
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated,
+          "a fresh native description can acquire notice ownership after replacement");
+  store_test_widget.item     = reinterpret_cast<InventoryItem*>(&store_test_other_item);
+  store_test_native_override = il2cpp::NewString("Second material description");
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated
+              && notice_text() == "Second material description\n\nNo Available Research",
+          "pooled reuse regenerates the new material body instead of restoring the former material text");
+  const auto releases_before_notice = store_test_original_releases;
+  BundleDataWidget_OnAboutToReleaseContext_Hook([](BundleDataWidget*) { ++store_test_original_releases; },
+                                                reinterpret_cast<BundleDataWidget*>(&card));
+  Require(store_test_original_releases == releases_before_notice + 1
+              && store_test_plain.description_override == store_test_native_override && !store_test_widget.action,
+          "card release restores a notice-only tooltip before forwarding native release exactly once");
+
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated,
+          "released card can show a newly confirmed research notice");
+  alliance_store_work.research_enabled = true;
+  alliance_store_work.pending = alliance_store_work.currency = alliance_store_work.layout = false;
+  store_test_shop_active                                                                  = false;
+  store_test_eligibility_throws                                                           = true;
+  research                                                                                = false;
+  AllianceStoreFrame();
+  Require(!alliance_store_work.research_pending && store_test_plain.description_override == store_test_native_override
+              && !store_test_widget.action && store_test_plain.enabled,
+          "live-off restores a plain-only notice even while the store is obscured and eligibility is unreadable");
+  store_test_shop_active                = true;
+  store_test_eligibility_throws         = false;
+  store_test_regenerate_description     = false;
+  store_test_plain.description_override = nullptr;
+  store_test_widget.item                = reinterpret_cast<InventoryItem*>(&store_test_item);
+  research                              = true;
   AllianceStoreScroller_OnAboutToReleaseCanvasContext_Hook([](AllianceStoreScroller*) {}, view);
   tow_runtime_invoke_override = nullptr;
   extra_value_box             = nullptr;

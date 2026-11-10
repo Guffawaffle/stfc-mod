@@ -836,6 +836,7 @@ disable_toast_banners = false
 only_show_first_popup = false
 
 # Show native View Research actions for eligible Alliance Games Store materials. Applies live.
+# Materials with no matching visible research show "No Available Research" in their tooltip.
 # Mod Settings -> Claims & Confirmations; store currency and refresh fixes remain active when off.
 show_alliance_games_research = true
 
