@@ -1,5 +1,5 @@
-// Alliance Games store: native material research tooltips and currency refresh
-// after bundle readiness. One feature owner, no claim-trace or file probe.
+// ui.show_alliance_games_research controls native material research tooltips.
+// Currency and post-purchase refresh remain active independently of that setting.
 #include "game/alliance_store.h"
 #include "config.h"
 #include "features/features.h"
@@ -21,6 +21,8 @@ struct AllianceStoreWork {
   uint64_t          epoch   = 0;
   bool              pending = false, currency = false, refreshing_currency = false, layout = false;
   Clock::time_point due{};
+  bool              research_enabled = true, research_pending = false;
+  Clock::time_point research_due{};
 };
 // Retained managed handles must not be freed by process static destructors after IL2CPP shuts down.
 auto& alliance_store_work = *new AllianceStoreWork;
@@ -113,6 +115,10 @@ bool RestoreStoreTooltip(OwnedStoreTooltip& entry)
 ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInventoryTooltip*& donor,
                                      store_game::Roots& pass_roots)
 {
+  auto owned = OwnedTooltip(tooltip);
+  if (!Config::Get().ui.show_alliance_games_research)
+    return owned && owned->bound ? (RestoreStoreTooltip(*owned) ? ResearchUpdate::Restored : ResearchUpdate::Failed)
+                                 : ResearchUpdate::Unchanged;
   store_game::Roots roots;
   if (!roots.Keep(tooltip))
     return ResearchUpdate::Unavailable;
@@ -123,7 +129,8 @@ ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInvent
       alive && alive.value ? tooltip->TryCall<"get_Context", InventoryItem*>() : il2cpp::CallResult<InventoryItem*>{};
   auto* item      = observed ? roots.Keep(observed.value) : nullptr;
   auto  same_item = [&] {
-    if (!store || alliance_store_work.epoch != epoch || alliance_store_work.source.Get() != store)
+    if (!Config::Get().ui.show_alliance_games_research || !store || alliance_store_work.epoch != epoch
+        || alliance_store_work.source.Get() != store)
       return false;
     const auto live_store = unity::TryAlive(store);
     return live_store && live_store.value && SameStoreItem(tooltip, item) && alliance_store_work.epoch == epoch
@@ -135,7 +142,6 @@ ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInvent
   auto& f           = store_game::Members();
   auto* old_action  = roots.Keep(f.action.Read(tooltip));
   auto* old_trigger = roots.Keep(f.trigger.Read(tooltip));
-  auto  owned       = OwnedTooltip(tooltip);
   // Existing native action components and unrelated arrangements remain native.
   if (!roots.healthy || (old_action && (!owned || owned->action.Get() != old_action))
       || (old_action ? old_trigger != old_action : old_trigger != plain))
@@ -307,21 +313,53 @@ void BundleDataWidget_OnDidBindContext_Hook(auto original, BundleDataWidget* sel
 
 void AllianceStoreFrame()
 {
-  auto& work = alliance_store_work;
-  if (!work.pending || Clock::now() < work.due)
+  auto&      work             = alliance_store_work;
+  const auto now              = Clock::now();
+  const bool research_enabled = Config::Get().ui.show_alliance_games_research;
+  if (research_enabled != work.research_enabled) {
+    work.research_enabled = research_enabled;
+    work.research_pending = true;
+    work.research_due     = {};
+  }
+  const bool research_pending = work.research_pending && now >= work.research_due;
+  if (research_pending) {
+    work.research_due = now + std::chrono::milliseconds(250);
+    if (!research_enabled) {
+      work.research_pending = false;
+      // Restoration may reenter native bind/pruning, and must work even while
+      // Settings obscures the store or its eligibility data is unavailable.
+      const auto entries = alliance_store_tooltips;
+      for (const auto& entry : entries)
+        if (entry->bound && !RestoreStoreTooltip(*entry))
+          work.research_pending = true;
+    }
+  }
+  const bool store_pending = work.pending && now >= work.due;
+  if (!store_pending && !(research_pending && research_enabled))
     return;
-  const bool currency     = std::exchange(work.currency, false);
-  const bool layout       = std::exchange(work.layout, false);
-  work.pending            = false;
-  const auto        epoch = work.epoch;
+  const bool currency = store_pending && std::exchange(work.currency, false);
+  const bool layout   = store_pending && std::exchange(work.layout, false);
+  if (store_pending)
+    work.pending = false;
+  const auto epoch           = work.epoch;
+  auto*      observed_source = work.source.Get<AllianceStoreScroller>();
+  if (!observed_source) {
+    // The next native store bind already schedules its own pass. Do not keep
+    // polling while the user is elsewhere with no retained live store.
+    if (research_enabled)
+      work.research_pending = false;
+    return;
+  }
   store_game::Roots roots;
-  auto*             source   = roots.Keep(work.source.Get<AllianceStoreScroller>());
-  const auto        alive    = unity::TryAlive(source);
-  const auto        observed = source && alive && alive.value
-                                   ? source->TryCall<"get_AllianceGamesContext", AllianceStoreContext*>()
-                                   : il2cpp::CallResult<AllianceStoreContext*>{};
-  auto*             context  = observed ? roots.Keep(observed.value) : nullptr;
-  const auto        active   = context ? context->TryCall<"get_IsShopViewActive", bool>() : il2cpp::CallResult<bool>{};
+  auto*             source = roots.Keep(observed_source);
+  const auto        alive  = unity::TryAlive(source);
+  if (alive && !alive.value && research_enabled)
+    work.research_pending = false;
+  const auto observed = source && alive && alive.value
+                            ? source->TryCall<"get_AllianceGamesContext", AllianceStoreContext*>()
+                            : il2cpp::CallResult<AllianceStoreContext*>{};
+  auto*      context  = observed ? roots.Keep(observed.value) : nullptr;
+  const auto active   = context ? context->TryCall<"get_IsShopViewActive", bool>() : il2cpp::CallResult<bool>{};
   if (!context || !active || !active.value)
     return;
   if (work.epoch != epoch || work.source.Get() != source)
@@ -329,7 +367,7 @@ void AllianceStoreFrame()
   auto& fields = store_game::Members();
   auto* smart  = roots.Keep(fields.scroller.Read(source));
   if (smart && (fields.regenerating.Read(smart) || fields.spawning.Read(smart) || fields.initializing.Read(smart))) {
-    work.pending = true;
+    work.pending |= store_pending;
     work.currency |= currency;
     work.layout |= layout;
     work.due = Clock::now() + std::chrono::milliseconds(250);
@@ -382,6 +420,9 @@ void AllianceStoreFrame()
         break;
     }
   }
+  if (research_enabled && Config::Get().ui.show_alliance_games_research && work.epoch == epoch
+      && work.source.Get() == source)
+    work.research_pending = false;
   bool                        refreshed = false;
   il2cpp::CallResult<int32_t> currency_before, currency_after;
   // Native bundle-derived discovery, not a fixed list of currency IDs. An

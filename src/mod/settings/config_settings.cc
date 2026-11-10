@@ -550,6 +550,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
 
   BOOL("claims", ui, auto_open_bulk_claim_flyout, "Automatically open bulk claims", Owner("GiftsAutoOpen"), Live,
        "Open the bulk-claim drawer on supported screens.");
+  BOOL("claims", ui, show_alliance_games_research, "Show View Research in Alliance Games Store",
+       Owner("AllianceGamesStore"), Live,
+       "Show the native research action for eligible store materials. Store currency and refresh fixes stay active.");
   BOOL("claims", ui, daily_bulk_claim_toggle_default_on, "Daily bulk claims on by default", Owner("DailyClaimFilter"),
        Restart, "Initial state of the session's faction Claim All toggle.");
   BOOL("claims", ui, always_skip_reveal_sequence, "Skip reward reveal sequences", Owner("SkipRevealSequence"), Live,

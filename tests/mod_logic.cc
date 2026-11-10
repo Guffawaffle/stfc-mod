@@ -215,6 +215,33 @@ void AbilityRecoveryPatch()
     }
 }
 
+void AllianceGamesResearchSetting()
+{
+  toml::table effective;
+  const auto  defaults = Config::Parse({}, effective, false);
+  Check(defaults->ui.show_alliance_games_research && defaults->patches.alliancegamesstorehooks
+            && effective["ui"]["show_alliance_games_research"].value<bool>() == true,
+        "missing Alliance Games research preference preserves the released enabled behavior and hook default");
+  for (const auto invalid : {"[]", "'false'"}) {
+    const auto parsed =
+        Config::Parse(toml::parse(std::string("[ui]\nshow_alliance_games_research=") + invalid), effective, false);
+    Check(parsed->ui.show_alliance_games_research && parsed->patches.alliancegamesstorehooks
+              && effective["ui"]["show_alliance_games_research"].value<bool>() == true,
+          "mistyped research preferences retain the enabled default and truthful effective setting");
+  }
+  for (bool hooks : {false, true})
+    for (bool research : {false, true}) {
+      toml::table input{{"patches", toml::table{{"alliancegamesstorehooks", hooks}}},
+                        {"ui", toml::table{{"show_alliance_games_research", research}}}};
+      const auto  parsed = Config::Parse(input, effective, false);
+      Check(parsed->ui.show_alliance_games_research == research && parsed->patches.alliancegamesstorehooks == hooks,
+            "research visibility and Alliance Games hook installation parse independently");
+      Check(effective["ui"]["show_alliance_games_research"].value<bool>() == research
+                && effective["patches"]["alliancegamesstorehooks"].value<bool>() == hooks,
+            "effective configuration preserves explicit research opt-out and the independent emergency switch");
+    }
+}
+
 void LoadingArtworkPolicy()
 {
   for (bool transition : {false, true})
@@ -878,6 +905,7 @@ int main()
   DefaultBindings();
   Loading();
   AbilityRecoveryPatch();
+  AllianceGamesResearchSetting();
   LoadingArtworkPolicy();
   ExampleSettings();
   NotificationAudio();
