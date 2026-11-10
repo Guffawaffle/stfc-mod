@@ -571,8 +571,15 @@ void AllianceStoreNativeCases(std::string_view mode)
   alliance_store_work.research_due = {};
   const auto pool_before_on = store_test_pool_reads, currency_before_on = store_test_currency,
              notifications_before_on = store_test_notifications;
+  store_test_donor_available         = false;
   AllianceStoreFrame();
-  Require(!alliance_store_work.research_pending && store_test_pool_reads == pool_before_on + 1 && owned->bound
+  Require(alliance_store_work.research_pending && !store_test_widget.action
+              && store_test_pool_reads == pool_before_on + 1,
+          "a temporarily unavailable donor does not consume the live-on preference");
+  store_test_donor_available       = true;
+  alliance_store_work.research_due = {};
+  AllianceStoreFrame();
+  Require(!alliance_store_work.research_pending && store_test_pool_reads == pool_before_on + 2 && owned->bound
               && store_test_widget.action == reinterpret_cast<StoreTooltipAction*>(&store_test_action)
               && store_test_action.enabled && !store_test_plain.enabled && store_test_adds == 1,
           "live-on reconciles the existing pooled card and reuses its single owned native action");
@@ -580,8 +587,31 @@ void AllianceStoreNativeCases(std::string_view mode)
           "research-only live reconciliation does not fabricate currency or layout refreshes");
   const auto setups_after_on = store_test_setups;
   AllianceStoreFrame();
-  Require(store_test_pool_reads == pool_before_on + 1 && store_test_setups == setups_after_on,
+  Require(store_test_pool_reads == pool_before_on + 2 && store_test_setups == setups_after_on,
           "an acknowledged live-on preference performs no repeated idle reconciliation");
+
+  research = false;
+  AllianceStoreFrame();
+  research                             = true;
+  store_test_donor_available           = false;
+  const auto pool_before_missing_donor = store_test_pool_reads;
+  for (int attempt = 0; attempt < 4; ++attempt) {
+    alliance_store_work.research_due = {};
+    AllianceStoreFrame();
+    Require(alliance_store_work.research_pending == (attempt < 3),
+            "unavailable live-on reconciliation has a finite four-pass budget");
+  }
+  alliance_store_work.research_due = {};
+  AllianceStoreFrame();
+  Require(store_test_pool_reads == pool_before_missing_donor + 4 && !store_test_widget.action,
+          "a permanently missing donor cannot trigger repeated idle pool scans");
+  store_test_donor_available = true;
+  research                   = false;
+  AllianceStoreFrame();
+  research = true;
+  AllianceStoreFrame();
+  Require(!alliance_store_work.research_pending && owned->bound && store_test_widget.action && store_test_adds == 1,
+          "a later preference change can recover after the bounded discovery budget is exhausted");
 
   research                                     = false;
   store_test_donor_available                   = false;

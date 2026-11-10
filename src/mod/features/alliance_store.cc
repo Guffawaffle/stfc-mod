@@ -13,8 +13,9 @@
 
 namespace
 {
-namespace store_game = alliance_store_game;
-using Clock          = std::chrono::steady_clock;
+namespace store_game                   = alliance_store_game;
+using Clock                            = std::chrono::steady_clock;
+constexpr int kResearchRefreshAttempts = 4;
 
 struct AllianceStoreWork {
   il2cpp::GcHandle  source;
@@ -22,6 +23,7 @@ struct AllianceStoreWork {
   bool              pending = false, currency = false, refreshing_currency = false, layout = false;
   Clock::time_point due{};
   bool              research_enabled = true, research_pending = false;
+  int               research_attempts = 0;
   Clock::time_point research_due{};
 };
 // Retained managed handles must not be freed by process static destructors after IL2CPP shuts down.
@@ -317,9 +319,10 @@ void AllianceStoreFrame()
   const auto now              = Clock::now();
   const bool research_enabled = Config::Get().ui.show_alliance_games_research;
   if (research_enabled != work.research_enabled) {
-    work.research_enabled = research_enabled;
-    work.research_pending = true;
-    work.research_due     = {};
+    work.research_enabled  = research_enabled;
+    work.research_pending  = true;
+    work.research_attempts = 0;
+    work.research_due      = {};
   }
   const bool research_pending = work.research_pending && now >= work.research_due;
   if (research_pending) {
@@ -420,9 +423,13 @@ void AllianceStoreFrame()
         break;
     }
   }
-  if (research_enabled && Config::Get().ui.show_alliance_games_research && work.epoch == epoch
-      && work.source.Get() == source)
-    work.research_pending = false;
+  if (work.research_pending && research_enabled && Config::Get().ui.show_alliance_games_research && work.epoch == epoch
+      && work.source.Get() == source) {
+    // A preference change may beat donor/eligibility readiness without another
+    // native bind event. Retry settled failures briefly, never poll permanently
+    // for a missing/drifted capability. Native store events can still retry later.
+    work.research_pending = (unavailable || failed) && ++work.research_attempts < kResearchRefreshAttempts;
+  }
   bool                        refreshed = false;
   il2cpp::CallResult<int32_t> currency_before, currency_after;
   // Native bundle-derived discovery, not a fixed list of currency IDs. An
