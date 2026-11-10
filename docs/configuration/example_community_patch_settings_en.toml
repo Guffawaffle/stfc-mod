@@ -393,6 +393,7 @@ loadingtiphooks = true
 miscpatches = true
 missionhudtweakshooks = true
 objecttracker = true
+officercompatibilityhooks = true
 officerpresetreorderhooks = true
 officersorthooks = true
 opcindicatorhooks = true
@@ -812,6 +813,10 @@ system_player_ship_counter = true
 
 # Native Battle Analysis when built with AAI; applies live, without changing the native Battle Log.
 battle_log_summary_preview = true
+
+# Include understood general abilities in the officer encounter filter.
+# Unresolved cases and Specialists only remain separate modes. Requires an AAI-enabled build.
+officer_compatibility_filter = true
 # Skip the reveal box animation, and just open the boxes
 always_skip_reveal_sequence = true
 auto_confirm_discovery = true

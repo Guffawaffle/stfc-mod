@@ -11,7 +11,7 @@ The explicitly enabled build-only targets in `zig/aai.zig`,
 link, install or feature graph. Their inputs and qualification limits are in
 [the M1 checkpoint](migration/M1-FOUNDATION.md).
 
-AAI source is GPL-3.0 at `4bece2e5f1afa7c7343f009e83398742a0f86114`.
+AAI source is GPL-3.0 at `018cbb27d647ed609ea001f0c7996a3cade17966`.
 Its native archive additionally uses lazy, content-pinned simdutf 8.2.0
 (Apache-2.0 or MIT; retain `LICENSE-APACHE` and `LICENSE-MIT`). No simdutf
 vendor source is modified. The standalone TOML producer retains the owning

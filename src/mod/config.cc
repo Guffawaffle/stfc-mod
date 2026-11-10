@@ -65,6 +65,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"missionhudtweakshooks", &Config::Patches::missionhudtweakshooks},
     {"navigationorbithooks", &Config::Patches::navigationorbithooks},
     {"objecttracker", &Config::Patches::objecttracker},
+    {"officercompatibilityhooks", &Config::Patches::officercompatibilityhooks},
     {"officerpresetreorderhooks", &Config::Patches::officerpresetreorderhooks},
     {"officersorthooks", &Config::Patches::officersorthooks},
     {"opcindicatorhooks", &Config::Patches::opcindicatorhooks},
@@ -981,6 +982,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "show_player_title", u.show_player_title);
   r.Read("ui", "allow_officer_preset_reordering", u.allow_officer_preset_reordering);
   r.Read("ui", "battle_log_summary_preview", u.battle_log_summary_preview);
+  r.Read("ui", "officer_compatibility_filter", u.officer_compatibility_filter);
   r.Read("ui", "system_player_ship_counter", u.system_player_ship_counter);
   r.Read("ui", "auto_open_bulk_claim_flyout", u.auto_open_bulk_claim_flyout);
   u.daily_bulk_claim_factions = ReadFactions(r);

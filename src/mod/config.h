@@ -159,6 +159,7 @@ public:
     bool missionhudtweakshooks      = true;
     bool navigationorbithooks       = true;
     bool objecttracker              = true;
+    bool officercompatibilityhooks  = true;
     bool officerpresetreorderhooks  = true;
     bool officersorthooks           = true;
     bool opcindicatorhooks          = true;
@@ -297,7 +298,8 @@ public:
     // Only player ships received by this client for the viewed system are counted.
     bool system_player_ship_counter = true;
     // The optional private native product reads this live, including teardown.
-    bool battle_log_summary_preview = true;
+    bool battle_log_summary_preview   = true;
+    bool officer_compatibility_filter = true;
 
     bool                     auto_open_bulk_claim_flyout = false;
     std::vector<std::string> daily_bulk_claim_factions{"federation", "klingon", "romulan"};
