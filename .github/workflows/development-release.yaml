@@ -84,6 +84,8 @@ jobs:
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: ${{ env.ZIG_VERSION }}
+          # Both caches can contain private source-derived material.
+          use-cache: false
       - uses: ilammy/msvc-dev-cmd@v1
         if: matrix.arch == 'windows'
         with:
