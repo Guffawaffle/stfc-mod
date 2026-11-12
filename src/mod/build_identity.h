@@ -60,7 +60,14 @@ inline bool ValidDisplayVersion(std::string_view label, std::string_view base) n
   if (label.starts_with("-guffa.")) {
     label.remove_prefix(7);
     const auto space = label.find(separator);
-    if (space == std::string_view::npos || !detail::Number(label.substr(0, space)))
+    if (space == std::string_view::npos)
+      return false;
+    const auto lineage = label.substr(0, space);
+    const auto dev     = lineage.find("-dev.");
+    if (dev != std::string_view::npos)
+      return detail::Number(lineage.substr(0, dev)) && detail::Number(lineage.substr(dev + 5))
+             && label.substr(space) == " · DEV";
+    if (!detail::Number(lineage))
       return false;
     label.remove_prefix(space);
     if (label == " · Release" || label == " · Pre")
@@ -100,7 +107,7 @@ inline bool KnownSource(std::string_view source) noexcept
 // Source matching alone must not relabel one as the other.
 inline bool MatchesUnsignedPackage(std::string_view label, bool development_package) noexcept
 {
-  if (label.find(" · DEV ") != std::string_view::npos)
+  if (label.ends_with(" · DEV") || label.find(" · DEV ") != std::string_view::npos)
     return development_package;
   if (label.find(" · CI ") != std::string_view::npos)
     return !development_package;
@@ -108,8 +115,12 @@ inline bool MatchesUnsignedPackage(std::string_view label, bool development_pack
 }
 
 inline std::string FallbackVersion(std::string_view version, std::string_view invocation = {},
-                                   bool development_package = false)
+                                   bool development_package = false, std::string_view development_tag = {})
 {
+  const std::string prefix_tag = "v" + std::string(version) + "-dev.";
+  if (development_package && development_tag.starts_with(prefix_tag)
+      && detail::Number(development_tag.substr(prefix_tag.size())))
+    return std::string(development_tag.substr(1)) + " · DEV";
   const std::string_view     channel = development_package ? " · DEV " : " · CI ";
   constexpr std::string_view prefix = "github:", suffix = ":windows";
   if (invocation.size() >= prefix.size() + suffix.size() && invocation.starts_with(prefix)
@@ -144,7 +155,7 @@ enum class SignatureState { Absent, Present, Unknown };
 
 inline std::string DescriptionVersion(std::string_view base, std::string_view description, SignatureState state,
                                       std::string_view invocation = {}, std::string_view fork_version = {},
-                                      bool development_package = false)
+                                      bool development_package = false, std::string_view development_tag = {})
 {
   const auto                 known_version = fork_version.empty() ? base : fork_version;
   constexpr std::string_view prefix        = "STFC Community Mod | ";
@@ -155,7 +166,7 @@ inline std::string DescriptionVersion(std::string_view base, std::string_view de
   }
   if (state != SignatureState::Absent || !description.empty())
     return std::string(known_version);
-  return FallbackVersion(known_version, invocation, development_package);
+  return FallbackVersion(known_version, invocation, development_package, development_tag);
 }
 
 // Cached on first use. No per-frame filesystem, signature, or environment work.
@@ -164,5 +175,6 @@ std::string_view DisplayVersion();
 // The tiny platform entry unit already receives the immutable CI provenance
 // defines. Reading it here avoids recompiling all mod sources per invocation.
 std::string_view CompiledInvocation();
+std::string_view CompiledDevelopmentTag();
 #endif
 } // namespace build_identity

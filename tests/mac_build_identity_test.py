@@ -152,6 +152,20 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(ci["CFBundleVersion"], dev["CFBundleVersion"])
         self.assertEqual(ci["STFCForkRevision"], dev["STFCForkRevision"])
 
+    def test_named_dev_tag_is_exact_and_cannot_claim_another_channel(self):
+        tag = "v1.1.9.5-guffa.6-dev.1"
+        fields = IDENTITY.build_metadata(BASE, channel="dev", release_tag=tag, fork_revision=6)
+        self.assertEqual(fields["STFCDisplayVersion"], "1.1.9.5-guffa.6-dev.1 · DEV")
+        self.assertEqual(fields["CFBundleVersion"], "5.6.1")
+        self.assertEqual(fields["STFCReleaseTag"], tag)
+        for invalid in ("v1.1.9.5-guffa.6", "v1.1.9.5-guffa.7-dev.1", "v1.1.9.0-guffa.6-dev.1",
+                        "v1.1.9.5-guffa.6-dev.0", "v1.1.9.5-guffa.6-dev.01", tag + "\n"):
+            with self.subTest(tag=invalid), self.assertRaises(ValueError):
+                IDENTITY.build_metadata(BASE, channel="dev", release_tag=invalid, fork_revision=6)
+        for channel in ("ci", "pre", "release"):
+            with self.subTest(channel=channel), self.assertRaises(ValueError):
+                IDENTITY.build_metadata(BASE, channel=channel, release_tag=tag, fork_revision=6)
+
     def test_unsigned_ci_and_dev_select_their_own_icons_without_payload_changes(self):
         for channel in ("ci", "dev"):
             with self.subTest(channel=channel):

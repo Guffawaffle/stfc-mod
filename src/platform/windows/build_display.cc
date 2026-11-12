@@ -5,3 +5,6 @@
 
 std::string_view build_identity::CompiledInvocation()
 { return STFC_BUILD_INVOCATION_ID; }
+
+std::string_view build_identity::CompiledDevelopmentTag()
+{ return STFC_DEVELOPMENT_TAG; }

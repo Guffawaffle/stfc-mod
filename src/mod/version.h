@@ -58,7 +58,14 @@
 
 #define VER_PRODUCTNAME_STR         "STFC: Community Mod"
 #define VER_PRODUCT_VERSION         VERSION_MAJOR, VERSION_MINOR, VERSION_REVISION
+#ifdef STFC_DEVELOPMENT_VERSION
+#define VER_PRODUCT_VERSION_STR     STFC_DEVELOPMENT_VERSION
+#else
 #define VER_PRODUCT_VERSION_STR     VER_FORK_VERSION_STR
+#endif
+#ifndef STFC_DEVELOPMENT_TAG
+#define STFC_DEVELOPMENT_TAG        ""
+#endif
 // Windows loads the mod as a proxy version.dll.
 #define VER_ORIGINAL_FILENAME_STR   "version.dll"
 #define VER_INTERNAL_NAME_STR       VER_ORIGINAL_FILENAME_STR
