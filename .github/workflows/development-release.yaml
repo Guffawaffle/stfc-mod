@@ -90,6 +90,18 @@ jobs:
           arch: x64
       - name: Build and test the explicit DEV product
         run: ${{ matrix.python }} scripts/build-dev.py --context .dev/dev-context.json --aai-source ../private-aai --target ${{ matrix.target }}
+      - name: Read native Windows version resource
+        if: matrix.arch == 'windows'
+        shell: pwsh
+        run: |
+          $context = Get-Content -LiteralPath .dev/dev-context.json -Raw | ConvertFrom-Json
+          $expected = if ($context.tag) { $context.tag.Substring(1) } else { "$($context.base)-guffa.$($context.fork_revision)" }
+          $dll = (Resolve-Path -LiteralPath zig-out/bin/version.dll).Path
+          $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($dll)
+          if ($version.ProductVersion -cne $expected) { throw "DEV ProductVersion differs from $expected" }
+          if ((Get-AuthenticodeSignature -LiteralPath $dll).Status -ne 'NotSigned') {
+            throw 'DEV payload must remain unsigned'
+          }
       - name: Check Mac linkage and archive only install payloads
         if: matrix.arch != 'windows'
         run: |
