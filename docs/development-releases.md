@@ -28,9 +28,10 @@ not used. Neither private sources nor build caches are uploaded as artifacts.
 
 ## Publish
 
-1. Merge reviewed changes into `play-dev`. Wait for its **Build** and
-   **Development package** runs to pass. The latter proves private source access,
-   Windows and both native Mac builds, tests, DEV metadata, icons, and packaging.
+1. Merge reviewed changes into `play-dev`. Its **Build** run checks the core
+   product; **Development package** also offers an untagged AAI preview for testing.
+   Every tagged run repeats the full native builds and tests before publication,
+   including private source access, DEV metadata, icons, and packaging.
 2. Choose an unused `v<four-part-base>-guffa.<fork-revision>-dev.<sequence>` tag.
    Its base and fork revision must match `src/mod/version.h`; the sequence must
    be a positive canonical integer through 4294967295.
