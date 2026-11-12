@@ -184,6 +184,7 @@ constexpr const Feature* kFeatures[] = {
     &kHavenOrbit,
     // hotkeys.cc
     &kHotkeys,
+    &kKeyboardConfirm,
     // instant_warp.cc
     &kInstantWarp,
     // loading_screens.cc
