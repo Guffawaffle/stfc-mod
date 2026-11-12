@@ -37,10 +37,20 @@ class DevelopmentReleaseTest(unittest.TestCase):
                         patch.object(DEV, "command", side_effect=replies), self.assertRaises(ValueError):
                     DEV.resolve("refs/tags/" + CONTEXT["tag"], SOURCE, output)
                 self.assertFalse(output.exists())
-            with patch.dict(os.environ, env), patch.object(DEV, "command", return_value=SOURCE):
+            # Use an independent source fixture so advancing the real AAI pin
+            # cannot silently change this selector contract's expected value.
+            root = Path(directory) / "source"
+            (root / "src/mod").mkdir(parents=True)
+            (root / "zig").mkdir()
+            names = ("VERSION_MAJOR", "VERSION_MINOR", "VERSION_REVISION", "VERSION_PATCH", "VERSION_FORK_REVISION")
+            (root / "src/mod/version.h").write_text("".join(
+                f"#define {name} {value}\n" for name, value in zip(names, (1, 1, 9, 5, 6))), encoding="utf-8")
+            (root / "zig/aai.zig").write_text(f'pub const pinned_revision = "{"b" * 40}";\n', encoding="utf-8")
+            with patch.dict(os.environ, env), patch.object(DEV, "command", return_value=SOURCE), \
+                    patch.object(DEV, "ROOT", root):
                 selected = DEV.resolve("refs/tags/" + CONTEXT["tag"], SOURCE, output)
             self.assertEqual(selected["tag"], CONTEXT["tag"])
-            self.assertEqual(selected["aai_pin"], "e12d0a615b5e0f8fafb5d859dc6c2931858e806b")
+            self.assertEqual(selected["aai_pin"], "b" * 40)
             self.assertTrue(selected["aai_host"])
 
     def make_assets(self, directory):

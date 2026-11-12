@@ -18,17 +18,20 @@ Do not put a personal access token or private key in the source tree.
 
 The source pin in `zig/aai.zig` must be a full commit available from the private
 remote. Publish a signed AAI commit to a retained branch before changing the pin.
-The initial pin is `e12d0a615b5e0f8fafb5d859dc6c2931858e806b`, retained by
-`ci/pinned-native-e12d0a6`. The workflow checks out that exact commit outside the
+The qualified DEV pin is `a9060be28f7598a37d806518baaaa0f4a71facec`, retained by
+`ci/pinned-native-portable-fixtures`. It preserves E12's runtime source and fixes
+fixture assumptions about optional construction and standard-library allocation
+sizes. The workflow checks out that exact commit outside the
 mod checkout. Builds explicitly select `aai-host`, `aai-ui-lab` and diagnostic
 patch toggles; dirty-source overrides and automatic local source discovery are
 not used. Neither private sources nor build caches are uploaded as artifacts.
 
 ## Publish
 
-1. Merge reviewed changes into `play-dev`. Wait for its **Build** and
-   **Development package** runs to pass. The latter proves private source access,
-   Windows and both native Mac builds, tests, DEV metadata, icons, and packaging.
+1. Merge reviewed changes into `play-dev`. Its **Build** run checks the core
+   product; **Development package** also offers an untagged AAI preview for testing.
+   Every tagged run repeats the full native builds and tests before publication,
+   including private source access, DEV metadata, icons, and packaging.
 2. Choose an unused `v<four-part-base>-guffa.<fork-revision>-dev.<sequence>` tag.
    Its base and fork revision must match `src/mod/version.h`; the sequence must
    be a positive canonical integer through 4294967295.
