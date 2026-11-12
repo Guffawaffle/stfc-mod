@@ -38,6 +38,10 @@ Signing a selected test artifact does not change its CI result.
 The controller uses its own trusted metadata helper and icon assets before
 signing or notarization. It preserves the library, loader and launcher bytes
 during this step and records the selected identity in the signing receipts.
+For PR builds, the compiled merge commit remains the bundle source after a
+direct-parent check against the selected run's head. Both identities are retained
+in provenance. Signing refuses a bundle without its producing source metadata;
+use a fresh CI build when upgrading from an older launcher.
 Windows uses the same canonical version metadata for the Authenticode program
 description; the unsigned DLL and its existing source marker are not rewritten.
 The app and installer volume use the same selected icon. Bundle identifier,
@@ -62,9 +66,10 @@ the launcher layout need a native Mac check on the final signed app.
    `releaseTag`, `prerelease` and `buildChannel`, and that the full launcher label
    and icon agree. Use those same values for the GitHub release.
 
-Older bundles can receive new metadata and artwork before re-signing, but they
-need rebuilt launcher and mod binaries to gain the new visible version rows.
-Published releases are not rewritten.
+The standalone metadata helper can stamp older bundles, but the signing workflow
+requires a fresh CI artifact with producing source metadata. Rebuilt launcher
+and mod binaries are needed for the new visible version rows. Published releases
+are not rewritten.
 
 ## Assets
 

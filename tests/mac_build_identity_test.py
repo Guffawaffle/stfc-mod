@@ -19,6 +19,9 @@ SCRIPT = ROOT / "scripts/mac-build-identity.py"
 SPEC = importlib.util.spec_from_file_location("mac_build_identity", SCRIPT)
 IDENTITY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(IDENTITY)
+SOURCE_SPEC = importlib.util.spec_from_file_location("ci_signing_input", ROOT / "scripts/ci-signing-input.py")
+SIGNING = importlib.util.module_from_spec(SOURCE_SPEC)
+SOURCE_SPEC.loader.exec_module(SIGNING)
 BASE = "1.1.9.5"
 TAG = "v1.1.9.5-guffa.6"
 SOURCE = "0123456789abcdef0123456789abcdef01234567"
@@ -94,6 +97,22 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(release["CFBundleVersion"], "5.6")
         self.assertEqual(pre["CFBundleVersion"], "5.6")
         self.assertEqual(release["CFBundleShortVersionString"], "1.1.9")
+
+    def test_pr_pre_stamp_retains_the_merge_source_for_the_loaded_mod(self):
+        head = "f" * 40
+        initial = self.generated(source=SOURCE, run_id=123, run_number=137, run_attempt=2)
+        self.plist.write_bytes(plistlib.dumps(initial))
+        verified = SIGNING.verify_source({"head_sha": head, "event": "pull_request"},
+                                         initial["STFCSourceCommit"],
+                                         {"sha": SOURCE, "parents": [{"sha": head}]})
+        IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt, channel="pre",
+                           source=verified["source_commit"], run_id=123, run_number=137, run_attempt=2)
+        result = plistlib.loads(self.plist.read_bytes())
+        self.assertEqual(result["STFCDisplayVersion"], "1.1.9.5 · Pre b137.2")
+        self.assertEqual(result["STFCSourceCommit"], SOURCE)
+        self.assertNotEqual(result["STFCSourceCommit"], head)
+        for name, payload in self.binaries.items():
+            self.assertEqual((self.contents / name).read_bytes(), payload)
 
     def test_dev_ci_and_local_keep_numeric_versions_separate_from_label(self):
         ci = IDENTITY.build_metadata(BASE, source=SOURCE.upper(), run_id=42576047391, run_number=137, run_attempt=2)

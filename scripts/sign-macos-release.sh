@@ -48,13 +48,28 @@ unsigned_library_hash=$(shasum -a 256 "$library" | awk '{print $1}')
 unsigned_loader_hash=$(shasum -a 256 "$loader" | awk '{print $1}')
 unsigned_launcher_hash=$(shasum -a 256 "$launcher" | awk '{print $1}')
 
+# A PR run's API HEAD is its source branch, while github.sha is the merge
+# checkout compiled into the dylib. Preserve that producing identity and verify
+# its relationship to the selected run before replacing any bundle metadata.
+embedded_source=$(/usr/libexec/PlistBuddy -c 'Print :STFCSourceCommit' "$app/Contents/Info.plist")
+[[ "$embedded_source" =~ ^[0-9a-f]{40}$ ]]
+source_commit=()
+if [[ "$embedded_source" != "$SOURCE_SHA" ]]; then
+  [[ "${SOURCE_KIND:-}" == pull-request-run-head ]]
+  gh api "repos/$GITHUB_REPOSITORY/commits/$embedded_source" > "$work/producer-commit.json"
+  source_commit=(--commit-json "$work/producer-commit.json")
+fi
+python3 "$scripts/ci-signing-input.py" verify-source --selection "$RUNNER_TEMP/mac-input.json" \
+  --source "$embedded_source" "${source_commit[@]}" --output signed-macos/mac-source-identity.json
+source_relationship=$(jq -r .source_relationship signed-macos/mac-source-identity.json)
+
 # Only trusted controller code chooses the player-facing identity. CI artifacts
 # remain the exact selected input; stamping changes bundle metadata and artwork,
 # never the library, loader or launcher. Reject bad tags before opening a keychain.
 stamp_tag=()
 if [[ -n "${RELEASE_TAG:-}" ]]; then stamp_tag=(--release-tag "$RELEASE_TAG"); fi
 python3 "$scripts/mac-build-identity.py" stamp --app "$app" --channel "$BUILD_CHANNEL" \
-  "${stamp_tag[@]}" --source "$SOURCE_SHA" --run-id "$BUILD_RUN_ID" \
+  "${stamp_tag[@]}" --source "$embedded_source" --run-id "$BUILD_RUN_ID" \
   --run-number "$BUILD_RUN_NUMBER" --run-attempt "$BUILD_RUN_ATTEMPT" \
   --icons-dir "$scripts/../assets/launcher-icons" --receipt signed-macos/mac-build-identity.json
 [[ "$(shasum -a 256 "$library" | awk '{print $1}')" == "$unsigned_library_hash" ]]
@@ -109,11 +124,12 @@ notarize() {
   cp "$file" "$payload"
   payload_hash=$(shasum -a 256 "$payload" | awk '{print $1}')
   jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}" --arg build "$BUILD_RUN_ID" \
+    --arg producingSource "$embedded_source" --arg relationship "$source_relationship" \
     --arg input "$input_hash" --arg payload "$payload_hash" \
     --arg workflow "$GITHUB_SHA" --arg filename "$(basename "$file")" \
     --arg channel "$BUILD_CHANNEL" --arg tag "${RELEASE_TAG:-}" \
     --slurpfile identity signed-macos/mac-build-identity.json \
-    '{sourceCommit:(if $sourceKind == "pull-request-run-head" then null else $source end),
+    '{sourceCommit:$producingSource,sourceRelationship:$relationship,
       buildRunHeadSha:$source,sourceEvidenceKind:$sourceKind,buildRunId:$build,inputDmgSha256:$input,
       payloadSha256:$payload,filename:$filename,signingWorkflowCommit:$workflow,
       buildChannel:$channel,releaseTag:(if $tag == "" then null else $tag end),
@@ -209,6 +225,7 @@ tar -cf - -C "$installed_app/Contents" libstfc-community-mod.dylib | zstd -15 -T
 shasum -a 256 "$archive" | awk '{print $1}' > "$archive.sha256"
 dmg_hash=$(shasum -a 256 "$output" | awk '{print $1}')
 jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}" --arg build "$BUILD_RUN_ID" --arg team "$APPLE_TEAM_ID" \
+  --arg producingSource "$embedded_source" --arg relationship "$source_relationship" \
   --arg signer "$MACOS_SIGNING_IDENTITY" --arg input "$input_hash" \
   --arg unsigned "$unsigned_library_hash" --arg signed "$signed_library_hash" --arg dmg "$dmg_hash" \
   --arg submittedDmg "$submitted_dmg_hash" \
@@ -216,7 +233,7 @@ jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}
   --arg icon "$selected_icon_hash" --arg channel "$BUILD_CHANNEL" --arg tag "${RELEASE_TAG:-}" \
   --slurpfile identity signed-macos/mac-build-identity.json \
   --slurpfile dmgTicket macos-notarization-evidence/dmg-submission.json \
-  '{sourceCommit:(if $sourceKind == "pull-request-run-head" then null else $source end),
+  '{sourceCommit:$producingSource,sourceRelationship:$relationship,
     buildRunHeadSha:$source,sourceEvidenceKind:$sourceKind,buildRunId:$build,teamId:$team,signingIdentity:$signer,
     inputDmgSha256:$input,unsignedLibrarySha256:$unsigned,signedLibrarySha256:$signed,
     dmgSha256:$dmg,signingWorkflowCommit:$workflow,signingRunUrl:$url,
