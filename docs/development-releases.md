@@ -18,8 +18,10 @@ Do not put a personal access token or private key in the source tree.
 
 The source pin in `zig/aai.zig` must be a full commit available from the private
 remote. Publish a signed AAI commit to a retained branch before changing the pin.
-The initial pin is `e12d0a615b5e0f8fafb5d859dc6c2931858e806b`, retained by
-`ci/pinned-native-e12d0a6`. The workflow checks out that exact commit outside the
+The qualified DEV pin is `a9060be28f7598a37d806518baaaa0f4a71facec`, retained by
+`ci/pinned-native-portable-fixtures`. It preserves E12's runtime source and fixes
+fixture assumptions about optional construction and standard-library allocation
+sizes. The workflow checks out that exact commit outside the
 mod checkout. Builds explicitly select `aai-host`, `aai-ui-lab` and diagnostic
 patch toggles; dirty-source overrides and automatic local source discovery are
 not used. Neither private sources nor build caches are uploaded as artifacts.
