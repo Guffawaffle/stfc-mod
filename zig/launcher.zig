@@ -80,12 +80,34 @@ fn appleArchive(
 /// Info.plist with the mod version, the app icon, and the compiled asset catalog.
 fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step) void {
     const b = ctx.b;
-    const template = compat.readFile(b, b.path("src/launcher/macos/Info.plist.template"), .limited(64 * 1024));
-    const versioned = std.mem.replaceOwned(u8, b.allocator, template, "${VERSION}", modVersion(b)) catch @panic("OOM");
-    const plist = std.mem.replaceOwned(u8, b.allocator, versioned, "${MACOS_MIN}", macos_min) catch @panic("OOM");
-    const info = b.addWriteFiles().add("Info.plist", plist);
+    const channel = b.option(enum { dev, pre, release }, "launcher_channel", "Visible launcher channel") orelse .dev;
+    const tag = b.option([]const u8, "launcher_release_tag", "Exact downstream release tag") orelse "";
+    const source = b.option([]const u8, "launcher_source", "Launcher source commit") orelse "";
+    const run_id = b.option([]const u8, "launcher_run_id", "Producing CI run ID") orelse "";
+    const run_number = b.option([]const u8, "launcher_run_number", "Producing CI build number") orelse "0";
+    const run_attempt = b.option([]const u8, "launcher_run_attempt", "Producing CI run attempt") orelse "1";
+
+    // Player-visible identity is separate from the mod's verified source/provenance marker.
+    // Normal builds are DEV. Trusted promotion selects the final tag/channel before signing.
+    const metadata = b.addSystemCommand(&.{"python3"});
+    metadata.addFileArg(b.path("scripts/mac-build-identity.py"));
+    metadata.addArgs(&.{ "generate", "--template" });
+    metadata.addFileArg(b.path("src/launcher/macos/Info.plist.template"));
+    metadata.addArgs(&.{
+        "--base-version", modVersion(b),     "--macos-min",  macos_min,
+        "--channel",      @tagName(channel), "--run-number", run_number,
+        "--run-attempt",  run_attempt,
+    });
+    if (tag.len > 0) metadata.addArgs(&.{ "--release-tag", tag });
+    if (source.len > 0) metadata.addArgs(&.{ "--source", source });
+    if (run_id.len > 0) metadata.addArgs(&.{ "--run-id", run_id });
+    metadata.addArg("--output");
+    const info = metadata.addOutputFileArg("Info.plist");
     step.dependOn(&b.addInstallFile(info, "macOSLauncher.app/Contents/Info.plist").step);
-    const icon = b.addInstallFile(b.path("assets/launcher.icns"), "macOSLauncher.app/Contents/Resources/launcher.icns");
+    const icon = b.addInstallFile(
+        b.path(b.fmt("assets/launcher-icons/launcher-{s}.icns", .{@tagName(channel)})),
+        "macOSLauncher.app/Contents/Resources/launcher.icns",
+    );
     step.dependOn(&icon.step);
 
     const actool = b.addSystemCommand(&.{ "xcrun", "actool", "--platform", "macosx" });

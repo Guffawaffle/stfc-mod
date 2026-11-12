@@ -21,6 +21,14 @@ struct STFC_Community_Patch_LauncherApp: App {
     }
     .windowResizability(.contentSize)
     .commands {
+      CommandGroup(replacing: .appInfo) {
+        Button("About STFC Community Mod") {
+          NSApplication.shared.orderFrontStandardAboutPanel(options: [
+            .applicationVersion: LauncherBuildIdentity.displayVersion,
+            .version: "",
+          ])
+        }
+      }
       CommandGroup(after: .sidebar) {
         Divider()
         Button("View Mod Folder") {

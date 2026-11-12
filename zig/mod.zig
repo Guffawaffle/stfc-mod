@@ -140,7 +140,7 @@ fn addModSources(ctx: *const Ctx, module: *std.Build.Module, flags: []const []co
         module.linkFramework("Cocoa", .{});
         module.linkFramework("UserNotifications", .{});
     } else if (ctx.isWindows()) {
-        inline for (.{ "winmm", "rpcrt4", "runtimeobject", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
+        inline for (.{ "winmm", "rpcrt4", "runtimeobject", "mfuuid", "shlwapi", "ole32", "crypt32" }) |lib| module.linkSystemLibrary(lib, .{});
     }
 }
 
