@@ -83,6 +83,10 @@ void ChatMessageListLocalViewController_OnSubmit_Hook(auto original, ChatMessage
         unity::Input::GetKeyDown(unity::KeyCode::Return) || unity::Input::GetKeyDown(unity::KeyCode::KeypadEnter);
     capture       = Shortcut::CaptureBlocksShortcuts();
     keys_observed = true;
+    // Native submit can clear text selection before the popup's keyboard-confirm callback runs. Preserve this
+    // frame's text ownership so that the same Enter does not also confirm the window behind side chat.
+    if (submit_down)
+      (void)unity::Key::IsInputFocused();
   } catch (...) {
   }
 #ifdef _MODDBG

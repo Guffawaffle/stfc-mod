@@ -354,6 +354,10 @@ struct ScreenManager : MonoSingleton<ScreenManager> {
   { return Field<"m_canvasRootScaler", unity::CanvasScaler*>(); }
 };
 
+struct KeyboardConfirmHandler : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "KeyboardConfirmHandler">;
+};
+
 struct ShortcutsManager : MonoSingleton<ShortcutsManager> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameInput", "ShortcutsManager">;
 

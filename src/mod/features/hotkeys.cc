@@ -145,6 +145,27 @@ void ShortcutsManager_InitializeActions_Hook(auto original, ShortcutsManager* _t
     original(_this);
 }
 
+// Native popup confirmation is independent of the configurable shortcut dispatcher. In particular, Space and
+// Enter must stay with a focused text field instead of also activating a reward window's confirm button.
+void KeyboardConfirmHandler_OnConfirmPerformed_Hook(auto original, KeyboardConfirmHandler* _this,
+                                                    unity::InputActionCallbackContext context)
+{
+  unity::Key::Poll();
+  if (Shortcut::CaptureBlocksShortcuts() || unity::Key::IsInputFocused())
+    return;
+  original(_this, context);
+}
+
+bool InstallKeyboardConfirm()
+{
+  il2cpp::HookSet hooks("KeyboardConfirm");
+  IL2CPP_STAGE_AT(hooks,
+                  il2cpp::CheckedEntry(KeyboardConfirmHandler::Class::Method<void(unity::InputActionCallbackContext)>(
+                      "OnConfirmPerformed")),
+                  KeyboardConfirmHandler_OnConfirmPerformed_Hook);
+  return hooks.Commit();
+}
+
 bool InstallHotkeys()
 {
   il2cpp::HookSet hooks("Hotkeys");
@@ -257,3 +278,4 @@ bool HandleShortcuts()
 }
 
 const Feature kHotkeys{"Hotkeys", &Config::Patches::hotkeyhooks, InstallHotkeys};
+const Feature kKeyboardConfirm{"KeyboardConfirm", &Config::Patches::hotkeyhooks, InstallKeyboardConfirm};
