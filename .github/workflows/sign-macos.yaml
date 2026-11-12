@@ -1,0 +1,153 @@
+name: Sign and notarize macOS
+
+on:
+  workflow_call:
+    inputs:
+      build_run_id:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      ci_test_build:
+        description: Sign the selected CI artifact as an optional Pre test download
+        required: false
+        default: false
+        type: boolean
+      run_attempt:
+        required: false
+        type: string
+      installer_artifact_id:
+        required: false
+        type: string
+      release_tag:
+        description: Exact planned release tag; empty means a signed Pre CI test
+        required: false
+        default: ''
+        type: string
+      prerelease:
+        description: Signed tests use Pre; a full Release requires false and a planned tag
+        required: false
+        default: true
+        type: boolean
+
+permissions: {}
+
+jobs:
+  sign:
+    if: github.repository == 'Guffawaffle/stfc-mod' && (!inputs.ci_test_build || (github.ref == 'refs/heads/ci/macos-signing-play' && github.event_name == 'workflow_dispatch'))
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: macos-release
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify selected successful build
+        id: release_context
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CI_TEST_BUILD: ${{ inputs.ci_test_build }}
+          EXPECTED_ATTEMPT: ${{ inputs.run_attempt }}
+          EXPECTED_ARTIFACT: ${{ inputs.installer_artifact_id }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID" > "$RUNNER_TEMP/mac-build.json"
+          attempt=$(jq -r .run_attempt "$RUNNER_TEMP/mac-build.json")
+          [[ "$attempt" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/attempts/$attempt" > "$RUNNER_TEMP/mac-build.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID/artifacts?per_page=100" \
+            | jq '{artifacts:[.[].artifacts[]]}' > "$RUNNER_TEMP/artifacts.json"
+          operation=sign
+          if [[ "$CI_TEST_BUILD" == true ]]; then operation=sign-run; fi
+          python3 scripts/mac-release-context.py --operation "$operation" \
+            --release-tag "$RELEASE_TAG" --prerelease "$PRERELEASE" \
+            --run-json "$RUNNER_TEMP/mac-build.json" --output "$RUNNER_TEMP/mac-release-context.json" \
+            --github-output "$GITHUB_OUTPUT"
+          mode=$(jq -r .selection_mode "$RUNNER_TEMP/mac-release-context.json")
+          python3 scripts/ci-signing-input.py select --run-json "$RUNNER_TEMP/mac-build.json" \
+            --artifacts-json "$RUNNER_TEMP/artifacts.json" --repository "$GITHUB_REPOSITORY" \
+            --run-id "$BUILD_RUN_ID" --platform macos --mode "$mode" --expected-sha "$SOURCE_SHA" \
+            --expected-attempt "$EXPECTED_ATTEMPT" --expected-artifact "$EXPECTED_ARTIFACT" \
+            --output "$RUNNER_TEMP/mac-input.json"
+          if [[ "$mode" == release ]]; then
+            relation=$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...play" --jq '.status')
+            [[ "$relation" == ahead || "$relation" == identical ]]
+          fi
+
+      - name: Download and verify immutable installer artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          id=$(jq -r .artifact_id "$RUNNER_TEMP/mac-input.json")
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > "$RUNNER_TEMP/installer.zip"
+          python3 scripts/ci-signing-input.py extract --archive "$RUNNER_TEMP/installer.zip" \
+            --selection "$RUNNER_TEMP/mac-input.json" --destination unsigned-macos
+          echo "SOURCE_KIND=$(jq -r .source_kind "$RUNNER_TEMP/mac-input.json")" >> "$GITHUB_ENV"
+
+      - name: Sign, notarize and package
+        shell: bash
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          MACOS_SIGNING_IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BUILD_CHANNEL: ${{ steps.release_context.outputs.build_channel }}
+          RELEASE_TAG: ${{ steps.release_context.outputs.release_tag }}
+          BUILD_RUN_NUMBER: ${{ steps.release_context.outputs.run_number }}
+          BUILD_RUN_ATTEMPT: ${{ steps.release_context.outputs.run_attempt }}
+        run: bash scripts/sign-macos-release.sh
+
+      - name: Remove temporary signing keychain
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/stfc-signing.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/stfc-signing.keychain-db"
+          fi
+
+      - name: Upload notarization evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-notarization-evidence
+          path: macos-notarization-evidence/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Retain exact submitted payloads for delayed notarization
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-notarization-payloads
+          path: macos-notarization-payloads/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Retain CI input receipt
+        run: cp "$RUNNER_TEMP/mac-input.json" signed-macos/ci-input.json
+
+      - name: Upload signed macOS artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ${{ inputs.ci_test_build && format('signed-macos-test-{0}', inputs.build_run_id) || 'signed-macos-release' }}
+          path: signed-macos/
+          if-no-files-found: error
+          retention-days: 30

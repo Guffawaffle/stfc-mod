@@ -1,0 +1,186 @@
+name: Sign CI artifacts
+
+# Pushes only inspect the existing submission. New uploads require explicit dispatch.
+# Status uses a branch-restricted environment without the signing identity.
+on:
+  push:
+    branches: [ci/macos-signing-play]
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Check an existing submission or start a new signing submission
+        type: choice
+        options: [status, sign, sign-run]
+        default: status
+      build_run_id:
+        description: Exact Build run with the requested retained artifacts (sign-run only)
+        type: string
+      expected_head_sha:
+        description: Optional exact run HEAD SHA cross-check (sign-run only)
+        type: string
+      platform:
+        description: Optional CI test artifacts to sign
+        type: choice
+        options: [both, macos, windows]
+        default: both
+      release_tag:
+        description: Planned Mac release tag (v1.1.9.5-guffa.N); leave empty for a signed Pre CI test
+        type: string
+      prerelease:
+        description: Use Pre for signed tests; turn off only for a full Release with a planned tag
+        type: boolean
+        default: true
+      submission_id:
+        description: Apple submission ID to inspect (status only)
+        type: string
+        default: 53ec1263-2841-4d27-bfc4-24bf3f8bd785
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: validate-macos-signing
+  cancel-in-progress: false
+
+jobs:
+  status:
+    if: github.repository == 'Guffawaffle/stfc-mod' && (github.event_name == 'push' || inputs.operation == 'status')
+    runs-on: macos-26
+    timeout-minutes: 10
+    environment: macos-notary-status
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Query existing Apple submission
+        shell: bash
+        env:
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          SUBMISSION_ID: ${{ inputs.submission_id || '53ec1263-2841-4d27-bfc4-24bf3f8bd785' }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export NOTARY_KEYCHAIN="$RUNNER_TEMP/stfc-notary-status.keychain-db"
+          trap 'security delete-keychain "$NOTARY_KEYCHAIN" >/dev/null 2>&1 || true' EXIT
+          password=$(openssl rand -hex 32)
+          security create-keychain -p "$password" "$NOTARY_KEYCHAIN"
+          security unlock-keychain -p "$password" "$NOTARY_KEYCHAIN"
+          xcrun notarytool store-credentials stfc-notary --keychain "$NOTARY_KEYCHAIN" \
+            --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD"
+          unset APPLE_APP_SPECIFIC_PASSWORD password
+          bash scripts/check-macos-notarization.sh "$SUBMISSION_ID"
+      - name: Remove temporary status keychain
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/stfc-notary-status.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/stfc-notary-status.keychain-db"
+          fi
+      - name: Upload status and available Apple log
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-notarization-status
+          path: macos-notarization-status/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  resolve:
+    if: github.repository == 'Guffawaffle/stfc-mod' && github.event_name == 'workflow_dispatch' && (inputs.operation == 'sign' || inputs.operation == 'sign-run')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      run_id: ${{ steps.build.outputs.run_id }}
+      source_sha: ${{ steps.build.outputs.source_sha }}
+      run_attempt: ${{ steps.build.outputs.run_attempt }}
+      macos_artifact_id: ${{ steps.build.outputs.macos_artifact_id }}
+      windows_artifact_id: ${{ steps.build.outputs.windows_artifact_id }}
+      release_tag: ${{ steps.build.outputs.release_tag }}
+      prerelease: ${{ steps.build.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate signing input policies
+        run: python3 tests/ci_signing_input_test.py
+      - name: Select exact artifacts before requesting signing approval
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ inputs.operation }}
+          SELECTED_RUN: ${{ inputs.build_run_id }}
+          EXPECTED_SHA: ${{ inputs.expected_head_sha }}
+          PLATFORM: ${{ inputs.platform }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          platforms="$PLATFORM"
+          if [[ "$OPERATION" == sign ]]; then
+            EXPECTED_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/play" --jq '.object.sha')
+            SELECTED_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yaml/runs?head_sha=$EXPECTED_SHA&branch=play&event=push&status=success" --jq '.workflow_runs[0].id')
+            platforms=macos
+          fi
+          [[ "$SELECTED_RUN" =~ ^[1-9][0-9]*$ ]]
+          [[ "$platforms" == both || "$platforms" == macos || "$platforms" == windows ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN" > "$RUNNER_TEMP/build.json"
+          attempt=$(jq -r .run_attempt "$RUNNER_TEMP/build.json")
+          [[ "$attempt" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN/attempts/$attempt" > "$RUNNER_TEMP/build.json"
+          python3 scripts/mac-release-context.py --operation "$OPERATION" \
+            --release-tag "$RELEASE_TAG" --prerelease "$PRERELEASE" \
+            --run-json "$RUNNER_TEMP/build.json" --output "$RUNNER_TEMP/release-context.json" \
+            --github-output "$GITHUB_OUTPUT"
+          mode=$(jq -r .selection_mode "$RUNNER_TEMP/release-context.json")
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN/artifacts?per_page=100" \
+            | jq '{artifacts:[.[].artifacts[]]}' > "$RUNNER_TEMP/artifacts.json"
+          for platform in macos windows; do
+            [[ "$platforms" == both || "$platforms" == "$platform" ]] || continue
+            python3 scripts/ci-signing-input.py select --run-json "$RUNNER_TEMP/build.json" \
+              --artifacts-json "$RUNNER_TEMP/artifacts.json" --repository "$GITHUB_REPOSITORY" \
+              --run-id "$SELECTED_RUN" --platform "$platform" --mode "$mode" \
+              --expected-sha "$EXPECTED_SHA" --output "$RUNNER_TEMP/$platform-input.json" \
+              --github-output "$GITHUB_OUTPUT"
+          done
+          sha=$(jq -r .head_sha "$RUNNER_TEMP/build.json")
+          attempt=$(jq -r .run_attempt "$RUNNER_TEMP/build.json")
+          echo "source_sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "run_id=$SELECTED_RUN" >> "$GITHUB_OUTPUT"
+          echo "run_attempt=$attempt" >> "$GITHUB_OUTPUT"
+          echo "Selected Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN (attempt $attempt, HEAD $sha)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Build status: $(jq -r .status "$RUNNER_TEMP/build.json"); conclusion: $(jq -r '.conclusion // "not yet established"' "$RUNNER_TEMP/build.json"). Signing does not change its test result or publish a release." >> "$GITHUB_STEP_SUMMARY"
+          echo "Mac identity: $(jq -r .channel "$RUNNER_TEMP/release-context.json"); planned tag: ${RELEASE_TAG:-none (Pre CI test)}." >> "$GITHUB_STEP_SUMMARY"
+
+  validate:
+    needs: resolve
+    if: inputs.operation == 'sign' || inputs.platform != 'windows'
+    uses: ./.github/workflows/sign-macos.yaml
+    secrets: inherit
+    with:
+      build_run_id: ${{ needs.resolve.outputs.run_id }}
+      source_sha: ${{ needs.resolve.outputs.source_sha }}
+      ci_test_build: ${{ inputs.operation == 'sign-run' }}
+      run_attempt: ${{ needs.resolve.outputs.run_attempt }}
+      installer_artifact_id: ${{ needs.resolve.outputs.macos_artifact_id }}
+      release_tag: ${{ needs.resolve.outputs.release_tag }}
+      prerelease: ${{ fromJSON(needs.resolve.outputs.prerelease) }}
+
+  sign-windows:
+    needs: resolve
+    if: inputs.operation == 'sign-run' && inputs.platform != 'macos'
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/sign-ci-windows.yaml
+    secrets: inherit
+    with:
+      build_run_id: ${{ needs.resolve.outputs.run_id }}
+      source_sha: ${{ needs.resolve.outputs.source_sha }}
+      run_attempt: ${{ needs.resolve.outputs.run_attempt }}
+      artifact_id: ${{ needs.resolve.outputs.windows_artifact_id }}
+      release_tag: ${{ needs.resolve.outputs.release_tag }}
+      prerelease: ${{ fromJSON(needs.resolve.outputs.prerelease) }}
