@@ -10,8 +10,8 @@ import time
 
 
 TRANSIENT_FETCH = re.compile(
-    rb"(?:[^\r\n]*[/\\])?build\.zig\.zon:\d+:\d+: error: bad HTTP response code: "
-    rb"'(?:408|429|500|502|503|504)(?: [^'\r\n]*)?'"
+    rb"(?:[^\r\n]*[/\\])?build\.zig\.zon:\d+:\d+: error: (?:bad HTTP response code: "
+    rb"'(?:408|429|500|502|503|504)(?: [^'\r\n]*)?'|invalid HTTP response: HttpConnectionClosing)"
 )
 OTHER_FAILURE = re.compile(rb"\berror:|\bfail(?:ed|ure)?\b", re.IGNORECASE)
 RETRY_DELAYS = (10, 20)
