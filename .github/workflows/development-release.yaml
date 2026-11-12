@@ -149,7 +149,8 @@ jobs:
         run: |
           scripts/assemble-mac-app.sh ".staging/STFC Community Mod.app" .staging/arm64 .staging/x86_64
           for binary in MacOS/macOSLauncher stfc-community-mod-loader libstfc-community-mod.dylib; do
-            lipo -verify_arch arm64 x86_64 ".staging/STFC Community Mod.app/Contents/$binary"
+            archs="$(lipo -archs ".staging/STFC Community Mod.app/Contents/$binary")"
+            [[ " $archs " == *" arm64 "* && " $archs " == *" x86_64 "* ]]
           done
       - name: Install packaging tools
         env:
