@@ -116,7 +116,7 @@ jobs:
         run: |
           python3 scripts/ci-build-retry.py -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
             -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all \
-            -Dlauncher_channel=dev \
+            -Dlauncher_channel=ci \
             -Dlauncher_source=${{ github.sha }} \
             -Dlauncher_run_id=${{ github.run_id }} \
             -Dlauncher_run_number=${{ github.run_number }} \

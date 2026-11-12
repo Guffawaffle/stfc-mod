@@ -113,8 +113,10 @@ pub fn build(b: *std.Build) void {
     // the reviewed host adapter may enter this product's source/link closure.
     if (profiles_options.host) mod_libs.append(b.allocator, profiles_outputs.?.host.?) catch @panic("OOM");
     if (aai_options.host) mod_libs.append(b.allocator, aai_outputs.?.native.?) catch @panic("OOM");
-    mod.add(ctx, mod_libs.items, profiles_verification);
-    launcher.add(ctx);
+    // Only the explicitly selected development payload earns DEV identity.
+    // A source branch or a label never turns optional products on.
+    mod.add(ctx, mod_libs.items, profiles_verification, aai_options.host);
+    launcher.add(ctx, aai_options.host);
     tests.addDependencySmoke(ctx, &.{ proto, proto_runtime, cpr, curl, zlib });
 
     // Build one dependency in isolation, to check a pin bump or a cross-compile without the mod.

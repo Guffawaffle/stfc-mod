@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the fork's existing waffle mark as Release, Pre and DEV app icons.
+"""Render the fork's existing waffle mark as Release, Pre, DEV and CI app icons.
 
 Requires Pillow 12.3.0 for its bundled Aileron font and consistent rasterization.
 The committed icons are consumed directly; building the mod needs no Pillow.
@@ -22,6 +22,7 @@ CHANNELS = {
     "release": ("Release", "#5ddce5", "#164652"),
     "pre": ("Pre", "#ffbd50", "#4b351c"),
     "dev": ("DEV", "#bd9cff", "#35274c"),
+    "ci": ("CI", "#a6c4dc", "#253b50"),
 }
 # PNG-backed native sizes, followed by Retina representations of native sizes.
 ICNS_SIZES = (
@@ -108,7 +109,7 @@ def write_icns(image: Image.Image, path: Path) -> None:
 
 
 def contact_sheet(images: dict[str, Image.Image], path: Path) -> None:
-    sheet = Image.new("RGB", (1140, 560), "#101923")
+    sheet = Image.new("RGB", (380 * len(images), 560), "#101923")
     draw = ImageDraw.Draw(sheet)
     title = ImageFont.load_default(size=27)
     small = ImageFont.load_default(size=19)

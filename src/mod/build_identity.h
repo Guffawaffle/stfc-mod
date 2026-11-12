@@ -66,9 +66,9 @@ inline bool ValidDisplayVersion(std::string_view label, std::string_view base) n
     if (label == " · Release" || label == " · Pre")
       return true;
   }
-  if (label == " · DEV local")
+  if (label == " · DEV local" || label == " · CI local")
     return true;
-  for (const auto prefix : {std::string_view{" · DEV b"}, std::string_view{" · Pre b"}})
+  for (const auto prefix : {std::string_view{" · DEV b"}, std::string_view{" · CI b"}, std::string_view{" · Pre b"}})
     if (label.starts_with(prefix))
       return detail::Run(label.substr(prefix.size()));
   return false;
@@ -96,8 +96,21 @@ inline bool KnownSource(std::string_view source) noexcept
   return true;
 }
 
-inline std::string FallbackVersion(std::string_view version, std::string_view invocation = {})
+// The same commit may produce a core CI payload and a development package.
+// Source matching alone must not relabel one as the other.
+inline bool MatchesUnsignedPackage(std::string_view label, bool development_package) noexcept
 {
+  if (label.find(" · DEV ") != std::string_view::npos)
+    return development_package;
+  if (label.find(" · CI ") != std::string_view::npos)
+    return !development_package;
+  return true;
+}
+
+inline std::string FallbackVersion(std::string_view version, std::string_view invocation = {},
+                                   bool development_package = false)
+{
+  const std::string_view     channel = development_package ? " · DEV " : " · CI ";
   constexpr std::string_view prefix = "github:", suffix = ":windows";
   if (invocation.size() >= prefix.size() + suffix.size() && invocation.starts_with(prefix)
       && invocation.ends_with(suffix)) {
@@ -105,22 +118,24 @@ inline std::string FallbackVersion(std::string_view version, std::string_view in
     const auto colon = run.find(':');
     if (colon != std::string_view::npos && detail::Number(run.substr(0, colon))
         && detail::Number(run.substr(colon + 1)))
-      return std::string(version) + " · DEV b" + std::string(run.substr(0, colon)) + "."
+      return std::string(version) + std::string(channel) + "b" + std::string(run.substr(0, colon)) + "."
              + std::string(run.substr(colon + 1));
   }
-  return std::string(version) + " · DEV local";
+  return std::string(version) + std::string(channel) + "local";
 }
 
 inline std::string HandoffVersion(std::string_view base, std::string_view label, std::string_view source,
                                   std::string_view compiled_source, std::string_view invocation = {},
-                                  bool handoff_present = false, std::string_view fork_version = {})
+                                  bool handoff_present = false, std::string_view fork_version = {},
+                                  bool development_package = false)
 {
   const auto known_version = fork_version.empty() ? base : fork_version;
-  if (ValidDisplayVersion(label, base) && SourceMatches(source, compiled_source))
+  if (ValidDisplayVersion(label, base) && MatchesUnsignedPackage(label, development_package)
+      && SourceMatches(source, compiled_source))
     return std::string(label);
   if (handoff_present || !label.empty() || !source.empty() || KnownSource(compiled_source))
     return std::string(known_version);
-  return FallbackVersion(known_version, invocation);
+  return FallbackVersion(known_version, invocation, development_package);
 }
 
 // Embedded metadata presence is an observation, never publisher/trust validation.
@@ -128,18 +143,19 @@ inline std::string HandoffVersion(std::string_view base, std::string_view label,
 enum class SignatureState { Absent, Present, Unknown };
 
 inline std::string DescriptionVersion(std::string_view base, std::string_view description, SignatureState state,
-                                      std::string_view invocation = {}, std::string_view fork_version = {})
+                                      std::string_view invocation = {}, std::string_view fork_version = {},
+                                      bool development_package = false)
 {
   const auto                 known_version = fork_version.empty() ? base : fork_version;
   constexpr std::string_view prefix        = "STFC Community Mod | ";
   if (state == SignatureState::Present && description.starts_with(prefix)) {
     const auto label = description.substr(prefix.size());
-    if (ValidDisplayVersion(label, base))
+    if (ValidDisplayVersion(label, base) && MatchesUnsignedPackage(label, development_package))
       return std::string(label);
   }
   if (state != SignatureState::Absent || !description.empty())
     return std::string(known_version);
-  return FallbackVersion(known_version, invocation);
+  return FallbackVersion(known_version, invocation, development_package);
 }
 
 // Cached on first use. No per-frame filesystem, signature, or environment work.

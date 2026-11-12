@@ -29,7 +29,8 @@ int main()
   for (const auto* value : valid)
     Require(ValidDisplayVersion(value, base), "declared Release/Pre/DEV labels are accepted");
   for (const auto* value :
-       {"1.1.9.5-guffa.6 · DEV local", "1.1.9.5-guffa.6 · DEV b137.2", "1.1.9.5-guffa.6 · Pre b137.2"})
+       {"1.1.9.5-guffa.6 · DEV local", "1.1.9.5-guffa.6 · DEV b137.2", "1.1.9.5-guffa.6 · Pre b137.2",
+        "1.1.9.5-guffa.6 · CI local", "1.1.9.5-guffa.6 · CI b137.2"})
     Require(ValidDisplayVersion(value, base), "fork lineage is retained independently from the build channel");
   constexpr std::array invalid{"",
                                "1.1.9.0-guffa.6 · Release",
@@ -48,6 +49,10 @@ int main()
                                "1.1.9.5 · DEV b1.1.1",
                                "1.1.9.5 · Pre b-1.1",
                                "1.1.9.5 · DEV b9223372036854775808.1",
+                               "1.1.9.5-guffa.6 · CI",
+                               "1.1.9.5-guffa.6 · CI b0.1",
+                               "1.1.9.5-guffa.6 · CI b1.0",
+                               "1.1.9.5-guffa.6 · CI local\n",
                                "1.1.9.5-guffa.6 · <b>Release</b>",
                                "<color=red>1.1.9.5 · DEV local</color>",
                                "1.1.9.5 · DEV local\r\nspoof",
@@ -71,16 +76,27 @@ int main()
           "matching unnamed Pre handoff preserves CI label");
   Require(HandoffVersion(base, valid[0], source, "fedcba98") == base,
           "wrong-source release handoff leaves its channel unknown");
-  Require(HandoffVersion(base, {}, {}, {}) == "1.1.9.5 · DEV local", "missing metadata produces an honest local label");
+  Require(HandoffVersion(base, {}, {}, {}) == "1.1.9.5 · CI local", "an unnamed core build has a CI local label");
   Require(HandoffVersion(base, {}, {}, "01234567") == base, "a known CI hash without a launcher has unknown channel");
   Require(HandoffVersion(base, valid[0], {}, {}) == base, "a supplied unbound label cannot claim a DEV channel");
   Require(HandoffVersion(base, {}, {}, {}, {}, true) == base,
           "empty or malformed supplied metadata is distinct from absence");
-  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR) == "1.1.9.5-guffa.6 · DEV local",
-          "the compiled fork version remains visible in a local Mac development build");
-  Require(HandoffVersion(base, "1.1.9.5-guffa.6 · DEV b137.2", source, "01234567", {}, true, VER_FORK_VERSION_STR)
+  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR) == "1.1.9.5-guffa.6 · CI local",
+          "the compiled fork version remains visible in a local Mac core build");
+  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR, true) == "1.1.9.5-guffa.6 · DEV local",
+          "only an explicitly selected development payload receives the DEV fallback");
+  Require(HandoffVersion(base, "1.1.9.5-guffa.6 · DEV b137.2", source, "01234567", {}, true, VER_FORK_VERSION_STR, true)
               == "1.1.9.5-guffa.6 · DEV b137.2",
           "a source-matched Mac handoff retains both the fork revision and development build");
+  Require(HandoffVersion(base, "1.1.9.5-guffa.6 · CI b137.2", source, "01234567", {}, true, VER_FORK_VERSION_STR)
+              == "1.1.9.5-guffa.6 · CI b137.2",
+          "a source-matched raw PR payload retains CI rather than claiming the development package");
+  Require(HandoffVersion(base, "1.1.9.5-guffa.6 · DEV b137.2", source, "01234567", {}, true, VER_FORK_VERSION_STR)
+              == VER_FORK_VERSION_STR,
+          "a matching source commit cannot turn a core payload into a development package");
+  Require(HandoffVersion(base, "1.1.9.5-guffa.6 · CI b137.2", source, "01234567", {}, true, VER_FORK_VERSION_STR, true)
+              == VER_FORK_VERSION_STR,
+          "a development package refuses stale CI metadata from the same source");
 
   Require(DescriptionVersion(base, "STFC Community Mod | 1.1.9.5-guffa.6 · Release", SignatureState::Present)
               == valid[0],
@@ -92,23 +108,31 @@ int main()
   Require(DescriptionVersion(base, "STFC Community Mod | 1.1.9.0-guffa.6 · Release", SignatureState::Present) == base,
           "a legacy or mismatched description cannot replace the compiled core version");
   Require(DescriptionVersion(base, {}, SignatureState::Absent, "github:42576047391:2:windows")
-              == "1.1.9.5 · DEV b42576047391.2",
-          "unsigned CI payloads retain a useful development build fallback");
+              == "1.1.9.5 · CI b42576047391.2",
+          "unsigned CI payloads retain a useful CI build fallback");
   Require(DescriptionVersion(base, {}, SignatureState::Present, "github:42576047391:2:windows") == base,
           "a present signature without a known label is not misclassified as DEV");
   Require(DescriptionVersion(base, {}, SignatureState::Unknown, "github:42576047391:2:windows") == base,
           "unobservable signature metadata is not confused with absent metadata");
   Require(DescriptionVersion(base, {}, SignatureState::Absent, "github:42576047391:2:windows", VER_FORK_VERSION_STR)
-              == "1.1.9.5-guffa.6 · DEV b42576047391.2",
-          "raw Windows CI retains the compiled fork revision alongside its unique development build");
+              == "1.1.9.5-guffa.6 · CI b42576047391.2",
+          "raw Windows CI retains the compiled fork revision alongside its unique CI build");
   Require(DescriptionVersion(base, {}, SignatureState::Absent, {}, VER_FORK_VERSION_STR)
-              == "1.1.9.5-guffa.6 · DEV local",
+              == "1.1.9.5-guffa.6 · CI local",
           "the in-game unsigned local fallback uses the compiled fork version");
+  Require(
+      DescriptionVersion(base, {}, SignatureState::Absent, "github:42576047391:2:windows", VER_FORK_VERSION_STR, true)
+          == "1.1.9.5-guffa.6 · DEV b42576047391.2",
+      "the selected development package retains its distinct unsigned DEV identity");
+  Require(DescriptionVersion(base, "STFC Community Mod | 1.1.9.5-guffa.6 · DEV local", SignatureState::Present, {},
+                             VER_FORK_VERSION_STR)
+              == VER_FORK_VERSION_STR,
+          "a core module cannot gain a DEV identity from mismatched descriptive metadata");
   Require(DescriptionVersion(base, {}, SignatureState::Unknown, {}, VER_FORK_VERSION_STR) == VER_FORK_VERSION_STR,
           "unknown signing metadata retains known fork lineage without claiming a channel");
   for (const auto invocation : {"github:windows", "github::windows", "github:0:1:windows", "github:1:0:windows",
                                 "github:1:1:windows\n", "ax-zig-20261111-local"})
-    Require(FallbackVersion(base, invocation) == "1.1.9.5 · DEV local", "unknown/malformed invocations stay local");
+    Require(FallbackVersion(base, invocation) == "1.1.9.5 · CI local", "unknown/malformed invocations stay local");
 
   std::puts("Build display identity: strict label grammar, source binding, signer description and fallbacks passed");
 }

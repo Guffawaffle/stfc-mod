@@ -59,7 +59,7 @@ class IdentityTests(unittest.TestCase):
         self.icons = self.root / "trusted-icons"
         self.icons.mkdir()
         self.receipt = self.root / "stamp.json"
-        for number, channel in enumerate(("dev", "pre", "release")):
+        for number, channel in enumerate(("ci", "dev", "pre", "release")):
             (self.icons / f"launcher-{channel}.icns").write_bytes(icon(30 + 50 * number))
         self.output_icon = self.contents / "Resources/launcher.icns"
         self.output_icon.write_bytes(icon(4))
@@ -82,7 +82,7 @@ class IdentityTests(unittest.TestCase):
 
     def stamp(self, channel="release", **arguments):
         return IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt, channel=channel,
-                                  release_tag=None if channel == "dev" else TAG, **arguments)
+                                  release_tag=None if channel in ("ci", "dev") else TAG, **arguments)
 
     def generated(self, **identity):
         output = self.root / "generated.plist"
@@ -114,23 +114,23 @@ class IdentityTests(unittest.TestCase):
         for name, payload in self.binaries.items():
             self.assertEqual((self.contents / name).read_bytes(), payload)
 
-    def test_dev_ci_and_local_keep_numeric_versions_separate_from_label(self):
+    def test_ci_and_local_keep_numeric_versions_separate_from_label(self):
         ci = IDENTITY.build_metadata(BASE, source=SOURCE.upper(), run_id=42576047391, run_number=137, run_attempt=2)
         local = IDENTITY.build_metadata(BASE)
-        self.assertEqual(ci["STFCDisplayVersion"], "1.1.9.5 · DEV b137.2")
+        self.assertEqual(ci["STFCDisplayVersion"], "1.1.9.5 · CI b137.2")
         self.assertEqual(ci["CFBundleVersion"], "5.137.2")
         self.assertEqual(ci["STFCSourceCommit"], SOURCE)
         self.assertEqual(ci["STFCBuildRunID"], "42576047391")
-        self.assertEqual(local["STFCDisplayVersion"], "1.1.9.5 · DEV local")
+        self.assertEqual(local["STFCDisplayVersion"], "1.1.9.5 · CI local")
         self.assertEqual(local["CFBundleVersion"], "5.0.1")
 
-    def test_known_fork_lineage_survives_dev_and_unnamed_pre_labels(self):
+    def test_known_fork_lineage_survives_ci_dev_and_unnamed_pre_labels(self):
         local = IDENTITY.build_metadata(BASE, fork_revision=6)
         ci = IDENTITY.build_metadata(BASE, fork_revision="6", run_number=137, run_attempt=2)
         pre = IDENTITY.build_metadata(BASE, channel="pre", fork_revision=6, source=SOURCE,
                                       run_id=123, run_number=137, run_attempt=2)
-        self.assertEqual(local["STFCDisplayVersion"], "1.1.9.5-guffa.6 · DEV local")
-        self.assertEqual(ci["STFCDisplayVersion"], "1.1.9.5-guffa.6 · DEV b137.2")
+        self.assertEqual(local["STFCDisplayVersion"], "1.1.9.5-guffa.6 · CI local")
+        self.assertEqual(ci["STFCDisplayVersion"], "1.1.9.5-guffa.6 · CI b137.2")
         self.assertEqual(pre["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b137.2")
         self.assertEqual(local["STFCBaseVersion"], BASE)
         self.assertEqual(local["CFBundleShortVersionString"], "1.1.9")
@@ -140,8 +140,38 @@ class IdentityTests(unittest.TestCase):
             self.assertEqual(fields["STFCForkRevision"], 6)
             self.assertEqual(fields["STFCReleaseTag"], "")
 
+    def test_dev_requires_explicit_channel_and_keeps_its_distinct_identity(self):
+        arguments = dict(fork_revision=6, run_number=137, run_attempt=2)
+        ci = IDENTITY.build_metadata(BASE, **arguments)
+        dev = IDENTITY.build_metadata(BASE, channel="dev", **arguments)
+        local = IDENTITY.build_metadata(BASE, channel="dev", fork_revision=6)
+        self.assertEqual(ci["STFCBuildChannel"], "ci")
+        self.assertEqual(dev["STFCBuildChannel"], "dev")
+        self.assertEqual(dev["STFCDisplayVersion"], "1.1.9.5-guffa.6 · DEV b137.2")
+        self.assertEqual(local["STFCDisplayVersion"], "1.1.9.5-guffa.6 · DEV local")
+        self.assertEqual(ci["CFBundleVersion"], dev["CFBundleVersion"])
+        self.assertEqual(ci["STFCForkRevision"], dev["STFCForkRevision"])
+
+    def test_unsigned_ci_and_dev_select_their_own_icons_without_payload_changes(self):
+        for channel in ("ci", "dev"):
+            with self.subTest(channel=channel):
+                initial = self.generated(channel=channel, fork_revision=6, source=SOURCE)
+                self.plist.write_bytes(plistlib.dumps(initial))
+                record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
+                                            channel=channel, source=SOURCE)
+                self.assertEqual(record["identity"]["STFCBuildChannel"], channel)
+                self.assertEqual(record["identity"]["STFCForkRevision"], 6)
+                self.assertEqual(record["selectedIcon"], f"launcher-{channel}.icns")
+                self.assertEqual(self.output_icon.read_bytes(), (self.icons / f"launcher-{channel}.icns").read_bytes())
+                IDENTITY.validate_plist(plistlib.loads(self.plist.read_bytes()))
+                for name, payload in self.binaries.items():
+                    self.assertEqual((self.contents / name).read_bytes(), payload)
+
     def test_unnamed_stamp_retains_producer_lineage_and_refuses_controller_override(self):
-        self.plist.write_bytes(plistlib.dumps(self.generated(fork_revision=6)))
+        initial = self.generated(fork_revision=6)
+        self.assertEqual(initial["STFCBuildChannel"], "ci")
+        self.plist.write_bytes(plistlib.dumps(initial))
+        self.output_icon.write_bytes((self.icons / "launcher-ci.icns").read_bytes())
         before = self.snapshot()
         arguments = dict(channel="pre", source=SOURCE, run_id=123, run_number=137, run_attempt=2)
         with self.assertRaisesRegex(ValueError, "producing app's fork revision"):
@@ -151,6 +181,8 @@ class IdentityTests(unittest.TestCase):
         record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt, **arguments)
         self.assertEqual(record["identity"]["STFCForkRevision"], 6)
         self.assertEqual(record["identity"]["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b137.2")
+        self.assertEqual(record["selectedIcon"], "launcher-pre.icns")
+        self.assertEqual(self.output_icon.read_bytes(), (self.icons / "launcher-pre.icns").read_bytes())
         for name, payload in self.binaries.items():
             self.assertEqual((self.contents / name).read_bytes(), payload)
 
@@ -214,7 +246,8 @@ class IdentityTests(unittest.TestCase):
             {"channel": "release", "release_tag": "v1.1.9.0-guffa.6"},
             {"channel": "release", "release_tag": "v1.1.9.5-guffa.6;echo nope"},
             {"channel": "release", "release_tag": "v1.1.9.5-guffa.6\n"},
-            {"channel": "dev", "release_tag": TAG}, {"channel": "PR"}, {"source": "abc123"},
+            {"channel": "dev", "release_tag": TAG}, {"channel": "ci", "release_tag": TAG},
+            {"channel": "PR"}, {"source": "abc123"},
             {"run_id": 0}, {"run_number": -1}, {"run_attempt": 0}, {"run_number": True},
             {"run_number": "01"}, {"run_number": 2**63},
             {"fork_revision": -1}, {"fork_revision": True}, {"fork_revision": "06"},
@@ -267,7 +300,7 @@ class IdentityTests(unittest.TestCase):
             self.assertEqual(record["binarySha256"][name], hashlib.sha256(payload).hexdigest())
 
     def test_new_dev_bundle_can_be_promoted_and_release_is_not_pre(self):
-        self.plist.write_bytes(plistlib.dumps(self.generated(run_number=17)))
+        self.plist.write_bytes(plistlib.dumps(self.generated(channel="dev", run_number=17)))
         self.stamp("release")
         current = plistlib.loads(self.plist.read_bytes())
         self.assertEqual(current["STFCBuildChannel"], "release")
@@ -349,17 +382,17 @@ class IdentityTests(unittest.TestCase):
             self.stamp()
         self.assertEqual(self.snapshot(), before)
 
-    def test_cli_generate_and_verifier_accept_current_dev_and_reject_mismatch(self):
+    def test_cli_generate_and_verifier_accept_default_ci_and_reject_mismatch(self):
         output = self.root / "cli.plist"
         command = [sys.executable, str(SCRIPT), "generate", "--template", str(self.input_template),
                    "--base-version", BASE, "--macos-min", "14.6", "--run-id", "55", "--run-number", "19",
                    "--source", SOURCE, "--fork-revision", "6", "--output", str(output)]
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("DEV b19.1", result.stdout)
+        self.assertIn("CI b19.1", result.stdout)
         self.assertIn("1.1.9.5-guffa.6", result.stdout)
         verify = [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"), str(output),
-                  "--base-version", BASE, "--channel", "dev", "--source", SOURCE]
+                  "--base-version", BASE, "--channel", "ci", "--source", SOURCE]
         result = subprocess.run(verify, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         result = subprocess.run(verify + ["--release-tag", TAG], capture_output=True, text=True)

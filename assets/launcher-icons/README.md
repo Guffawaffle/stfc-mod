@@ -1,9 +1,12 @@
 # Fork launcher icons
 
-Release, Pre and DEV retain the cyan waffle and gold center from
+Release, Pre, DEV and CI retain the cyan waffle and gold center from
 `assets/guffawaffle-build-badge.png`. That original loading-screen image is
 unchanged. The icon removes its loading-screen wording and uses the lower panel
-for the build channel. Channel accents are cyan, amber and violet respectively.
+for the build channel. Channel accents are cyan for Release, amber for Pre,
+violet for the development package, and silver-blue for raw CI downloads.
+CI is the ordinary build default; DEV is selected explicitly for the development
+package. Neither icon itself enables development features.
 
 The geometry in `scripts/generate-launcher-icons.py` is the single editable
 source. Its labels use Pillow's bundled Aileron font, without relying on fonts

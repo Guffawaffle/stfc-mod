@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 
-CHANNEL_LABELS = {"dev": "DEV", "pre": "Pre", "release": "Release"}
+CHANNEL_LABELS = {"ci": "CI", "dev": "DEV", "pre": "Pre", "release": "Release"}
 BASE_PATTERN = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 TAG_PATTERN = re.compile(r"v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))-guffa\.([1-9][0-9]*)")
 IDENTITY_KEYS = (
@@ -37,13 +37,13 @@ def numeric(value, label, minimum):
     return int(text)
 
 
-def build_metadata(base_version, *, channel="dev", release_tag=None, source=None, fork_revision=None,
+def build_metadata(base_version, *, channel="ci", release_tag=None, source=None, fork_revision=None,
                    run_id=None, run_number=0, run_attempt=1):
     """Return all owned plist fields from explicit, validated build inputs."""
     if not isinstance(base_version, str) or not BASE_PATTERN.fullmatch(base_version):
         raise ValueError("base version must contain four canonical numeric components")
     if channel not in CHANNEL_LABELS:
-        raise ValueError("channel must be dev, pre, or release")
+        raise ValueError("channel must be ci, dev, pre, or release")
     if source is not None and (not isinstance(source, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", source)):
         raise ValueError("source must be a full 40-character hexadecimal commit")
     run_number = numeric(run_number, "run number", 0)
@@ -52,11 +52,11 @@ def build_metadata(base_version, *, channel="dev", release_tag=None, source=None
     fork_revision = 0 if fork_revision is None else numeric(fork_revision, "fork revision", 0)
     version = f"{base_version}-guffa.{fork_revision}" if fork_revision else base_version
     parts = base_version.split(".")
-    if channel == "dev":
+    if channel in ("ci", "dev"):
         if release_tag is not None:
-            raise ValueError("DEV builds must not supply a release tag")
+            raise ValueError(f"{CHANNEL_LABELS[channel]} builds must not supply a release tag")
         number = str(run_number) if run_number else run_id
-        label = "DEV " + (f"b{number}.{run_attempt}" if number else "local")
+        label = CHANNEL_LABELS[channel] + " " + (f"b{number}.{run_attempt}" if number else "local")
         bundle_version = f"{parts[3]}.{run_number}.{run_attempt}"
     elif channel == "pre" and release_tag is None:
         if not source or not run_id or run_number <= 0:
@@ -308,7 +308,7 @@ def stamp_app(app, *, icons_dir, receipt, **identity):
 
 
 def identity_arguments(parser):
-    parser.add_argument("--channel", choices=CHANNEL_LABELS, default="dev")
+    parser.add_argument("--channel", choices=CHANNEL_LABELS, default="ci")
     parser.add_argument("--release-tag")
     parser.add_argument("--fork-revision", help="declared producing fork revision; zero means unknown")
     parser.add_argument("--source")

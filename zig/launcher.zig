@@ -10,7 +10,7 @@ const hostTool = @import("ctx.zig").hostTool;
 const deps = @import("deps.zig");
 
 /// Register `launcher`, which installs zig-out/macOSLauncher.app.
-pub fn add(ctx: *const Ctx) void {
+pub fn add(ctx: *const Ctx, development_package: bool) void {
     const b = ctx.b;
     const step = b.step("launcher", "Build the Swift macOS launcher app (requires Xcode on macOS)");
     if (builtin.os.tag != .macos or !ctx.isMacos()) {
@@ -56,7 +56,7 @@ pub fn add(ctx: *const Ctx) void {
     const exe = link.addOutputFileArg("macOSLauncher");
     step.dependOn(&b.addInstallFile(exe, "macOSLauncher.app/Contents/MacOS/macOSLauncher").step);
 
-    installBundleResources(ctx, step);
+    installBundleResources(ctx, step, development_package);
 }
 
 /// Repack a Zig static library with Apple's libtool. Apple's linker rejects the archive index and unaligned
@@ -78,9 +78,13 @@ fn appleArchive(
 }
 
 /// Info.plist with the mod version, the app icon, and the compiled asset catalog.
-fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step) void {
+fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step, development_package: bool) void {
     const b = ctx.b;
-    const channel = b.option(enum { dev, pre, release }, "launcher_channel", "Visible launcher channel") orelse .dev;
+    const Channel = enum { ci, dev, pre, release };
+    const channel = b.option(Channel, "launcher_channel", "Visible launcher channel") orelse
+        if (development_package) Channel.dev else Channel.ci;
+    if ((channel == .dev and !development_package) or (channel == .ci and development_package))
+        @panic("launcher CI/DEV channel must match the explicitly selected payload");
     const tag = b.option([]const u8, "launcher_release_tag", "Exact downstream release tag") orelse "";
     const source = b.option([]const u8, "launcher_source", "Launcher source commit") orelse "";
     const run_id = b.option([]const u8, "launcher_run_id", "Producing CI run ID") orelse "";
@@ -88,7 +92,8 @@ fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step) void {
     const run_attempt = b.option([]const u8, "launcher_run_attempt", "Producing CI run attempt") orelse "1";
 
     // Player-visible identity is separate from the mod's verified source/provenance marker.
-    // Normal builds are DEV. Trusted promotion selects the final tag/channel before signing.
+    // Core builds are CI; the selected development package is DEV. Trusted
+    // promotion selects the final tag/channel before signing.
     const metadata = b.addSystemCommand(&.{"python3"});
     metadata.addFileArg(b.path("scripts/mac-build-identity.py"));
     metadata.addArgs(&.{ "generate", "--template" });

@@ -16,6 +16,11 @@ namespace build_identity
 {
 namespace
 {
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
+  constexpr bool build_identity_development_package = true;
+#else
+  constexpr bool build_identity_development_package = false;
+#endif
 #if _WIN32
   int build_identity_module_anchor;
 
@@ -153,14 +158,16 @@ std::string_view DisplayVersion()
 #if _WIN32
     SignatureState state;
     const auto     description = SignatureDescription(ModulePath(), state);
-    return DescriptionVersion(VER_FILE_VERSION_STR, description, state, CompiledInvocation(), VER_FORK_VERSION_STR);
+    return DescriptionVersion(VER_FILE_VERSION_STR, description, state, CompiledInvocation(), VER_FORK_VERSION_STR,
+                              build_identity_development_package);
 #elif __APPLE__
-    return HandoffVersion(
-        VER_FILE_VERSION_STR, EnvironmentValue("STFC_MOD_DISPLAY_VERSION", 160),
-        EnvironmentValue("STFC_MOD_DISPLAY_SOURCE", 40), VERSION_COMMIT_HASH, STFC_BUILD_INVOCATION_ID,
-        std::getenv("STFC_MOD_DISPLAY_VERSION") || std::getenv("STFC_MOD_DISPLAY_SOURCE"), VER_FORK_VERSION_STR);
+    return HandoffVersion(VER_FILE_VERSION_STR, EnvironmentValue("STFC_MOD_DISPLAY_VERSION", 160),
+                          EnvironmentValue("STFC_MOD_DISPLAY_SOURCE", 40), VERSION_COMMIT_HASH,
+                          STFC_BUILD_INVOCATION_ID,
+                          std::getenv("STFC_MOD_DISPLAY_VERSION") || std::getenv("STFC_MOD_DISPLAY_SOURCE"),
+                          VER_FORK_VERSION_STR, build_identity_development_package);
 #else
-    return FallbackVersion(VER_FORK_VERSION_STR, STFC_BUILD_INVOCATION_ID);
+    return FallbackVersion(VER_FORK_VERSION_STR, STFC_BUILD_INVOCATION_ID, build_identity_development_package);
 #endif
   }();
   return display;

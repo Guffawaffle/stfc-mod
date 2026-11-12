@@ -1,19 +1,21 @@
 # Downstream build identity
 
-The fork's Mac launcher uses the waffle icon with three channel labels:
+The fork's Mac launcher uses the waffle icon with four channel labels:
 
 | Channel | Icon accent | Intended download |
 | --- | --- | --- |
 | Release | Cyan | Signed public release |
 | Pre | Amber | Signed test candidate or named pre-release |
-| DEV | Violet | Raw development build, which may include experimental tools |
+| DEV | Violet | Selected development package, including the play-dev extras |
+| CI | Blue | Raw PR or ordinary core CI artifact |
 
 The launcher's footer beside Game Version, its About panel, and the in-game
 Mod Settings entry show the exact version and channel, such as
 `1.1.9.5-guffa.6 · Release`. A named pre-release shows the same full tag followed
 by `Pre`. Candidates without a planned tag use a unique CI label, such as
-`1.1.9.5-guffa.6 · Pre b123.1`; raw CI output uses `DEV b123.1`. Local builds use
-`1.1.9.5-guffa.6 · DEV local`. The tracked fork revision in `src/mod/version.h`
+`1.1.9.5-guffa.6 · Pre b123.1`; raw CI output uses `CI b123.1`. Local core builds use
+`1.1.9.5-guffa.6 · CI local`; a selected development package uses `DEV local`.
+The tracked fork revision in `src/mod/version.h`
 preserves the source's fork lineage for every channel, including unsigned builds.
 These labels describe the selected build. They do not enable logging or other
 development features; those remain part of the selected source and configuration.
@@ -23,13 +25,15 @@ bundle identity only to the loader it starts; the mod checks that the source
 commit matches its compiled commit hash. On Windows, the signer puts the label
 in the signed program description and the mod reads that description from its
 own loaded module's file. It does not perform an online trust check. An unknown
-channel shows only the known compiled fork version; an anonymous local build uses
-`DEV local`.
+channel shows only the known compiled fork version. An anonymous local build uses
+`CI local` or `DEV local` according to the selected core or development package.
 
 ## Build and promotion
 
-Ordinary CI builds select DEV automatically and include their producing run,
-attempt and source commit. A normal local Zig build also defaults to DEV.
+Ordinary CI builds select CI automatically and include their producing run,
+attempt and source commit. A normal local core build also defaults to CI.
+Explicitly selecting the native AAI host selects the development package without
+changing its feature options. A label never activates AAI, logging or other tools.
 
 The separate trusted signing controller selects Pre for signed test downloads.
 For a named release it receives the exact planned `release_tag` and the same
@@ -76,6 +80,24 @@ The standalone metadata helper can stamp older bundles, but the signing workflow
 requires a fresh CI artifact with producing source metadata. Rebuilt launcher
 and mod binaries are needed for the new visible version rows. Published releases
 are not rewritten.
+
+## Download identity and development tags
+
+Downloading a raw Actions artifact from a PR gives CI. Stamping and signing that
+core artifact as a test candidate gives Pre; full publication uses Release.
+Uploading unchanged bytes onto a GitHub pre-release page does not change their
+embedded label or icon.
+
+The standalone Mac archive contains only the dylib. It has no app icon or launcher
+metadata. Full channel presentation requires the matching launcher supplied by
+the installer; an older launcher can leave the channel unspecified.
+
+Tagged play-dev distribution is a separate next step. A tag alone currently
+neither builds nor publishes that package: the ordinary branch triggers omit
+play-dev, and the fork's generic tag-release job is disabled. Its dedicated path
+must select and verify the development sources/tools, retain the DEV identity,
+and publish as a development pre-release without sending it through the core
+Pre classifier. GitHub's pre-release flag and the package channel are separate.
 
 ## Assets
 
