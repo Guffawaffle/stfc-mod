@@ -124,6 +124,50 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(local["STFCDisplayVersion"], "1.1.9.5 · DEV local")
         self.assertEqual(local["CFBundleVersion"], "5.0.1")
 
+    def test_known_fork_lineage_survives_dev_and_unnamed_pre_labels(self):
+        local = IDENTITY.build_metadata(BASE, fork_revision=6)
+        ci = IDENTITY.build_metadata(BASE, fork_revision="6", run_number=137, run_attempt=2)
+        pre = IDENTITY.build_metadata(BASE, channel="pre", fork_revision=6, source=SOURCE,
+                                      run_id=123, run_number=137, run_attempt=2)
+        self.assertEqual(local["STFCDisplayVersion"], "1.1.9.5-guffa.6 · DEV local")
+        self.assertEqual(ci["STFCDisplayVersion"], "1.1.9.5-guffa.6 · DEV b137.2")
+        self.assertEqual(pre["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b137.2")
+        self.assertEqual(local["STFCBaseVersion"], BASE)
+        self.assertEqual(local["CFBundleShortVersionString"], "1.1.9")
+        self.assertEqual(ci["CFBundleVersion"], "5.137.2")
+        self.assertEqual(pre["CFBundleVersion"], "5.137.2")
+        for fields in (local, ci, pre):
+            self.assertEqual(fields["STFCForkRevision"], 6)
+            self.assertEqual(fields["STFCReleaseTag"], "")
+
+    def test_unnamed_stamp_retains_producer_lineage_and_refuses_controller_override(self):
+        self.plist.write_bytes(plistlib.dumps(self.generated(fork_revision=6)))
+        before = self.snapshot()
+        arguments = dict(channel="pre", source=SOURCE, run_id=123, run_number=137, run_attempt=2)
+        with self.assertRaisesRegex(ValueError, "producing app's fork revision"):
+            IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
+                               fork_revision=7, **arguments)
+        self.assertEqual(self.snapshot(), before)
+        record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt, **arguments)
+        self.assertEqual(record["identity"]["STFCForkRevision"], 6)
+        self.assertEqual(record["identity"]["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b137.2")
+        for name, payload in self.binaries.items():
+            self.assertEqual((self.contents / name).read_bytes(), payload)
+
+    def test_named_promotion_uses_the_planned_tag_revision_independently_of_baseline(self):
+        self.plist.write_bytes(plistlib.dumps(self.generated(fork_revision=6)))
+        record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
+                                    channel="release", release_tag="v1.1.9.5-guffa.7", fork_revision=6)
+        self.assertEqual(record["identity"]["STFCForkRevision"], 7)
+        self.assertEqual(record["identity"]["STFCDisplayVersion"], "1.1.9.5-guffa.7 · Release")
+        self.assertEqual(record["identity"]["CFBundleVersion"], "5.7")
+
+    def test_legacy_unnamed_promotion_keeps_unknown_lineage_instead_of_inventing_one(self):
+        record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
+                                    channel="pre", source=SOURCE, run_id=123, run_number=137)
+        self.assertEqual(record["identity"]["STFCForkRevision"], 0)
+        self.assertEqual(record["identity"]["STFCDisplayVersion"], "1.1.9.5 · Pre b137.1")
+
     def test_unnamed_pre_requires_exact_ci_context_and_keeps_candidate_label(self):
         pre = IDENTITY.build_metadata(BASE, channel="pre", source=SOURCE,
                                       run_id=42576047391, run_number=137, run_attempt=2)
@@ -141,8 +185,9 @@ class IdentityTests(unittest.TestCase):
                 IDENTITY.build_metadata(BASE, channel="pre", **incomplete)
 
     def test_unnamed_pre_generation_and_stamp_preserve_payload_and_refuse_partial_context(self):
-        output = self.generated(channel="pre", source=SOURCE, run_id=99, run_number=19, run_attempt=3)
-        self.assertEqual(output["STFCDisplayVersion"], "1.1.9.5 · Pre b19.3")
+        output = self.generated(channel="pre", source=SOURCE, fork_revision=6,
+                                run_id=99, run_number=19, run_attempt=3)
+        self.assertEqual(output["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b19.3")
         IDENTITY.validate_plist(output)
         verified = subprocess.run(
             [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"),
@@ -150,6 +195,7 @@ class IdentityTests(unittest.TestCase):
             capture_output=True, text=True,
         )
         self.assertEqual(verified.returncode, 0, verified.stderr)
+        self.plist.write_bytes(plistlib.dumps(output))
         before = self.snapshot()
         with self.assertRaises(ValueError):
             IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
@@ -157,7 +203,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
                                     channel="pre", source=SOURCE, run_id=99, run_number=19, run_attempt=3)
-        self.assertEqual(record["identity"]["STFCDisplayVersion"], "1.1.9.5 · Pre b19.3")
+        self.assertEqual(record["identity"]["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b19.3")
         self.assertEqual(self.output_icon.read_bytes(), (self.icons / "launcher-pre.icns").read_bytes())
         for name, payload in self.binaries.items():
             self.assertEqual((self.contents / name).read_bytes(), payload)
@@ -171,6 +217,9 @@ class IdentityTests(unittest.TestCase):
             {"channel": "dev", "release_tag": TAG}, {"channel": "PR"}, {"source": "abc123"},
             {"run_id": 0}, {"run_number": -1}, {"run_attempt": 0}, {"run_number": True},
             {"run_number": "01"}, {"run_number": 2**63},
+            {"fork_revision": -1}, {"fork_revision": True}, {"fork_revision": "06"},
+            {"fork_revision": ""}, {"fork_revision": 2**63},
+            {"channel": "release", "release_tag": f"v{BASE}-guffa.{2**63}"},
         ]
         for arguments in invalid:
             with self.subTest(arguments=arguments), self.assertRaises(ValueError):
@@ -304,10 +353,11 @@ class IdentityTests(unittest.TestCase):
         output = self.root / "cli.plist"
         command = [sys.executable, str(SCRIPT), "generate", "--template", str(self.input_template),
                    "--base-version", BASE, "--macos-min", "14.6", "--run-id", "55", "--run-number", "19",
-                   "--source", SOURCE, "--output", str(output)]
+                   "--source", SOURCE, "--fork-revision", "6", "--output", str(output)]
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("DEV b19.1", result.stdout)
+        self.assertIn("1.1.9.5-guffa.6", result.stdout)
         verify = [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"), str(output),
                   "--base-version", BASE, "--channel", "dev", "--source", SOURCE]
         result = subprocess.run(verify, capture_output=True, text=True)
@@ -326,13 +376,15 @@ class IdentityTests(unittest.TestCase):
         output = self.root / "identity.json"
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "describe", "--base-version", BASE, "--channel", "pre",
-             "--source", SOURCE, "--run-id", "55", "--run-number", "19", "--output", str(output)],
+             "--source", SOURCE, "--run-id", "55", "--run-number", "19", "--fork-revision", "6",
+             "--output", str(output)],
             capture_output=True, text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         fields = json.loads(output.read_text(encoding="utf-8"))
-        self.assertEqual(fields, IDENTITY.build_metadata(BASE, channel="pre", source=SOURCE, run_id=55, run_number=19))
-        self.assertEqual(fields["STFCDisplayVersion"], "1.1.9.5 · Pre b19.1")
+        self.assertEqual(fields, IDENTITY.build_metadata(BASE, channel="pre", source=SOURCE, run_id=55,
+                                                         run_number=19, fork_revision=6))
+        self.assertEqual(fields["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b19.1")
         self.assertIn("Pre b19.1", result.stdout)
 
 

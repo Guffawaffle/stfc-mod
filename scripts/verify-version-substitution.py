@@ -24,6 +24,14 @@ def header_version() -> str:
     return ".".join(parts)
 
 
+def header_fork_revision() -> int:
+    header = (ROOT / "src/mod/version.h").read_text()
+    match = re.search(r"^#define\s+VERSION_FORK_REVISION\s+([1-9][0-9]*)\s*$", header, re.MULTILINE)
+    if not match:
+        raise SystemExit("Missing VERSION_FORK_REVISION")
+    return int(match.group(1))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("plist", nargs="?", default="zig-out/macOSLauncher.app/Contents/Info.plist")
@@ -31,6 +39,7 @@ def main() -> None:
     parser.add_argument("--channel", choices=IDENTITY.CHANNEL_LABELS, help="expected build channel")
     parser.add_argument("--release-tag", help="expected full promotion tag")
     parser.add_argument("--source", help="expected full source commit")
+    parser.add_argument("--fork-revision", type=int, help="expected fork revision; defaults to the version header")
     args = parser.parse_args()
 
     version = args.base_version or header_version()
@@ -40,6 +49,7 @@ def main() -> None:
     except (OSError, ValueError, TypeError, plistlib.InvalidFileException) as error:
         raise SystemExit(str(error)) from error
     expected = {"STFCBaseVersion": version}
+    expected["STFCForkRevision"] = args.fork_revision if args.fork_revision is not None else header_fork_revision()
     if args.channel is not None:
         expected["STFCBuildChannel"] = args.channel
     if args.release_tag is not None:

@@ -23,7 +23,7 @@ TAG_PATTERN = re.compile(r"v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-
 IDENTITY_KEYS = (
     "CFBundleShortVersionString", "CFBundleVersion", "CFBundleGetInfoString",
     "STFCBaseVersion", "STFCDisplayVersion", "STFCBuildChannel", "STFCReleaseTag",
-    "STFCSourceCommit", "STFCBuildRunID", "STFCBuildRunNumber", "STFCBuildRunAttempt",
+    "STFCSourceCommit", "STFCBuildRunID", "STFCBuildRunNumber", "STFCBuildRunAttempt", "STFCForkRevision",
 )
 RECEIPT_SCHEMA = "stfc-mac-build-identity/v1"
 
@@ -37,7 +37,7 @@ def numeric(value, label, minimum):
     return int(text)
 
 
-def build_metadata(base_version, *, channel="dev", release_tag=None, source=None,
+def build_metadata(base_version, *, channel="dev", release_tag=None, source=None, fork_revision=None,
                    run_id=None, run_number=0, run_attempt=1):
     """Return all owned plist fields from explicit, validated build inputs."""
     if not isinstance(base_version, str) or not BASE_PATTERN.fullmatch(base_version):
@@ -49,24 +49,25 @@ def build_metadata(base_version, *, channel="dev", release_tag=None, source=None
     run_number = numeric(run_number, "run number", 0)
     run_attempt = numeric(run_attempt, "run attempt", 1)
     run_id = "" if run_id is None else str(numeric(run_id, "run ID", 1))
+    fork_revision = 0 if fork_revision is None else numeric(fork_revision, "fork revision", 0)
+    version = f"{base_version}-guffa.{fork_revision}" if fork_revision else base_version
     parts = base_version.split(".")
     if channel == "dev":
         if release_tag is not None:
             raise ValueError("DEV builds must not supply a release tag")
-        version = base_version
         number = str(run_number) if run_number else run_id
         label = "DEV " + (f"b{number}.{run_attempt}" if number else "local")
         bundle_version = f"{parts[3]}.{run_number}.{run_attempt}"
     elif channel == "pre" and release_tag is None:
         if not source or not run_id or run_number <= 0:
             raise ValueError("unnamed Pre requires source commit, positive run ID, and positive run number")
-        version = base_version
         label = f"Pre b{run_number}.{run_attempt}"
         bundle_version = f"{parts[3]}.{run_number}.{run_attempt}"
     else:
         match = TAG_PATTERN.fullmatch(release_tag) if isinstance(release_tag, str) else None
         if not match or match.group(1) != base_version:
             raise ValueError("Release/Pre requires a v<base-version>-guffa.<positive number> tag matching the base")
+        fork_revision = numeric(match.group(2), "release revision", 1)
         version = release_tag[1:]
         label = CHANNEL_LABELS[channel]
         bundle_version = f"{parts[3]}.{match.group(2)}"
@@ -83,6 +84,7 @@ def build_metadata(base_version, *, channel="dev", release_tag=None, source=None
         "STFCBuildRunID": run_id,
         "STFCBuildRunNumber": run_number,
         "STFCBuildRunAttempt": run_attempt,
+        "STFCForkRevision": fork_revision,
     }
 
 
@@ -118,7 +120,7 @@ def validate_plist(plist):
     validate_bundle_fields(plist)
     reject_placeholders(plist)
     for key in IDENTITY_KEYS:
-        expected_type = int if key in ("STFCBuildRunNumber", "STFCBuildRunAttempt") else str
+        expected_type = int if key in ("STFCBuildRunNumber", "STFCBuildRunAttempt", "STFCForkRevision") else str
         if type(plist.get(key)) is not expected_type:
             raise ValueError(f"{key} has a missing or invalid value type")
     expected = build_metadata(
@@ -126,6 +128,7 @@ def validate_plist(plist):
         release_tag=plist["STFCReleaseTag"] or None, source=plist["STFCSourceCommit"] or None,
         run_id=plist["STFCBuildRunID"] or None, run_number=plist["STFCBuildRunNumber"],
         run_attempt=plist["STFCBuildRunAttempt"],
+        fork_revision=plist["STFCForkRevision"],
     )
     for key, value in expected.items():
         if plist[key] != value:
@@ -240,6 +243,7 @@ def stamp_app(app, *, icons_dir, receipt, **identity):
     if "STFCBaseVersion" in plist:
         validate_plist(plist)
         base = plist["STFCBaseVersion"]
+        producing_revision = plist["STFCForkRevision"]
     else:
         if any(key.startswith("STFC") for key in plist):
             raise ValueError("incomplete existing STFC identity")
@@ -247,6 +251,13 @@ def stamp_app(app, *, icons_dir, receipt, **identity):
         if not isinstance(base, str) or not BASE_PATTERN.fullmatch(base) or plist.get("CFBundleVersion") != base:
             raise ValueError("legacy launcher must declare the same four-part numeric version in both version fields")
         reject_placeholders(plist)
+        producing_revision = 0
+    if identity.get("release_tag") is None:
+        requested_revision = identity.get("fork_revision")
+        if (requested_revision is not None
+                and numeric(requested_revision, "fork revision", 0) != producing_revision):
+            raise ValueError("unnamed promotion must retain the producing app's fork revision")
+        identity["fork_revision"] = producing_revision
     fields = build_metadata(base, **identity)
     plist.update(fields)
     validate_plist(plist)
@@ -299,6 +310,7 @@ def stamp_app(app, *, icons_dir, receipt, **identity):
 def identity_arguments(parser):
     parser.add_argument("--channel", choices=CHANNEL_LABELS, default="dev")
     parser.add_argument("--release-tag")
+    parser.add_argument("--fork-revision", help="declared producing fork revision; zero means unknown")
     parser.add_argument("--source")
     parser.add_argument("--run-id")
     parser.add_argument("--run-number", default="0")

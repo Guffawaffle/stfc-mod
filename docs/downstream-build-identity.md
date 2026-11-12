@@ -12,7 +12,9 @@ The launcher's footer beside Game Version, its About panel, and the in-game
 Mod Settings entry show the exact version and channel, such as
 `1.1.9.5-guffa.6 · Release`. A named pre-release shows the same full tag followed
 by `Pre`. Candidates without a planned tag use a unique CI label, such as
-`1.1.9.5 · Pre b123.1`; raw CI output uses `DEV b123.1`. Local builds use `DEV local`.
+`1.1.9.5-guffa.6 · Pre b123.1`; raw CI output uses `DEV b123.1`. Local builds use
+`1.1.9.5-guffa.6 · DEV local`. The tracked fork revision in `src/mod/version.h`
+preserves the source's fork lineage for every channel, including unsigned builds.
 These labels describe the selected build. They do not enable logging or other
 development features; those remain part of the selected source and configuration.
 
@@ -21,7 +23,7 @@ bundle identity only to the loader it starts; the mod checks that the source
 commit matches its compiled commit hash. On Windows, the signer puts the label
 in the signed program description and the mod reads that description from its
 own loaded module's file. It does not perform an online trust check. An unknown
-channel shows only the known core version; an anonymous local build uses
+channel shows only the known compiled fork version; an anonymous local build uses
 `DEV local`.
 
 ## Build and promotion
@@ -44,6 +46,10 @@ in provenance. Signing refuses a bundle without its producing source metadata;
 use a fresh CI build when upgrading from an older launcher.
 Windows uses the same canonical version metadata for the Authenticode program
 description; the unsigned DLL and its existing source marker are not rewritten.
+Its ProductVersion string carries the producer's fork lineage while fixed numeric
+version fields remain unchanged. Untagged signing retains that producer lineage;
+an explicitly named promotion uses its planned tag. Update the tracked fork
+revision during release preparation when advancing the source's version.
 The app and installer volume use the same selected icon. Bundle identifier,
 executable, app directory and compatibility download filenames remain stable.
 

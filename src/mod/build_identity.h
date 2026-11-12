@@ -62,8 +62,9 @@ inline bool ValidDisplayVersion(std::string_view label, std::string_view base) n
     const auto space = label.find(separator);
     if (space == std::string_view::npos || !detail::Number(label.substr(0, space)))
       return false;
-    const auto channel = label.substr(space + separator.size());
-    return channel == "Release" || channel == "Pre";
+    label.remove_prefix(space);
+    if (label == " · Release" || label == " · Pre")
+      return true;
   }
   if (label == " · DEV local")
     return true;
@@ -95,7 +96,7 @@ inline bool KnownSource(std::string_view source) noexcept
   return true;
 }
 
-inline std::string FallbackVersion(std::string_view base, std::string_view invocation = {})
+inline std::string FallbackVersion(std::string_view version, std::string_view invocation = {})
 {
   constexpr std::string_view prefix = "github:", suffix = ":windows";
   if (invocation.size() >= prefix.size() + suffix.size() && invocation.starts_with(prefix)
@@ -104,39 +105,41 @@ inline std::string FallbackVersion(std::string_view base, std::string_view invoc
     const auto colon = run.find(':');
     if (colon != std::string_view::npos && detail::Number(run.substr(0, colon))
         && detail::Number(run.substr(colon + 1)))
-      return std::string(base) + " · DEV b" + std::string(run.substr(0, colon)) + "."
+      return std::string(version) + " · DEV b" + std::string(run.substr(0, colon)) + "."
              + std::string(run.substr(colon + 1));
   }
-  return std::string(base) + " · DEV local";
+  return std::string(version) + " · DEV local";
 }
 
 inline std::string HandoffVersion(std::string_view base, std::string_view label, std::string_view source,
                                   std::string_view compiled_source, std::string_view invocation = {},
-                                  bool handoff_present = false)
+                                  bool handoff_present = false, std::string_view fork_version = {})
 {
+  const auto known_version = fork_version.empty() ? base : fork_version;
   if (ValidDisplayVersion(label, base) && SourceMatches(source, compiled_source))
     return std::string(label);
   if (handoff_present || !label.empty() || !source.empty() || KnownSource(compiled_source))
-    return std::string(base);
-  return FallbackVersion(base, invocation);
+    return std::string(known_version);
+  return FallbackVersion(known_version, invocation);
 }
 
 // Embedded metadata presence is an observation, never publisher/trust validation.
-// Present/unknown but unusable metadata leaves the channel unspecified (base only).
+// Present/unknown but unusable metadata leaves the channel unspecified.
 enum class SignatureState { Absent, Present, Unknown };
 
 inline std::string DescriptionVersion(std::string_view base, std::string_view description, SignatureState state,
-                                      std::string_view invocation = {})
+                                      std::string_view invocation = {}, std::string_view fork_version = {})
 {
-  constexpr std::string_view prefix = "STFC Community Mod | ";
+  const auto                 known_version = fork_version.empty() ? base : fork_version;
+  constexpr std::string_view prefix        = "STFC Community Mod | ";
   if (state == SignatureState::Present && description.starts_with(prefix)) {
     const auto label = description.substr(prefix.size());
     if (ValidDisplayVersion(label, base))
       return std::string(label);
   }
   if (state != SignatureState::Absent || !description.empty())
-    return std::string(base);
-  return FallbackVersion(base, invocation);
+    return std::string(known_version);
+  return FallbackVersion(known_version, invocation);
 }
 
 // Cached on first use. No per-frame filesystem, signature, or environment work.

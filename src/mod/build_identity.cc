@@ -153,14 +153,14 @@ std::string_view DisplayVersion()
 #if _WIN32
     SignatureState state;
     const auto     description = SignatureDescription(ModulePath(), state);
-    return DescriptionVersion(VER_FILE_VERSION_STR, description, state, CompiledInvocation());
+    return DescriptionVersion(VER_FILE_VERSION_STR, description, state, CompiledInvocation(), VER_FORK_VERSION_STR);
 #elif __APPLE__
-    return HandoffVersion(VER_FILE_VERSION_STR, EnvironmentValue("STFC_MOD_DISPLAY_VERSION", 160),
-                          EnvironmentValue("STFC_MOD_DISPLAY_SOURCE", 40), VERSION_COMMIT_HASH,
-                          STFC_BUILD_INVOCATION_ID,
-                          std::getenv("STFC_MOD_DISPLAY_VERSION") || std::getenv("STFC_MOD_DISPLAY_SOURCE"));
+    return HandoffVersion(
+        VER_FILE_VERSION_STR, EnvironmentValue("STFC_MOD_DISPLAY_VERSION", 160),
+        EnvironmentValue("STFC_MOD_DISPLAY_SOURCE", 40), VERSION_COMMIT_HASH, STFC_BUILD_INVOCATION_ID,
+        std::getenv("STFC_MOD_DISPLAY_VERSION") || std::getenv("STFC_MOD_DISPLAY_SOURCE"), VER_FORK_VERSION_STR);
 #else
-    return FallbackVersion(VER_FILE_VERSION_STR, STFC_BUILD_INVOCATION_ID);
+    return FallbackVersion(VER_FORK_VERSION_STR, STFC_BUILD_INVOCATION_ID);
 #endif
   }();
   return display;

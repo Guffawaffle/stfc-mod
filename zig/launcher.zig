@@ -94,9 +94,9 @@ fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step) void {
     metadata.addArgs(&.{ "generate", "--template" });
     metadata.addFileArg(b.path("src/launcher/macos/Info.plist.template"));
     metadata.addArgs(&.{
-        "--base-version", modVersion(b),     "--macos-min",  macos_min,
-        "--channel",      @tagName(channel), "--run-number", run_number,
-        "--run-attempt",  run_attempt,
+        "--base-version", modVersion(b),     "--macos-min",     macos_min,
+        "--channel",      @tagName(channel), "--run-number",    run_number,
+        "--run-attempt",  run_attempt,       "--fork-revision", forkRevision(b),
     });
     if (tag.len > 0) metadata.addArgs(&.{ "--release-tag", tag });
     if (source.len > 0) metadata.addArgs(&.{ "--source", source });
@@ -119,6 +119,17 @@ fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step) void {
         .install_dir = .prefix,
         .install_subdir = "macOSLauncher.app/Contents/Resources",
     }).step);
+}
+
+fn forkRevision(b: *std.Build) []const u8 {
+    const header = compat.readFile(b, b.path("src/mod/version.h"), .limited(64 * 1024));
+    const key = "VERSION_FORK_REVISION";
+    const offset = std.mem.indexOf(u8, header, key) orelse @panic("missing fork revision in src/mod/version.h");
+    const rest = std.mem.trimStart(u8, header[offset + key.len ..], " \t");
+    const value = rest[0 .. std.mem.indexOfAny(u8, rest, " \t\r\n") orelse rest.len];
+    const revision = std.fmt.parseInt(u63, value, 10) catch @panic("invalid fork revision in src/mod/version.h");
+    if (revision == 0) @panic("fork revision must be positive");
+    return value;
 }
 
 /// MAJOR.MINOR.REVISION.PATCH from the `#define`s in src/mod/version.h.

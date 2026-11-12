@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/windows-build-identity.ps1"
 FIXTURE = os.environ.get("STFC_WINDOWS_IDENTITY_FIXTURE")
 BASE = os.environ.get("STFC_WINDOWS_IDENTITY_BASE", "1.1.9.5")
+FORK_REVISION = int(os.environ.get("STFC_WINDOWS_IDENTITY_FORK_REVISION", "0"))
+DISPLAY_BASE = f"{BASE}-guffa.{FORK_REVISION}" if FORK_REVISION else BASE
+INVALID_FIXTURE = os.environ.get("STFC_WINDOWS_IDENTITY_INVALID_FIXTURE")
 PWSH = os.environ.get("STFC_PWSH") or shutil.which("pwsh")
 
 
@@ -52,20 +55,22 @@ class WindowsBuildIdentity(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         identity = json.loads(self.identity.read_text(encoding="utf-8"))
         self.assertEqual(identity["STFCBaseVersion"], BASE)
-        self.assertEqual(identity["STFCDisplayVersion"], f"{BASE} · Pre b987.2")
+        self.assertEqual(identity["STFCForkRevision"], FORK_REVISION)
+        self.assertEqual(identity["STFCDisplayVersion"], f"{DISPLAY_BASE} · Pre b987.2")
         raw = self.outputs.read_bytes()
         self.assertNotEqual(raw[:3], b"\xef\xbb\xbf")
         self.assertIn(b"\xc2\xb7", raw)
-        self.assertEqual(raw.decode("utf-8"), f"signing_description=STFC Community Mod | {BASE} · Pre b987.2\n")
-        self.assertIn(f"STFC Community Mod | {BASE} · Pre b987.2", result.stdout)
+        self.assertEqual(raw.decode("utf-8"), f"signing_description=STFC Community Mod | {DISPLAY_BASE} · Pre b987.2\n")
+        self.assertIn(f"STFC Community Mod | {DISPLAY_BASE} · Pre b987.2", result.stdout)
 
     def test_named_release_uses_native_quad_and_exact_canonical_tag(self):
-        self.context.update(channel="release", release_tag=f"v{BASE}-guffa.6", prerelease=False,
+        self.context.update(channel="release", release_tag=f"v{BASE}-guffa.7", prerelease=False,
                             selection_mode="release")
         result = self.run_identity()
         self.assertEqual(result.returncode, 0, result.stderr)
         identity = json.loads(self.identity.read_text(encoding="utf-8"))
-        self.assertEqual(identity["STFCDisplayVersion"], f"{BASE}-guffa.6 · Release")
+        self.assertEqual(identity["STFCDisplayVersion"], f"{BASE}-guffa.7 · Release")
+        self.assertEqual(identity["STFCForkRevision"], 7)
         self.assertEqual(identity["STFCSourceCommit"], "a" * 40)
         self.assertEqual(identity["STFCBuildRunID"], "123")
 
@@ -95,6 +100,12 @@ class WindowsBuildIdentity(unittest.TestCase):
             context = copy.deepcopy(self.context)
             context["release_tag"] = tag
             self.assert_rejected(self.run_identity(context))
+
+    @unittest.skipUnless(INVALID_FIXTURE, "Set a PE fixture with a ProductVersion that conflicts with its fixed version")
+    def test_conflicting_product_version_is_refused_without_output(self):
+        shutil.copyfile(INVALID_FIXTURE, self.dll)
+        self.original_hash = hashlib.sha256(self.dll.read_bytes()).hexdigest()
+        self.assert_rejected(self.run_identity())
 
 
 class WindowsWorkflowWiring(unittest.TestCase):

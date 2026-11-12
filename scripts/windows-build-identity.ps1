@@ -28,7 +28,16 @@ if ($context.schema_version -cne 'stfc-mac-release-context/v1' -or
 $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($dll)
 if (-not $version.FileVersion) { throw 'Selected DLL has no fixed version resource' }
 $baseVersion = '{0}.{1}.{2}.{3}' -f $version.FileMajorPart, $version.FileMinorPart, $version.FileBuildPart, $version.FilePrivatePart
+$productVersion = [string]$version.ProductVersion
+$forkRevision = '0'
+if ($productVersion -cne $baseVersion) {
+    if ($productVersion -cnotmatch ('\A' + [regex]::Escape($baseVersion) + '-guffa\.([1-9][0-9]*)\z')) {
+        throw 'ProductVersion must match the fixed base version and optional canonical fork revision'
+    }
+    $forkRevision = $Matches[1]
+}
 $arguments = @((Join-Path $PSScriptRoot 'mac-build-identity.py'), 'describe', '--base-version', $baseVersion,
+    '--fork-revision', $forkRevision,
     '--channel', $context.channel, '--source', $SourceSha, '--run-id', $BuildRunId,
     '--run-number', [string]$context.run_number, '--run-attempt', [string]$context.run_attempt,
     '--output', $output)
@@ -41,7 +50,8 @@ $expectedDisplay = if ($context.release_tag) {
     $tag = [string]$context.release_tag
     $tag.Substring(1) + ' · ' + $label
 } else {
-    $baseVersion + ' · Pre b' + [string]$context.run_number + '.' + [string]$context.run_attempt
+    $displayBase = if ($forkRevision -cne '0') { $baseVersion + '-guffa.' + $forkRevision } else { $baseVersion }
+    $displayBase + ' · Pre b' + [string]$context.run_number + '.' + [string]$context.run_attempt
 }
 if ($identity.STFCBaseVersion -cne $baseVersion -or $identity.STFCBuildChannel -cne $context.channel -or
     $identity.STFCSourceCommit -cne $SourceSha -or $identity.STFCBuildRunID -cne $BuildRunId -or

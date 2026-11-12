@@ -1,4 +1,5 @@
 #include "build_identity.h"
+#include "version.h"
 
 #include <array>
 #include <cstdio>
@@ -27,6 +28,9 @@ int main()
                                    "1.1.9.5 · DEV local",       "1.1.9.5-guffa.9223372036854775807 · Pre"};
   for (const auto* value : valid)
     Require(ValidDisplayVersion(value, base), "declared Release/Pre/DEV labels are accepted");
+  for (const auto* value :
+       {"1.1.9.5-guffa.6 · DEV local", "1.1.9.5-guffa.6 · DEV b137.2", "1.1.9.5-guffa.6 · Pre b137.2"})
+    Require(ValidDisplayVersion(value, base), "fork lineage is retained independently from the build channel");
   constexpr std::array invalid{"",
                                "1.1.9.0-guffa.6 · Release",
                                "1.1.9.50-guffa.6 · Release",
@@ -72,6 +76,11 @@ int main()
   Require(HandoffVersion(base, valid[0], {}, {}) == base, "a supplied unbound label cannot claim a DEV channel");
   Require(HandoffVersion(base, {}, {}, {}, {}, true) == base,
           "empty or malformed supplied metadata is distinct from absence");
+  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR) == "1.1.9.5-guffa.6 · DEV local",
+          "the compiled fork version remains visible in a local Mac development build");
+  Require(HandoffVersion(base, "1.1.9.5-guffa.6 · DEV b137.2", source, "01234567", {}, true, VER_FORK_VERSION_STR)
+              == "1.1.9.5-guffa.6 · DEV b137.2",
+          "a source-matched Mac handoff retains both the fork revision and development build");
 
   Require(DescriptionVersion(base, "STFC Community Mod | 1.1.9.5-guffa.6 · Release", SignatureState::Present)
               == valid[0],
@@ -89,6 +98,14 @@ int main()
           "a present signature without a known label is not misclassified as DEV");
   Require(DescriptionVersion(base, {}, SignatureState::Unknown, "github:42576047391:2:windows") == base,
           "unobservable signature metadata is not confused with absent metadata");
+  Require(DescriptionVersion(base, {}, SignatureState::Absent, "github:42576047391:2:windows", VER_FORK_VERSION_STR)
+              == "1.1.9.5-guffa.6 · DEV b42576047391.2",
+          "raw Windows CI retains the compiled fork revision alongside its unique development build");
+  Require(DescriptionVersion(base, {}, SignatureState::Absent, {}, VER_FORK_VERSION_STR)
+              == "1.1.9.5-guffa.6 · DEV local",
+          "the in-game unsigned local fallback uses the compiled fork version");
+  Require(DescriptionVersion(base, {}, SignatureState::Unknown, {}, VER_FORK_VERSION_STR) == VER_FORK_VERSION_STR,
+          "unknown signing metadata retains known fork lineage without claiming a channel");
   for (const auto invocation : {"github:windows", "github::windows", "github:0:1:windows", "github:1:0:windows",
                                 "github:1:1:windows\n", "ax-zig-20261111-local"})
     Require(FallbackVersion(base, invocation) == "1.1.9.5 · DEV local", "unknown/malformed invocations stay local");
