@@ -8,8 +8,12 @@ enum LauncherBuildIdentity {
     {
       return value
     }
-    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-    return "\(version ?? "Unknown version") · DEV"
+    if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+      !version.isEmpty
+    {
+      return version
+    }
+    return "Unknown version"
   }()
 
   static func gameEnvironment() -> [String: String] {
