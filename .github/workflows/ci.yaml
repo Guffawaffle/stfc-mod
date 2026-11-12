@@ -85,6 +85,7 @@ jobs:
         run: |
           python3 tests/dev_release_test.py
           python3 tests/mac_build_identity_test.py
+          python3 tests/ci_build_retry_test.py
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: ${{ env.ZIG_VERSION }}
