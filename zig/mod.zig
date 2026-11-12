@@ -56,7 +56,7 @@ pub fn unity(ctx: *const Ctx, runtime: Lib, spud: Lib) Lib {
 
 /// The `mods` static library and the binary the game loads: version.dll on Windows, the injected dylib and its
 /// loader on macOS. `libs` is everything the mod compiles against.
-pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Build.Step) void {
+pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Build.Step, development_package: bool) void {
     const b = ctx.b;
     const flags = ctx.cxxFlags("c++23", &.{
         "-fms-extensions",
@@ -69,6 +69,7 @@ pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Buil
     // translation units compile alongside its dependencies instead of after them.
     const module = ctx.createModule(true);
     module.addIncludePath(b.path("src/mod"));
+    module.addCMacro("STFC_DEVELOPMENT_PACKAGE", if (development_package) "1" else "0");
     if (ctx.options.moddbg) module.addCMacro("_MODDBG", "1");
     // As in PLAY's image producer, an explicit embedded image overrides the
     // original-background build preference; runtime image selection is separate.
@@ -140,7 +141,7 @@ fn addModSources(ctx: *const Ctx, module: *std.Build.Module, flags: []const []co
         module.linkFramework("Cocoa", .{});
         module.linkFramework("UserNotifications", .{});
     } else if (ctx.isWindows()) {
-        inline for (.{ "winmm", "rpcrt4", "runtimeobject", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
+        inline for (.{ "winmm", "rpcrt4", "runtimeobject", "mfuuid", "shlwapi", "ole32", "crypt32" }) |lib| module.linkSystemLibrary(lib, .{});
     }
 }
 

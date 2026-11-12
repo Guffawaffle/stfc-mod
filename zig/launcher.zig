@@ -10,7 +10,7 @@ const hostTool = @import("ctx.zig").hostTool;
 const deps = @import("deps.zig");
 
 /// Register `launcher`, which installs zig-out/macOSLauncher.app.
-pub fn add(ctx: *const Ctx) void {
+pub fn add(ctx: *const Ctx, development_package: bool) void {
     const b = ctx.b;
     const step = b.step("launcher", "Build the Swift macOS launcher app (requires Xcode on macOS)");
     if (builtin.os.tag != .macos or !ctx.isMacos()) {
@@ -56,7 +56,7 @@ pub fn add(ctx: *const Ctx) void {
     const exe = link.addOutputFileArg("macOSLauncher");
     step.dependOn(&b.addInstallFile(exe, "macOSLauncher.app/Contents/MacOS/macOSLauncher").step);
 
-    installBundleResources(ctx, step);
+    installBundleResources(ctx, step, development_package);
 }
 
 /// Repack a Zig static library with Apple's libtool. Apple's linker rejects the archive index and unaligned
@@ -78,14 +78,41 @@ fn appleArchive(
 }
 
 /// Info.plist with the mod version, the app icon, and the compiled asset catalog.
-fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step) void {
+fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step, development_package: bool) void {
     const b = ctx.b;
-    const template = compat.readFile(b, b.path("src/launcher/macos/Info.plist.template"), .limited(64 * 1024));
-    const versioned = std.mem.replaceOwned(u8, b.allocator, template, "${VERSION}", modVersion(b)) catch @panic("OOM");
-    const plist = std.mem.replaceOwned(u8, b.allocator, versioned, "${MACOS_MIN}", macos_min) catch @panic("OOM");
-    const info = b.addWriteFiles().add("Info.plist", plist);
+    const Channel = enum { ci, dev, pre, release };
+    const channel = b.option(Channel, "launcher_channel", "Visible launcher channel") orelse
+        if (development_package) Channel.dev else Channel.ci;
+    if ((channel == .dev and !development_package) or (channel == .ci and development_package))
+        @panic("launcher CI/DEV channel must match the explicitly selected payload");
+    const tag = b.option([]const u8, "launcher_release_tag", "Exact downstream release tag") orelse "";
+    const source = b.option([]const u8, "launcher_source", "Launcher source commit") orelse "";
+    const run_id = b.option([]const u8, "launcher_run_id", "Producing CI run ID") orelse "";
+    const run_number = b.option([]const u8, "launcher_run_number", "Producing CI build number") orelse "0";
+    const run_attempt = b.option([]const u8, "launcher_run_attempt", "Producing CI run attempt") orelse "1";
+
+    // Player-visible identity is separate from the mod's verified source/provenance marker.
+    // Core builds are CI; the selected development package is DEV. Trusted
+    // promotion selects the final tag/channel before signing.
+    const metadata = b.addSystemCommand(&.{"python3"});
+    metadata.addFileArg(b.path("scripts/mac-build-identity.py"));
+    metadata.addArgs(&.{ "generate", "--template" });
+    metadata.addFileArg(b.path("src/launcher/macos/Info.plist.template"));
+    metadata.addArgs(&.{
+        "--base-version", modVersion(b),     "--macos-min",     macos_min,
+        "--channel",      @tagName(channel), "--run-number",    run_number,
+        "--run-attempt",  run_attempt,       "--fork-revision", forkRevision(b),
+    });
+    if (tag.len > 0) metadata.addArgs(&.{ "--release-tag", tag });
+    if (source.len > 0) metadata.addArgs(&.{ "--source", source });
+    if (run_id.len > 0) metadata.addArgs(&.{ "--run-id", run_id });
+    metadata.addArg("--output");
+    const info = metadata.addOutputFileArg("Info.plist");
     step.dependOn(&b.addInstallFile(info, "macOSLauncher.app/Contents/Info.plist").step);
-    const icon = b.addInstallFile(b.path("assets/launcher.icns"), "macOSLauncher.app/Contents/Resources/launcher.icns");
+    const icon = b.addInstallFile(
+        b.path(b.fmt("assets/launcher-icons/launcher-{s}.icns", .{@tagName(channel)})),
+        "macOSLauncher.app/Contents/Resources/launcher.icns",
+    );
     step.dependOn(&icon.step);
 
     const actool = b.addSystemCommand(&.{ "xcrun", "actool", "--platform", "macosx" });
@@ -97,6 +124,17 @@ fn installBundleResources(ctx: *const Ctx, step: *std.Build.Step) void {
         .install_dir = .prefix,
         .install_subdir = "macOSLauncher.app/Contents/Resources",
     }).step);
+}
+
+fn forkRevision(b: *std.Build) []const u8 {
+    const header = compat.readFile(b, b.path("src/mod/version.h"), .limited(64 * 1024));
+    const key = "VERSION_FORK_REVISION";
+    const offset = std.mem.indexOf(u8, header, key) orelse @panic("missing fork revision in src/mod/version.h");
+    const rest = std.mem.trimStart(u8, header[offset + key.len ..], " \t");
+    const value = rest[0 .. std.mem.indexOfAny(u8, rest, " \t\r\n") orelse rest.len];
+    const revision = std.fmt.parseInt(u63, value, 10) catch @panic("invalid fork revision in src/mod/version.h");
+    if (revision == 0) @panic("fork revision must be positive");
+    return value;
 }
 
 /// MAJOR.MINOR.REVISION.PATCH from the `#define`s in src/mod/version.h.

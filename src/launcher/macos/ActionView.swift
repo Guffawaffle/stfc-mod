@@ -62,10 +62,14 @@ struct ActionView: View {
         } while !Task.isCancelled
       }
       .overlay(alignment: .bottomTrailing) {
-        Text("Game Version: \(String(format: "%02d", gameVersion))")
-          .font(.lcars(size: 17))
-          .foregroundStyle(Color.lcarTan)
-          .offset(x: -10)
+        VStack(alignment: .trailing, spacing: 2) {
+          Text("Mod Version: \(LauncherBuildIdentity.displayVersion)")
+            .textSelection(.enabled)
+          Text("Game Version: \(String(format: "%02d", gameVersion))")
+        }
+        .font(.lcars(size: 17))
+        .foregroundStyle(Color.lcarTan)
+        .offset(x: -10)
       }
       .overlay(alignment: .bottomLeading) {
         if updating {
@@ -244,6 +248,7 @@ private func runGame() throws {
   }
   let process = Process()
   process.executableURL = URL(fileURLWithPath: loader)
+  process.environment = LauncherBuildIdentity.gameEnvironment()
   do {
     try process.run()
   } catch {
