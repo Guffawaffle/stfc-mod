@@ -3,9 +3,9 @@ name: Build
 on:
   workflow_dispatch:
   push:
-    branches: [main, dev, play, review/ripper-play-migration-checkpoint-20261025]
+    branches: [main, dev, play, play-dev, review/ripper-play-migration-checkpoint-20261025]
   pull_request:
-    branches: [main, dev, play]
+    branches: [main, dev, play, play-dev]
 
 permissions:
   actions: read
@@ -81,6 +81,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      - name: Check DEV publication boundaries and launcher identities
+        run: |
+          python3 tests/dev_release_test.py
+          python3 tests/mac_build_identity_test.py
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: ${{ env.ZIG_VERSION }}
@@ -115,7 +119,12 @@ jobs:
       - name: Build and test
         run: |
           python3 scripts/ci-build-retry.py -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
-            -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all
+            -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all \
+            -Dlauncher_channel=ci \
+            -Dlauncher_source=${{ github.sha }} \
+            -Dlauncher_run_id=${{ github.run_id }} \
+            -Dlauncher_run_number=${{ github.run_number }} \
+            -Dlauncher_run_attempt=${{ github.run_attempt }}
       - name: Verify portable linkage
         run: |
           scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \

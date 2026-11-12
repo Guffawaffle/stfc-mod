@@ -1,0 +1,193 @@
+name: Development package
+
+on:
+  push:
+    branches: [play-dev]
+    tags: ["v*-dev.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-package-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ZIG_VERSION: "0.16.0"
+
+jobs:
+  resolve:
+    if: github.repository == 'Guffawaffle/stfc-mod'
+    runs-on: ubuntu-24.04
+    outputs:
+      source: ${{ steps.resolve.outputs.source }}
+      aai_pin: ${{ steps.resolve.outputs.aai_pin }}
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select exact play-dev source and immutable AAI pin
+        id: resolve
+        env:
+          SELECTED_REF: ${{ github.ref }}
+          SELECTED_SOURCE: ${{ github.sha }}
+        run: python3 scripts/dev-release.py resolve --ref "$SELECTED_REF" --source "$SELECTED_SOURCE" --output dev-context.json
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dev-context
+          path: dev-context.json
+          if-no-files-found: error
+
+  build:
+    needs: resolve
+    environment: stfc-dev-source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: windows
+            target: x86_64-windows-msvc
+            runner: windows-2025-vs2026
+            python: python
+          - arch: arm64
+            target: aarch64-macos.14.6
+            runner: macos-26
+            python: python3
+          - arch: x86_64
+            target: x86_64-macos.14.6
+            runner: macos-26-intel
+            python: python3
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: mod
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.source }}
+          path: mod
+          persist-credentials: false
+      - name: Read exact private source (dedicated read-only deploy key)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: Guffawaffle/stfc-aai
+          ref: ${{ needs.resolve.outputs.aai_pin }}
+          path: private-aai
+          ssh-key: ${{ secrets.AAI_SOURCE_READ_KEY }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: dev-context
+          path: mod/.dev
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+          # Both caches can contain private source-derived material.
+          use-cache: false
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.arch == 'windows'
+        with:
+          arch: x64
+      - name: Build and test the explicit DEV product
+        run: ${{ matrix.python }} scripts/build-dev.py --context .dev/dev-context.json --aai-source ../private-aai --target ${{ matrix.target }}
+      - name: Read native Windows version resource
+        if: matrix.arch == 'windows'
+        shell: pwsh
+        run: |
+          $context = Get-Content -LiteralPath .dev/dev-context.json -Raw | ConvertFrom-Json
+          $expected = if ($context.tag) { $context.tag.Substring(1) } else { "$($context.base)-guffa.$($context.fork_revision)" }
+          $dll = (Resolve-Path -LiteralPath zig-out/bin/version.dll).Path
+          $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($dll)
+          if ($version.ProductVersion -cne $expected) { throw "DEV ProductVersion differs from $expected" }
+          if ((Get-AuthenticodeSignature -LiteralPath $dll).Status -ne 'NotSigned') {
+            throw 'DEV payload must remain unsigned'
+          }
+      - name: Check Mac linkage and archive only install payloads
+        if: matrix.arch != 'windows'
+        run: |
+          scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \
+            zig-out/bin/stfc-community-mod-loader zig-out/lib/libstfc-community-mod.dylib
+          tar -cf dev-${{ matrix.arch }}.tar -C zig-out \
+            macOSLauncher.app bin/stfc-community-mod-loader lib/libstfc-community-mod.dylib
+      - uses: actions/upload-artifact@v7.0.1
+        if: matrix.arch == 'windows'
+        with:
+          name: dev-windows
+          path: mod/zig-out/bin/version.dll
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7.0.1
+        if: matrix.arch != 'windows'
+        with:
+          name: dev-${{ matrix.arch }}
+          path: mod/dev-${{ matrix.arch }}.tar
+          compression-level: 0
+          retention-days: 2
+          if-no-files-found: error
+
+  package:
+    needs: [resolve, build]
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.source }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          pattern: dev-*
+          path: .artifacts
+      - name: Restore and verify both architecture identities
+        run: |
+          for arch in arm64 x86_64; do
+            mkdir -p ".staging/$arch"
+            tar -xf ".artifacts/dev-$arch/dev-$arch.tar" -C ".staging/$arch"
+          done
+          python3 scripts/dev-release.py verify-mac --context .artifacts/dev-context/dev-context.json .staging/arm64 .staging/x86_64
+      - name: Assemble ad hoc signed universal DEV app
+        run: |
+          scripts/assemble-mac-app.sh ".staging/STFC Community Mod.app" .staging/arm64 .staging/x86_64
+          for binary in MacOS/macOSLauncher stfc-community-mod-loader libstfc-community-mod.dylib; do
+            lipo -verify_arch arm64 x86_64 ".staging/STFC Community Mod.app/Contents/$binary"
+          done
+      - name: Install packaging tools
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          command -v zstd >/dev/null || brew install zstd
+          command -v create-dmg >/dev/null || brew install create-dmg
+      - name: Package and hash verified DEV payloads
+        run: |
+          python3 scripts/dev-release.py package --context .artifacts/dev-context/dev-context.json \
+            --windows .artifacts/dev-windows/version.dll --app ".staging/STFC Community Mod.app" --output dist
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: dev-package
+          path: dist/*
+          compression-level: 0
+          if-no-files-found: error
+
+  publish:
+    if: needs.resolve.outputs.tag != ''
+    needs: [resolve, package]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.source }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: dev-context
+          path: .dev
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          name: dev-package
+          path: dist
+      - name: Verify uploaded digests and publish a DEV prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/dev-release.py publish --context .dev/dev-context.json --output dist

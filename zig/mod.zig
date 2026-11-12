@@ -56,7 +56,7 @@ pub fn unity(ctx: *const Ctx, runtime: Lib, spud: Lib) Lib {
 
 /// The `mods` static library and the binary the game loads: version.dll on Windows, the injected dylib and its
 /// loader on macOS. `libs` is everything the mod compiles against.
-pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Build.Step) void {
+pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Build.Step, development_package: bool) void {
     const b = ctx.b;
     const flags = ctx.cxxFlags("c++23", &.{
         "-fms-extensions",
@@ -69,6 +69,7 @@ pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Buil
     // translation units compile alongside its dependencies instead of after them.
     const module = ctx.createModule(true);
     module.addIncludePath(b.path("src/mod"));
+    module.addCMacro("STFC_DEVELOPMENT_PACKAGE", if (development_package) "1" else "0");
     if (ctx.options.moddbg) module.addCMacro("_MODDBG", "1");
     // As in PLAY's image producer, an explicit embedded image overrides the
     // original-background build preference; runtime image selection is separate.
@@ -105,7 +106,7 @@ pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Buil
             "src/platform/windows/profiles-version.def"
         else
             "src/platform/windows/version.def");
-        const rc_flags = addBuildIdentity(ctx, entry);
+        const rc_flags = addBuildIdentity(ctx, entry, development_package);
         entry.addIncludePath(b.path("src/platform/windows"));
         entry.addWin32ResourceFile(.{
             .file = b.path("src/platform/windows/version.rc"),
@@ -140,12 +141,12 @@ fn addModSources(ctx: *const Ctx, module: *std.Build.Module, flags: []const []co
         module.linkFramework("Cocoa", .{});
         module.linkFramework("UserNotifications", .{});
     } else if (ctx.isWindows()) {
-        inline for (.{ "winmm", "rpcrt4", "runtimeobject", "mfuuid", "shlwapi", "ole32" }) |lib| module.linkSystemLibrary(lib, .{});
+        inline for (.{ "winmm", "rpcrt4", "runtimeobject", "mfuuid", "shlwapi", "ole32", "crypt32" }) |lib| module.linkSystemLibrary(lib, .{});
     }
 }
 
 /// Define the build identity as C++ string macros and as version resource defines. Returns the resource flags.
-fn addBuildIdentity(ctx: *const Ctx, module: *std.Build.Module) []const []const u8 {
+fn addBuildIdentity(ctx: *const Ctx, module: *std.Build.Module, development_package: bool) []const []const u8 {
     const b = ctx.b;
     var defines: [5][2][]const u8 = undefined;
     // Each value comes from -D<option>, then the environment, then the default.
@@ -168,6 +169,28 @@ fn addBuildIdentity(ctx: *const Ctx, module: *std.Build.Module) []const []const 
     defines[4] = .{ "STFC_BUILD_MODE", mode };
 
     var rc_flags: std.ArrayList([]const u8) = .empty;
+    const dev_tag = b.option([]const u8, "stfc_development_tag", "Exact selected DEV package tag") orelse "";
+    if (dev_tag.len > 0) {
+        if (!development_package) @panic("a DEV tag requires the explicitly selected AAI development package");
+        const header = compat.readFile(b, b.path("src/mod/version.h"), .limited(64 * 1024));
+        var values: [5][]const u8 = undefined;
+        inline for (.{ "VERSION_MAJOR", "VERSION_MINOR", "VERSION_REVISION", "VERSION_PATCH", "VERSION_FORK_REVISION" }, 0..) |key, i| {
+            const offset = std.mem.indexOf(u8, header, key) orelse @panic("missing version component");
+            const rest = std.mem.trimStart(u8, header[offset + key.len ..], " \t");
+            values[i] = rest[0 .. std.mem.indexOfAny(u8, rest, " \t\r\n") orelse rest.len];
+        }
+        const prefix = b.fmt("v{s}.{s}.{s}.{s}-guffa.{s}-dev.", .{ values[0], values[1], values[2], values[3], values[4] });
+        if (!std.mem.startsWith(u8, dev_tag, prefix))
+            std.debug.panic("DEV tag {s} differs from compiled prefix {s}", .{ dev_tag, prefix });
+        const sequence = dev_tag[prefix.len..];
+        if (sequence.len == 0 or sequence[0] == '0') @panic("DEV sequence must be canonical and positive");
+        _ = std.fmt.parseInt(u32, sequence, 10) catch @panic("invalid DEV sequence");
+        for (sequence) |character| if (!std.ascii.isDigit(character)) @panic("invalid DEV sequence");
+        for ([_][2][]const u8{ .{ "STFC_DEVELOPMENT_TAG", dev_tag }, .{ "STFC_DEVELOPMENT_VERSION", dev_tag[1..] } }) |define| {
+            module.addCMacro(define[0], b.fmt("\"{s}\"", .{define[1]}));
+            rc_flags.appendSlice(b.allocator, &.{ "/D", b.fmt("{s}=\"{s}\"", .{ define[0], define[1] }) }) catch @panic("OOM");
+        }
+    }
     for (defines) |define| {
         const name, const value = define;
         const quoted = b.fmt("\"{s}\"", .{value});
