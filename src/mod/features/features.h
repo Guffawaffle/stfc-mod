@@ -195,6 +195,7 @@ bool                 EnsureOrbitConstraints();
 
 // hotkeys.cc
 extern const Feature kHotkeys;
+extern const Feature kKeyboardConfirm;
 // The shortcut dispatch for one frame, run by the frame tick. True when the game's own ScreenManager.Update must
 // not run, so it does not handle the key as well. False until kHotkeys is installed.
 bool HandleShortcuts();

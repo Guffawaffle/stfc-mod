@@ -2275,6 +2275,10 @@ try {
     HotkeyOrderNativeCases();
     return 0;
   }
+  if (argc == 2 && std::string_view(argv[1]) == "keyboard-confirm-focus") {
+    KeyboardConfirmFocusNativeCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "chat-focus-unavailable") {
     HotkeyFocusNativeCases();
     return 0;

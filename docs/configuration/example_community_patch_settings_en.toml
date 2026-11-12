@@ -377,6 +377,7 @@ havenhistoryhooks = true
 
 # Enable Haven zoom hooks.
 havenzoomhooks = true
+# Install hotkey hooks and protect native popup confirmation while typing or capturing a shortcut.
 hotkeyhooks = true
 
 # Persist registered runtime settings; drain the writer before normal quit.
