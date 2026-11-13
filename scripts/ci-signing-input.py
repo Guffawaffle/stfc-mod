@@ -106,7 +106,16 @@ def main():
     unpack = sub.add_parser("extract")
     for field in ["archive", "selection", "destination"]:
         unpack.add_argument("--" + field, required=True)
+    source = sub.add_parser("verify-source")
+    for field in ["selection", "source", "output"]:
+        source.add_argument("--" + field, required=True)
+    source.add_argument("--commit-json")
     args = parser.parse_args()
+    if args.operation == "verify-source":
+        result = verify_source(json.loads(Path(args.selection).read_text()), args.source,
+                               json.loads(Path(args.commit_json).read_text()) if args.commit_json else None)
+        Path(args.output).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        return
     if args.operation == "extract":
         extract(args.archive, json.loads(Path(args.selection).read_text()), args.destination)
         return
@@ -119,6 +128,26 @@ def main():
             for key in ["run_id", "run_attempt", "head_sha", "artifact_id", "artifact_digest", "source_kind"]:
                 print(f"{args.platform}_{key}={result[key]}", file=output)
     print(json.dumps(result))
+
+
+def verify_source(selection, source, commit=None):
+    """Keep the checkout SHA distinct from a PR run's API head SHA."""
+    head = selection.get("head_sha", "")
+    if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{40}", source):
+        raise ValueError("Artifact must declare its exact producing checkout SHA")
+    if not isinstance(head, str) or not re.fullmatch(r"[0-9a-f]{40}", head):
+        raise ValueError("Selected run must declare its exact HEAD SHA")
+    relationship = "run-head"
+    if source != head:
+        if selection.get("event") != "pull_request":
+            raise ValueError("Artifact source differs from the selected run HEAD")
+        if (not isinstance(commit, dict) or commit.get("sha") != source
+                or not isinstance(commit.get("parents"), list)
+                or not any(isinstance(parent, dict) and parent.get("sha") == head
+                           for parent in commit["parents"])):
+            raise ValueError("PR checkout must contain the selected run HEAD as a direct parent")
+        relationship = "pull-request-merge-parent"
+    return {"source_commit": source, "build_run_head_sha": head, "source_relationship": relationship}
 
 
 if __name__ == "__main__":

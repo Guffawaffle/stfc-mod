@@ -23,6 +23,13 @@ on:
         type: choice
         options: [both, macos, windows]
         default: both
+      release_tag:
+        description: Planned Mac release tag (v1.1.9.5-guffa.N); leave empty for a signed Pre CI test
+        type: string
+      prerelease:
+        description: Use Pre for signed tests; turn off only for a full Release with a planned tag
+        type: boolean
+        default: true
       submission_id:
         description: Apple submission ID to inspect (status only)
         type: string
@@ -91,6 +98,8 @@ jobs:
       run_attempt: ${{ steps.build.outputs.run_attempt }}
       macos_artifact_id: ${{ steps.build.outputs.macos_artifact_id }}
       windows_artifact_id: ${{ steps.build.outputs.windows_artifact_id }}
+      release_tag: ${{ steps.build.outputs.release_tag }}
+      prerelease: ${{ steps.build.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -105,14 +114,14 @@ jobs:
           SELECTED_RUN: ${{ inputs.build_run_id }}
           EXPECTED_SHA: ${{ inputs.expected_head_sha }}
           PLATFORM: ${{ inputs.platform }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
-          mode=test
           platforms="$PLATFORM"
           if [[ "$OPERATION" == sign ]]; then
             EXPECTED_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/play" --jq '.object.sha')
             SELECTED_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yaml/runs?head_sha=$EXPECTED_SHA&branch=play&event=push&status=success" --jq '.workflow_runs[0].id')
-            mode=release
             platforms=macos
           fi
           [[ "$SELECTED_RUN" =~ ^[1-9][0-9]*$ ]]
@@ -121,6 +130,11 @@ jobs:
           attempt=$(jq -r .run_attempt "$RUNNER_TEMP/build.json")
           [[ "$attempt" =~ ^[1-9][0-9]*$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN/attempts/$attempt" > "$RUNNER_TEMP/build.json"
+          python3 scripts/mac-release-context.py --operation "$OPERATION" \
+            --release-tag "$RELEASE_TAG" --prerelease "$PRERELEASE" \
+            --run-json "$RUNNER_TEMP/build.json" --output "$RUNNER_TEMP/release-context.json" \
+            --github-output "$GITHUB_OUTPUT"
+          mode=$(jq -r .selection_mode "$RUNNER_TEMP/release-context.json")
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN/artifacts?per_page=100" \
             | jq '{artifacts:[.[].artifacts[]]}' > "$RUNNER_TEMP/artifacts.json"
           for platform in macos windows; do
@@ -138,6 +152,7 @@ jobs:
           echo "run_attempt=$attempt" >> "$GITHUB_OUTPUT"
           echo "Selected Build: https://github.com/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN (attempt $attempt, HEAD $sha)" >> "$GITHUB_STEP_SUMMARY"
           echo "Build status: $(jq -r .status "$RUNNER_TEMP/build.json"); conclusion: $(jq -r '.conclusion // "not yet established"' "$RUNNER_TEMP/build.json"). Signing does not change its test result or publish a release." >> "$GITHUB_STEP_SUMMARY"
+          echo "Mac identity: $(jq -r .channel "$RUNNER_TEMP/release-context.json"); planned tag: ${RELEASE_TAG:-none (Pre CI test)}." >> "$GITHUB_STEP_SUMMARY"
 
   validate:
     needs: resolve
@@ -150,6 +165,8 @@ jobs:
       ci_test_build: ${{ inputs.operation == 'sign-run' }}
       run_attempt: ${{ needs.resolve.outputs.run_attempt }}
       installer_artifact_id: ${{ needs.resolve.outputs.macos_artifact_id }}
+      release_tag: ${{ needs.resolve.outputs.release_tag }}
+      prerelease: ${{ fromJSON(needs.resolve.outputs.prerelease) }}
 
   sign-windows:
     needs: resolve
@@ -165,3 +182,5 @@ jobs:
       source_sha: ${{ needs.resolve.outputs.source_sha }}
       run_attempt: ${{ needs.resolve.outputs.run_attempt }}
       artifact_id: ${{ needs.resolve.outputs.windows_artifact_id }}
+      release_tag: ${{ needs.resolve.outputs.release_tag }}
+      prerelease: ${{ fromJSON(needs.resolve.outputs.prerelease) }}

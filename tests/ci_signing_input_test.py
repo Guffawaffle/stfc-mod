@@ -33,6 +33,31 @@ class SigningInput(unittest.TestCase):
             self.run["event"] = event
             self.assertEqual(self.pick()["event"], event)
 
+    def test_producing_checkout_is_not_replaced_by_pr_run_head(self):
+        head, merge = "a" * 40, "c" * 40
+        self.assertEqual(signing.verify_source(self.pick(), head)["source_relationship"], "run-head")
+        self.run["event"] = "pull_request"
+        commit = {"sha": merge, "parents": [{"sha": "d" * 40}, {"sha": head}]}
+        result = signing.verify_source(self.pick(), merge, commit)
+        self.assertEqual(result, {"source_commit": merge, "build_run_head_sha": head,
+                                  "source_relationship": "pull-request-merge-parent"})
+        for event in ("push", "workflow_dispatch"):
+            self.run["event"] = event
+            with self.assertRaisesRegex(ValueError, "differs"):
+                signing.verify_source(self.pick(), merge, commit)
+
+    def test_pr_source_requires_exact_verified_commit_and_direct_parent(self):
+        self.run["event"] = "pull_request"
+        for commit in (None, {}, {"sha": "c" * 40}, {"sha": "c" * 40, "parents": []},
+                       {"sha": "d" * 40, "parents": [{"sha": "a" * 40}]},
+                       {"sha": "c" * 40, "parents": [{"sha": "b" * 40}]},
+                       {"sha": "c" * 40, "parents": [None, "a" * 40]}):
+            with self.assertRaisesRegex(ValueError, "direct parent"):
+                signing.verify_source(self.pick(), "c" * 40, commit)
+        for source in ("", "c" * 8, "C" * 40, "c" * 40 + "\n", None):
+            with self.assertRaises(ValueError):
+                signing.verify_source(self.pick(), source)
+
     def test_test_signing_does_not_claim_failed_ci_passed(self):
         self.run["conclusion"] = "failure"
         self.assertEqual(self.pick()["build_conclusion"], "failure")
