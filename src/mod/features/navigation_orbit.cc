@@ -226,12 +226,12 @@ void NavigationPan_MoveCamera_OrbitHook(auto original, NavigationPan* _this, uni
 {
   // Only fresh pointer movement is scaled here. Keys are scaled by LateUpdate; cached glide is already in
   // world units. The shared detour also serves NavigationOrbit when the Pan hook group is unavailable.
-  const bool pan_installed = std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
+  const bool  pan_installed = std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
     return feature.name && std::string_view(feature.name) == kPan.name && feature.state == InstallState::kInstalled;
   });
-  const float multiplier = pan_installed && !momentum && NavigationPan::FieldsAvailable() && _this->panningStarted()
-                               ? Config::Get().graphics.system_pan_speed
-                               : 1.0f;
+  const float multiplier    = pan_installed && !momentum && NavigationPan::FieldsAvailable() && _this->panningStarted()
+                                  ? Config::Get().graphics.system_pan_speed
+                                  : 1.0f;
   auto& state = NavigationOrbit();
   auto* zoom  = state.zoom.Get<NavigationZoom>();
   if (zoom && NavigationOrbitEnabled() && NavigationOrbitSection()) {

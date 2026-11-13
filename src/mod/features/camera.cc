@@ -627,9 +627,11 @@ bool KeyboardPanAllowed()
 // one configured fade separately, while preserving native keyboard amplitude and restoring both fields.
 struct NativePanScalers {
   NavigationPan* pan;
-  float delta, keyboard;
+  float          delta, keyboard;
   NativePanScalers(NavigationPan* value, float speed)
-      : pan(value), delta(value->deltaScaler()), keyboard(value->keyboardDeltaScaler())
+      : pan(value)
+      , delta(value->deltaScaler())
+      , keyboard(value->keyboardDeltaScaler())
   {
     pan->SetDeltaScaler(1.0f);
     pan->SetKeyboardDeltaScaler(keyboard * delta * speed);
@@ -673,14 +675,15 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
   if (ReadPanSettings() != settings)
     return true;
   const auto current_pointer = unity::Input::TryPointerHeld();
-  if (!current_pointer || (current_pointer.value || _this->panningStarted()) != pointer || _this->trackingPOI() != tracked
-      || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked || !std::isfinite(d.x) || !std::isfinite(d.y)
-      || !std::isfinite(settings.falloff) || !std::isfinite(settings.speed))
+  if (!current_pointer || (current_pointer.value || _this->panningStarted()) != pointer
+      || _this->trackingPOI() != tracked || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked
+      || !std::isfinite(d.x) || !std::isfinite(d.y) || !std::isfinite(settings.falloff)
+      || !std::isfinite(settings.speed))
     return true;
   if (native) {
     if (!pointer) {
       const float native_delta = _this->deltaScaler(), native_keyboard = _this->keyboardDeltaScaler();
-      const auto faded = blocked ? unity::Vector2{} : d * settings.falloff;
+      const auto  faded = blocked ? unity::Vector2{} : d * settings.falloff;
       if (!std::isfinite(native_delta) || !std::isfinite(native_keyboard * native_delta * settings.speed)
           || !std::isfinite(faded.x) || !std::isfinite(faded.y))
         return true;

@@ -227,7 +227,7 @@ public:
     bool              free_resize         = true;
     bool              allow_cursor        = true;
     float             keyboard_zoom_speed = 350.0f;
-    float system_pan_speed = 1.0f;
+    float             system_pan_speed    = 1.0f;
     // Retained for frozen configuration compatibility; this legacy setting has no runtime effect.
     float system_pan_momentum = 0.4f;
     // How much of the pan speed is kept each frame after a drag or key is released.

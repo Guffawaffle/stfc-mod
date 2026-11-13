@@ -449,10 +449,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
         50);
   FLOAT("camera", graphics, system_pan_speed, "Pan speed", pan, Live,
         "Mouse/touch and keyboard speed: one is normal; half is slower; one and a half is faster.", "multiplier",
-        .01f, 10, 3, .1f);
+        std::numeric_limits<float>::denorm_min(), 10, 3, .1f);
   FLOAT("camera", graphics, system_pan_momentum_falloff, "Pan glide", pan, Live,
-        "Retained motion per pan update in both keyboard modes; zero stops immediately and one never decays.",
-        "ratio", 0, 1, .99f, .01f);
+        "Retained motion per pan update in both keyboard modes; zero stops immediately and one never decays.", "ratio",
+        0, 1, .99f, .01f);
   BOOL("camera", graphics, use_presets_as_default, "Use last preset as default zoom", zoom, Live,
        "Selecting a preset updates the session's default zoom.");
   FLOAT("camera", graphics, system_zoom_preset_1, "Zoom preset 1", zoom, Live, "Distance for zoom preset 1.",
