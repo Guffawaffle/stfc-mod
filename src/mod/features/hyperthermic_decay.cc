@@ -1,5 +1,5 @@
-// [ui].hyperthermic_decay_tracker: player-wide Beam Amplifiers, their native
-// first-round Decay subtotal, and individual expiries. No detours or Sync uploads.
+// [ui].hyperthermic_decay_tracker: native player-wide Beam Amplifier widgets.
+// The game owns their art, timer rings and click details. No detours or uploads.
 #include "config.h"
 #include "features/features.h"
 #include "features/hyperthermic_decay_hud.h"
@@ -11,7 +11,6 @@
 #include <spdlog/spdlog.h>
 
 #include <chrono>
-#include <iterator>
 #include <optional>
 #include <string>
 #include <vector>
@@ -26,18 +25,20 @@ struct DecayTracker {
   std::vector<hyperthermic_decay::Observation> observations;
   DecayClock::time_point                       next_context{}, next_update{};
   std::optional<hyperthermic_decay::Rows>      previous;
+  std::optional<bool>                          native_ready;
   il2cpp::GcHandle                             manager_root;
-  std::string                                  heading, left, right;
+  hyperthermic_decay_hud::BuffRoots            sources;
   bool                                         enabled = false, in_system = false;
 
   DecayTracker()
   { observations.reserve(hyperthermic_decay::kBuffDefinitions.size()); }
 
-  bool Read(bool diagnostics)
+  bool Read()
   {
     observations.clear();
-    const auto current = decay_binding::TryCurrentManager();
-    auto*      owner   = current ? current.value : nullptr;
+    hyperthermic_decay_hud::BuffRoots next_sources;
+    const auto                        current = decay_binding::TryCurrentManager();
+    auto*                             owner   = current ? current.value : nullptr;
     if (owner != manager_root.Get()) {
       previous.reset();
       manager_root = il2cpp::GcHandle::Strong(owner);
@@ -64,7 +65,8 @@ struct DecayTracker {
       const auto id = buff->TryId();
       if (!id)
         return false;
-      if (!hyperthermic_decay::FindBuff(id.value))
+      const auto* definition = hyperthermic_decay::FindBuff(id.value);
+      if (!definition)
         continue;
       const auto value  = buff->TryValue();
       const auto expiry = buff->TryExpiryTicks();
@@ -79,7 +81,8 @@ struct DecayTracker {
                                : buff->TryHasExpired();
       if (!value || !expired)
         return false;
-      const auto             rank = diagnostics ? buff->TryRank() : il2cpp::CallResult<int32_t>{};
+      // Rank participates in native context refresh even when diagnostics are off.
+      const auto             rank = buff->TryRank();
       std::optional<int64_t> seconds;
       if (server_time && expiry && expiry.value) {
         const auto ticks = *expiry.value - server_time.value;
@@ -88,7 +91,9 @@ struct DecayTracker {
       observations.push_back({id.value, value.value, expired.value, seconds,
                               rank ? std::optional<int32_t>{rank.value} : std::nullopt,
                               expiry ? expiry.value : std::nullopt});
+      next_sources[static_cast<size_t>(definition - hyperthermic_decay::kBuffDefinitions.data())] = std::move(element);
     }
+    sources = std::move(next_sources);
     return true;
   }
 
@@ -132,8 +137,10 @@ struct DecayTracker {
   void Clear()
   {
     hud.Clear();
+    sources = {};
     observations.clear();
     previous.reset();
+    native_ready.reset();
     manager_root.Reset();
     next_update = {};
     in_system   = false;
@@ -151,8 +158,8 @@ struct DecayTracker {
     }
     enabled        = true;
     const auto now = DecayClock::now();
-    // Ordinary frames do no managed work. Check scene context four times a
-    // second, and sample buffs/UI at most once a second while in System view.
+    // Mod discovery checks scene context four times a second and samples buffs
+    // once a second. Each visible native widget owns its normal game Update.
     if (now >= next_context) {
       next_context      = now + std::chrono::milliseconds(250);
       const bool system = Hub::CurrentSection() == SectionID::Navigation_System;
@@ -173,8 +180,7 @@ struct DecayTracker {
     const bool diagnostics = spdlog::should_log(spdlog::level::debug);
     if (!diagnostics)
       previous.reset();
-    const bool anomaly_timer = Config::Get().graphics.galactic_anomaly_timer;
-    if (!Read(diagnostics)) {
+    if (!Read()) {
       // An unreadable list cannot establish that any amplifier is applied.
       hud.Hide();
       if (previous)
@@ -186,38 +192,14 @@ struct DecayTracker {
     if (diagnostics)
       Trace(canonical);
     const auto summary = hyperthermic_decay::SummarizeRows(canonical);
-    if (!summary.active) {
+    if (!summary.active || !summary.valuesValid) {
       hud.Hide();
       return;
     }
-    if (!summary.valuesValid) {
-      hud.Show("Buff value unavailable", {}, {}, 0, 0, anomaly_timer);
-      return;
-    }
-    // Reuse three buffers; no per-row strings or intermediate vector/join.
-    heading.clear();
-    left.clear();
-    right.clear();
-    const auto count      = static_cast<size_t>(summary.active);
-    const auto left_count = count > 8 ? (count + 1) / 2 : count;
-    size_t     index      = 0;
-    for (const auto& row : canonical.entries) {
-      if (!row || !hyperthermic_decay::IsActive(row->observation))
-        continue;
-      auto& column = index++ < left_count ? left : right;
-      if (!column.empty())
-        column += '\n';
-      const auto& observation = row->observation;
-      fmt::format_to(std::back_inserter(column), "Lv {}   {:.0f}%   ", row->hostileLevel, observation.value * 100);
-      if (observation.remainingSeconds)
-        fmt::format_to(std::back_inserter(column), "{:02}:{:02}", *observation.remainingSeconds / 60,
-                       *observation.remainingSeconds % 60);
-      else
-        column += "--:--";
-    }
-    fmt::format_to(std::back_inserter(heading), "{:.0f}% · {} contributing", summary.decayPercent,
-                   summary.contributing);
-    hud.Show(heading, left, right, left_count, count - left_count, anomaly_timer);
+    const bool ready = hud.Show(canonical, sources, Config::Get().graphics.galactic_anomaly_timer);
+    if (diagnostics && native_ready != ready)
+      spdlog::debug("[HyperthermicDecay] native_widgets_ready={}", ready);
+    native_ready = ready;
   }
 };
 

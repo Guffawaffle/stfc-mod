@@ -125,44 +125,20 @@ struct SettingsPageContext : SettingsContext {
   }
 };
 
-struct SettingsDataProvider : il2cpp::Object {
-  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "IDataContextProvider">;
-};
-struct SettingsUntypedWidget : il2cpp::Object {
-  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "Widget">;
-  static il2cpp::Method BindMethod()
-  {
-    const auto method =
-        Class::Method<void(SettingsDataProvider*, settings_binding::ReferenceObject*)>("BindDataContext");
-    const auto* info = method.Info();
-    if (!info || !(info->flags & METHOD_ATTRIBUTE_VIRTUAL) || info->parameters_count != 2 || !info->parameters
-        || !settings_binding::Reference(info->parameters[0]) || !settings_binding::Reference(info->parameters[1])
-        || il2cpp_class_from_type(info->parameters[0]) != SettingsDataProvider::Class::Raw()
-        || il2cpp_class_from_type(info->parameters[1]) != il2cpp::ObjectClass())
-      return {};
-    return method;
-  }
-};
+using SettingsDataProvider  = WidgetDataProvider;
+using SettingsUntypedWidget = UntypedWidget;
 struct SettingsOptionPanel : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "OptionTabPanelWidget">;
   il2cpp::CallResult<void> TryBind(il2cpp::Array<SettingsOptionContext*>* rows)
   {
-    const auto schema = SettingsUntypedWidget::BindMethod();
-    if (!schema || !rows)
+    if (!rows)
       return {};
     auto* lists = il2cpp::Class<"mscorlib", "System.Collections", "IList">::Raw();
     if (!lists || !il2cpp_class_is_assignable_from(lists, rows->klass))
       return {};
-    const auto* actual = il2cpp_object_get_virtual_method(this, schema.Info());
-    if (!actual || (actual->flags & METHOD_ATTRIBUTE_STATIC) || !(actual->flags & METHOD_ATTRIBUTE_VIRTUAL)
-        || actual->slot != schema.Info()->slot || actual->parameters_count != 2 || !actual->parameters
-        || !actual->return_type || actual->return_type->byref || actual->return_type->type != IL2CPP_TYPE_VOID
-        || !settings_binding::Reference(actual->parameters[0]) || !settings_binding::Reference(actual->parameters[1])
-        || il2cpp_class_from_type(actual->parameters[0]) != SettingsDataProvider::Class::Raw()
-        || il2cpp_class_from_type(actual->parameters[1]) != il2cpp::ObjectClass())
-      return {};
-    return il2cpp::detail::TryInvoke<void>(actual, this, static_cast<SettingsDataProvider*>(nullptr),
-                                           reinterpret_cast<settings_binding::ReferenceObject*>(rows));
+    auto* widget = As<UntypedWidget>();
+    return widget ? widget->TryBindContext(nullptr, reinterpret_cast<il2cpp::Object*>(rows))
+                  : il2cpp::CallResult<void>{};
   }
 };
 struct SettingsPageController : il2cpp::Object {

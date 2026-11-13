@@ -2,6 +2,7 @@
 
 // Read the game's current player-wide automatic buffs. No service creation,
 // scene discovery, network requests, or combat-history reconstruction.
+#include "fleet.h"
 #include "settings.h"
 
 #include <il2cpp/il2cpp.h>
@@ -83,6 +84,71 @@ struct BuffData : il2cpp::Object {
     return {true, expiry.value.Ticks()};
   }
 };
+
+// The game's complete Manage Ship buff widget. Context binding/release must use
+// the virtual object overload: Widget<BuffData> also exposes a typed overload.
+struct AutoBuffWidget : Widget<BuffData> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ShipManagement", "ShipAutoBuffWidget">;
+
+  unity::GameObject* gameObject()
+  {
+    auto* component = As<unity::Component>();
+    return component ? component->gameObject() : nullptr;
+  }
+  unity::RectTransform* Rect()
+  {
+    auto* component = As<unity::Component>();
+    auto* transform = component ? component->transform() : nullptr;
+    return transform ? transform->As<unity::RectTransform>() : nullptr;
+  }
+  il2cpp::CallResult<void> TryBind(BuffData* data)
+  {
+    auto* widget = As<UntypedWidget>();
+    if (!widget || !data)
+      return {};
+    const auto bound = widget->TryBindContext(nullptr, data);
+    return bound && Context() == data ? il2cpp::CallResult<void>{true} : il2cpp::CallResult<void>{};
+  }
+  il2cpp::CallResult<void> TryRelease()
+  {
+    auto* widget = As<UntypedWidget>();
+    return widget ? widget->TryReleaseContext() : il2cpp::CallResult<void>{};
+  }
+};
+
+struct AutoBuffList : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "DynamicListContainer">;
+};
+
+struct AutoBuffTemplate {
+  unity::GameObject* object = nullptr;
+  // Zero means unavailable geometry, not an absent prefab. The consumer can
+  // choose a layout fallback without assigning a gameplay meaning to it.
+  float width = 0;
+};
+
+// Reads the existing registered Manage Ship controller; never opens a screen,
+// constructs its controller, scans scene objects, or refreshes its native list.
+// The returned prefab is borrowed. Root it before retaining or cloning it.
+inline il2cpp::CallResult<AutoBuffTemplate> TryAutoBuffTemplate()
+{
+  auto owner_root = il2cpp::GcHandle::Strong(
+      ScreenManager::RegisteredController<ShipManagementViewController, ShipManagementViewContext>());
+  auto* owner = owner_root.Get<ShipManagementViewController>();
+  if (!unity::Alive(owner))
+    return {};
+  auto  list_root = il2cpp::GcHandle::Strong(owner->Field<"_autoBuffsList", AutoBuffList*>());
+  auto* list      = list_root.Get<AutoBuffList>();
+  if (!unity::Alive(list))
+    return {};
+  const auto acquired = list->TryCall<"get_Template", unity::GameObject*>();
+  if (!acquired)
+    return {};
+  auto       prefab_root = il2cpp::GcHandle::Strong(acquired.value);
+  auto*      prefab      = prefab_root.Get<unity::GameObject>();
+  const auto width       = prefab ? list->TryCall<"get_TemplateWidth", float>() : il2cpp::CallResult<float>{};
+  return {true, {prefab, width ? width.value : 0.0f}};
+}
 
 struct Service : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "BuffService">;

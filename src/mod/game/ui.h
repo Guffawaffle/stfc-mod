@@ -28,6 +28,81 @@ template <typename T> struct Widget : il2cpp::Object {
   { return Call<"IsActive", bool>(); }
 };
 
+struct WidgetDataProvider : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "IDataContextProvider">;
+};
+
+// Bind through Widget's object overload: Widget<T> also declares a typed
+// overload, and reference assignability alone cannot distinguish those two.
+struct UntypedWidget : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "Widget">;
+
+  static il2cpp::Method BindMethod()
+  {
+    static const auto method = [] {
+      const auto candidate = Class::Method<void(WidgetDataProvider*, il2cpp::Object*)>("BindDataContext");
+      return BindSignature(candidate.Info()) ? candidate : il2cpp::Method{};
+    }();
+    return method;
+  }
+
+  // Arguments are borrowed. The owner keeps the widget and context rooted
+  // while bound; TryReleaseContext, rather than a null bind, clears the context.
+  il2cpp::CallResult<void> TryBindContext(WidgetDataProvider* provider, il2cpp::Object* context)
+  {
+    const auto schema = BindMethod();
+    if (!schema || !context || !IsReceiver())
+      return {};
+    const auto* actual = il2cpp_object_get_virtual_method(this, schema.Info());
+    if (!actual || actual->slot != schema.Info()->slot || !BindSignature(actual))
+      return {};
+    return il2cpp::detail::TryInvoke<void>(actual, this, provider, context);
+  }
+
+  // Virtual dispatch is essential: Widget<T>'s sealed override removes its
+  // reactive subscription and clears the typed context before destruction.
+  il2cpp::CallResult<void> TryReleaseContext()
+  {
+    static const auto schema = [] {
+      const auto candidate = Class::Method<void()>("ReleaseDataContext");
+      return ReleaseSignature(candidate.Info()) ? candidate : il2cpp::Method{};
+    }();
+    if (!schema || !IsReceiver())
+      return {};
+    const auto* actual = il2cpp_object_get_virtual_method(this, schema.Info());
+    if (!actual || actual->slot != schema.Info()->slot || !ReleaseSignature(actual))
+      return {};
+    return il2cpp::detail::TryInvoke<void>(actual, this);
+  }
+
+private:
+  static bool ReferenceIs(const Il2CppType* type, Il2CppClass* expected)
+  {
+    return type && !type->byref && expected
+           && (type->type == IL2CPP_TYPE_CLASS || type->type == IL2CPP_TYPE_OBJECT
+               || type->type == IL2CPP_TYPE_GENERICINST)
+           && !il2cpp_class_is_valuetype(expected) && il2cpp_class_from_type(type) == expected;
+  }
+  static bool VirtualVoid(const MethodInfo* method)
+  {
+    return method && !(method->flags & METHOD_ATTRIBUTE_STATIC) && (method->flags & METHOD_ATTRIBUTE_VIRTUAL)
+           && method->return_type && !method->return_type->byref && method->return_type->type == IL2CPP_TYPE_VOID;
+  }
+  static bool BindSignature(const MethodInfo* method)
+  {
+    return VirtualVoid(method) && method->parameters_count == 2 && method->parameters
+           && ReferenceIs(method->parameters[0], WidgetDataProvider::Class::Raw())
+           && ReferenceIs(method->parameters[1], il2cpp::ObjectClass());
+  }
+  static bool ReleaseSignature(const MethodInfo* method)
+  { return VirtualVoid(method) && method->parameters_count == 0; }
+  bool IsReceiver()
+  {
+    auto* expected = Class::Raw();
+    return expected && klass && il2cpp_class_is_assignable_from(expected, klass);
+  }
+};
+
 enum class VisibilityState : int32_t {
   Unknown = 0,
   Show    = 1,
