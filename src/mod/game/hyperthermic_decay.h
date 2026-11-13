@@ -4,6 +4,7 @@
 // scene discovery, network requests, or combat-history reconstruction.
 #include "fleet.h"
 #include "settings.h"
+#include "ship_tech.h"
 
 #include <il2cpp/il2cpp.h>
 
@@ -108,6 +109,33 @@ struct AutoBuffWidget : Widget<BuffData> {
       return {};
     const auto bound = widget->TryBindContext(nullptr, data);
     return bound && Context() == data ? il2cpp::CallResult<void>{true} : il2cpp::CallResult<void>{};
+  }
+  // Only for an owned clone, after each native bind. Keep the selector, center
+  // Image and its raycast target alive for the native click/tooltip path; the
+  // timer ring is a separate Image. Overlay labels must not receive raycasts.
+  il2cpp::CallResult<void> TryMuteCenterIcon()
+  {
+    auto  selector_root = il2cpp::GcHandle::Strong(Field<"_iconImage", ship_tech_binding::ImageSelector*>());
+    auto* selector      = selector_root.Get<ship_tech_binding::ImageSelector>();
+    if (!unity::Alive(selector))
+      return {};
+    auto  image_root = il2cpp::GcHandle::Strong(selector->Target());
+    auto* image      = image_root.Get<unity::Image>();
+    auto  timer_root = il2cpp::GcHandle::Strong(Field<"_timerImage", unity::Image*>());
+    auto* timer      = timer_root.Get<unity::Image>();
+    if (!unity::Alive(image) || !unity::Alive(timer) || image == timer)
+      return {};
+    const auto observed = image->TryCall<"get_color", unity::Color>();
+    if (!observed)
+      return {};
+    if (observed.value.a == 0.0f)
+      return {true};
+    auto color = observed.value;
+    color.a    = 0.0f;
+    if (!image->TryCall<"set_color", void(unity::Color)>(color))
+      return {};
+    const auto muted = image->TryCall<"get_color", unity::Color>();
+    return muted && muted.value.a == 0.0f ? il2cpp::CallResult<void>{true} : il2cpp::CallResult<void>{};
   }
   il2cpp::CallResult<void> TryRelease()
   {

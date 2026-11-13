@@ -516,8 +516,8 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Show player ships known to this client in the viewed system. Ships not received from the server are not "
        "counted.");
   BOOL("travel", ui, hyperthermic_decay_tracker, "Hyperthermic Decay tracker", Owner("HyperthermicDecay"), Live,
-       "Show native Beam Amplifier icons and countdown rings in System view. Click an icon for the game's buff "
-       "details.");
+       "Show native Beam Amplifier countdown rings with hostile levels and contributions in System view. Click a "
+       "ring for the game's buff details.");
 
   BOOL("previews", ui, disable_preview_locate, "Block Locate with an open preview", hotkeys, Live,
        "Keep Locate from dismissing a target preview.");

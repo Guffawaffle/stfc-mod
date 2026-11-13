@@ -12,15 +12,17 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <optional>
+#include <string>
 #include <utility>
 
 namespace hyperthermic_decay_hud
 {
 using BuffRoots = std::array<il2cpp::GcHandle, hyperthermic_decay::kBuffDefinitions.size()>;
 
-// Own the mount and cloned native widgets. The game owns their art, countdown,
-// localization and click tooltip. Context discovery stays on the main thread.
+// Own the mount, cloned native widgets and change-only labels. The game owns
+// the countdown rings and click tooltip. All work stays on the main thread.
 class Hud
 {
 public:
@@ -51,7 +53,8 @@ public:
       Hide();
       return false;
     }
-    bool layout_changed = !layout_valid_ || wanted != shown_ || anomaly_timer != anomaly_timer_;
+    auto* font           = AcquireFont();
+    bool  layout_changed = !layout_valid_ || wanted != shown_ || anomaly_timer != anomaly_timer_;
     for (size_t index = 0; index < dots_.size(); ++index) {
       auto& dot = dots_[index];
       if (!wanted[index]) {
@@ -84,6 +87,7 @@ public:
         layout_changed = true;
       }
       const auto& observation = rows.entries[index]->observation;
+      bool        rebound     = false;
       if (dot.context.Get() != context || !dot.observation
           || !hyperthermic_decay::SameNativeObservation(*dot.observation, observation)) {
         Deactivate();
@@ -93,17 +97,23 @@ public:
           Hide();
           return false;
         }
+        rebound = true;
+      }
+      if (font && !dot.Decorate(font, *rows.entries[index], dot_width_, rebound)) {
+        Hide();
+        return false;
       }
     }
     if (layout_changed) {
       constexpr size_t columns = 8;
       constexpr float  gap     = 4;
+      const float      height  = dot_width_ + 22;
       const auto       cols    = std::min(count, columns);
       const auto       lines   = (count + columns - 1) / columns;
       rect_.Get<unity::RectTransform>()->Place(
           {1, 0}, {1, 0}, {1, 1},
           {static_cast<float>(cols) * dot_width_ + static_cast<float>(cols - 1) * gap,
-           static_cast<float>(lines) * dot_width_ + static_cast<float>(lines - 1) * gap},
+           static_cast<float>(lines) * height + static_cast<float>(lines - 1) * gap},
           {-4, anomaly_timer ? -84.0f : -40.0f});
       size_t position = 0;
       for (size_t index = 0; index < dots_.size(); ++index) {
@@ -112,7 +122,7 @@ public:
         dots_[index].rect.Get<unity::RectTransform>()->Place(
             {0, 1}, {0, 1}, {0, 1}, {dot_width_, dot_width_},
             {static_cast<float>(position % columns) * (dot_width_ + gap),
-             -static_cast<float>(position / columns) * (dot_width_ + gap)});
+             -static_cast<float>(position / columns) * (height + gap)});
         ++position;
       }
       shown_         = wanted;
@@ -141,6 +151,7 @@ public:
   void Clear()
   {
     ClearDots();
+    font_.Reset();
     prefab_.Reset();
     parent_object_.Reset();
     parent_.Reset();
@@ -155,8 +166,12 @@ private:
   using Clock = std::chrono::steady_clock;
   struct Dot {
     il2cpp::GcHandle                               object, widget, rect, context;
+    il2cpp::GcHandle                               level_object, level_label, percent_object, percent_label, font;
     std::optional<hyperthermic_decay::Observation> observation;
-    bool                                           visible = false;
+    std::optional<double>                          shown_value;
+    int32_t                                        shown_level = -1;
+    bool                                           decorated   = false;
+    bool                                           visible     = false;
 
     bool Valid() const
     { return unity::Alive(object.Get()) && unity::Alive(widget.Get()) && unity::Alive(rect.Get()); }
@@ -178,6 +193,90 @@ private:
       return true;
     }
 
+    bool LabelsValid() const
+    {
+      return unity::Alive(level_object.Get()) && unity::Alive(level_label.Get()) && unity::Alive(percent_object.Get())
+             && unity::Alive(percent_label.Get());
+    }
+
+    bool CreateLabels(il2cpp::Object* native_font, float width)
+    {
+      DestroyLabels();
+      font              = il2cpp::GcHandle::Strong(native_font);
+      const auto create = [&](const char* name, il2cpp::GcHandle& child, il2cpp::GcHandle& label, bool center) {
+        auto* transform = unity::CreateUiObject(name, rect.Get<unity::RectTransform>(), child);
+        auto* owner     = child.Get<unity::GameObject>();
+        label = il2cpp::GcHandle::Strong(transform && owner ? owner->AddComponent<unity::TextMeshProUGUI>() : nullptr);
+        auto* text   = label.Get<unity::TextMeshProUGUI>();
+        auto* layout = text ? owner->AddComponent<unity::LayoutElement>() : nullptr;
+        if (!text || !layout || !layout->ExcludeFromLayout() || !text->TryCall<"set_raycastTarget", void(bool)>(false))
+          return false;
+        if (center)
+          transform->Place({0.5f, 0.5f}, {0.5f, 0.5f}, {0.5f, 0.5f}, {width - 4, width - 4}, {0, 0});
+        else
+          transform->Place({0.5f, 0}, {0.5f, 0}, {0.5f, 1}, {width + 4, 20}, {0, -2});
+        text->SetFont(native_font);
+        text->SetFontSize(center ? std::clamp(width * 0.5f, 18.0f, 28.0f) : 16.0f);
+        text->SetAlignment(unity::TMP_Text::Alignment::Center);
+        text->SetColor({0.92f, 0.98f, 0.94f, 1});
+        text->SetEnableWordWrapping(false);
+        text->SetEnableAutoSizing(false);
+        text->SetRichText(false);
+        text->SetOverflowMode(unity::TMP_Text::Overflow::Ellipsis);
+        return true;
+      };
+      if (!font || !create("HostileLevel", level_object, level_label, true)
+          || !create("AmplifierPercent", percent_object, percent_label, false)) {
+        DestroyLabels();
+        return false;
+      }
+      return true;
+    }
+
+    bool Decorate(il2cpp::Object* native_font, const hyperthermic_decay::Row& row, float width, bool rebound)
+    {
+      if ((!LabelsValid() || font.Get() != native_font) && !CreateLabels(native_font, width))
+        return false;
+      auto* level   = level_label.Get<unity::TextMeshProUGUI>();
+      auto* percent = percent_label.Get<unity::TextMeshProUGUI>();
+      if (shown_level != row.hostileLevel) {
+        level->SetText(std::to_string(row.hostileLevel));
+        shown_level = row.hostileLevel;
+      }
+      if (shown_value != row.observation.value) {
+        percent->SetText(std::format("{:.3g}%", row.observation.value * 100));
+        percent->SetColor(row.observation.value > 0 ? unity::Color{0.35f, 0.95f, 0.55f, 1}
+                                                    : unity::Color{0.72f, 0.78f, 0.82f, 1});
+        shown_value = row.observation.value;
+      }
+      // Native binding can refresh the icon; apply our copy's decoration only
+      // afterwards, without altering its timer image or click target.
+      if ((!decorated || rebound) && !widget.Get<hyperthermic_decay_binding::AutoBuffWidget>()->TryMuteCenterIcon())
+        return false;
+      if (!decorated) {
+        level_object.Get<unity::GameObject>()->SetActive(true);
+        percent_object.Get<unity::GameObject>()->SetActive(true);
+        decorated = true;
+      }
+      return true;
+    }
+
+    void DestroyLabels()
+    {
+      if (unity::Alive(level_object.Get()))
+        unity::Destroy(level_object.Get());
+      if (unity::Alive(percent_object.Get()))
+        unity::Destroy(percent_object.Get());
+      level_label.Reset();
+      percent_label.Reset();
+      level_object.Reset();
+      percent_object.Reset();
+      font.Reset();
+      shown_value.reset();
+      shown_level = -1;
+      decorated   = false;
+    }
+
     void Release()
     {
       if (visible && unity::Alive(object.Get()))
@@ -186,6 +285,7 @@ private:
       if (context && unity::Alive(widget.Get())
           && !widget.Get<hyperthermic_decay_binding::AutoBuffWidget>()->TryRelease()) {
         // A failed native unbind is not a reusable pool entry.
+        DestroyLabels();
         if (unity::Alive(object.Get()))
           unity::Destroy(object.Get());
         rect.Reset();
@@ -199,6 +299,7 @@ private:
     void Destroy()
     {
       Release();
+      DestroyLabels();
       if (unity::Alive(object.Get()))
         unity::Destroy(object.Get());
       rect.Reset();
@@ -304,7 +405,37 @@ private:
     return static_cast<bool>(prefab_);
   }
 
-  il2cpp::GcHandle navigation_, drawer_, promotion_, chest_, parent_, parent_object_, prefab_, root_, rect_;
+  il2cpp::Object* AcquireFont()
+  {
+    if (unity::Alive(font_.Get()))
+      return font_.Get<il2cpp::Object>();
+    auto*      navigation  = navigation_.Get<HudNavigationViewController>();
+    auto       helper      = il2cpp::GcHandle::Strong(navigation->factionInformationHelper());
+    auto*      information = helper.Get<FactionInformation>();
+    auto       names       = il2cpp::GcHandle::Strong(information ? information->systemName() : nullptr);
+    auto*      labels      = names.Get<il2cpp::List<unity::Component*>>();
+    const auto count       = labels ? labels->TryCall<"get_Count", int32_t>() : il2cpp::CallResult<int32_t>{};
+    if (!count || count.value < 0)
+      return nullptr;
+    // Reuse a HUD font through its known owner. No scene-wide text discovery.
+    for (int32_t index = 0; index < count.value; ++index) {
+      const auto item      = labels->TryCall<"get_Item", unity::Component*>(index);
+      auto       name      = il2cpp::GcHandle::Strong(item ? item.value : nullptr);
+      auto*      component = name.Get<unity::Component>();
+      auto       object    = il2cpp::GcHandle::Strong(unity::Alive(component) ? component->gameObject() : nullptr);
+      auto*      owner     = object.Get<unity::GameObject>();
+      auto       label     = il2cpp::GcHandle::Strong(owner ? owner->GetComponent<unity::TextMeshProUGUI>() : nullptr);
+      auto*      text      = label.Get<unity::TextMeshProUGUI>();
+      auto       font      = il2cpp::GcHandle::Strong(unity::Alive(text) ? text->font() : nullptr);
+      if (unity::Alive(font.Get())) {
+        font_ = std::move(font);
+        return font_.Get<il2cpp::Object>();
+      }
+    }
+    return nullptr;
+  }
+
+  il2cpp::GcHandle navigation_, drawer_, promotion_, chest_, parent_, parent_object_, prefab_, root_, rect_, font_;
   std::array<Dot, hyperthermic_decay::kBuffDefinitions.size()>  dots_{};
   std::array<bool, hyperthermic_decay::kBuffDefinitions.size()> shown_{};
   Clock::time_point                                             next_registry_check_{};

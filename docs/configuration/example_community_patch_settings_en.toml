@@ -810,7 +810,7 @@ allow_officer_preset_reordering = false
 # Ships not received from the server are not counted. Applies live.
 system_player_ship_counter = true
 
-# Show native Beam Amplifier icons and countdown rings in System view.
+# Show native Beam Amplifier rings with hostile levels and contributions in System view.
 # Click an icon for the game's buff details.
 hyperthermic_decay_tracker = true
 
