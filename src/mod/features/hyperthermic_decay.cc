@@ -175,7 +175,8 @@ struct DecayTracker {
       previous.reset();
     const bool anomaly_timer = Config::Get().graphics.galactic_anomaly_timer;
     if (!Read(diagnostics)) {
-      hud.Show("Hyperthermic Decay\nWaiting for buff data\nBeam amplifiers only", {}, {}, 0, 0, anomaly_timer);
+      // An unreadable list cannot establish that any amplifier is applied.
+      hud.Hide();
       if (previous)
         spdlog::debug("[HyperthermicDecay] observation=unavailable");
       previous.reset();
@@ -185,6 +186,10 @@ struct DecayTracker {
     if (diagnostics)
       Trace(canonical);
     const auto summary = hyperthermic_decay::SummarizeRows(canonical);
+    if (!summary.active) {
+      hud.Hide();
+      return;
+    }
     if (!summary.valuesValid) {
       hud.Show("Hyperthermic Decay\nBuff value unavailable\nBeam amplifiers only", {}, {}, 0, 0, anomaly_timer);
       return;
@@ -212,8 +217,6 @@ struct DecayTracker {
     }
     fmt::format_to(std::back_inserter(heading), "Hyperthermic Decay\n{:.0f}% · {} contributing\nBeam amplifiers only",
                    summary.decayPercent, summary.contributing);
-    if (!count)
-      heading += "\nNo active amplifiers";
     hud.Show(heading, left, right, left_count, count - left_count, anomaly_timer);
   }
 };

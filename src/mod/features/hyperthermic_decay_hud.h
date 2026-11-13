@@ -28,8 +28,9 @@ public:
       return false;
     if (root_ && !PanelValid())
       ClearPanel();
-    prepared_ = root_ || Create(navigation_.Get<HudNavigationViewController>());
-    return prepared_;
+    // Resolve custody without creating visible UI for an empty buff set.
+    prepared_ = true;
+    return true;
   }
 
   // Prepare already checked the owners during this main-thread observation.
@@ -37,7 +38,7 @@ public:
   void Show(std::string_view heading, std::string_view left, std::string_view right, size_t left_count,
             size_t right_count, bool anomaly_timer)
   {
-    if (!prepared_)
+    if (!prepared_ || (!root_ && !Create(navigation_.Get<HudNavigationViewController>())))
       return;
     SetText(heading_, heading, shown_heading_);
     SetText(left_, left, shown_left_);
@@ -52,6 +53,17 @@ public:
       anomaly_timer_ = anomaly_timer;
       layout_valid_  = true;
     }
+    if (!visible_) {
+      root_.Get<unity::GameObject>()->SetActive(true);
+      visible_ = true;
+    }
+  }
+
+  void Hide()
+  {
+    if (visible_ && unity::Alive(root_.Get()))
+      root_.Get<unity::GameObject>()->SetActive(false);
+    visible_ = false;
   }
 
   void Clear()
@@ -167,6 +179,7 @@ private:
     shown_right_.clear();
     layout_valid_ = false;
     prepared_     = false;
+    visible_      = false;
   }
 
   static FontSource FindFont(HudNavigationViewController* nav)
@@ -307,7 +320,6 @@ private:
       ClearPanel();
       return false;
     }
-    object->SetActive(true);
     layout_valid_ = false;
     return true;
   }
@@ -317,6 +329,6 @@ private:
   Clock::time_point next_registry_check_{};
   std::string       shown_heading_, shown_left_, shown_right_;
   size_t            heading_lines_ = 0, left_count_ = 0, right_count_ = 0;
-  bool              layout_valid_ = false, anomaly_timer_ = false, prepared_ = false;
+  bool              layout_valid_ = false, anomaly_timer_ = false, prepared_ = false, visible_ = false;
 };
 } // namespace hyperthermic_decay_hud
