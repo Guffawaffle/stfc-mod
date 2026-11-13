@@ -15,18 +15,25 @@ scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 work=$(mktemp -d "$RUNNER_TEMP/stfc-macos.XXXXXX")
 keychain="$RUNNER_TEMP/stfc-signing.keychain-db"
-original_keychains=()
 keychain_created=false
+signing_complete=false
+restore_keychains=(security list-keychains -d user -s)
+signing_keychains=(security list-keychains -d user -s "$keychain")
 mount="$work/mount"
 mkdir -p "$mount" signed-macos macos-notarization-evidence macos-notarization-payloads
 cleanup() {
+  local exit_status=$?
+  # Bash 3 can enter EXIT after an expansion error with status zero.
+  # A signed package is successful only after the final provenance is written.
+  [[ "$signing_complete" == true ]] || exit_status=1
   hdiutil detach "$mount" -quiet 2>/dev/null || true
   if [[ "$keychain_created" == true ]]; then
-    security list-keychains -d user -s "${original_keychains[@]}" || true
-    security delete-keychain "$keychain" 2>/dev/null || true
+    "${restore_keychains[@]}" || exit_status=1
+    security delete-keychain "$keychain" 2>/dev/null || exit_status=1
   fi
   # mktemp above owns this directory; it contains no user files.
-  rm -rf "$work"
+  rm -rf "$work" || exit_status=1
+  exit "$exit_status"
 }
 trap cleanup EXIT
 
@@ -53,40 +60,44 @@ unsigned_launcher_hash=$(shasum -a 256 "$launcher" | awk '{print $1}')
 # its relationship to the selected run before replacing any bundle metadata.
 embedded_source=$(/usr/libexec/PlistBuddy -c 'Print :STFCSourceCommit' "$app/Contents/Info.plist")
 [[ "$embedded_source" =~ ^[0-9a-f]{40}$ ]]
-source_commit=()
+source_check=(verify-source --selection "$RUNNER_TEMP/mac-input.json" --source "$embedded_source"
+  --output signed-macos/mac-source-identity.json)
 if [[ "$embedded_source" != "$SOURCE_SHA" ]]; then
   [[ "${SOURCE_KIND:-}" == pull-request-run-head ]]
   gh api "repos/$GITHUB_REPOSITORY/commits/$embedded_source" > "$work/producer-commit.json"
-  source_commit=(--commit-json "$work/producer-commit.json")
+  source_check+=(--commit-json "$work/producer-commit.json")
 fi
-python3 "$scripts/ci-signing-input.py" verify-source --selection "$RUNNER_TEMP/mac-input.json" \
-  --source "$embedded_source" "${source_commit[@]}" --output signed-macos/mac-source-identity.json
+python3 "$scripts/ci-signing-input.py" "${source_check[@]}"
 source_relationship=$(jq -r .source_relationship signed-macos/mac-source-identity.json)
 
 # Only trusted controller code chooses the player-facing identity. CI artifacts
 # remain the exact selected input; stamping changes bundle metadata and artwork,
 # never the library, loader or launcher. Reject bad tags before opening a keychain.
-stamp_tag=()
-if [[ -n "${RELEASE_TAG:-}" ]]; then stamp_tag=(--release-tag "$RELEASE_TAG"); fi
-python3 "$scripts/mac-build-identity.py" stamp --app "$app" --channel "$BUILD_CHANNEL" \
-  "${stamp_tag[@]}" --source "$embedded_source" --run-id "$BUILD_RUN_ID" \
-  --run-number "$BUILD_RUN_NUMBER" --run-attempt "$BUILD_RUN_ATTEMPT" \
-  --icons-dir "$scripts/../assets/launcher-icons" --receipt signed-macos/mac-build-identity.json
+stamp_args=(stamp --app "$app" --channel "$BUILD_CHANNEL" --source "$embedded_source" --run-id "$BUILD_RUN_ID"
+  --run-number "$BUILD_RUN_NUMBER" --run-attempt "$BUILD_RUN_ATTEMPT"
+  --icons-dir "$scripts/../assets/launcher-icons" --receipt signed-macos/mac-build-identity.json)
+if [[ -n "${RELEASE_TAG:-}" ]]; then stamp_args+=(--release-tag "$RELEASE_TAG"); fi
+python3 "$scripts/mac-build-identity.py" "${stamp_args[@]}"
 [[ "$(shasum -a 256 "$library" | awk '{print $1}')" == "$unsigned_library_hash" ]]
 [[ "$(shasum -a 256 "$loader" | awk '{print $1}')" == "$unsigned_loader_hash" ]]
 [[ "$(shasum -a 256 "$launcher" | awk '{print $1}')" == "$unsigned_launcher_hash" ]]
 selected_icon_hash=$(shasum -a 256 "$app/Contents/Resources/launcher.icns" | awk '{print $1}')
 
+# Observe the old search list successfully before creating/replacing a keychain.
+keychain_list=$(security list-keychains -d user | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
 while IFS= read -r entry; do
-  original_keychains+=("$entry")
-done < <(security list-keychains -d user | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
+  if [[ -n "$entry" ]]; then
+    restore_keychains+=("$entry")
+    signing_keychains+=("$entry")
+  fi
+done <<< "$keychain_list"
 printf '%s' "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$work/identity.p12"
 keychain_password=$(openssl rand -hex 32)
 security create-keychain -p "$keychain_password" "$keychain"
 keychain_created=true
 security set-keychain-settings -lut 3600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
-security list-keychains -d user -s "$keychain" "${original_keychains[@]}"
+"${signing_keychains[@]}"
 security import "$work/identity.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
 security find-identity -v -p codesigning "$keychain" \
@@ -241,3 +252,4 @@ jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}
     launcherBuildIdentity:$identity[0],installerVolumeIconSha256:$icon,
     notarizationContainer:"dmg",submittedDmgSha256:$submittedDmg,
     dmgNotarization:$dmgTicket[0]}' > signed-macos/macos-provenance.json
+signing_complete=true
