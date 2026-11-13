@@ -127,14 +127,103 @@ struct AutoBuffTemplate {
   float width = 0;
 };
 
-// Reads the existing registered Manage Ship controller; never opens a screen,
-// constructs its controller, scans scene objects, or refreshes its native list.
+struct SectionDirector : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Sections", "SectionDirectorBase">;
+};
+struct ShipDetailsDirector : SectionDirector {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Ships", "ShipManagementDetailsSectionDirector">;
+};
+struct SectionRegistry : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Sections", "SectionDirectorMemoryManager">;
+};
+struct ScreenLoader : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "GenericLoadAndShowUI">;
+};
+struct ScreenResource : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Engine.AssetBundle.Runtime", "Digit.Client.AssetBundles", "AssetBundleResource">;
+};
+struct SectionDictionary : il2cpp::Object {
+};
+
+inline bool SectionDictionaryClass(const il2cpp::Object& object)
+{
+  return il2cpp::detail::Lookup<SectionDictionary>(object, [](Il2CppClass* klass) {
+    using IdClass = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Sections", "SectionID">;
+    if (!klass || il2cpp_class_is_valuetype(klass)
+        || std::strcmp(il2cpp_class_get_namespace(klass), "System.Collections.Generic")
+        || std::strcmp(il2cpp_class_get_name(klass), "Dictionary`2"))
+      return false;
+    const auto* contains = il2cpp::detail::MethodCall<bool(SectionID)>::Resolve(klass, "ContainsKey", false);
+    const auto* item     = il2cpp::detail::MethodCall<SectionDirector*(SectionID)>::Resolve(klass, "get_Item", false);
+    return contains && item && il2cpp::detail::ExactScalarMatches(contains->return_type, IL2CPP_TYPE_BOOLEAN)
+           && !contains->parameters[0]->byref && !item->parameters[0]->byref
+           && il2cpp_class_from_type(contains->parameters[0]) == IdClass::Raw()
+           && il2cpp_class_from_type(item->parameters[0]) == IdClass::Raw()
+           && il2cpp_class_from_type(item->return_type) == SectionDirector::Class::Raw();
+  });
+}
+
+// Reads the exact Manage Ship section's already-loaded prefab, including its
+// inactive components. Never opens a screen, loads an asset, creates a director,
+// scans scene objects, or refreshes a native list. A cold/unloaded section is
+// unavailable, not proof that its prefab or native buff widget is absent.
 // The returned prefab is borrowed. Root it before retaining or cloning it.
 inline il2cpp::CallResult<AutoBuffTemplate> TryAutoBuffTemplate()
 {
-  auto owner_root = il2cpp::GcHandle::Strong(
-      ScreenManager::RegisteredController<ShipManagementViewController, ShipManagementViewContext>());
-  auto* owner = owner_root.Get<ShipManagementViewController>();
+  static auto* instance = [] {
+    auto* klass = SectionRegistry::Class::Raw();
+    auto* field = klass ? il2cpp_class_get_field_from_name(klass, "_instance") : nullptr;
+    return field && settings_binding::Reference(field->type) && (field->type->attrs & FIELD_ATTRIBUTE_STATIC)
+                   && il2cpp_class_from_type(field->type) == klass
+               ? field
+               : nullptr;
+  }();
+  if (!instance)
+    return {};
+  // get_Instance constructs the registry when absent. Read the existing static
+  // reference without calling that allocating Instance getter.
+  SectionRegistry* existing = nullptr;
+  il2cpp_field_static_get_value(instance, &existing);
+  auto  registry_root = il2cpp::GcHandle::Strong(existing);
+  auto* registry      = registry_root.Get<SectionRegistry>();
+  if (!registry)
+    return {};
+  const auto sections        = registry->TryCall<"get_SectionIDToBase", settings_binding::ReferenceObject*>();
+  auto       dictionary_root = il2cpp::GcHandle::Strong(sections ? sections.value : nullptr);
+  auto*      dictionary      = dictionary_root.Get<SectionDictionary>();
+  if (!dictionary || !SectionDictionaryClass(*dictionary))
+    return {};
+  const auto contains = dictionary->TryCall<"ContainsKey", bool(SectionID)>(SectionID::ShipManagement_Details);
+  if (!contains || !contains.value)
+    return {};
+  const auto section = dictionary->TryCall<"get_Item", SectionDirector*(SectionID)>(SectionID::ShipManagement_Details);
+  auto       director_root = il2cpp::GcHandle::Strong(section ? section.value : nullptr);
+  auto*      base_director = director_root.Get<SectionDirector>();
+  auto*      director      = base_director ? base_director->As<ShipDetailsDirector>() : nullptr;
+  if (!unity::Alive(director))
+    return {};
+  auto  loader_root = il2cpp::GcHandle::Strong(director->Field<"_loadAndShow", ScreenLoader*>());
+  auto* loader      = loader_root.Get<ScreenLoader>();
+  if (!unity::Alive(loader))
+    return {};
+  const auto resource         = loader->TryCall<"get_Resource", ScreenResource*>();
+  auto       resource_root    = il2cpp::GcHandle::Strong(resource ? resource.value : nullptr);
+  auto*      current_resource = resource_root.Get<ScreenResource>();
+  if (!current_resource)
+    return {};
+  const auto loaded        = current_resource->TryCall<"get_LoadedResource", unity::GameObject*>();
+  auto       loaded_root   = il2cpp::GcHandle::Strong(loaded ? loaded.value : nullptr);
+  auto*      loaded_object = loaded_root.Get<il2cpp::Object>();
+  auto*      loaded_prefab = loaded_object ? loaded_object->As<unity::GameObject>() : nullptr;
+  if (!unity::Alive(loaded_prefab))
+    return {};
+  auto* owner_type = ShipManagementViewController::Class::TypeObject();
+  if (!owner_type)
+    return {};
+  const auto controller =
+      loaded_prefab->TryCall<"GetComponentInChildren", ShipManagementViewController*>(owner_type, true);
+  auto  owner_root = il2cpp::GcHandle::Strong(controller ? controller.value : nullptr);
+  auto* owner      = owner_root.Get<ShipManagementViewController>();
   if (!unity::Alive(owner))
     return {};
   auto  list_root = il2cpp::GcHandle::Strong(owner->Field<"_autoBuffsList", AutoBuffList*>());
@@ -195,9 +284,9 @@ struct Manager : unity::Behaviour {
                                               : il2cpp::CallResult<Service*>{};
   }
 
-  // The returned list is borrowed. Root it while traversing, and never retain
-  // its elements beyond that observation. A missing baseline is unavailable,
-  // not an observed empty buff set.
+  // The returned list is borrowed. Root it while traversing; any retained buff
+  // needs its own root, held through the native widget's unbind lifecycle.
+  // A missing baseline is unavailable, not an observed empty buff set.
   il2cpp::CallResult<BuffList*> TryActiveBuffs()
   {
     // The native facade looks up an existing registry service and warms its
