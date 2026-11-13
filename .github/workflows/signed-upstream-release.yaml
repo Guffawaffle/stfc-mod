@@ -180,15 +180,14 @@ jobs:
           '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
         } | Set-Content release/SHA256SUMS.txt -Encoding ascii
         @"
-        A signed preview of upstream development version 1.1.11.1 with [pan speed and momentum controls](https://github.com/STFC-Mod/mod/pull/362).
+        A signed preview of upstream development version 1.1.11.1 with [adjustable pan momentum](https://github.com/STFC-Mod/mod/pull/362).
 
-        Keeps the double-movement drag fix and makes speed and release glide consistent for mouse/touch and keyboard panning.
-        Under [graphics] in community_patch_settings.toml:
+        Keeps the double-movement drag fix and applies momentum falloff consistently after releasing a drag or movement keys, in both keyboard modes.
+        This setting works without experimental mode. Under [graphics] in community_patch_settings.toml:
 
-            system_pan_speed = 1.0
             system_pan_momentum_falloff = 0.8
 
-        Speed: 1.0 is normal, 0.5 is half speed, 1.5 is 50% faster. Falloff: lower values stop sooner; higher values glide longer (0 = immediate stop, 1 = no decay). Existing falloff settings are preserved. The unused system_pan_momentum setting is retired.
+        Lower values stop sooner; higher values glide longer (0 = immediate stop, 1 = no decay). Existing falloff settings are preserved. Restart the game after changing the setting.
 
         Windows: close the game and replace version.dll using the DLL or ZIP below. Back up your current DLL first.
         Mac: use the signed, notarized and stapled installer DMG for Intel or Apple Silicon. The universal archive contains the same signed library.
@@ -239,7 +238,7 @@ jobs:
           stfc-community-mod-installer.dmg stfc-community-mod-macos-universal.tar.zst \
           stfc-community-mod-macos-universal.tar.zst.sha256 macos-provenance.json > SHA256SUMS.txt
         gh release create "$RELEASE_TAG" --verify-tag --prerelease --latest=false \
-          --title "Pan speed controls - signed preview (Windows + Mac)" \
+          --title "Pan momentum controls - signed preview (Windows + Mac)" \
           --notes-file RELEASE_NOTES.md \
           version.dll stfc-community-mod-signed.zip provenance.json SHA256SUMS.txt \
           stfc-community-mod-installer.dmg stfc-community-mod-macos-universal.tar.zst \
