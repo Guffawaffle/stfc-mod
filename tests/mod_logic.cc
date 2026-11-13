@@ -1,5 +1,6 @@
 // Settings parsing and shortcut matching, run against production code with Unity input replaced by a fake.
 #include "config.h"
+#include "features/hyperthermic_decay_state.h"
 #include "features/notification_audio.h"
 #include "features/ship_shortcut_hint.h"
 #include "features/toast_text.h"
@@ -18,6 +19,7 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <source_location>
 #include <utility>
@@ -88,6 +90,112 @@ void ShipHints()
   Shortcut::Set(std::move(custom));
   Check(Shortcut::Hint(ship_hint(Action::kSelectShip7)) == "^F8",
         "Gapped ship hint must use the actual custom binding, not a hardcoded number");
+}
+
+void HyperthermicDecay()
+{
+  using namespace hyperthermic_decay;
+  toml::table effective;
+  Check(Config::Parse({}, effective, false)->ui.hyperthermic_decay_tracker,
+        "The amplifier tracker is enabled when the setting is absent");
+  Check(!Config::Parse(toml::parse("[ui]\nhyperthermic_decay_tracker = false"), effective, false)
+             ->ui.hyperthermic_decay_tracker,
+        "An explicit tracker Off choice survives the enabled default");
+  const auto row_for = [](const Rows& rows, int32_t level) -> const Row* {
+    const auto found = std::find_if(rows.entries.begin(), rows.entries.end(),
+                                    [&](const auto& row) { return row && row->hostileLevel == level; });
+    return found == rows.entries.end() ? nullptr : &**found;
+  };
+  const auto near = [](double value, double expected) { return std::abs(value - expected) < 0.000001; };
+
+  // A zero-value amplifier is observed game state, not an absent or unreadable buff.
+  const std::array<Observation, 3> baseline{{
+      {203039085, 0.04, false, 90, 74, 900000000},
+      {3368332439, 0.04, false, 60, 74, 600000000},
+      {2663561780, 0.0, false, 40, 74, 400000000},
+  }};
+  const auto                       initial_rows = ActiveRows(baseline);
+  auto                             summary      = SummarizeRows(initial_rows);
+  Check(summary.active == 3 && summary.contributing == 2 && summary.valuesValid && near(summary.decayPercent, 8.0)
+            && summary.nextExpirySeconds == 40,
+        "Native fractions become percentages while zero-value amplifiers retain their own countdown");
+  const auto* zero = row_for(initial_rows, 53);
+  Check(zero && zero->observation.value == 0 && zero->observation.remainingSeconds == 40,
+        "A zero-value hostile-level row stays visible instead of being mistaken for missing data");
+
+  auto countdown = baseline;
+  for (auto& observation : countdown)
+    --*observation.remainingSeconds;
+  Check(SameNativeSnapshot(CanonicalRows(baseline), CanonicalRows(countdown)),
+        "Ordinary countdown ticks must not produce a new native-change diagnostic");
+  auto refreshed                = countdown;
+  refreshed[0].remainingSeconds = 600;
+  refreshed[0].expiryTicks      = 1500000000;
+  const auto  refreshed_rows    = ActiveRows(refreshed);
+  const auto* refreshed_first   = row_for(refreshed_rows, 51);
+  const auto* unchanged_second  = row_for(refreshed_rows, 52);
+  Check(!SameNativeSnapshot(CanonicalRows(countdown), CanonicalRows(refreshed)) && refreshed_first
+            && refreshed_first->observation.remainingSeconds == 600 && unchanged_second
+            && unchanged_second->observation.remainingSeconds == 59
+            && near(SummarizeRows(refreshed_rows).decayPercent, 8.0),
+        "Refreshing one hostile level changes its deadline without refreshing another level or adding damage");
+
+  const std::array duplicate_snapshot{countdown[0], countdown[1], countdown[2], refreshed[0]};
+  const auto       duplicate_rows = ActiveRows(duplicate_snapshot);
+  const auto*      repeated_level = row_for(duplicate_rows, 51);
+  summary                         = SummarizeRows(duplicate_rows);
+  Check(summary.active == 3 && summary.contributing == 2 && near(summary.decayPercent, 8.0)
+            && summary.duplicateEntries == 1 && summary.multiplicityUnverified && repeated_level
+            && repeated_level->occurrences == 2,
+        "Repeated native entries retain duplicate evidence without inventing another four-percent stack");
+  const std::array<Observation, 2> native_aggregate{{
+      {203039085, 0.16, false, 600, 4, 1500000000},
+      {3368332439, 0.04, false, 59, 74, 600000000},
+  }};
+  summary = Summarize(native_aggregate);
+  Check(summary.active == 2 && summary.contributing == 2 && summary.valuesValid && near(summary.decayPercent, 20.0)
+            && summary.multiplicityUnverified,
+        "Use the full native value, including values above four percent; native rank is not a stack multiplier");
+
+  auto expired                = refreshed;
+  expired[0].expired          = true;
+  expired[1].remainingSeconds = 0;
+  summary                     = Summarize(expired);
+  Check(summary.active == 1 && summary.contributing == 0 && summary.valuesValid && summary.decayPercent == 0
+            && summary.nextExpirySeconds == 39,
+        "Expired and elapsed amplifiers disappear independently while a zero-value amplifier remains active");
+  const auto empty = Summarize({});
+  Check(empty.active == 0 && empty.valuesValid && empty.decayPercent == 0 && !empty.nextExpirySeconds,
+        "A readable empty list is a known zero rather than an active zero-value amplifier");
+
+  const std::array<Observation, 3> partial_timing{{
+      {203039085, 0.04, false, {}},
+      {3368332439, 0.04, false, 59},
+      {123456, 8.0, false, 1},
+  }};
+  summary = Summarize(partial_timing);
+  Check(summary.active == 2 && summary.contributing == 2 && summary.valuesValid && near(summary.decayPercent, 8.0)
+            && summary.unknownExpiries == 1 && !summary.nextExpirySeconds,
+        "Unknown timing retains a known native value without promising a next expiry; unrelated buffs are ignored");
+
+  for (const auto invalid_value : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+                                   -0.04, std::numeric_limits<double>::max()}) {
+    const std::array<Observation, 2> invalid{{
+        {203039085, 0.04, false, 90},
+        {3368332439, invalid_value, false, 60},
+    }};
+    summary = Summarize(invalid);
+    Check(summary.active == 2 && !summary.valuesValid && std::isfinite(summary.decayPercent)
+              && summary.decayPercent == 0,
+          "An invalid or overflowing active value suppresses the total instead of displaying a plausible subtotal");
+  }
+  const std::array<Observation, 1> repeated_invalid{{
+      {203039085, std::numeric_limits<double>::quiet_NaN(), false, 90},
+  }};
+  Check(SameNativeSnapshot(CanonicalRows(repeated_invalid), CanonicalRows(repeated_invalid)),
+        "An unchanged unreadable numeric value must not flood diagnostics every second");
+  Check(!SameNativeSnapshot(CanonicalRows(baseline), CanonicalRows({})),
+        "Removing all observed amplifiers is a native-state change rather than another countdown tick");
 }
 
 void StringHelpers()
@@ -869,6 +977,7 @@ bool IsModified()
 int main()
 {
   ShipHints();
+  HyperthermicDecay();
   StringHelpers();
   Timestamps();
   ToastText();

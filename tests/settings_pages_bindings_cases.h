@@ -6,6 +6,7 @@
 namespace
 {
 int           settings_page_untyped_calls = 0, settings_page_typed_calls = 0, settings_page_category_calls = 0;
+int           settings_widget_base_bind_calls = 0, settings_widget_base_release_calls = 0;
 bool          settings_page_bind_throws = false, settings_page_category_throws = false;
 Il2CppObject  settings_page_category{};
 Il2CppObject* settings_page_seen_parent = nullptr;
@@ -23,7 +24,67 @@ void SettingsPageUntypedBind(Il2CppObject*, SettingsDataProvider* provider, sett
 void SettingsPageTypedBind(Il2CppObject*, SettingsDataProvider*, Il2CppObject*, const MethodInfo*)
 { ++settings_page_typed_calls; }
 void SettingsPageBaseBind(Il2CppObject*, SettingsDataProvider*, Il2CppObject*, const MethodInfo*)
-{ Require(false, "settings panel must dispatch through the non-generic Widget virtual slot"); }
+{ ++settings_widget_base_bind_calls; }
+void SettingsWidgetBaseRelease(Il2CppObject*, const MethodInfo*)
+{ ++settings_widget_base_release_calls; }
+struct SettingsWidgetObject {
+  Il2CppObject        header{};
+  WidgetDataProvider* provider = nullptr;
+  il2cpp::Object*     context  = nullptr;
+  int                 binds = 0, releases = 0;
+};
+bool settings_widget_release_throws = false;
+void SettingsWidgetBind(Il2CppObject* receiver, WidgetDataProvider* provider, il2cpp::Object* context,
+                        const MethodInfo*)
+{
+  auto* widget = reinterpret_cast<SettingsWidgetObject*>(receiver);
+  ++widget->binds;
+  widget->provider = provider;
+  widget->context  = context;
+}
+void SettingsWidgetRelease(Il2CppObject* receiver, const MethodInfo*)
+{
+  auto* widget = reinterpret_cast<SettingsWidgetObject*>(receiver);
+  ++widget->releases;
+  widget->context  = nullptr;
+  widget->provider = nullptr;
+  if (settings_widget_release_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+}
+settings_binding::ReferenceObject* SettingsWidgetContext(Il2CppObject* receiver, const MethodInfo*)
+{
+  return reinterpret_cast<settings_binding::ReferenceObject*>(
+      reinterpret_cast<SettingsWidgetObject*>(receiver)->context);
+}
+Il2CppObject*     settings_widget_forced_receiver = nullptr;
+const MethodInfo* settings_widget_forced_schema   = nullptr;
+const MethodInfo* settings_widget_forced_actual   = nullptr;
+const MethodInfo* SettingsWidgetVirtualResult(Il2CppObject* receiver, const MethodInfo* schema, bool& handled)
+{
+  handled = receiver == settings_widget_forced_receiver && schema == settings_widget_forced_schema;
+  return handled ? settings_widget_forced_actual : nullptr;
+}
+const MethodInfo* settings_widget_shared_bind    = nullptr;
+const MethodInfo* settings_widget_shared_release = nullptr;
+int               settings_widget_boxed_calls    = 0;
+Il2CppObject*     SettingsWidgetRuntimeInvoke(const MethodInfo* method, void* receiver, void** args,
+                                              Il2CppException** exception, bool& handled)
+{
+  handled = method == settings_widget_shared_bind || method == settings_widget_shared_release;
+  if (!handled)
+    return nullptr;
+  ++settings_widget_boxed_calls;
+  Require(receiver == settings_widget_forced_receiver && exception, "generic widget invocation preserves its receiver");
+  if (method == settings_widget_shared_bind) {
+    Require(args && !args[0] && args[1], "generic object bind preserves null provider and supplied context");
+    SettingsWidgetBind(static_cast<Il2CppObject*>(receiver), static_cast<WidgetDataProvider*>(args[0]),
+                       static_cast<il2cpp::Object*>(args[1]), method);
+  } else {
+    Require(args && !args[0], "generic context release has no managed arguments");
+    SettingsWidgetRelease(static_cast<Il2CppObject*>(receiver), method);
+  }
+  return nullptr;
+}
 SettingsCategoryContext* SettingsPageAddCategory(Il2CppObject*, SettingsContainerContext* parent, Il2CppString*,
                                                  Il2CppString*, settings_binding::ReferenceDelegate* query,
                                                  const MethodInfo*)
@@ -51,10 +112,13 @@ void SettingsPageBindingObservations()
   auto& schema    = AddMethod(widget, "BindDataContext", reinterpret_cast<void*>(&SettingsPageBaseBind), T(void_class),
                               {T(provider), T(object_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
   schema.slot     = 35;
+  auto& release_schema = AddMethod(widget, "ReleaseDataContext", reinterpret_cast<void*>(&SettingsWidgetBaseRelease),
+                                   T(void_class), {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
+  release_schema.slot  = 36;
   // Deliberately first: same name and arity, a different virtual slot and typed IList parameter.
   auto& typed = AddMethod(generic, "BindDataContext", reinterpret_cast<void*>(&SettingsPageTypedBind), T(void_class),
                           {T(provider), T(list)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
-  typed.slot  = 36;
+  typed.slot  = 39;
   auto& untyped =
       AddMethod(generic, "BindDataContext", reinterpret_cast<void*>(&SettingsPageUntypedBind), T(void_class),
                 {T(provider), T(object_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
@@ -94,6 +158,96 @@ void SettingsPageBindingObservations()
   Require(native_panel->TryBind(native_rows).succeeded && settings_page_untyped_calls == 3,
           "the original qualified virtual target remains usable after refused metadata");
 
+  auto& bound_class = Define("Fixture.UI", "ContextWidget", IL2CPP_TYPE_CLASS, &widget);
+  auto& bound_typed =
+      AddMethod(bound_class, "BindDataContext", reinterpret_cast<void*>(&SettingsPageTypedBind), T(void_class),
+                {T(provider), T(list)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
+  bound_typed.slot = 39;
+  auto& bind = AddMethod(bound_class, "BindDataContext", reinterpret_cast<void*>(&SettingsWidgetBind), T(void_class),
+                         {T(provider), T(object_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL);
+  bind.slot  = 35;
+  auto& release =
+      AddMethod(bound_class, "ReleaseDataContext", reinterpret_cast<void*>(&SettingsWidgetRelease), T(void_class), {},
+                METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_VIRTUAL | METHOD_ATTRIBUTE_FINAL);
+  release.slot = 36;
+  auto& context_getter =
+      AddMethod(bound_class, "get_Context", reinterpret_cast<void*>(&SettingsWidgetContext), T(object_class), {});
+  AddProperty(bound_class, "Context", &context_getter);
+  SettingsWidgetObject bound{};
+  bound.header.klass = &bound_class.klass;
+  auto* lifecycle    = reinterpret_cast<UntypedWidget*>(&bound);
+  auto* reader       = reinterpret_cast<Widget<settings_binding::ReferenceObject>*>(&bound);
+  auto* context      = reinterpret_cast<il2cpp::Object*>(&row_object.header);
+  Require(lifecycle->TryBindContext(nullptr, context).succeeded && bound.binds == 1 && !bound.provider
+              && reader->Context() == reinterpret_cast<settings_binding::ReferenceObject*>(context),
+          "shared Widget binds and reads the exact object context with a null provider");
+  Require(lifecycle->TryBindContext(nullptr, context).succeeded && bound.binds == 2 && reader->Context() == context,
+          "rebinding the same context still invokes native binding to refresh expiry state");
+  Require(!lifecycle->TryBindContext(nullptr, nullptr) && bound.binds == 2,
+          "null context is declined rather than impersonating native release");
+  Require(lifecycle->TryReleaseContext().succeeded && bound.releases == 1 && !reader->Context(),
+          "context release dispatches the derived sealed override and clears the typed context");
+
+  Il2CppObject foreign_widget{};
+  foreign_widget.klass = &foreign_rows.klass;
+  auto* foreign        = reinterpret_cast<UntypedWidget*>(&foreign_widget);
+  Require(!foreign->TryBindContext(nullptr, context) && !foreign->TryReleaseContext(),
+          "a foreign receiver cannot bind or release through the Widget schema");
+  const auto* bind_parameter                         = bind.parameters[1];
+  const_cast<const Il2CppType**>(bind.parameters)[1] = T(list);
+  Require(!lifecycle->TryBindContext(nullptr, context) && bound.binds == 2,
+          "shared Widget declines a typed replacement in the actual object bind slot");
+  const_cast<const Il2CppType**>(bind.parameters)[1] = bind_parameter;
+  const auto* release_return                         = release.return_type;
+  release.return_type                                = T(bool_class);
+  Require(!lifecycle->TryReleaseContext() && bound.releases == 1,
+          "shared Widget declines a non-void actual release signature");
+  release.return_type = release_return;
+  release.flags |= METHOD_ATTRIBUTE_STATIC;
+  Require(!lifecycle->TryReleaseContext() && bound.releases == 1,
+          "shared Widget declines a static actual release target");
+  release.flags &= ~METHOD_ATTRIBUTE_STATIC;
+
+  settings_widget_forced_receiver = &bound.header;
+  virtual_method_override         = &SettingsWidgetVirtualResult;
+  settings_widget_forced_schema   = &schema;
+  MethodInfo wrong_slot           = bind;
+  wrong_slot.slot                 = 39;
+  settings_widget_forced_actual   = &wrong_slot;
+  Require(!lifecycle->TryBindContext(nullptr, context) && bound.binds == 2,
+          "a runtime target outside the object bind virtual slot is rejected");
+  settings_widget_forced_schema = &release_schema;
+  wrong_slot                    = release;
+  wrong_slot.slot               = 39;
+  Require(!lifecycle->TryReleaseContext() && bound.releases == 1,
+          "a runtime target outside the release virtual slot is rejected");
+  settings_widget_forced_actual = nullptr;
+  Require(!lifecycle->TryReleaseContext() && bound.releases == 1, "a missing actual release remains unavailable");
+  virtual_method_override = nullptr;
+
+  bind.has_full_generic_sharing_signature = release.has_full_generic_sharing_signature = true;
+  bind.invoker_method = release.invoker_method = &WarpInvokerSentinel;
+  settings_widget_shared_bind                  = &bind;
+  settings_widget_shared_release               = &release;
+  tow_runtime_invoke_override                  = &SettingsWidgetRuntimeInvoke;
+  Require(lifecycle->TryBindContext(nullptr, context).succeeded && bound.binds == 3 && reader->Context() == context,
+          "shared generic Widget object bind uses managed invocation and preserves context identity");
+  Require(lifecycle->TryReleaseContext().succeeded && bound.releases == 2 && !reader->Context()
+              && settings_widget_boxed_calls == 2,
+          "shared generic Widget release uses managed invocation and clears context");
+  tow_runtime_invoke_override             = nullptr;
+  bind.has_full_generic_sharing_signature = release.has_full_generic_sharing_signature = false;
+  settings_widget_release_throws                                                       = true;
+  Require(!lifecycle->TryReleaseContext() && bound.releases == 3,
+          "a native release exception remains failed rather than a fabricated successful release");
+  settings_widget_release_throws = false;
+  Require(lifecycle->TryBindContext(nullptr, context).succeeded && bound.binds == 4
+              && lifecycle->TryReleaseContext().succeeded && bound.releases == 4,
+          "qualified bind and release remain usable after refused metadata and exceptions");
+  Require(settings_widget_base_bind_calls == 0 && settings_widget_base_release_calls == 0
+              && settings_page_typed_calls == 0,
+          "all lifecycle calls bypass base implementations and earlier typed bind overloads");
+
   auto& add = AddMethod(settings, "AddCategory", reinterpret_cast<void*>(&SettingsPageAddCategory), T(category),
                         {T(container), T(string_class), T(string_class), T(query)});
   settings_page_category.klass = &category.klass;
@@ -117,6 +271,6 @@ void SettingsPageBindingObservations()
   Require(!native_settings->TryAddCategory(native_parent, nullptr, native_query) && settings_page_category_calls == 2,
           "a base Object return cannot impersonate the sealed CategoryOptionContext contract");
   add.return_type = category_return;
-  std::cout << "IL2CPP native settings category signatures and untyped virtual panel dispatch passed\n";
+  std::cout << "IL2CPP native settings categories and shared Widget bind/release lifecycle passed\n";
 }
 } // namespace
