@@ -9,6 +9,7 @@ struct PanObject {
   Il2CppObject   header;
   unity::Vector2 last{4.0f, -2.0f};
   float          delta = 2.0f, keyboard = 3.0f;
+  bool           panning  = false;
   Il2CppObject*  tracking = nullptr;
   float          normal = 7.0f, extended = 19.0f;
 };
@@ -90,10 +91,11 @@ bool ShortcutsAllowed(const MethodInfo*)
     ReplacePolicy();
   return shortcuts_allowed;
 }
-void Move(NavigationPan*, unity::Vector2 delta, bool momentum, const MethodInfo*)
+void Move(NavigationPan* actual, unity::Vector2 delta, bool momentum, const MethodInfo*)
 {
   Require(momentum, "pan retains the native momentum argument");
   moves.push_back(delta);
+  actual->SetLastDelta(delta);
 }
 bool Near(unity::Vector2 actual, unity::Vector2 expected)
 { return std::abs(actual.x - expected.x) < 0.0001f && std::abs(actual.y - expected.y) < 0.0001f; }
@@ -121,6 +123,8 @@ void Run(std::string_view mode)
     AddField(pan, "_deltaScaler", float_class, offsetof(PanObject, delta));
   if (mode != "camera-pan-missing-speed")
     AddField(pan, "_keyboardDeltaScaler", float_class, offsetof(PanObject, keyboard));
+  if (mode != "camera-pan-missing-panning")
+    AddField(pan, "_panningStarted", bool_class, offsetof(PanObject, panning));
   if (mode != "camera-pan-missing-tracking")
     AddField(pan, "_trackingPOI", mode == "camera-pan-foreign-tracking" ? int_class : poi,
              offsetof(PanObject, tracking));
@@ -139,9 +143,14 @@ void Run(std::string_view mode)
 
   PanObject  object{{&pan.klass}};
   auto*      receiver = reinterpret_cast<NavigationPan*>(&object);
+  float          observed_delta = 0, observed_keyboard = 0;
+  unity::Vector2 observed_last{};
   const auto original = [&](NavigationPan* actual) {
     Require(actual == receiver, "native pan receives its original receiver");
     ++originals;
+    observed_delta    = actual->deltaScaler();
+    observed_keyboard = actual->keyboardDeltaScaler();
+    observed_last     = actual->lastDelta();
     object.last = {8.0f, 6.0f};
     return true;
   };
@@ -189,15 +198,25 @@ void Run(std::string_view mode)
     }
   } else if (mode == "camera-pan-native") {
     config.control.use_scopely_hotkeys = true;
+    config.graphics.system_pan_speed   = 1.5f;
     frame();
     Require(originals == 1 && moves.empty() && Near(object.last, {8.0f, 6.0f}) && object.extended == object.normal,
             "configured native keyboard mode runs native pan once without a second mod glide");
+    Require(observed_delta == 1.0f && observed_keyboard == 9.0f && Near(observed_last, {2.0f, -1.0f})
+                && object.delta == 2.0f && object.keyboard == 3.0f,
+            "native pan applies one fade, scales fresh keys once and restores its native fields");
+    object.panning  = true;
+    const auto last = object.last;
+    frame();
+    Require(originals == 1 && Near(object.last, last),
+            "recognizer-only dragging suppresses native replay when legacy pointer input is false");
   } else if (mode == "camera-pan-diagonal") {
+    config.graphics.system_pan_speed = 1.5f;
     fleet_native_keys = {Action::kMoveRight, Action::kMoveUp};
     frame();
-    const float component = -3.0f / std::sqrt(2.0f);
+    const float component = -4.5f / std::sqrt(2.0f);
     Require(moves.size() == 1 && Near(moves.back(), {2.0f * component, 2.0f * component})
-                && Near(object.last, {component, component}),
+                && Near(object.last, {2.0f * component, 2.0f * component}),
             "diagonal keyboard pan is normalized and uses one native movement per frame");
   } else if (mode == "camera-pan-opposed") {
     object.last       = {};
@@ -206,6 +225,7 @@ void Run(std::string_view mode)
     Require(moves.size() <= 1 && NoMovement() && Near(object.last, {}), "opposite directions cancel");
   } else if (mode == "camera-pan-coast") {
     fleet_native_keys.clear();
+    config.graphics.system_pan_speed = 10.0f;
     frame();
     Require(moves.size() == 1 && Near(moves.back(), {2.0f, -1.0f}) && Near(object.last, {2.0f, -1.0f}),
             "released drag delta decays by the configured per-update falloff and moves once");

@@ -61,8 +61,7 @@ struct NavigationPan : il2cpp::Object {
                  last->type, il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw(),
                  sizeof(unity::Vector2))
              && Class::HasField<"_trackingPOI", void*>() && Class::HasField<"_panningStarted", bool>()
-             && Class::HasField<"_deltaScaler", float>()
-             && Class::HasField<"_keyboardDeltaScaler", float>()
+             && Class::HasField<"_deltaScaler", float>() && Class::HasField<"_keyboardDeltaScaler", float>()
              && Class::HasField<"_farMagRadiusRatioSystemNormal", float>()
              && Class::HasField<"_farMagRadiusRatioSystemExtended", float>();
     }();
