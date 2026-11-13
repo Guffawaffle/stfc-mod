@@ -81,9 +81,11 @@ int main()
   Require(HandoffVersion(base, valid[0], {}, {}) == base, "a supplied unbound label cannot claim a DEV channel");
   Require(HandoffVersion(base, {}, {}, {}, {}, true) == base,
           "empty or malformed supplied metadata is distinct from absence");
-  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR) == "1.1.9.5-guffa.6 · CI local",
+  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR)
+              == std::string(VER_FORK_VERSION_STR) + " · CI local",
           "the compiled fork version remains visible in a local Mac core build");
-  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR, true) == "1.1.9.5-guffa.6 · DEV local",
+  Require(HandoffVersion(base, {}, {}, {}, {}, false, VER_FORK_VERSION_STR, true)
+              == std::string(VER_FORK_VERSION_STR) + " · DEV local",
           "only an explicitly selected development payload receives the DEV fallback");
   Require(HandoffVersion(base, "1.1.9.5-guffa.6 · DEV b137.2", source, "01234567", {}, true, VER_FORK_VERSION_STR, true)
               == "1.1.9.5-guffa.6 · DEV b137.2",
@@ -115,14 +117,14 @@ int main()
   Require(DescriptionVersion(base, {}, SignatureState::Unknown, "github:42576047391:2:windows") == base,
           "unobservable signature metadata is not confused with absent metadata");
   Require(DescriptionVersion(base, {}, SignatureState::Absent, "github:42576047391:2:windows", VER_FORK_VERSION_STR)
-              == "1.1.9.5-guffa.6 · CI b42576047391.2",
+              == std::string(VER_FORK_VERSION_STR) + " · CI b42576047391.2",
           "raw Windows CI retains the compiled fork revision alongside its unique CI build");
   Require(DescriptionVersion(base, {}, SignatureState::Absent, {}, VER_FORK_VERSION_STR)
-              == "1.1.9.5-guffa.6 · CI local",
+              == std::string(VER_FORK_VERSION_STR) + " · CI local",
           "the in-game unsigned local fallback uses the compiled fork version");
   Require(
       DescriptionVersion(base, {}, SignatureState::Absent, "github:42576047391:2:windows", VER_FORK_VERSION_STR, true)
-          == "1.1.9.5-guffa.6 · DEV b42576047391.2",
+          == std::string(VER_FORK_VERSION_STR) + " · DEV b42576047391.2",
       "the selected development package retains its distinct unsigned DEV identity");
   Require(DescriptionVersion(base, "STFC Community Mod | 1.1.9.5-guffa.6 · DEV local", SignatureState::Present, {},
                              VER_FORK_VERSION_STR)
