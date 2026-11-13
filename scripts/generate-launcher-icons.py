@@ -24,9 +24,10 @@ CHANNELS = {
     "dev": ("DEV", "#bd9cff", "#35274c"),
     "ci": ("CI", "#a6c4dc", "#253b50"),
 }
-# PNG-backed native sizes, followed by Retina representations of native sizes.
+# Match iconutil's small ARGB entries and larger/Retina PNG representations.
+# PNG data in icp4/icp5/icp6 renders as coloured noise in some macOS icon views.
 ICNS_SIZES = (
-    (b"icp4", 16), (b"icp5", 32), (b"icp6", 64),
+    (b"ic04", 16), (b"ic05", 32),
     (b"ic07", 128), (b"ic08", 256), (b"ic09", 512), (b"ic10", 1024),
     (b"ic11", 32), (b"ic12", 64), (b"ic13", 256), (b"ic14", 512),
 )
@@ -95,13 +96,28 @@ def png_bytes(image: Image.Image) -> bytes:
     return stream.getvalue()
 
 
+def icns_packbits(data: bytes) -> bytes:
+    # Literal packets are sufficient for these tiny planes: a control byte
+    # 0..127 precedes 1..128 unchanged bytes. No repeat-run optimizer is needed.
+    packets = (data[offset:offset + 128] for offset in range(0, len(data), 128))
+    return b"".join(bytes((len(packet) - 1,)) + packet for packet in packets)
+
+
+def argb_bytes(image: Image.Image) -> bytes:
+    # Apple's small-icon payload is an ARGB marker followed by independently
+    # compressed, straight-alpha planes. Premultiplication would darken edges.
+    rgba = image.convert("RGBA")
+    return b"ARGB" + b"".join(icns_packbits(rgba.getchannel(channel).tobytes()) for channel in "ARGB")
+
+
 def write_icns(image: Image.Image, path: Path) -> None:
-    # ICNS is a big-endian container of typed image chunks. Retain explicit
-    # 16/32/64 native entries as well as modern Retina PNG entries; Pillow's
-    # standard ICNS writer omits the native 16px representation.
-    pngs = {size: png_bytes(image.resize((size, size), Image.Resampling.LANCZOS))
-            for _, size in ICNS_SIZES}
-    entries = [(kind, 8 + len(pngs[size]), pngs[size]) for kind, size in ICNS_SIZES]
+    # ICNS is a big-endian container of typed image chunks. Small native sizes
+    # use ARGB; Retina and larger sizes use PNG, including 16@2x and 32@2x.
+    images = {size: image.resize((size, size), Image.Resampling.LANCZOS) for _, size in ICNS_SIZES}
+    entries = []
+    for kind, size in ICNS_SIZES:
+        payload = argb_bytes(images[size]) if kind in (b"ic04", b"ic05") else png_bytes(images[size])
+        entries.append((kind, 8 + len(payload), payload))
     table = b"".join(kind + struct.pack(">I", length) for kind, length, _ in entries)
     chunks = b"TOC " + struct.pack(">I", 8 + len(table)) + table
     chunks += b"".join(kind + struct.pack(">I", length) + payload for kind, length, payload in entries)
