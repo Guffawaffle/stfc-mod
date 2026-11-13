@@ -1,0 +1,168 @@
+#pragma once
+
+// Player-facing build labels are descriptive. Their presence is not signature or
+// publisher verification; source provenance and signing checks remain separate.
+#include <charconv>
+#include <cstdint>
+#include <initializer_list>
+#include <limits>
+#include <string>
+#include <string_view>
+
+namespace build_identity
+{
+namespace detail
+{
+  inline bool Number(std::string_view text, bool positive = true) noexcept
+  {
+    if (text.empty() || text.size() > 19 || (text.size() > 1 && text.front() == '0'))
+      return false;
+    for (const auto c : text)
+      if (c < '0' || c > '9')
+        return false;
+    uint64_t   value  = 0;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+    return result.ec == std::errc{} && result.ptr == text.data() + text.size()
+           && value <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) && (!positive || value != 0);
+  }
+  inline bool Run(std::string_view text) noexcept
+  {
+    const auto dot = text.find('.');
+    return dot != std::string_view::npos && Number(text.substr(0, dot)) && Number(text.substr(dot + 1));
+  }
+  inline bool Base(std::string_view text) noexcept
+  {
+    for (int component = 0; component < 4; ++component) {
+      const auto dot = text.find('.');
+      if ((component < 3) != (dot != std::string_view::npos) || !Number(text.substr(0, dot), false))
+        return false;
+      if (dot != std::string_view::npos)
+        text.remove_prefix(dot + 1);
+    }
+    return true;
+  }
+  inline char Hex(char value) noexcept
+  {
+    if (value >= '0' && value <= '9')
+      return value;
+    if (value >= 'a' && value <= 'f')
+      return value;
+    return value >= 'A' && value <= 'F' ? static_cast<char>(value - 'A' + 'a') : '\0';
+  }
+} // namespace detail
+
+inline bool ValidDisplayVersion(std::string_view label, std::string_view base) noexcept
+{
+  constexpr std::string_view separator = " · ";
+  if (label.size() > 160 || !detail::Base(base) || !label.starts_with(base))
+    return false;
+  label.remove_prefix(base.size());
+  if (label.starts_with("-guffa.")) {
+    label.remove_prefix(7);
+    const auto space = label.find(separator);
+    if (space == std::string_view::npos || !detail::Number(label.substr(0, space)))
+      return false;
+    label.remove_prefix(space);
+    if (label == " · Release" || label == " · Pre")
+      return true;
+  }
+  if (label == " · DEV local" || label == " · CI local")
+    return true;
+  for (const auto prefix : {std::string_view{" · DEV b"}, std::string_view{" · CI b"}, std::string_view{" · Pre b"}})
+    if (label.starts_with(prefix))
+      return detail::Run(label.substr(prefix.size()));
+  return false;
+}
+
+inline bool SourceMatches(std::string_view claimed, std::string_view compiled) noexcept
+{
+  if (claimed.size() != 40 || (compiled.size() != 8 && compiled.size() != 40))
+    return false;
+  for (std::size_t i = 0; i < claimed.size(); ++i) {
+    const auto value = detail::Hex(claimed[i]);
+    if (!value || (i < compiled.size() && value != detail::Hex(compiled[i])))
+      return false;
+  }
+  return true;
+}
+
+inline bool KnownSource(std::string_view source) noexcept
+{
+  if (source.size() != 8 && source.size() != 40)
+    return false;
+  for (const auto c : source)
+    if (!detail::Hex(c))
+      return false;
+  return true;
+}
+
+// The same commit may produce a core CI payload and a development package.
+// Source matching alone must not relabel one as the other.
+inline bool MatchesUnsignedPackage(std::string_view label, bool development_package) noexcept
+{
+  if (label.find(" · DEV ") != std::string_view::npos)
+    return development_package;
+  if (label.find(" · CI ") != std::string_view::npos)
+    return !development_package;
+  return true;
+}
+
+inline std::string FallbackVersion(std::string_view version, std::string_view invocation = {},
+                                   bool development_package = false)
+{
+  const std::string_view     channel = development_package ? " · DEV " : " · CI ";
+  constexpr std::string_view prefix = "github:", suffix = ":windows";
+  if (invocation.size() >= prefix.size() + suffix.size() && invocation.starts_with(prefix)
+      && invocation.ends_with(suffix)) {
+    const auto run   = invocation.substr(prefix.size(), invocation.size() - prefix.size() - suffix.size());
+    const auto colon = run.find(':');
+    if (colon != std::string_view::npos && detail::Number(run.substr(0, colon))
+        && detail::Number(run.substr(colon + 1)))
+      return std::string(version) + std::string(channel) + "b" + std::string(run.substr(0, colon)) + "."
+             + std::string(run.substr(colon + 1));
+  }
+  return std::string(version) + std::string(channel) + "local";
+}
+
+inline std::string HandoffVersion(std::string_view base, std::string_view label, std::string_view source,
+                                  std::string_view compiled_source, std::string_view invocation = {},
+                                  bool handoff_present = false, std::string_view fork_version = {},
+                                  bool development_package = false)
+{
+  const auto known_version = fork_version.empty() ? base : fork_version;
+  if (ValidDisplayVersion(label, base) && MatchesUnsignedPackage(label, development_package)
+      && SourceMatches(source, compiled_source))
+    return std::string(label);
+  if (handoff_present || !label.empty() || !source.empty() || KnownSource(compiled_source))
+    return std::string(known_version);
+  return FallbackVersion(known_version, invocation, development_package);
+}
+
+// Embedded metadata presence is an observation, never publisher/trust validation.
+// Present/unknown but unusable metadata leaves the channel unspecified.
+enum class SignatureState { Absent, Present, Unknown };
+
+inline std::string DescriptionVersion(std::string_view base, std::string_view description, SignatureState state,
+                                      std::string_view invocation = {}, std::string_view fork_version = {},
+                                      bool development_package = false)
+{
+  const auto                 known_version = fork_version.empty() ? base : fork_version;
+  constexpr std::string_view prefix        = "STFC Community Mod | ";
+  if (state == SignatureState::Present && description.starts_with(prefix)) {
+    const auto label = description.substr(prefix.size());
+    if (ValidDisplayVersion(label, base) && MatchesUnsignedPackage(label, development_package))
+      return std::string(label);
+  }
+  if (state != SignatureState::Absent || !description.empty())
+    return std::string(known_version);
+  return FallbackVersion(known_version, invocation, development_package);
+}
+
+// Cached on first use. No per-frame filesystem, signature, or environment work.
+std::string_view DisplayVersion();
+#if _WIN32
+// The tiny platform entry unit already receives the immutable CI provenance
+// defines. Reading it here avoids recompiling all mod sources per invocation.
+std::string_view CompiledInvocation();
+#endif
+} // namespace build_identity

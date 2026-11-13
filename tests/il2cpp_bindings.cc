@@ -41,12 +41,12 @@ void Require(bool condition, const char* what)
     throw std::runtime_error(what);
 }
 
-int               input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
-bool              any_held = false, any_down = false;
-bool              instant_mouse_held = false, instant_mouse_released = false;
+int  input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
+bool any_held = false, any_down = false;
+bool instant_mouse_held = false, instant_mouse_released = false;
 Il2CppMethodPointer (*input_icall_override)(const char*, bool& handled) = nullptr;
-const MethodInfo* camera_world_method = nullptr;
-float             camera_delta_time   = 0.25f;
+const MethodInfo* camera_world_method                                   = nullptr;
+float             camera_delta_time                                     = 0.25f;
 unity::Vector3    camera_mouse{40, 50, 0}, camera_world{4, 5, 6};
 bool              camera_world_failure  = false;
 Il2CppObject*     camera_expected_scene = nullptr;
@@ -57,7 +57,9 @@ Il2CppObject* (*tow_runtime_invoke_override)(const MethodInfo*, void*, void**, I
                                              bool& handled)                 = nullptr;
 bool (*tow_static_field_read_override)(FieldInfo*, void*)                   = nullptr;
 // Optional per-class reflection identity for production UI-consumer fixtures.
-Il2CppObject* (*type_object_override)(const Il2CppType*)                     = nullptr;
+Il2CppObject* (*type_object_override)(const Il2CppType*) = nullptr;
+// Optional malformed virtual result for consumers that must qualify the actual target.
+const MethodInfo* (*virtual_method_override)(Il2CppObject*, const MethodInfo*, bool& handled) = nullptr;
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held_keys{}, down_keys{};
 
 void KeyboardSnapshot()
@@ -247,16 +249,16 @@ const MethodInfo* warp_galaxy_method          = nullptr;
 bool              nullable_definition_missing = false, vector_class_missing = false;
 bool warp_validator_value = true, warp_move_failure = false, warp_vector_failure = false, warp_vector_null = false;
 bool warp_vector_wrong_type = false, warp_root_failure = false;
-bool (*weak_root_refusal)(Il2CppObject*)                              = nullptr;
-Il2CppObject*                                     extra_value_box     = nullptr;
-void*                                             extra_value_payload = nullptr;
+bool (*weak_root_refusal)(Il2CppObject*)                               = nullptr;
+Il2CppObject*                                     extra_value_box      = nullptr;
+void*                                             extra_value_payload  = nullptr;
 Il2CppObject*                                     second_value_box     = nullptr;
 void*                                             second_value_payload = nullptr;
 int                                               warp_move_calls = 0, warp_vector_calls = 0, warp_validator_calls = 0;
 int64_t                                           warp_seen_fleet = 0, warp_seen_node = 0;
 unity::Vector3                                    warp_seen_position{};
 std::unordered_map<Il2CppGCHandle, Il2CppObject*> warp_roots;
-uintptr_t                                         warp_next_root = 1;
+uintptr_t                                         warp_next_root       = 1;
 uintptr_t                                         warp_root_reads      = 0;
 bool                                              gc_runtime_available = true;
 FakeClass&                                        long_class = Define("System", "Int64", IL2CPP_TYPE_I8, nullptr, 8);
@@ -348,14 +350,14 @@ std::vector<Il2CppObject*> chat_retention_writes;
 int                        chat_set_data_calls  = 0;
 const MethodInfo*          chat_set_data_method = nullptr;
 
-Il2CppObject visual_renderer{}, visual_material{}, visual_shader{}, visual_components{}, visual_materials{};
-bool         visual_alive = true, visual_active = true, visual_enabled = true, visual_throws = false;
-bool         visual_property = true, visual_set_throws = false;
+Il2CppObject  visual_renderer{}, visual_material{}, visual_shader{}, visual_components{}, visual_materials{};
+bool          visual_alive = true, visual_active = true, visual_enabled = true, visual_throws = false;
+bool          visual_property = true, visual_set_throws = false;
 Il2CppObject* visual_dead_object = nullptr;
-int32_t      visual_id    = -17;
-float        visual_depth = 0.0f;
-int          visual_calls = 0;
-bool         VisualAlive(Il2CppObject* object, const MethodInfo*)
+int32_t       visual_id          = -17;
+float         visual_depth       = 0.0f;
+int           visual_calls       = 0;
+bool          VisualAlive(Il2CppObject* object, const MethodInfo*)
 {
   ++visual_calls;
   if (visual_throws)
@@ -478,8 +480,8 @@ void InputFocus()
   Require(selected == &selected_object, "clearing text focus preserves a selected non-text object");
 
   // Unity's event system may retain a non-null wrapper after its native GameObject was destroyed.
-  visual_dead_object = &selected_object;
-  component_lookup_throws = true;
+  visual_dead_object                  = &selected_object;
+  component_lookup_throws             = true;
   const auto lookups_before_destroyed = component_lookup_calls;
   ++input_frame;
   Key::Poll();
@@ -487,9 +489,9 @@ void InputFocus()
   Key::ClearInputFocus();
   Require(component_lookup_calls == lookups_before_destroyed && selected == &selected_object,
           "destroyed selection is neither queried for components nor sent a clear-selection callback");
-  visual_dead_object = nullptr;
+  visual_dead_object      = nullptr;
   component_lookup_throws = false;
-  has_input_field = true;
+  has_input_field         = true;
   ++input_frame;
   Key::Poll();
   Require(Key::IsInputFocused() && component_lookup_calls == lookups_before_destroyed + 1,
@@ -499,7 +501,7 @@ void InputFocus()
   Key::Poll();
   Require(Key::IsInputFocused() && component_lookup_calls == lookups_before_destroyed + 2,
           "unavailable liveness does not impersonate confirmed destruction or suppress a live focus read");
-  visual_throws = false;
+  visual_throws           = false;
   component_lookup_throws = true;
   ++input_frame;
   Key::Poll();
@@ -989,8 +991,7 @@ API(const MethodInfo*, il2cpp_class_get_method_from_name, (Il2CppClass * klass, 
 {
   for (; klass; klass = klass->parent)
     for (auto* method : Fake(klass).methods)
-      if (std::string_view(method->name) == name
-          && (argument_count < 0 || method->parameters_count == argument_count))
+      if (std::string_view(method->name) == name && (argument_count < 0 || method->parameters_count == argument_count))
         return method;
   return nullptr;
 }
@@ -1042,8 +1043,8 @@ END_API
 API(Il2CppMethodPointer, il2cpp_resolve_icall, (const char* name))
 {
   if (input_icall_override) {
-    bool handled = false;
-    const auto result = input_icall_override(name, handled);
+    bool       handled = false;
+    const auto result  = input_icall_override(name, handled);
     if (handled)
       return result;
   }
@@ -1138,6 +1139,12 @@ API(void, il2cpp_runtime_class_init, (Il2CppClass * klass))
 END_API
 API(const MethodInfo*, il2cpp_object_get_virtual_method, (Il2CppObject * object, const MethodInfo* method))
 {
+  if (virtual_method_override) {
+    bool        handled = false;
+    const auto* result  = virtual_method_override(object, method, handled);
+    if (handled)
+      return result;
+  }
   for (auto* klass = object->klass; klass; klass = klass->parent)
     for (const auto* candidate : std::span(klass->methods, klass->method_count))
       if (std::string_view(candidate->name) == method->name && candidate->slot == method->slot)
@@ -1157,9 +1164,7 @@ API(void*, il2cpp_object_unbox, (Il2CppObject * object))
 }
 END_API
 API(Il2CppObject*, il2cpp_value_box, (Il2CppClass*, void*))
-{
-  throw std::logic_error("this controlled runtime does not simulate native UI value boxing");
-}
+{ throw std::logic_error("this controlled runtime does not simulate native UI value boxing"); }
 END_API
 API(Il2CppObject*, il2cpp_runtime_invoke,
     (const MethodInfo* method, void* target, void** args, Il2CppException** exception))
@@ -2179,10 +2184,12 @@ try {
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "service-endpoints") {
-    ServiceEndpointCases(); return 0;
+    ServiceEndpointCases();
+    return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "service-buffs") {
-    ServiceBuffCases(); return 0;
+    ServiceBuffCases();
+    return 0;
   }
   if (argc == 2 && std::string_view(argv[1]) == "navigation-badges") {
     NavigationBadgeCases();
@@ -2275,6 +2282,10 @@ try {
     HotkeyOrderNativeCases();
     return 0;
   }
+  if (argc == 2 && std::string_view(argv[1]) == "keyboard-confirm-focus") {
+    KeyboardConfirmFocusNativeCases();
+    return 0;
+  }
   if (argc == 2 && std::string_view(argv[1]) == "chat-focus-unavailable") {
     HotkeyFocusNativeCases();
     return 0;
@@ -2300,10 +2311,10 @@ try {
     RevealConfirmationCases();
     return 0;
   }
-  if (argc == 2 && (std::string_view(argv[1]) == "shop-claims-native"
-                    || std::string_view(argv[1]) == "shop-claims-filter"
-                    || std::string_view(argv[1]) == "confirmation-targeting"
-                    || std::string_view(argv[1]) == "hud-restoration-retry")) {
+  if (argc == 2
+      && (std::string_view(argv[1]) == "shop-claims-native" || std::string_view(argv[1]) == "shop-claims-filter"
+          || std::string_view(argv[1]) == "confirmation-targeting"
+          || std::string_view(argv[1]) == "hud-restoration-retry")) {
     ShopClaimsCases(argv[1]);
     return 0;
   }

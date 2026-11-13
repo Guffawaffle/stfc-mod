@@ -505,6 +505,10 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         @import("mod.zig").embedImages(ctx, module);
         module.addCSourceFile(.{ .file = b.path("src/libs/unity/src/input.cc"), .flags = flags });
         const exe = ctx.executable("il2cpp-bindings-tests", module);
+        const keyboard_confirm = b.addRunArtifact(exe);
+        keyboard_confirm.addArg("keyboard-confirm-focus");
+        b.step("test-keyboard-confirm", "Run native popup confirmation focus and submit-order regressions").dependOn(&keyboard_confirm.step);
+        test_il2cpp.dependOn(&keyboard_confirm.step);
         if (ctx.isWindows()) inline for (.{ "runtimeobject", "ole32", "oleaut32" }) |lib| module.linkSystemLibrary(lib, .{});
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         test_il2cpp.dependOn(&b.addRunArtifact(exe).step);

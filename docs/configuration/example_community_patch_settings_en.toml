@@ -377,6 +377,7 @@ havenhistoryhooks = true
 
 # Enable Haven zoom hooks.
 havenzoomhooks = true
+# Install hotkey hooks and protect native popup confirmation while typing or capturing a shortcut.
 hotkeyhooks = true
 
 # Persist registered runtime settings; drain the writer before normal quit.
@@ -809,6 +810,10 @@ allow_officer_preset_reordering = false
 # Show player ships known to this client in the viewed system.
 # Ships not received from the server are not counted. Applies live.
 system_player_ship_counter = true
+
+# Show native Beam Amplifier rings with hostile levels and contributions in System view.
+# Click an icon for the game's buff details.
+hyperthermic_decay_tracker = true
 
 # Native Battle Analysis when built with AAI; applies live, without changing the native Battle Log.
 battle_log_summary_preview = true

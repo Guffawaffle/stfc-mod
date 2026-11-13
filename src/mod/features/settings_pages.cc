@@ -1,6 +1,7 @@
 // Native Mod Settings page/category navigation. The complete native context tree is staged off-screen, then its
 // exact root is published under query custody. Native navigation retains Back/Escape and pooled widget ownership.
 #include "game/settings_pages.h"
+#include "build_identity.h"
 #include "config.h"
 #include "features/features.h"
 #include "game/settings_search.h"
@@ -32,6 +33,7 @@ struct SettingsPageBinding {
   const PageCatalog::Heading* heading = nullptr;
   std::string                 id, label;
   bool                        category = false;
+  std::string                 category_label;
 };
 struct SettingsPageTree {
   il2cpp::GcHandle                      settings, director, parent, root;
@@ -447,7 +449,8 @@ void RenderPageWidget(il2cpp::Object* widget, SettingsPageLabelKind kind)
   if (!binding)
     return;
   const auto& record = binding->tree->bindings[binding->index];
-  auto        text   = record.label;
+  auto        text =
+      kind == SettingsPageLabelKind::Category && !record.category_label.empty() ? record.category_label : record.label;
   if (binding->tree->publication.state() != CategoryPublicationState::Published)
     text += " — unavailable";
   else if (record.heading && record.heading->collapsible) {
@@ -648,8 +651,11 @@ SettingsCategoryContext* AddPageCategory(const std::shared_ptr<SettingsPageTree>
   if (!observed_query || observed_query.value != query.Get() || !observed_parent || observed_parent.value != parent
       || !count || *count != 1)
     return nullptr;
+  std::string category_label;
+  if (!heading && page.id == "community_mod.settings")
+    category_label = page.label + " · " + std::string(build_identity::DisplayVersion());
   tree->bindings.push_back({il2cpp::GcHandle::Weak(category), il2cpp::GcHandle::Weak(query.Get()), &page, heading, id,
-                            heading ? heading->label : page.label, true});
+                            heading ? heading->label : page.label, true, std::move(category_label)});
   return tree->bindings.back().context && tree->bindings.back().query ? category : nullptr;
 }
 std::optional<PageItemKind> PageItemFamily(const PageCatalog::Item& item)
