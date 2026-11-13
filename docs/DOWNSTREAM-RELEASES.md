@@ -34,8 +34,10 @@ a version tag must not publish the ordinary unsigned/ad-hoc CI payloads.
    controller's final notarized DMG; do not repack or re-sign it.
 6. Create a new immutable `vX.Y.Z[.W]-guffa.N` tag on the tested `play` commit.
    Upload the complete signed assets to a draft release, verify the asset set,
-   then publish with `prerelease=false` and explicitly mark it Latest. An
-   `-rc.N` publication remains a prerelease and leaves Latest unchanged.
+   then publish with `prerelease=false` and explicitly mark it Latest. For a
+   pre-release, use a fresh tag in the same format with `prerelease=true` and
+   `make_latest=false`. Use those same identity inputs when signing. A later
+   Release needs a new tag if its identity or signed bytes change.
 
 Never move an existing published tag. Recheck source, run attempt and artifact
 identity after any CI retry or approval delay. The controller refuses artifacts

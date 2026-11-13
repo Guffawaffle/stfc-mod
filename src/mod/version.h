@@ -8,7 +8,7 @@
 #define VERSION_MINOR               1
 #define VERSION_REVISION            9
 #define VERSION_PATCH               5
-#define VERSION_FORK_REVISION       6
+#define VERSION_FORK_REVISION       7
 #define VERSION_COMMIT_HASH         ""
 
 #define VERSION_STRINGIFY_(s)       #s
