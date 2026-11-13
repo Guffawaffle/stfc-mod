@@ -515,6 +515,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("travel", ui, system_player_ship_counter, "Known player ships in system", Owner("SystemShipCounter"), Live,
        "Show player ships known to this client in the viewed system. Ships not received from the server are not "
        "counted.");
+  BOOL("travel", ui, hyperthermic_decay_tracker, "Hyperthermic Decay tracker", Owner("HyperthermicDecay"), Live,
+       "Show active Beam Amplifiers by hostile level, their individual timers, and their first-round Decay "
+       "percentage against Polaron War Strongholds. The separate Vulcan artifact bonus is not included.");
 
   BOOL("previews", ui, disable_preview_locate, "Block Locate with an open preview", hotkeys, Live,
        "Keep Locate from dismissing a target preview.");
