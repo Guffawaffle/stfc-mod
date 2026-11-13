@@ -812,7 +812,7 @@ system_player_ship_counter = true
 
 # Show player-wide Beam Amplifiers by hostile level with individual timers and
 # first-round Hyperthermic Decay against Polaron War Strongholds. Excludes the artifact bonus.
-hyperthermic_decay_tracker = false
+hyperthermic_decay_tracker = true
 
 # Native Battle Analysis when built with AAI; applies live, without changing the native Battle Log.
 battle_log_summary_preview = true

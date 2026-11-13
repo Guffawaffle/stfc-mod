@@ -40,9 +40,14 @@ public:
   {
     if (!prepared_ || (!root_ && !Create(navigation_.Get<HudNavigationViewController>())))
       return;
+    if (right_count && !EnsureRightColumn()) {
+      Hide();
+      return;
+    }
     SetText(heading_, heading, shown_heading_);
     SetText(left_, left, shown_left_);
-    SetText(right_, right, shown_right_);
+    if (right_)
+      SetText(right_, right, shown_right_);
     const auto heading_lines = 1 + static_cast<size_t>(std::count(heading.begin(), heading.end(), '\n'));
     if (!layout_valid_ || heading_lines != heading_lines_ || left_count != left_count_ || right_count != right_count_
         || anomaly_timer != anomaly_timer_) {
@@ -156,8 +161,8 @@ private:
   bool PanelValid() const
   {
     return unity::Alive(root_.Get()) && unity::Alive(heading_.Get()) && unity::Alive(left_.Get())
-           && unity::Alive(right_.Get()) && unity::Alive(root_rect_.Get()) && unity::Alive(heading_rect_.Get())
-           && unity::Alive(left_rect_.Get()) && unity::Alive(right_rect_.Get());
+           && unity::Alive(root_rect_.Get()) && unity::Alive(heading_rect_.Get()) && unity::Alive(left_rect_.Get())
+           && ((!right_ && !right_rect_) || (unity::Alive(right_.Get()) && unity::Alive(right_rect_.Get())));
   }
 
   void ClearPanel()
@@ -238,12 +243,14 @@ private:
 
   void Place(size_t heading_lines, size_t left_count, size_t right_count, bool anomaly_timer)
   {
-    constexpr float width = 420, padding = 10, row_height = 20, gap = 12;
-    const auto      heading_height = static_cast<float>(heading_lines) * row_height + 6;
+    constexpr float padding = 8, row_height = 20, gap = 12;
+    const float     width          = right_count ? 388 : 224;
+    const auto      heading_height = static_cast<float>(heading_lines) * row_height + 2;
     const auto      left_height    = static_cast<float>(left_count) * row_height + 4;
     const auto      right_height   = static_cast<float>(right_count) * row_height + 4;
-    const auto      height         = padding * 2 + heading_height + (left_count ? left_height : 0);
-    const auto      column_width   = right_count ? (width - padding * 2 - gap) / 2 : width - padding * 2;
+    const auto      height =
+        padding * 2 + heading_height + (left_count || right_count ? std::max(left_height, right_height) : 0);
+    const auto column_width = right_count ? (width - padding * 2 - gap) / 2 : width - padding * 2;
     // Follow the native drawer's right edge so expanding to two columns grows
     // toward the game area rather than beyond the right edge of the screen.
     root_rect_.Get<unity::RectTransform>()->Place({1, 0}, {1, 0}, {1, 1}, {width, height},
@@ -252,14 +259,18 @@ private:
                                                      {padding, -padding});
     left_rect_.Get<unity::RectTransform>()->Place({0, 1}, {0, 1}, {0, 1}, {column_width, left_height},
                                                   {padding, -padding - heading_height});
-    right_rect_.Get<unity::RectTransform>()->Place({0, 1}, {0, 1}, {0, 1}, {column_width, right_height},
-                                                   {padding + column_width + gap, -padding - heading_height});
+    if (right_) {
+      right_rect_.Get<unity::RectTransform>()->Place({0, 1}, {0, 1}, {0, 1}, {column_width, right_height},
+                                                     {padding + column_width + gap, -padding - heading_height});
+      right_.Get<unity::TextMeshProUGUI>()->gameObject()->SetActive(right_count != 0);
+    }
+    heading_.Get<unity::TextMeshProUGUI>()->gameObject()->SetActive(true);
     left_.Get<unity::TextMeshProUGUI>()->gameObject()->SetActive(left_count != 0);
-    right_.Get<unity::TextMeshProUGUI>()->gameObject()->SetActive(right_count != 0);
   }
 
   unity::TextMeshProUGUI* CreateLabel(const char* name, unity::RectTransform* parent, il2cpp::GcHandle& object,
-                                      il2cpp::GcHandle& rect_root, unity::TMP_Text::Alignment alignment)
+                                      il2cpp::GcHandle& rect_root, unity::TMP_Text::Alignment alignment,
+                                      bool summary = false)
   {
     auto* rect  = unity::CreateUiObject(name, parent, object);
     rect_root   = il2cpp::GcHandle::Strong(rect);
@@ -268,34 +279,51 @@ private:
       return nullptr;
     label->SetFont(font_.Get<il2cpp::Object>());
     label->SetFontSize(16);
-    label->SetColor({0.69f, 0.91f, 1.0f, 1});
+    label->SetColor(summary ? unity::Color{0.38f, 0.88f, 1.0f, 1} : unity::Color{0.86f, 0.91f, 0.96f, 1});
     label->SetAlignment(alignment);
     label->SetRaycastTarget(false);
     label->SetEnableWordWrapping(false);
     label->SetEnableAutoSizing(false);
     label->SetRichText(false);
     label->SetOverflowMode(unity::TMP_Text::Overflow::Ellipsis);
-    object.Get<unity::GameObject>()->SetActive(true);
+    // CreateUiObject leaves the child inactive. Show publishes it only after
+    // text and geometry are ready, including a newly added right column.
     return label;
+  }
+
+  bool EnsureRightColumn()
+  {
+    if (right_)
+      return true;
+    il2cpp::GcHandle object, rect;
+    auto*            label = CreateLabel("AmplifiersRight", root_rect_.Get<unity::RectTransform>(), object, rect,
+                                         unity::TMP_Text::Alignment::Left);
+    auto             root  = il2cpp::GcHandle::Strong(label);
+    if (!rect || !root) {
+      if (auto* child = object.Get<unity::GameObject>(); unity::Alive(child))
+        unity::Destroy(child);
+      return false;
+    }
+    right_        = std::move(root);
+    right_rect_   = std::move(rect);
+    layout_valid_ = false;
+    return true;
   }
 
   bool Create(HudNavigationViewController* nav)
   {
-    il2cpp::GcHandle panel, heading_object, left_object, right_object;
-    il2cpp::GcHandle panel_rect, heading_rect, left_rect, right_rect;
+    il2cpp::GcHandle panel, heading_object, left_object;
+    il2cpp::GcHandle panel_rect, heading_rect, left_rect;
     auto* rect       = unity::CreateUiObject("CommunityMod_HyperthermicDecay", parent_.Get<unity::Transform>(), panel);
     panel_rect       = il2cpp::GcHandle::Strong(rect);
     auto* object     = panel.Get<unity::GameObject>();
     auto* background = rect && object ? object->AddComponent<unity::Image>() : nullptr;
-    auto* heading = background
-                        ? CreateLabel("Summary", rect, heading_object, heading_rect, unity::TMP_Text::Alignment::Center)
-                        : nullptr;
+    auto* heading    = background ? CreateLabel("Summary", rect, heading_object, heading_rect,
+                                                unity::TMP_Text::Alignment::Center, true)
+                                  : nullptr;
     auto* left = heading ? CreateLabel("AmplifiersLeft", rect, left_object, left_rect, unity::TMP_Text::Alignment::Left)
                          : nullptr;
-    auto* right = left
-                      ? CreateLabel("AmplifiersRight", rect, right_object, right_rect, unity::TMP_Text::Alignment::Left)
-                      : nullptr;
-    if (!panel_rect || !right) {
+    if (!panel_rect || !left) {
       if (unity::Alive(object))
         unity::Destroy(object);
       return false;
@@ -312,11 +340,9 @@ private:
     root_rect_    = std::move(panel_rect);
     heading_rect_ = std::move(heading_rect);
     left_rect_    = std::move(left_rect);
-    right_rect_   = std::move(right_rect);
     heading_      = il2cpp::GcHandle::Strong(heading);
     left_         = il2cpp::GcHandle::Strong(left);
-    right_        = il2cpp::GcHandle::Strong(right);
-    if (!heading_ || !left_ || !right_) {
+    if (!heading_ || !left_) {
       ClearPanel();
       return false;
     }

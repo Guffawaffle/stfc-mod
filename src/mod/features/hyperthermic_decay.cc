@@ -191,7 +191,7 @@ struct DecayTracker {
       return;
     }
     if (!summary.valuesValid) {
-      hud.Show("Hyperthermic Decay\nBuff value unavailable\nBeam amplifiers only", {}, {}, 0, 0, anomaly_timer);
+      hud.Show("Buff value unavailable", {}, {}, 0, 0, anomaly_timer);
       return;
     }
     // Reuse three buffers; no per-row strings or intermediate vector/join.
@@ -215,8 +215,8 @@ struct DecayTracker {
       else
         column += "--:--";
     }
-    fmt::format_to(std::back_inserter(heading), "Hyperthermic Decay\n{:.0f}% · {} contributing\nBeam amplifiers only",
-                   summary.decayPercent, summary.contributing);
+    fmt::format_to(std::back_inserter(heading), "{:.0f}% · {} contributing", summary.decayPercent,
+                   summary.contributing);
     hud.Show(heading, left, right, left_count, count - left_count, anomaly_timer);
   }
 };

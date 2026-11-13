@@ -95,6 +95,12 @@ void ShipHints()
 void HyperthermicDecay()
 {
   using namespace hyperthermic_decay;
+  toml::table effective;
+  Check(Config::Parse({}, effective, false)->ui.hyperthermic_decay_tracker,
+        "The amplifier tracker is enabled when the setting is absent");
+  Check(!Config::Parse(toml::parse("[ui]\nhyperthermic_decay_tracker = false"), effective, false)
+             ->ui.hyperthermic_decay_tracker,
+        "An explicit tracker Off choice survives the enabled default");
   const auto row_for = [](const Rows& rows, int32_t level) -> const Row* {
     const auto found = std::find_if(rows.entries.begin(), rows.entries.end(),
                                     [&](const auto& row) { return row && row->hostileLevel == level; });

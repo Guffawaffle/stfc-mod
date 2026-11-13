@@ -296,7 +296,7 @@ public:
     bool allow_officer_preset_reordering = false;
     // Only player ships received by this client for the viewed system are counted.
     bool system_player_ship_counter = true;
-    bool hyperthermic_decay_tracker = false;
+    bool hyperthermic_decay_tracker = true;
     // The optional private native product reads this live, including teardown.
     bool battle_log_summary_preview = true;
 
