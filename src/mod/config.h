@@ -287,6 +287,7 @@ public:
     bool keep_base_card_open             = false;
     bool keep_player_ship_card_open      = false;
     bool only_show_first_popup           = false;
+    bool show_alliance_games_research    = true;
     bool reverse_haven_history           = true;
     bool disable_toast_banners           = false;
     bool disable_move_keys               = false;

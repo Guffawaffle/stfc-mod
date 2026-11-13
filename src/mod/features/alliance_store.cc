@@ -1,5 +1,5 @@
-// Alliance Games store: native material research tooltips and currency refresh
-// after bundle readiness. One feature owner, no claim-trace or file probe.
+// ui.show_alliance_games_research controls native material research tooltips.
+// Currency and post-purchase refresh remain active independently of that setting.
 #include "game/alliance_store.h"
 #include "config.h"
 #include "features/features.h"
@@ -13,19 +13,23 @@
 
 namespace
 {
-namespace store_game = alliance_store_game;
-using Clock          = std::chrono::steady_clock;
+namespace store_game                   = alliance_store_game;
+using Clock                            = std::chrono::steady_clock;
+constexpr int kResearchRefreshAttempts = 4;
 
 struct AllianceStoreWork {
   il2cpp::GcHandle  source;
   uint64_t          epoch   = 0;
   bool              pending = false, currency = false, refreshing_currency = false, layout = false;
   Clock::time_point due{};
+  bool              research_enabled = true, research_pending = false;
+  int               research_attempts = 0;
+  Clock::time_point research_due{}, notice_due{};
 };
 // Retained managed handles must not be freed by process static destructors after IL2CPP shuts down.
 auto& alliance_store_work = *new AllianceStoreWork;
 
-enum class ResearchUpdate { Unchanged, Upgraded, Restored, Unavailable, Failed };
+enum class ResearchUpdate { Unchanged, Upgraded, Annotated, Restored, Unavailable, Failed };
 
 bool SameStoreItem(StoreInventoryTooltip* tooltip, InventoryItem* item)
 {
@@ -38,11 +42,17 @@ bool SameStoreItem(StoreInventoryTooltip* tooltip, InventoryItem* item)
 
 // Weak component identity survives pooled reuse without retaining a scene. Only
 // the original serialized assets stay rooted while our replacement is bound.
+struct StoreResearchNotice {
+  il2cpp::GcHandle            item, previous_text, published_text;
+  store_game::OverridableBool show_description{};
+  bool                        override_locale = false;
+};
 struct OwnedStoreTooltip {
-  il2cpp::GcHandle widget, plain, action, store;
-  il2cpp::GcHandle search, locale, settings;
-  bool             bound = false, plain_enabled = true, retiring = false;
-  uint64_t         generation = 0;
+  il2cpp::GcHandle                     widget, plain, action, store;
+  il2cpp::GcHandle                     search, locale, settings;
+  bool                                 bound = false, plain_enabled = true, retiring = false;
+  uint64_t                             generation = 0;
+  std::shared_ptr<StoreResearchNotice> notice;
 };
 auto& alliance_store_tooltips = *new std::vector<std::shared_ptr<OwnedStoreTooltip>>;
 
@@ -54,9 +64,57 @@ std::shared_ptr<OwnedStoreTooltip> OwnedTooltip(StoreInventoryTooltip* tooltip)
   return nullptr;
 }
 
+bool RestoreStoreNotice(OwnedStoreTooltip& entry)
+{
+  const auto notice = entry.notice;
+  if (!notice)
+    return true;
+  store_game::Roots roots;
+  auto*             widget = roots.Keep(entry.widget.Get<StoreInventoryTooltip>());
+  auto*             plain  = roots.Keep(entry.plain.Get<StoreTooltipTrigger>());
+  if (!roots.healthy)
+    return false;
+  if (!widget || !plain) {
+    entry.notice.reset();
+    return true;
+  }
+  const auto alive = unity::TryAlive(widget);
+  if (!alive)
+    return false;
+  auto& f = store_game::Members();
+  if (!alive.value || f.trigger.Read(widget) != plain || f.action.Read(widget)) {
+    // A replacement component owner is outside our plain-tooltip arrangement.
+    entry.notice.reset();
+    return true;
+  }
+  const auto item = widget->TryCall<"get_Context", InventoryItem*>();
+  if (!item)
+    return false;
+  const bool same_item = item.value && item.value == notice->item.Get();
+  const auto shown     = f.show_description.Read(plain);
+  bool       ok        = true;
+  if (shown.serialized == notice->show_description.serialized && shown.current && shown.modified)
+    ok &= f.show_description.Write(plain, notice->show_description);
+  if (f.override_locale.Read(plain))
+    ok &= f.override_locale.Write(plain, notice->override_locale);
+  if (!ok)
+    return false;
+  const bool owns_text =
+      f.description_override.Read(plain) == reinterpret_cast<Il2CppString*>(notice->published_text.Get());
+  // Native resource refresh replaces only the text, not the flags above. Leave
+  // that fresh body intact while retiring each of our still-owned overrides.
+  if (owns_text
+      && !f.description_override.Write(plain, same_item ? reinterpret_cast<Il2CppString*>(notice->previous_text.Get())
+                                                        : nullptr))
+    return false;
+  entry.notice.reset();
+  // Never put the previous material's body onto a reused card.
+  return !owns_text || same_item || widget->TryCall<"UpdateTooltipDescription", void()>().succeeded;
+}
+
 bool RestoreStoreTooltip(OwnedStoreTooltip& entry)
 {
-  if (!entry.bound)
+  if (!entry.bound && !entry.notice)
     return true;
   if (entry.retiring)
     return false;
@@ -67,6 +125,10 @@ bool RestoreStoreTooltip(OwnedStoreTooltip& entry)
     ~ClearRetiring()
     { value = false; }
   } clear{entry.retiring};
+  if (!RestoreStoreNotice(entry))
+    return false;
+  if (!entry.bound)
+    return true;
   store_game::Roots roots;
   auto*             widget = roots.Keep(entry.widget.Get<StoreInventoryTooltip>());
   auto*             plain  = roots.Keep(entry.plain.Get<StoreTooltipTrigger>());
@@ -110,9 +172,86 @@ bool RestoreStoreTooltip(OwnedStoreTooltip& entry)
   return ok;
 }
 
+std::shared_ptr<OwnedStoreTooltip> OwnStoreTooltip(StoreInventoryTooltip* widget, StoreTooltipTrigger* plain,
+                                                   AllianceStoreScroller* store)
+{
+  auto entry = OwnedTooltip(widget);
+  if (entry && (entry->bound || entry->notice || entry->retiring))
+    return entry;
+  auto widget_handle = il2cpp::GcHandle::Weak(widget);
+  auto plain_handle  = il2cpp::GcHandle::Weak(plain);
+  auto store_handle  = il2cpp::GcHandle::Weak(store);
+  if (!widget_handle || !plain_handle || !store_handle)
+    return nullptr;
+  if (!entry) {
+    entry = std::make_shared<OwnedStoreTooltip>();
+    alliance_store_tooltips.push_back(entry);
+  }
+  entry->widget = std::move(widget_handle);
+  entry->plain  = std::move(plain_handle);
+  entry->store  = std::move(store_handle);
+  return entry;
+}
+
+ResearchUpdate AnnotateStoreTooltip(StoreInventoryTooltip* widget, StoreTooltipTrigger* plain, InventoryItem* item,
+                                    AllianceStoreScroller* store, const auto& same_item)
+{
+  auto owned = OwnStoreTooltip(widget, plain, store);
+  if (!owned || owned->retiring)
+    return ResearchUpdate::Unavailable;
+  auto&      f          = store_game::Members();
+  const auto generation = ++owned->generation;
+  auto       current    = [&] {
+    return same_item() && !owned->retiring && owned->generation == generation && f.trigger.Read(widget) == plain
+           && !f.action.Read(widget);
+  };
+  // Native refresh preserves the material's ordinary localized description,
+  // including maximum/timer details, before we add the passive status.
+  if (!widget->TryCall<"UpdateTooltipDescription", void()>() || !current())
+    return ResearchUpdate::Unavailable;
+  store_game::Roots roots;
+  const auto        body = store_game::Description(plain, roots);
+  if (!body || !current())
+    return ResearchUpdate::Unavailable;
+  auto  notice   = std::make_shared<StoreResearchNotice>();
+  auto* previous = roots.Keep(f.description_override.Read(plain));
+  auto  text     = il2cpp::ToUtf8(body.value);
+  if (!text.empty())
+    text += "\n\n";
+  text += "No Available Research";
+  auto* published = roots.Keep(il2cpp::NewString(text));
+  if (!roots.healthy || !published || !current())
+    return ResearchUpdate::Unavailable;
+  notice->item           = il2cpp::GcHandle::Weak(item);
+  notice->previous_text  = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(previous));
+  notice->published_text = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(published));
+  if (!notice->item || (previous && !notice->previous_text) || !notice->published_text)
+    return ResearchUpdate::Unavailable;
+  notice->show_description = f.show_description.Read(plain);
+  notice->override_locale  = f.override_locale.Read(plain);
+  owned->notice            = notice;
+  const store_game::OverridableBool shown{notice->show_description.serialized, true, true};
+  if (!f.description_override.Write(plain, published) || !f.show_description.Write(plain, shown)
+      || !f.override_locale.Write(plain, true) || !current() || owned->notice != notice) {
+    (void)RestoreStoreTooltip(*owned);
+    return ResearchUpdate::Failed;
+  }
+  return ResearchUpdate::Annotated;
+}
+
 ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInventoryTooltip*& donor,
                                      store_game::Roots& pass_roots)
 {
+  auto owned = OwnedTooltip(tooltip);
+  // Remove only our text before any eligibility decision or appearance copy.
+  // Unknown data must leave the ordinary tooltip, never a stale negative.
+  const bool had_notice = owned && owned->notice;
+  if (had_notice && !RestoreStoreTooltip(*owned))
+    return ResearchUpdate::Failed;
+  if (!Config::Get().ui.show_alliance_games_research)
+    return owned && owned->bound ? (RestoreStoreTooltip(*owned) ? ResearchUpdate::Restored : ResearchUpdate::Failed)
+           : had_notice          ? ResearchUpdate::Restored
+                                 : ResearchUpdate::Unchanged;
   store_game::Roots roots;
   if (!roots.Keep(tooltip))
     return ResearchUpdate::Unavailable;
@@ -123,7 +262,8 @@ ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInvent
       alive && alive.value ? tooltip->TryCall<"get_Context", InventoryItem*>() : il2cpp::CallResult<InventoryItem*>{};
   auto* item      = observed ? roots.Keep(observed.value) : nullptr;
   auto  same_item = [&] {
-    if (!store || alliance_store_work.epoch != epoch || alliance_store_work.source.Get() != store)
+    if (!Config::Get().ui.show_alliance_games_research || !store || alliance_store_work.epoch != epoch
+        || alliance_store_work.source.Get() != store)
       return false;
     const auto live_store = unity::TryAlive(store);
     return live_store && live_store.value && SameStoreItem(tooltip, item) && alliance_store_work.epoch == epoch
@@ -135,17 +275,23 @@ ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInvent
   auto& f           = store_game::Members();
   auto* old_action  = roots.Keep(f.action.Read(tooltip));
   auto* old_trigger = roots.Keep(f.trigger.Read(tooltip));
-  auto  owned       = OwnedTooltip(tooltip);
   // Existing native action components and unrelated arrangements remain native.
   if (!roots.healthy || (old_action && (!owned || owned->action.Get() != old_action))
       || (old_action ? old_trigger != old_action : old_trigger != plain))
     return ResearchUpdate::Unchanged;
   const auto eligible = store_game::Eligible(item);
-  if (!eligible || !same_item())
+  if (!eligible) {
+    if (owned && owned->bound && !RestoreStoreTooltip(*owned))
+      return ResearchUpdate::Failed;
     return ResearchUpdate::Unavailable;
-  if (!eligible.value)
-    return owned && owned->bound ? (RestoreStoreTooltip(*owned) ? ResearchUpdate::Restored : ResearchUpdate::Failed)
-                                 : ResearchUpdate::Unchanged;
+  }
+  if (!same_item())
+    return ResearchUpdate::Unavailable;
+  if (!eligible.value) {
+    if (owned && owned->bound && !RestoreStoreTooltip(*owned))
+      return ResearchUpdate::Failed;
+    return same_item() ? AnnotateStoreTooltip(tooltip, plain, item, store, same_item) : ResearchUpdate::Unavailable;
+  }
   if (!donor)
     donor = store_game::Template(pass_roots);
   if (!donor)
@@ -161,21 +307,19 @@ ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInvent
   // Reuse only the disabled component this feature previously added.
   if (action && (!owned || owned->action.Get() != action))
     return ResearchUpdate::Unchanged;
+  owned = OwnStoreTooltip(tooltip, plain, store);
+  if (!owned || owned->retiring)
+    return ResearchUpdate::Unavailable;
   if (!action)
     action = store_game::ActionComponent(tooltip, true, roots);
   if (!action)
     return ResearchUpdate::Unavailable;
-  if (!owned) {
-    auto entry    = std::make_shared<OwnedStoreTooltip>();
-    entry->widget = il2cpp::GcHandle::Weak(tooltip);
-    entry->plain  = il2cpp::GcHandle::Weak(plain);
-    entry->action = il2cpp::GcHandle::Weak(action);
-    if (!entry->widget || !entry->plain || !entry->action) {
+  if (owned->action.Get() != action) {
+    owned->action = il2cpp::GcHandle::Weak(action);
+    if (!owned->action) {
       store_game::Enabled(action, false);
       return ResearchUpdate::Unavailable;
     }
-    alliance_store_tooltips.push_back(std::move(entry));
-    owned = alliance_store_tooltips.back();
   }
   const bool previously_bound = owned->bound;
   if (!owned->bound) {
@@ -307,21 +451,70 @@ void BundleDataWidget_OnDidBindContext_Hook(auto original, BundleDataWidget* sel
 
 void AllianceStoreFrame()
 {
-  auto& work = alliance_store_work;
-  if (!work.pending || Clock::now() < work.due)
+  auto&      work             = alliance_store_work;
+  const auto now              = Clock::now();
+  const bool research_enabled = Config::Get().ui.show_alliance_games_research;
+  if (research_enabled != work.research_enabled) {
+    work.research_enabled  = research_enabled;
+    work.research_pending  = true;
+    work.research_attempts = 0;
+    work.research_due      = {};
+  }
+  const bool research_pending = work.research_pending && now >= work.research_due;
+  if (research_pending) {
+    work.research_due = now + std::chrono::milliseconds(250);
+    if (!research_enabled) {
+      work.research_pending = false;
+      // Restoration may reenter native bind/pruning, and must work even while
+      // Settings obscures the store or its eligibility data is unavailable.
+      const auto entries = alliance_store_tooltips;
+      for (const auto& entry : entries)
+        if ((entry->bound || entry->notice) && !RestoreStoreTooltip(*entry))
+          work.research_pending = true;
+    }
+  }
+  const bool store_pending = work.pending && now >= work.due;
+  // InventoryTooltip refreshes independently on resource updates. At most four
+  // times a second, check only publications we own; unchanged notices require
+  // no pool scan, eligibility query, localization or string allocation.
+  bool notice_pass = false;
+  if (research_enabled && now >= work.notice_due) {
+    work.notice_due = now + std::chrono::milliseconds(250);
+    if (!work.pending && !work.research_pending && work.source.Get())
+      notice_pass = std::ranges::any_of(alliance_store_tooltips, [](const auto& entry) {
+        if (!entry->notice)
+          return false;
+        auto* plain = entry->plain.Get<StoreTooltipTrigger>();
+        return !plain
+               || store_game::Members().description_override.Read(plain)
+                      != reinterpret_cast<Il2CppString*>(entry->notice->published_text.Get());
+      });
+  }
+  if (!store_pending && !(research_pending && research_enabled) && !notice_pass)
     return;
-  const bool currency     = std::exchange(work.currency, false);
-  const bool layout       = std::exchange(work.layout, false);
-  work.pending            = false;
-  const auto        epoch = work.epoch;
+  const bool currency = store_pending && std::exchange(work.currency, false);
+  const bool layout   = store_pending && std::exchange(work.layout, false);
+  if (store_pending)
+    work.pending = false;
+  const auto epoch           = work.epoch;
+  auto*      observed_source = work.source.Get<AllianceStoreScroller>();
+  if (!observed_source) {
+    // The next native store bind already schedules its own pass. Do not keep
+    // polling while the user is elsewhere with no retained live store.
+    if (research_enabled)
+      work.research_pending = false;
+    return;
+  }
   store_game::Roots roots;
-  auto*             source   = roots.Keep(work.source.Get<AllianceStoreScroller>());
-  const auto        alive    = unity::TryAlive(source);
-  const auto        observed = source && alive && alive.value
-                                   ? source->TryCall<"get_AllianceGamesContext", AllianceStoreContext*>()
-                                   : il2cpp::CallResult<AllianceStoreContext*>{};
-  auto*             context  = observed ? roots.Keep(observed.value) : nullptr;
-  const auto        active   = context ? context->TryCall<"get_IsShopViewActive", bool>() : il2cpp::CallResult<bool>{};
+  auto*             source = roots.Keep(observed_source);
+  const auto        alive  = unity::TryAlive(source);
+  if (alive && !alive.value && research_enabled)
+    work.research_pending = false;
+  const auto observed = source && alive && alive.value
+                            ? source->TryCall<"get_AllianceGamesContext", AllianceStoreContext*>()
+                            : il2cpp::CallResult<AllianceStoreContext*>{};
+  auto*      context  = observed ? roots.Keep(observed.value) : nullptr;
+  const auto active   = context ? context->TryCall<"get_IsShopViewActive", bool>() : il2cpp::CallResult<bool>{};
   if (!context || !active || !active.value)
     return;
   if (work.epoch != epoch || work.source.Get() != source)
@@ -329,10 +522,33 @@ void AllianceStoreFrame()
   auto& fields = store_game::Members();
   auto* smart  = roots.Keep(fields.scroller.Read(source));
   if (smart && (fields.regenerating.Read(smart) || fields.spawning.Read(smart) || fields.initializing.Read(smart))) {
-    work.pending = true;
+    work.pending |= store_pending;
     work.currency |= currency;
     work.layout |= layout;
     work.due = Clock::now() + std::chrono::milliseconds(250);
+    return;
+  }
+  if (notice_pass) {
+    // Native calls can reenter store release/bind. Retain stable owner entries
+    // and recheck source authority before touching the next changed card.
+    const auto             entries = alliance_store_tooltips;
+    StoreInventoryTooltip* donor   = nullptr;
+    for (const auto& entry : entries) {
+      if (work.epoch != epoch || work.source.Get() != source || !Config::Get().ui.show_alliance_games_research)
+        return;
+      const auto notice = entry->notice;
+      if (!notice || entry->retiring || entry->store.Get() != source)
+        continue;
+      auto* plain = entry->plain.Get<StoreTooltipTrigger>();
+      if (plain
+          && fields.description_override.Read(plain) == reinterpret_cast<Il2CppString*>(notice->published_text.Get()))
+        continue;
+      store_game::Roots card_roots;
+      if (auto* widget = card_roots.Keep(entry->widget.Get<StoreInventoryTooltip>()))
+        (void)ReconcileStoreTooltip(widget, donor, roots);
+      else if (card_roots.healthy)
+        (void)RestoreStoreTooltip(*entry);
+    }
     return;
   }
   bool position_notified = false;
@@ -381,6 +597,13 @@ void AllianceStoreFrame()
       default:
         break;
     }
+  }
+  if (work.research_pending && research_enabled && Config::Get().ui.show_alliance_games_research && work.epoch == epoch
+      && work.source.Get() == source) {
+    // A preference change may beat donor/eligibility readiness without another
+    // native bind event. Retry settled failures briefly, never poll permanently
+    // for a missing/drifted capability. Native store events can still retry later.
+    work.research_pending = (unavailable || failed) && ++work.research_attempts < kResearchRefreshAttempts;
   }
   bool                        refreshed = false;
   il2cpp::CallResult<int32_t> currency_before, currency_after;

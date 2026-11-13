@@ -342,7 +342,7 @@ nativesettingshooks = true
 abilitybuttonrecoveryhooks = true
 
 # Native Research Lookup tooltips and data-ready currency refresh in Alliance Games Store.
-# Restart required; preserves the game's eligibility, currency IDs and purchase behavior.
+# Emergency hook switch; restart required. Use ui.show_alliance_games_research for the live button setting.
 alliancegamesstorehooks = true
 
 # Enable recovery of interrupted action queues.
@@ -839,6 +839,11 @@ disable_toast_banners = false
 
 # Show only the first popup advert and suppress subsequent popup adverts.
 only_show_first_popup = false
+
+# Show native View Research actions for eligible Alliance Games Store materials. Applies live.
+# Materials with no matching visible research show "No Available Research" in their tooltip.
+# Mod Settings -> Claims & Confirmations; store currency and refresh fixes remain active when off.
+show_alliance_games_research = true
 
 # Show the newest Haven help-history entries first.
 reverse_haven_history = true
