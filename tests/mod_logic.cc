@@ -762,6 +762,45 @@ void FrozenSettingsDefaults()
         "conditional source momentum default appears only when its experimental read is enabled");
 }
 
+void PanGlideLimits()
+{
+  for (const auto* text : {"", "[graphics]\nsystem_pan_speed=0.5", "[graphics]\ngalaxy_pan_speed=2.5",
+                           "[graphics]\nsystem_pan_speed=0.5\ngalaxy_pan_speed=2.5"}) {
+    toml::table effective;
+    const auto  input  = toml::parse(text);
+    const auto  parsed = Config::Parse(input, effective, false);
+    Check(parsed->graphics.system_pan_speed == (input["graphics"]["system_pan_speed"] ? 0.5f : 1.0f),
+          "System pan speed keeps its own default and saved value");
+    Check(parsed->graphics.galaxy_pan_speed == (input["graphics"]["galaxy_pan_speed"] ? 2.5f : 1.0f),
+          "Galaxy pan speed keeps its own default and saved value");
+  }
+  struct Case {
+    const char* text;
+    float       expected;
+  };
+  for (const auto* key : {"system_pan_speed", "galaxy_pan_speed"})
+    for (const auto& item : std::array{Case{"0.1", .1f}, Case{"10", 10}, Case{"0", 1}, Case{"0.05", 1},
+                                       Case{"1e-40", 1}, Case{"nan", 1}}) {
+      toml::table effective;
+      const auto  parsed =
+          Config::Parse(toml::parse(std::string("[graphics]\n") + key + " = " + item.text), effective, false);
+      const auto value = std::string_view(key) == "system_pan_speed" ? parsed->graphics.system_pan_speed
+                                                                     : parsed->graphics.galaxy_pan_speed;
+      Check(value == item.expected, "both pan speed parsers enforce the practical range 0.1 to 10");
+    }
+  const Case cases[]{{"0", 0},      {"0.8", 0.8f}, {"0.99", 0.99f}, {"1", 0.99f},      {"1.5", 0.99f}, {"-0.1", 0},
+                     {"nan", 0.8f}, {"inf", 0.8f}, {"-inf", 0.8f},  {"\"bad\"", 0.8f}, {"[]", 0.8f}};
+  for (const auto& item : cases) {
+    toml::table effective;
+    const auto parsed = Config::Parse(
+        toml::parse(std::string("[graphics]\nsystem_pan_momentum_falloff = ") + item.text), effective, false);
+    Check(parsed->graphics.system_pan_momentum_falloff == item.expected,
+          "pan glide saturates finite values below one and keeps the default for unreadable or nonfinite values");
+    Check(effective["graphics"]["system_pan_momentum_falloff"].value<double>() == double(item.expected),
+          "runtime vars record the bounded pan glide actually used");
+  }
+}
+
 // Settings that were renamed still read their old names, and the new name wins when both are set.
 void RenamedSettings()
 {
@@ -993,6 +1032,7 @@ int main()
   DailyFactionSettings();
   UpstreamSettings();
   FrozenSettingsDefaults();
+  PanGlideLimits();
   RenamedSettings();
   ParseDoesNotActivateSettings();
   LegacySyncTargets();

@@ -45,8 +45,13 @@ struct AlphaHandler : unity::Behaviour {
 };
 } // namespace base_label_binding
 
+enum class NodeDepth : int32_t;
+
 struct NavigationPan : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationPan">;
+
+  NodeDepth nodeDepth()
+  { return Field<"_nodeDepth", NodeDepth>(); }
 
   // A missing gate cannot become permission to move, or a missing delta an observed zero. BlockPan is static;
   // the other state belongs to this controller, and the aggregate must be Unity's actual Vector2.
@@ -60,8 +65,8 @@ struct NavigationPan : il2cpp::Object {
              && il2cpp::detail::ValueClassMatches(
                  last->type, il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw(),
                  sizeof(unity::Vector2))
-             && Class::HasField<"_trackingPOI", void*>() && Class::HasField<"_deltaScaler", float>()
-             && Class::HasField<"_keyboardDeltaScaler", float>()
+             && Class::HasField<"_trackingPOI", void*>() && Class::HasField<"_panningStarted", bool>()
+             && Class::HasField<"_deltaScaler", float>() && Class::HasField<"_keyboardDeltaScaler", float>()
              && Class::HasField<"_farMagRadiusRatioSystemNormal", float>()
              && Class::HasField<"_farMagRadiusRatioSystemExtended", float>();
     }();
@@ -74,8 +79,14 @@ struct NavigationPan : il2cpp::Object {
   { SetField<"_lastDelta">(value); }
   float deltaScaler()
   { return Field<"_deltaScaler", float>(); }
+  void SetDeltaScaler(float value)
+  { SetField<"_deltaScaler">(value); }
   float keyboardDeltaScaler()
   { return Field<"_keyboardDeltaScaler", float>(); }
+  void SetKeyboardDeltaScaler(float value)
+  { SetField<"_keyboardDeltaScaler">(value); }
+  bool panningStarted()
+  { return Field<"_panningStarted", bool>(); }
   // Managed POI; only checked for null or cleared.
   void* trackingPOI()
   { return Field<"_trackingPOI", void*>(); }

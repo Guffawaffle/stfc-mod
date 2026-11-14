@@ -593,7 +593,7 @@ bool ModMovesCamera()
 
 struct PanSettings {
   bool  hotkeys, native_hotkeys, move_disabled, hotkey_hooks, unlock;
-  float falloff;
+  float falloff, system_speed, galaxy_speed;
   bool  operator==(const PanSettings&) const = default;
 };
 PanSettings ReadPanSettings()
@@ -604,7 +604,9 @@ PanSettings ReadPanSettings()
           config.ui.disable_move_keys,
           config.patches.hotkeyhooks,
           config.graphics.disable_target_camera_lock,
-          config.graphics.system_pan_momentum_falloff};
+          config.graphics.system_pan_momentum_falloff,
+          config.graphics.system_pan_speed,
+          config.graphics.galaxy_pan_speed};
 }
 bool KeyboardPanActive(const PanSettings& settings)
 {
@@ -622,6 +624,26 @@ bool KeyboardPanAllowed()
          && !unity::Key::IsInputFocused();
 }
 
+// Native LateUpdate fades cached motion with deltaScaler and uses the same scaler for fresh keys. Supply our
+// one configured fade separately, while preserving native keyboard amplitude and restoring both fields.
+struct NativePanScalers {
+  NavigationPan* pan;
+  float          delta, keyboard;
+  NativePanScalers(NavigationPan* value, float speed)
+      : pan(value)
+      , delta(value->deltaScaler())
+      , keyboard(value->keyboardDeltaScaler())
+  {
+    pan->SetDeltaScaler(1.0f);
+    pan->SetKeyboardDeltaScaler(keyboard * delta * speed);
+  }
+  ~NativePanScalers()
+  {
+    pan->SetDeltaScaler(delta);
+    pan->SetKeyboardDeltaScaler(keyboard);
+  }
+};
+
 // Replaces the game's LateUpdate: the keyboard source is the mod's shortcuts, and the pan keeps gliding after the
 // drag or key is released. Each frame moves the camera once: by the keys while one is held, otherwise by the
 // glide.
@@ -631,16 +653,15 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
   const auto settings = ReadPanSettings();
   const bool keyboard = KeyboardPanActive(settings);
   const bool fields   = NavigationPan::FieldsAvailable();
-
-  // With the game's own hotkeys, its LateUpdate pans and glides by itself; only the extended range is ours.
-  if (keyboard && (settings.native_hotkeys || !settings.hotkey_hooks)) {
-    if (fields && settings.unlock && _this->trackingPOI())
-      _this->SetTrackingPOI(nullptr);
-    original(_this);
-    if (fields)
-      _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
+  const bool native   = keyboard && (settings.native_hotkeys || !settings.hotkey_hooks);
+  if (!fields) {
+    if (native)
+      original(_this);
     return true;
   }
+
+  const auto  depth     = _this->nodeDepth();
+  const float pan_speed = CameraPanSpeed(depth, settings.system_speed, settings.galaxy_speed);
 
   auto       owner         = il2cpp::GcHandle::Strong(_this);
   const auto pointer_state = unity::Input::TryPointerHeld();
@@ -652,16 +673,31 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
   auto       d       = _this->lastDelta();
   const auto tracked = _this->trackingPOI();
   const bool blocked = _this->BlockPan() || (tracked && !settings.unlock);
-  const bool pointer = pointer_state.value;
+  const bool pointer = pointer_state.value || _this->panningStarted();
   bool       by_keys = false;
-  const bool allowed = keyboard && !blocked && !pointer && KeyboardPanAllowed();
+  const bool allowed = keyboard && !native && !blocked && !pointer && KeyboardPanAllowed();
   if (ReadPanSettings() != settings)
     return true;
   const auto current_pointer = unity::Input::TryPointerHeld();
-  if (!current_pointer || current_pointer.value != pointer || _this->trackingPOI() != tracked
-      || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked || !std::isfinite(d.x) || !std::isfinite(d.y)
-      || !std::isfinite(settings.falloff))
+  if (!current_pointer || (current_pointer.value || _this->panningStarted()) != pointer
+      || _this->trackingPOI() != tracked || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked
+      || !std::isfinite(d.x) || !std::isfinite(d.y) || !std::isfinite(settings.falloff) || _this->nodeDepth() != depth
+      || !std::isfinite(pan_speed))
     return true;
+  if (native) {
+    if (!pointer) {
+      const float native_delta = _this->deltaScaler(), native_keyboard = _this->keyboardDeltaScaler();
+      const auto  faded = blocked ? unity::Vector2{} : d * settings.falloff;
+      if (!std::isfinite(native_delta) || !std::isfinite(native_keyboard * native_delta * pan_speed)
+          || !std::isfinite(faded.x) || !std::isfinite(faded.y))
+        return true;
+      _this->SetLastDelta(faded);
+      NativePanScalers scalers(_this, pan_speed);
+      original(_this);
+    }
+    _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
+    return true;
+  }
   if (allowed && KeyboardPanActive(settings)) {
     // Opposite bindings cancel; normalize diagonals like the native 2D composite. MoveCamera takes a drag, and
     // dragging left moves the view right, hence the negation.
@@ -674,10 +710,11 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
         return true;
       d                   = {-x / length * speed, -y / length * speed};
       by_keys             = true;
-      const auto movement = d * scale;
+      const auto movement = d * (scale * pan_speed);
       if (!std::isfinite(movement.x) || !std::isfinite(movement.y))
         return true;
       _this->MoveCamera(movement, true);
+      d = _this->lastDelta();
     }
   }
 
@@ -689,10 +726,12 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
     if (!std::isfinite(d.x) || !std::isfinite(d.y))
       return true;
     _this->MoveCamera(d, true);
+    d = _this->lastDelta();
   }
-  if (ReadPanSettings() != settings || _this->trackingPOI() != tracked)
+  if (ReadPanSettings() != settings || _this->trackingPOI() != tracked || _this->nodeDepth() != depth)
     return true;
-  _this->SetLastDelta(d);
+  if (!pointer || blocked)
+    _this->SetLastDelta(d);
   _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
   return true;
 }
@@ -887,6 +926,8 @@ bool InstallZoom()
 
 bool InstallPan()
 {
+  if (!navigation_orbit::EnsurePanMovement())
+    return false;
   il2cpp::HookSet hooks("Pan");
   IL2CPP_STAGE(hooks, OrbitFrameProvider::Class::Method("UpdateInputData"), OrbitFrameProvider_UpdateInputData_Hook);
   IL2CPP_STAGE(hooks, TKTouch::Class::Method("populateWithPosition"), TKTouch_populateWithPosition_Hook);
@@ -919,6 +960,18 @@ bool InstallInteriorZoom()
   return interior_zoom_installed;
 }
 } // namespace
+
+float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed)
+{
+  switch (depth) {
+    case NodeDepth::SolarSystem:
+      return system_speed;
+    case NodeDepth::Galaxy:
+      return galaxy_speed;
+    default:
+      return 1.0f;
+  }
+}
 
 bool EnsureNavigationZoomUpdates()
 {
