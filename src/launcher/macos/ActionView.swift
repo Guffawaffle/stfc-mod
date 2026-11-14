@@ -62,25 +62,31 @@ struct ActionView: View {
         } while !Task.isCancelled
       }
       .overlay(alignment: .bottomTrailing) {
-        VStack(alignment: .trailing, spacing: 2) {
-          Text("Mod Version: \(LauncherBuildIdentity.displayVersion)")
-            .textSelection(.enabled)
-          Text("Game Version: \(String(format: "%02d", gameVersion))")
-        }
-        .font(.lcars(size: 17))
-        .foregroundStyle(Color.lcarTan)
-        .offset(x: -10)
+        Text(versionSummary)
+          .font(.lcars(size: 17))
+          .foregroundStyle(Color.lcarTan)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+          .textSelection(.enabled)
+          .help(versionSummary)
+          .frame(maxWidth: .infinity, alignment: .trailing)
+          .padding(.leading, 110)
+          .padding(.trailing, 10)
       }
-      .overlay(alignment: .bottomLeading) {
+      .overlay(alignment: .topTrailing) {
         if updating {
           HStack {
             PulsatingView()
             Text("\(updateAction) (\(updateSubAction))")
               .font(.lcars(size: 17))
               .foregroundStyle(Color.lcarTan)
-              .offset(x: -10)
+              .lineLimit(1)
+              .minimumScaleFactor(0.7)
           }
-          .offset(x: 115, y: 10)
+          .frame(maxWidth: .infinity, alignment: .trailing)
+          .padding(.leading, 110)
+          .padding(.trailing, 10)
+          .padding(.top, 22)
         }
       }
       .alert("Error", isPresented: $showErrorAlert) {
@@ -89,6 +95,10 @@ struct ActionView: View {
         Text(errorMessage)
       }
     }
+  }
+
+  private var versionSummary: String {
+    "Mod \(LauncherBuildIdentity.displayVersion)   |   Game \(String(format: "%02d", gameVersion))"
   }
 
   // A rounded LCARS button in `color`. Without text it shows random LCARS-style digits.
