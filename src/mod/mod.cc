@@ -123,6 +123,8 @@ constexpr const Feature* kFeatures[] = {
     &kAnomalyTimer,
     // system_ship_counter.cc
     &kSystemShipCounter,
+    // hyperthermic_decay.cc
+    &kHyperthermicDecay,
     // audio.cc
     &kAudio,
     // base_card.cc

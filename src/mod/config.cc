@@ -913,9 +913,21 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("graphics", "free_resize", g.free_resize);
   r.Read("graphics", "allow_cursor", g.allow_cursor);
   r.Read("graphics", "keyboard_zoom_speed", g.keyboard_zoom_speed);
+  r.ReadValid("graphics", "system_pan_speed", g.system_pan_speed,
+              [](float v) { return std::isfinite(v) && v >= 0.1f && v <= 10.0f; });
+  r.ReadValid("graphics", "galaxy_pan_speed", g.galaxy_pan_speed,
+              [](float v) { return std::isfinite(v) && v >= 0.1f && v <= 10.0f; });
   if (control.enable_experimental)
     r.Read("graphics", "system_pan_momentum", g.system_pan_momentum);
-  r.Read("graphics", "system_pan_momentum_falloff", g.system_pan_momentum_falloff);
+  r.ReadValid("graphics", "system_pan_momentum_falloff", g.system_pan_momentum_falloff,
+              [](float v) { return std::isfinite(v); });
+  const auto bounded_falloff = std::clamp(g.system_pan_momentum_falloff, 0.0f, 0.99f);
+  if (g.system_pan_momentum_falloff != bounded_falloff) {
+    spdlog::warn("config graphics.system_pan_momentum_falloff: '{}' clamped to {}", g.system_pan_momentum_falloff,
+                 bounded_falloff);
+    g.system_pan_momentum_falloff = bounded_falloff;
+    r.Record("graphics", "system_pan_momentum_falloff", bounded_falloff);
+  }
   r.Read("graphics", "disable_target_camera_lock", g.disable_target_camera_lock);
   r.Read("graphics", "borderless_fullscreen", g.borderless_fullscreen);
   r.Read("graphics", "transition_time", g.transition_time);
@@ -984,6 +996,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "battle_log_summary_preview", u.battle_log_summary_preview);
   r.Read("ui", "officer_compatibility_filter", u.officer_compatibility_filter);
   r.Read("ui", "system_player_ship_counter", u.system_player_ship_counter);
+  r.Read("ui", "hyperthermic_decay_tracker", u.hyperthermic_decay_tracker);
   r.Read("ui", "auto_open_bulk_claim_flyout", u.auto_open_bulk_claim_flyout);
   u.daily_bulk_claim_factions = ReadFactions(r);
   r.Read("ui", "daily_bulk_claim_toggle_default_on", u.daily_bulk_claim_toggle_default_on);

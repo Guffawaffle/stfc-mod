@@ -350,13 +350,24 @@ namespace
     auto canonical = Keep<ValueSetting<T>>(definition);
     numbers.push_back({page, canonical.get(), double(minimum), double(maximum)});
     auto editor = ExactNumber(catalog, page, canonical, minimum, maximum);
-    if constexpr (std::is_same_v<T, float>)
-      if (slider_maximum > minimum) {
-        auto slider          = Keep<SliderSetting>(std::move(definition), minimum, slider_maximum, step,
+    if constexpr (std::is_same_v<T, float>) {
+      // Positive-only convenience sliders start at a usable step; the exact editor retains its own range.
+      const float slider_minimum = minimum > 0 && minimum < step ? step : minimum;
+      if (slider_maximum > slider_minimum) {
+        auto range = "Slider: " + NumberDisplayText(slider_minimum) + "–" + NumberDisplayText(slider_maximum);
+        if (minimum != slider_minimum || maximum != slider_maximum) {
+          if (maximum == std::numeric_limits<float>::max())
+            range += " · Edit supports a wider range";
+          else
+            range += " · Edit: " + NumberDisplayText(minimum) + "–" + NumberDisplayText(maximum);
+        }
+        definition.label += "\n<size=75%>" + range + "</size>";
+        auto slider          = Keep<SliderSetting>(std::move(definition), slider_minimum, slider_maximum, step,
                                                    slider_enabled ? slider_enabled : available, SliderLabel::Value, 2);
         slider->exact_editor = editor.get();
         catalog.AddSlider(page, *slider);
       }
+    }
   }
 
   template <class Read, class Write>
@@ -447,8 +458,13 @@ void RegisterConfigSettings(PageCatalog& catalog)
   FLOAT("camera", graphics, default_system_zoom, "Default system zoom", zoom, Live,
         "Zero keeps the game's system-entry zoom; otherwise used on entry and reset.", "distance", 0, largest, 6000,
         50);
+  FLOAT("camera", graphics, system_pan_speed, "System pan speed", pan, Live,
+        "Mouse/touch and keyboard panning in System view. One is normal speed.", "multiplier", .1f, 10, 3, .1f);
+  FLOAT("camera", graphics, galaxy_pan_speed, "Galaxy pan speed", pan, Live,
+        "Mouse/touch and keyboard panning in Galaxy view. One is normal speed.", "multiplier", .1f, 10, 3, .1f);
   FLOAT("camera", graphics, system_pan_momentum_falloff, "Pan glide", pan, Live,
-        "Retained motion per pan update; higher values glide longer.", "ratio", 0, .999999f, .99f, .01f);
+        "Retained motion per pan update in both keyboard modes; zero stops immediately and 0.99 gives a long glide.",
+        "ratio", 0, .99f, .99f, .01f);
   BOOL("camera", graphics, use_presets_as_default, "Use last preset as default zoom", zoom, Live,
        "Selecting a preset updates the session's default zoom.");
   FLOAT("camera", graphics, system_zoom_preset_1, "Zoom preset 1", zoom, Live, "Distance for zoom preset 1.",
@@ -520,6 +536,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("travel", ui, system_player_ship_counter, "Known player ships in system", Owner("SystemShipCounter"), Live,
        "Show player ships known to this client in the viewed system. Ships not received from the server are not "
        "counted.");
+  BOOL("travel", ui, hyperthermic_decay_tracker, "Hyperthermic Decay tracker", Owner("HyperthermicDecay"), Live,
+       "Show native Beam Amplifier countdown rings with hostile levels and contributions in System view. Click a "
+       "ring for the game's buff details.");
 
   BOOL("previews", ui, disable_preview_locate, "Block Locate with an open preview", hotkeys, Live,
        "Keep Locate from dismissing a target preview.");

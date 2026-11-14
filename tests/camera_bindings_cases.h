@@ -22,6 +22,12 @@ inline il2cpp::CallResult<bool> PinchStarted(NavigationZoom*)
 #include "../src/mod/features/camera.cc"
 #undef scroll_input
 
+#ifndef STFC_ORBIT_FIXTURE
+// This isolated camera fixture does not install hooks. The orbit fixture supplies the shared implementation.
+bool navigation_orbit::EnsurePanMovement()
+{ return true; }
+#endif
+
 namespace
 {
 struct CameraNativeObject {

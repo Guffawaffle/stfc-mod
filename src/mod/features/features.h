@@ -93,6 +93,9 @@ extern const Feature kAnomalyTimer;
 // system_ship_counter.cc: client-known player ships, independent of AAI.
 extern const Feature kSystemShipCounter;
 
+// hyperthermic_decay.cc: player-wide Beam Amplifier buffs and their native values.
+extern const Feature kHyperthermicDecay;
+
 // audio.cc
 extern const Feature kAudio;
 
@@ -108,6 +111,8 @@ extern const Feature kZoom;
 extern const Feature kScrollZoomGuard;
 extern const Feature kPan;
 extern const Feature kInteriorZoom;
+// Fresh pan speed for this camera's own depth; unrelated or unknown depths retain native speed.
+float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed);
 
 // cargo.cc. The instant counter is Windows only.
 extern const Feature kCargoFormat;
