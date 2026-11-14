@@ -778,9 +778,18 @@ void PanGlideLimits()
     const char* text;
     float       expected;
   };
-  const Case cases[]{{"0", 0},       {"0.8", 0.8f},   {"0.99", 0.99f}, {"1", 0.99f},
-                     {"1.5", 0.99f}, {"-0.1", 0},     {"nan", 0.8f},   {"inf", 0.8f},
-                     {"-inf", 0.8f}, {"\"bad\"", 0.8f}, {"[]", 0.8f}};
+  for (const auto* key : {"system_pan_speed", "galaxy_pan_speed"})
+    for (const auto& item : std::array{Case{"0.1", .1f}, Case{"10", 10}, Case{"0", 1}, Case{"0.05", 1},
+                                       Case{"1e-40", 1}, Case{"nan", 1}}) {
+      toml::table effective;
+      const auto  parsed =
+          Config::Parse(toml::parse(std::string("[graphics]\n") + key + " = " + item.text), effective, false);
+      const auto value = std::string_view(key) == "system_pan_speed" ? parsed->graphics.system_pan_speed
+                                                                     : parsed->graphics.galaxy_pan_speed;
+      Check(value == item.expected, "both pan speed parsers enforce the practical range 0.1 to 10");
+    }
+  const Case cases[]{{"0", 0},      {"0.8", 0.8f}, {"0.99", 0.99f}, {"1", 0.99f},      {"1.5", 0.99f}, {"-0.1", 0},
+                     {"nan", 0.8f}, {"inf", 0.8f}, {"-inf", 0.8f},  {"\"bad\"", 0.8f}, {"[]", 0.8f}};
   for (const auto& item : cases) {
     toml::table effective;
     const auto parsed = Config::Parse(

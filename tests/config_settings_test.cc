@@ -14,6 +14,7 @@
 #include "settings/image_file_picker.h"
 #include "settings/mod_pages.h"
 #include "settings/native_controls.h"
+#include "settings/native_view_state.h"
 #include "settings/shortcut_capture.h"
 #include "settings/shortcut_catalog.h"
 #include "settings/shortcut_settings.h"
@@ -470,8 +471,38 @@ int main()
   Check(galaxy_pan->SetFromUser(2.5f, galaxy_pan->Observe()).outcome == Outcome::AppliedVerified
             && Config::Get().graphics.system_pan_speed == .5f && Config::Get().graphics.galaxy_pan_speed == 2.5f,
         "Galaxy pan editing leaves the System speed unchanged");
-  Check(galaxy_pan->SetFromUser(0.0f, galaxy_pan->Observe()).outcome == Outcome::Rejected,
-        "Galaxy pan rejects nonpositive speed");
+  for (auto* speed : {system_pan, galaxy_pan}) {
+    for (float invalid : {0.0f, -0.1f, 0.05f, std::numeric_limits<float>::denorm_min(), 10.01f})
+      Check(speed->SetFromUser(invalid, speed->Observe()).outcome == Outcome::Rejected,
+            "both pan speed editors reject zero, near-zero and out-of-range values");
+    Check(speed->SetFromUser(.1f, speed->Observe()).outcome == Outcome::AppliedVerified,
+          "both pan speed editors accept the advertised minimum");
+  }
+  for (const auto* key : {"graphics.system_pan_speed", "graphics.galaxy_pan_speed"}) {
+    auto* control = Find<SliderSetting>(catalog, key);
+    Check(control && control->minimum() == .1f && control->maximum() == 3.0f
+              && control->state().label().find("Slider: 0.1–3 · Edit: 0.1–10") != std::string::npos,
+          "pan sliders publish their real bounds separately from the exact-entry bounds");
+    NativeViewState view(*control);
+    view.Bind();
+    Check(view.Request(.101f) == Outcome::Unchanged && view.displayNumber() == .1f,
+          "near-minimum pan dragging snaps and displays a usable positive value");
+    Check(view.Request(0.0f) == Outcome::Rejected, "pan sliders cannot select zero");
+  }
+  Check(Exact("graphics.system_pan_speed")->Read(0).label == "System pan speed",
+        "slider range annotation leaves the canonical Edit row label clean");
+  auto* scale_step  = Number<float>("graphics.ui_scale_step");
+  auto* step_slider = Find<SliderSetting>(catalog, "graphics.ui_scale_step");
+  Check(scale_step && step_slider
+            && scale_step->SetFromUser(.005f, scale_step->Observe()).outcome == Outcome::AppliedVerified
+            && step_slider->state().Observe().state.reason == UnavailableReason::OutsideRange
+            && Config::Get().graphics.ui_scale_step == .005f,
+        "a practical slider minimum preserves smaller valid exact-entry preferences without rounding or overwriting");
+  for (const auto& page : catalog.RegisteredPages())
+    for (auto* control : page.Controls<SliderSetting>())
+      Check(control->state().label().find("Slider: ") != std::string::npos
+                && (control->minimum() <= 0 || control->DisplayValue(control->minimum()) > 0),
+            "every slider declares its range and a positive minimum never displays as zero");
   auto* glide = Number<float>("graphics.system_pan_momentum_falloff");
   Check(glide && glide->SetFromUser(1.0f, glide->Observe()).outcome == Outcome::Rejected,
         "exact pan glide editing cannot select non-decaying motion");
