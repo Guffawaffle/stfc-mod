@@ -7,6 +7,7 @@ namespace camera_pan_fixture
 {
 struct PanObject {
   Il2CppObject   header;
+  NodeDepth      depth = NodeDepth::SolarSystem;
   unity::Vector2 last{4.0f, -2.0f};
   float          delta = 2.0f, keyboard = 3.0f;
   bool           panning  = false;
@@ -115,6 +116,9 @@ void Run(std::string_view mode)
   auto&         hub       = Define("Digit.Client.Core", "Hub", IL2CPP_TYPE_CLASS, &object_class);
   auto&         shortcuts = Define("Digit.Prime.GameInput", "ShortcutsManager", IL2CPP_TYPE_CLASS, &object_class);
   pan.klass.instance_size = sizeof(PanObject);
+  auto& node_depth = Define("Digit.PrimeServer.Models", "NodeDepth", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(NodeDepth));
+  node_depth.is_enum = true;
+  AddField(pan, "_nodeDepth", node_depth, offsetof(PanObject, depth));
   if (mode != "camera-pan-missing-block")
     AddField(pan, "BlockPan", mode == "camera-pan-foreign-block" ? int_class : bool_class, 0, true);
   if (mode != "camera-pan-missing-last")
@@ -161,6 +165,8 @@ void Run(std::string_view mode)
   config.ui.disable_move_keys                 = false;
   config.graphics.disable_target_camera_lock  = false;
   config.graphics.system_pan_momentum_falloff = 0.5f;
+  config.graphics.system_pan_speed            = 1.0f;
+  config.graphics.galaxy_pan_speed            = 2.5f;
   auto* previous_selection                    = selected;
   selected                                    = nullptr;
   fleet_native_keys                           = {Action::kMoveRight};
@@ -169,6 +175,32 @@ void Run(std::string_view mode)
     ++input_frame;
     return NavigationPan_LateUpdate_Hook(original, receiver);
   };
+
+  // Both keyboard routes use this controller's depth, independently of the displayed section.
+  // Keep these within the existing mode so no test-driver or CI registration is needed.
+  if (mode == "camera-pan-diagonal" || mode == "camera-pan-native") {
+    config.graphics.system_pan_speed = 0.5f;
+    for (auto [depth, multiplier] :
+         std::array{std::pair{NodeDepth::SolarSystem, 0.5f}, std::pair{NodeDepth::Galaxy, 2.5f},
+                    std::pair{NodeDepth::PlanetSystem, 1.0f}, std::pair{NodeDepth::Starbase, 1.0f},
+                    std::pair{static_cast<NodeDepth>(0), 1.0f}, std::pair{static_cast<NodeDepth>(3), 1.0f}}) {
+      object.depth                       = depth;
+      object.last                        = {};
+      config.control.use_scopely_hotkeys = mode == "camera-pan-native";
+      frame();
+      if (config.control.use_scopely_hotkeys)
+        Require(observed_keyboard == 6.0f * multiplier,
+                "native keys select only their own view's speed; other depths stay native");
+      else
+        Require(Near(moves.back(), {-6.0f * multiplier, 0}),
+                "mod keys select only their own view's speed; other depths stay native");
+    }
+    object.depth                       = NodeDepth::SolarSystem;
+    object.last                        = {4, -2};
+    config.control.use_scopely_hotkeys = false;
+    moves.clear();
+    originals = 0;
+  }
 
   if (mode.starts_with("camera-pan-missing-") || mode.starts_with("camera-pan-foreign-")) {
     missing_mouse   = mode == "camera-pan-missing-mouse";

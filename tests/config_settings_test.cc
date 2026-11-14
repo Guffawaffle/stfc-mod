@@ -462,6 +462,16 @@ int main()
       }
   }
 
+  auto* system_pan = Number<float>("graphics.system_pan_speed");
+  auto* galaxy_pan = Number<float>("graphics.galaxy_pan_speed");
+  Check(system_pan && galaxy_pan
+            && system_pan->SetFromUser(.5f, system_pan->Observe()).outcome == Outcome::AppliedVerified,
+        "System pan speed is a separate live setting");
+  Check(galaxy_pan->SetFromUser(2.5f, galaxy_pan->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().graphics.system_pan_speed == .5f && Config::Get().graphics.galaxy_pan_speed == 2.5f,
+        "Galaxy pan editing leaves the System speed unchanged");
+  Check(galaxy_pan->SetFromUser(0.0f, galaxy_pan->Observe()).outcome == Outcome::Rejected,
+        "Galaxy pan rejects nonpositive speed");
   auto* glide = Number<float>("graphics.system_pan_momentum_falloff");
   Check(glide && glide->SetFromUser(1.0f, glide->Observe()).outcome == Outcome::Rejected,
         "exact pan glide editing cannot select non-decaying motion");

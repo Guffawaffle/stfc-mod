@@ -45,8 +45,13 @@ struct AlphaHandler : unity::Behaviour {
 };
 } // namespace base_label_binding
 
+enum class NodeDepth : int32_t;
+
 struct NavigationPan : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Navigation", "NavigationPan">;
+
+  NodeDepth nodeDepth()
+  { return Field<"_nodeDepth", NodeDepth>(); }
 
   // A missing gate cannot become permission to move, or a missing delta an observed zero. BlockPan is static;
   // the other state belongs to this controller, and the aggregate must be Unity's actual Vector2.
