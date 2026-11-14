@@ -593,7 +593,7 @@ bool ModMovesCamera()
 
 struct PanSettings {
   bool  hotkeys, native_hotkeys, move_disabled, hotkey_hooks, unlock;
-  float falloff, speed;
+  float falloff, system_speed, galaxy_speed;
   bool  operator==(const PanSettings&) const = default;
 };
 PanSettings ReadPanSettings()
@@ -605,7 +605,8 @@ PanSettings ReadPanSettings()
           config.patches.hotkeyhooks,
           config.graphics.disable_target_camera_lock,
           config.graphics.system_pan_momentum_falloff,
-          config.graphics.system_pan_speed};
+          config.graphics.system_pan_speed,
+          config.graphics.galaxy_pan_speed};
 }
 bool KeyboardPanActive(const PanSettings& settings)
 {
@@ -659,6 +660,9 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
     return true;
   }
 
+  const auto  depth     = _this->nodeDepth();
+  const float pan_speed = CameraPanSpeed(depth, settings.system_speed, settings.galaxy_speed);
+
   auto       owner         = il2cpp::GcHandle::Strong(_this);
   const auto pointer_state = unity::Input::TryPointerHeld();
   if (!fields || !owner || !pointer_state || ReadPanSettings() != settings)
@@ -677,18 +681,18 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
   const auto current_pointer = unity::Input::TryPointerHeld();
   if (!current_pointer || (current_pointer.value || _this->panningStarted()) != pointer
       || _this->trackingPOI() != tracked || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked
-      || !std::isfinite(d.x) || !std::isfinite(d.y) || !std::isfinite(settings.falloff)
-      || !std::isfinite(settings.speed))
+      || !std::isfinite(d.x) || !std::isfinite(d.y) || !std::isfinite(settings.falloff) || _this->nodeDepth() != depth
+      || !std::isfinite(pan_speed))
     return true;
   if (native) {
     if (!pointer) {
       const float native_delta = _this->deltaScaler(), native_keyboard = _this->keyboardDeltaScaler();
       const auto  faded = blocked ? unity::Vector2{} : d * settings.falloff;
-      if (!std::isfinite(native_delta) || !std::isfinite(native_keyboard * native_delta * settings.speed)
+      if (!std::isfinite(native_delta) || !std::isfinite(native_keyboard * native_delta * pan_speed)
           || !std::isfinite(faded.x) || !std::isfinite(faded.y))
         return true;
       _this->SetLastDelta(faded);
-      NativePanScalers scalers(_this, settings.speed);
+      NativePanScalers scalers(_this, pan_speed);
       original(_this);
     }
     _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
@@ -706,7 +710,7 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
         return true;
       d                   = {-x / length * speed, -y / length * speed};
       by_keys             = true;
-      const auto movement = d * (scale * settings.speed);
+      const auto movement = d * (scale * pan_speed);
       if (!std::isfinite(movement.x) || !std::isfinite(movement.y))
         return true;
       _this->MoveCamera(movement, true);
@@ -724,7 +728,7 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
     _this->MoveCamera(d, true);
     d = _this->lastDelta();
   }
-  if (ReadPanSettings() != settings || _this->trackingPOI() != tracked)
+  if (ReadPanSettings() != settings || _this->trackingPOI() != tracked || _this->nodeDepth() != depth)
     return true;
   if (!pointer || blocked)
     _this->SetLastDelta(d);
@@ -956,6 +960,18 @@ bool InstallInteriorZoom()
   return interior_zoom_installed;
 }
 } // namespace
+
+float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed)
+{
+  switch (depth) {
+    case NodeDepth::SolarSystem:
+      return system_speed;
+    case NodeDepth::Galaxy:
+      return galaxy_speed;
+    default:
+      return 1.0f;
+  }
+}
 
 bool EnsureNavigationZoomUpdates()
 {

@@ -230,10 +230,11 @@ void NavigationPan_MoveCamera_OrbitHook(auto original, NavigationPan* _this, uni
     return feature.name && std::string_view(feature.name) == kPan.name && feature.state == InstallState::kInstalled;
   });
   const float multiplier    = pan_installed && !momentum && NavigationPan::FieldsAvailable() && _this->panningStarted()
-                                  ? Config::Get().graphics.system_pan_speed
+                                  ? CameraPanSpeed(_this->nodeDepth(), Config::Get().graphics.system_pan_speed,
+                                                   Config::Get().graphics.galaxy_pan_speed)
                                   : 1.0f;
-  auto& state = NavigationOrbit();
-  auto* zoom  = state.zoom.Get<NavigationZoom>();
+  auto&       state         = NavigationOrbit();
+  auto*       zoom          = state.zoom.Get<NavigationZoom>();
   if (zoom && NavigationOrbitEnabled() && NavigationOrbitSection()) {
     const auto depth       = system_orbit::Field<"_nodeDepth", NodeDepth>(_this);
     const auto camera      = system_orbit::Field<"_sceneCamera", unity::Camera*>(_this);

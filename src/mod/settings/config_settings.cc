@@ -447,8 +447,11 @@ void RegisterConfigSettings(PageCatalog& catalog)
   FLOAT("camera", graphics, default_system_zoom, "Default system zoom", zoom, Live,
         "Zero keeps the game's system-entry zoom; otherwise used on entry and reset.", "distance", 0, largest, 6000,
         50);
-  FLOAT("camera", graphics, system_pan_speed, "Pan speed", pan, Live,
-        "Mouse/touch and keyboard speed: one is normal; half is slower; one and a half is faster.", "multiplier",
+  FLOAT("camera", graphics, system_pan_speed, "System pan speed", pan, Live,
+        "Mouse/touch and keyboard panning in System view. One is normal speed.", "multiplier",
+        std::numeric_limits<float>::denorm_min(), 10, 3, .1f);
+  FLOAT("camera", graphics, galaxy_pan_speed, "Galaxy pan speed", pan, Live,
+        "Mouse/touch and keyboard panning in Galaxy view. One is normal speed.", "multiplier",
         std::numeric_limits<float>::denorm_min(), 10, 3, .1f);
   FLOAT("camera", graphics, system_pan_momentum_falloff, "Pan glide", pan, Live,
         "Retained motion per pan update in both keyboard modes; zero stops immediately and 0.99 gives a long glide.",

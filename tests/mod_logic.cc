@@ -764,6 +764,16 @@ void FrozenSettingsDefaults()
 
 void PanGlideLimits()
 {
+  for (const auto* text : {"", "[graphics]\nsystem_pan_speed=0.5", "[graphics]\ngalaxy_pan_speed=2.5",
+                           "[graphics]\nsystem_pan_speed=0.5\ngalaxy_pan_speed=2.5"}) {
+    toml::table effective;
+    const auto  input  = toml::parse(text);
+    const auto  parsed = Config::Parse(input, effective, false);
+    Check(parsed->graphics.system_pan_speed == (input["graphics"]["system_pan_speed"] ? 0.5f : 1.0f),
+          "System pan speed keeps its own default and saved value");
+    Check(parsed->graphics.galaxy_pan_speed == (input["graphics"]["galaxy_pan_speed"] ? 2.5f : 1.0f),
+          "Galaxy pan speed keeps its own default and saved value");
+  }
   struct Case {
     const char* text;
     float       expected;
