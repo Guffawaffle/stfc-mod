@@ -18,7 +18,7 @@ Do not put a personal access token or private key in the source tree.
 
 The source pin in `zig/aai.zig` must be a full commit available from the private
 remote. Publish a signed AAI commit to a retained branch before changing the pin.
-The DEV pin is `0d67d30c7bbbcd00feaafa47b392665f737775e5`, retained by
+The DEV pin is `cccba30383bf5cec5065244b9b4eb9f40447a097`, retained by
 `feat/client275-damage-channels`. It retains the portable-fixture baseline and
 adds client-275 Polaron/Infusion source capture and a combined Overview timeline
 with every recorded incoming/outgoing attack amount channel, observed health,
