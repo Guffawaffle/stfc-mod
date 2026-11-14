@@ -762,6 +762,26 @@ void FrozenSettingsDefaults()
         "conditional source momentum default appears only when its experimental read is enabled");
 }
 
+void PanGlideLimits()
+{
+  struct Case {
+    const char* text;
+    float       expected;
+  };
+  const Case cases[]{{"0", 0},       {"0.8", 0.8f},   {"0.99", 0.99f}, {"1", 0.99f},
+                     {"1.5", 0.99f}, {"-0.1", 0},     {"nan", 0.8f},   {"inf", 0.8f},
+                     {"-inf", 0.8f}, {"\"bad\"", 0.8f}, {"[]", 0.8f}};
+  for (const auto& item : cases) {
+    toml::table effective;
+    const auto parsed = Config::Parse(
+        toml::parse(std::string("[graphics]\nsystem_pan_momentum_falloff = ") + item.text), effective, false);
+    Check(parsed->graphics.system_pan_momentum_falloff == item.expected,
+          "pan glide saturates finite values below one and keeps the default for unreadable or nonfinite values");
+    Check(effective["graphics"]["system_pan_momentum_falloff"].value<double>() == double(item.expected),
+          "runtime vars record the bounded pan glide actually used");
+  }
+}
+
 // Settings that were renamed still read their old names, and the new name wins when both are set.
 void RenamedSettings()
 {
@@ -993,6 +1013,7 @@ int main()
   DailyFactionSettings();
   UpstreamSettings();
   FrozenSettingsDefaults();
+  PanGlideLimits();
   RenamedSettings();
   ParseDoesNotActivateSettings();
   LegacySyncTargets();

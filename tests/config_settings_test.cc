@@ -310,6 +310,7 @@ int main()
   Enable("Hotkeys");
   Enable("UiScale");
   Enable("Zoom");
+  Enable("Pan");
   Enable("Toasts");
   Enable("DailyClaimFilter");
   Enable("FleetLabels");
@@ -460,6 +461,16 @@ int main()
               "changing one label profile leaves every other ship/base profile unchanged");
       }
   }
+
+  auto* glide = Number<float>("graphics.system_pan_momentum_falloff");
+  Check(glide && glide->SetFromUser(1.0f, glide->Observe()).outcome == Outcome::Rejected,
+        "exact pan glide editing cannot select non-decaying motion");
+  Check(glide->SetFromUser(.99f, glide->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().graphics.system_pan_momentum_falloff == .99f,
+        "the longest allowed pan glide applies through the production setting model");
+  Check(glide->SetFromUser(0.0f, glide->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().graphics.system_pan_momentum_falloff == 0.0f,
+        "pan glide exact editing still permits immediate stopping");
 
   auto* canonical = Number<float>("graphics.ui_scale");
   auto* slider    = Find<SliderSetting>(catalog, "graphics.ui_scale");

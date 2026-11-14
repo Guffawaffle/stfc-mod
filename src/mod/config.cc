@@ -917,7 +917,14 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   if (control.enable_experimental)
     r.Read("graphics", "system_pan_momentum", g.system_pan_momentum);
   r.ReadValid("graphics", "system_pan_momentum_falloff", g.system_pan_momentum_falloff,
-              [](float v) { return std::isfinite(v) && v >= 0.0f && v <= 1.0f; });
+              [](float v) { return std::isfinite(v); });
+  const auto bounded_falloff = std::clamp(g.system_pan_momentum_falloff, 0.0f, 0.99f);
+  if (g.system_pan_momentum_falloff != bounded_falloff) {
+    spdlog::warn("config graphics.system_pan_momentum_falloff: '{}' clamped to {}", g.system_pan_momentum_falloff,
+                 bounded_falloff);
+    g.system_pan_momentum_falloff = bounded_falloff;
+    r.Record("graphics", "system_pan_momentum_falloff", bounded_falloff);
+  }
   r.Read("graphics", "disable_target_camera_lock", g.disable_target_camera_lock);
   r.Read("graphics", "borderless_fullscreen", g.borderless_fullscreen);
   r.Read("graphics", "transition_time", g.transition_time);
