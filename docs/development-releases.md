@@ -18,11 +18,13 @@ Do not put a personal access token or private key in the source tree.
 
 The source pin in `zig/aai.zig` must be a full commit available from the private
 remote. Publish a signed AAI commit to a retained branch before changing the pin.
-The DEV pin is `e904e9227f6e46179e753e07dbbc113d25715a6c`, retained by
+The DEV pin is `0d67d30c7bbbcd00feaafa47b392665f737775e5`, retained by
 `feat/client275-damage-channels`. It retains the portable-fixture baseline and
-adds client-275 Polaron/Infusion source capture and selectable incoming timeline
-views for all twelve recorded attack amount channels. Hull/shield loss, named
-damage channels and mitigation remain independent. Shield-rule catalog context
+adds client-275 Polaron/Infusion source capture and a combined Overview timeline
+with every recorded incoming/outgoing attack amount channel, observed health,
+explicit repairs and related event markers visible together. A shared amount
+axis and one reusable native texture preserve independent quantities and bounded
+redraw work. Shield-rule catalog context
 is separately qualified; effective shield mitigation/floor percentages and the
 energy/kinetic weapon join remain unresolved. The workflow checks out that exact commit outside the
 mod checkout. Builds explicitly select `aai-host`, `aai-ui-lab` and diagnostic

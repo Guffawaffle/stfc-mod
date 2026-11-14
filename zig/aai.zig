@@ -4,7 +4,7 @@ const Ctx = @import("ctx.zig").Ctx;
 const Lib = @import("ctx.zig").Lib;
 const compat = @import("compat.zig");
 
-pub const pinned_revision = "e904e9227f6e46179e753e07dbbc113d25715a6c";
+pub const pinned_revision = "0d67d30c7bbbcd00feaafa47b392665f737775e5";
 
 pub const Options = struct {
     enabled: bool,
