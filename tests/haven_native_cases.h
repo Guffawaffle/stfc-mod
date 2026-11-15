@@ -164,12 +164,12 @@ struct HavenFixtureBlend {
   unity::AnimationCurve* curve        = nullptr;
   float                  minimum = 0, maximum = 1, ratio = 1;
 };
-bool  haven_curve_failure = false, haven_curve_flat = false;
+bool  haven_curve_failure = false, haven_curve_flat = false, haven_curve_squared = false;
 float HavenFixtureEvaluate(Il2CppObject*, float value, const MethodInfo*)
 {
   if (haven_curve_failure)
     throw Il2CppExceptionWrapper(&thrown);
-  return haven_curve_flat ? 0.5f : value;
+  return haven_curve_flat ? 0.5f : haven_curve_squared ? value * value : value;
 }
 
 struct HavenFixtureGeometry {
@@ -269,7 +269,8 @@ struct HavenFixtureGeometry {
 void HavenZoomCases(std::string_view mode)
 {
   HavenFixtureGeometry scene(mode);
-  auto*                blend              = reinterpret_cast<BlendFrameProvider*>(&scene.blend);
+  haven_zoom_installed                    = true; // Consumer qualification only; no detour is installed by these cases.
+  auto* blend                             = reinterpret_cast<BlendFrameProvider*>(&scene.blend);
   Config::Get().graphics.haven_zoom       = 4000;
   Config::Get().graphics.hide_haven_water = false;
   int  originals                          = 0;

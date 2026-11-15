@@ -155,9 +155,25 @@ void ComponentLookupDiagnosticCases()
   std::cout << "Component lookup diagnostic: caller/type, contained failure, bounded logging and recovery passed\n";
 }
 
+Il2CppObject   station_zoom_controller{};
+FrameProvider* station_zoom_current_provider = nullptr;
+bool           station_zoom_instance_failure = false, station_zoom_provider_failure = false;
+Il2CppObject*  StationZoomInstance(const MethodInfo*)
+{
+  if (station_zoom_instance_failure)
+    throw Il2CppExceptionWrapper(&thrown);
+  return &station_zoom_controller;
+}
+FrameProvider* StationZoomCurrentProvider(Il2CppObject*, const MethodInfo*)
+{
+  if (station_zoom_provider_failure)
+    throw Il2CppExceptionWrapper(&thrown);
+  return station_zoom_current_provider;
+}
+
 void StationRadiusCases(std::string_view mode)
 {
-  HavenFixtureGeometry scene("station-radius-native");
+  HavenFixtureGeometry scene("station-zoom-native");
   auto&                hub      = Define("Digit.Client.Core", "Hub", IL2CPP_TYPE_CLASS, &object_class);
   auto&                sections = Define("Digit.Client.Sections", "SectionManager", IL2CPP_TYPE_CLASS, &object_class);
   auto& getter = AddMethod(hub, "get_SectionManager", reinterpret_cast<void*>(&HavenFixtureSections), T(sections), {},
@@ -167,164 +183,291 @@ void StationRadiusCases(std::string_view mode)
       AddMethod(sections, "get_CurrentSection", reinterpret_cast<void*>(&HavenFixtureSection), T(int_class), {});
   AddProperty(sections, "CurrentSection", &section_getter);
   haven_fixture_sections.klass = &sections.klass;
-  auto  replacement            = scene.far_provider;
-  auto* first                  = reinterpret_cast<OrbitFrameProvider*>(&scene.far_provider);
-  auto* second                 = reinterpret_cast<OrbitFrameProvider*>(&replacement);
-  if (mode != "station-radius-native") {
-    auto&      fields = mode == "station-radius-missing-provider"
-                            ? Fake(scene.far_provider.header.klass->parent->parent).fields
-                        : mode == "station-radius-missing-radius" ? Fake(scene.far_constraint.header.klass).fields
-                                                                  : Fake(scene.far_range.header.klass).fields;
-    const auto name   = mode == "station-radius-missing-provider" ? "_constraint"
-                        : mode == "station-radius-missing-radius" ? "_radius"
-                        : mode == "station-radius-missing-min"    ? "_min"
-                                                                  : "_max";
+  auto& controller = Define("Digit.Client.CameraController", "CameraController", IL2CPP_TYPE_CLASS, &component_class);
+  auto& provider   = Fake(scene.far_provider.header.klass->parent->parent->parent);
+  auto& instance   = AddMethod(controller, "get_Instance", reinterpret_cast<void*>(&StationZoomInstance), T(controller),
+                               {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(controller, "Instance", &instance);
+  auto& current = AddMethod(controller, "get_CurrentProvider", reinterpret_cast<void*>(&StationZoomCurrentProvider),
+                            T(provider), {});
+  AddProperty(controller, "CurrentProvider", &current);
+  station_zoom_controller.klass = &controller.klass;
+  auto* blend                   = reinterpret_cast<BlendFrameProvider*>(&scene.blend);
+  station_zoom_current_provider = reinterpret_cast<FrameProvider*>(blend);
+  // The measured station endpoints are regular orbits, not Planetary orbits.
+  auto* concrete                    = scene.far_provider.header.klass->parent;
+  scene.close_provider.header.klass = scene.far_provider.header.klass = concrete;
+  scene.close_provider.radius                                         = 600;
+  scene.far_provider.radius                                           = 1000;
+  Il2CppObject close_pivot{scene.pivot.klass};
+  scene.close_provider.pivot = scene.close_provider.look = reinterpret_cast<TargetController*>(&close_pivot);
+  Require(scene.close_provider.pivot != scene.far_provider.pivot, "station uses distinct native pivot controllers");
+  // Radius limits can be disabled and need not pin the current endpoint radius.
+  scene.close_range      = {scene.close_range.header, false, 600, 600};
+  scene.far_range        = {scene.far_range.header, false, 1000, 1000};
+  scene.source_frame.fov = scene.target_frame.fov = 43;
+  scene.blend.source                              = reinterpret_cast<FrameProvider*>(&scene.far_provider);
+  scene.blend.target                              = reinterpret_cast<FrameProvider*>(&scene.close_provider);
+  scene.blend.minimum                             = .1f;
+  scene.blend.maximum                             = .9f;
+  scene.blend.ratio                               = .1f;
+  haven_fixture_section                           = SectionID::Starbase_Interior;
+  auto& config                                    = Config::Get();
+  config.graphics.interior_zoom_scale             = 4;
+  config.graphics.haven_zoom                      = 4000;
+  config.graphics.hide_haven_water                = false;
+  bindings_config_override                        = &config;
+  interior_zoom_installed                         = true;
+  haven_zoom_installed                            = false;
+  if (!mode.ends_with("-native")) {
+    auto&      fields = mode.ends_with("missing-provider") ? Fake(scene.blend.header.klass).fields
+                        : mode.ends_with("missing-radius") ? Fake(concrete->parent).fields
+                                                           : Fake(scene.blend.header.klass).fields;
+    const auto name   = mode.ends_with("missing-provider") ? "_sourceFrameProvider"
+                        : mode.ends_with("missing-radius") ? "_radius"
+                        : mode.ends_with("missing-min")    ? "_softLimitMin"
+                                                           : "_softLimitMax";
     for (auto& field : fields)
       if (std::string_view(field.name) == name)
         field.name = "_unavailable";
-    Require(!InstallInteriorZoom() && !interior_zoom_installed,
-            "missing critical field refuses interior mutation before shared hook installation");
-    int originals = 0;
-    OrbitFrameProvider_UpdateConstrains_Hook([&](auto*, auto*) { ++originals; }, first, nullptr);
-    Require(scene.far_range.maximum == 1000 && originals == 1 && native_interior_radius.empty(),
-            "unavailable fields preserve native callback and range");
+  }
+  int                     originals = 0;
+  unity::Vector3          native_position{};
+  float                   native_clip  = 0;
+  const auto              close_enough = [](float a, float b) { return std::abs(a - b) < .03f; };
+  const unity::Vector3    far_position{-14.999944f, 766.04443f, 772.7875f};
+  const unity::Vector3    close_position{-14.999967f, 459.62665f, 515.6725f};
+  const unity::Quaternion far_rotation{-1.8457913e-08f, .9063078f, -.42261833f, -3.9648835e-08f};
+  const unity::Quaternion close_rotation{-1.8544275e-08f, .9063078f, -.4226183f, -3.9463625e-08f};
+  unity::Vector3          pan{}, close_offset{}, far_offset{};
+  const auto              pose = [&](bool is_outer) {
+    const auto p      = is_outer ? far_position : close_position;
+    const auto offset = is_outer ? far_offset : close_offset;
+    return unity::Vector3{p.x + pan.x + offset.x, p.y + pan.y + offset.y, p.z + pan.z + offset.z};
+  };
+  const auto distance = [&] {
+    const auto p = scene.result.position;
+    const auto x = double(p.x) - (-15.0 + pan.x), y = double(p.y) - pan.y, z = double(p.z) - (130.0 + pan.z);
+    return static_cast<float>(std::sqrt(x * x + y * y + z * z));
+  };
+  auto run = [&] {
+    const auto before = originals;
+    BlendFrameProvider_UpdateCameraFrame_Hook(
+        [&](BlendFrameProvider* passed, unity::Camera*) {
+          Require(passed == blend, "station keeps the native blend receiver");
+          ++originals;
+          const bool source_far       = scene.blend.source == reinterpret_cast<FrameProvider*>(&scene.far_provider);
+          const bool target_far       = scene.blend.target == reinterpret_cast<FrameProvider*>(&scene.far_provider);
+          scene.source_frame.position = pose(source_far);
+          scene.target_frame.position = pose(target_far);
+          scene.source_frame.rotation = source_far ? far_rotation : close_rotation;
+          scene.target_frame.rotation = target_far ? far_rotation : close_rotation;
+          scene.source_frame.clip     = source_far ? 10217.f : 15010.f;
+          scene.target_frame.clip     = target_far ? 10217.f : 15010.f;
+          const auto curved           = haven_curve_flat      ? .5f
+                                        : haven_curve_squared ? scene.blend.ratio * scene.blend.ratio
+                                                              : scene.blend.ratio;
+          const auto weight           = std::clamp(curved, 0.f, 1.f);
+          // Actual client position math: endpoint lerp after curve evaluation,
+          // not a synthetic request that assumes the orbit's radius is driven.
+          const auto a = scene.source_frame.position, b = scene.target_frame.position;
+          native_position = {a.x + (b.x - a.x) * weight, a.y + (b.y - a.y) * weight, a.z + (b.z - a.z) * weight};
+          native_clip     = scene.source_frame.clip + (scene.target_frame.clip - scene.source_frame.clip) * weight;
+          scene.result.position = native_position;
+          scene.result.clip     = native_clip;
+          scene.result.rotation = scene.source_frame.rotation;
+          scene.result.fov      = scene.source_frame.fov + (scene.target_frame.fov - scene.source_frame.fov) * weight;
+        },
+        blend, nullptr);
+    Require(originals == before + 1, "every station path calls native generation exactly once");
+    Require(scene.close_range.minimum == 600 && scene.close_range.maximum == 600 && !scene.close_range.enabled
+                && scene.far_range.minimum == 1000 && scene.far_range.maximum == 1000 && !scene.far_range.enabled
+                && scene.close_provider.radius == 600 && scene.far_provider.radius == 1000,
+            "station extension never mutates endpoint radii or constraint assets");
+    const auto expected_source = pose(scene.blend.source == reinterpret_cast<FrameProvider*>(&scene.far_provider));
+    const auto expected_target = pose(scene.blend.target == reinterpret_cast<FrameProvider*>(&scene.far_provider));
+    Require(
+        scene.source_frame.position.x == expected_source.x && scene.source_frame.position.y == expected_source.y
+            && scene.source_frame.position.z == expected_source.z && scene.target_frame.position.x == expected_target.x
+            && scene.target_frame.position.y == expected_target.y && scene.target_frame.position.z == expected_target.z,
+        "station extension leaves both freshly generated endpoint frames native");
+  };
+  const auto native = [&] {
+    Require(scene.result.position.x == native_position.x && scene.result.position.y == native_position.y
+                && scene.result.position.z == native_position.z && scene.result.clip == native_clip,
+            "unavailable, disabled or unrelated station geometry retains native output");
+  };
+  run();
+  if (!mode.ends_with("-native")) {
+    native();
+    bindings_config_override = nullptr;
     return;
   }
-  Require(OrbitFrameProvider::ConstraintRadiusFieldsAvailable(), "all critical radius fields are qualified");
-  auto& config                        = Config::Get();
-  config.graphics.interior_zoom_scale = 2;
-  bindings_config_override            = &config;
-  interior_zoom_installed             = true;
-  native_interior_radius.clear();
-  int  originals        = 0;
-  auto original         = [&](OrbitFrameProvider*, unity::Camera*) { ++originals; };
-  haven_fixture_section = SectionID::Starbase_Interior;
-  OrbitFrameProvider_UpdateConstrains_Hook(original, first, nullptr);
-  Require(scene.far_range.minimum == 2000 && scene.far_range.maximum == 2000,
-          "interior expansion starts from native radius");
-  OrbitFrameProvider_UpdateConstrains_Hook(original, second, nullptr);
-  Require(scene.far_range.maximum == 2000,
-          "replacement provider cannot recapture the widened radius and compound scale");
-  haven_fixture_section = SectionID::Starbase_Exterior;
-  OrbitFrameProvider_UpdateConstrains_Hook(original, second, nullptr);
-  Require(scene.far_range.minimum == 1000 && scene.far_range.maximum == 1000,
-          "replacement exterior provider restores the shared native radius");
-  haven_fixture_section = SectionID::Starbase_Interior;
-  OrbitFrameProvider_UpdateConstrains_Hook(original, first, nullptr);
-  config.graphics.interior_zoom_scale = 1;
-  OrbitFrameProvider_UpdateConstrains_Hook(original, second, nullptr);
-  Require(scene.far_range.maximum == 1000 && originals == 5,
-          "live disable restores the shared range and every native original runs once");
-
-  const auto roots = warp_roots.size();
-  auto       run   = [&](HavenFixtureProvider& provider) {
-    const auto before = originals;
-    OrbitFrameProvider_UpdateConstrains_Hook(original, reinterpret_cast<OrbitFrameProvider*>(&provider), nullptr);
-    Require(originals == before + 1, "each station callback delivers native original exactly once");
-  };
-  config.graphics.interior_zoom_scale = 2;
-  run(scene.far_provider);
-  run(scene.close_provider);
-  Require(native_interior_radius.size() == 2 && warp_roots.size() == roots + 6,
-          "distinct ranges retain bounded weak owner triples, not strong permanent roots");
-  haven_fixture_section = SectionID::Starbase_Exterior;
-  run(replacement);
-  Require(scene.far_range.maximum == 1000 && scene.close_range.maximum == 100 && native_interior_radius.empty()
-              && warp_roots.size() == roots,
-          "exit from another provider restores every no-longer-ticking range and releases handles");
-
-  haven_fixture_section = SectionID::Starbase_Interior;
-  run(scene.far_provider);
-  scene.far_range.minimum = scene.far_range.maximum = 1500;
-  run(scene.far_provider);
-  Require(scene.far_range.maximum == 3000, "native replacement range becomes the new baseline");
-  scene.far_range.minimum = scene.far_range.maximum = 1700;
-  haven_fixture_section                             = SectionID::Starbase_Exterior;
-  run(scene.close_provider);
-  Require(scene.far_range.maximum == 1700, "exit never overwrites a later native or feature write");
-
-  haven_fixture_section = SectionID::Starbase_Interior;
-  run(scene.far_provider);
-  scene.far_provider.constraint = &scene.close_constraint;
-  run(scene.far_provider);
-  Require(scene.far_range.maximum == 1700 && scene.close_range.maximum == 200,
-          "replaced constraint restores retired radius before capturing the new one");
-  // Model managed-address reuse by expiring the stored weak provider identity, then reusing its native address.
-  for (auto& [handle, target] : warp_roots)
-    if (target == &scene.far_provider.header)
-      target = nullptr;
-  scene.close_range.minimum = scene.close_range.maximum = 350;
-  run(scene.far_provider);
-  Require(scene.close_range.maximum == 700
-              && native_interior_radius.at(first).provider.Get() == &scene.far_provider.header,
-          "expired weak identity at a reused address cannot reuse the old baseline");
-  haven_fixture_section = SectionID::Starbase_Exterior;
-  run(replacement);
-  scene.far_provider.constraint = &scene.far_constraint;
-  Require(scene.close_range.maximum == 350 && warp_roots.size() == roots, "replacement exit releases all handles");
-
-  haven_fixture_section = SectionID::Starbase_Interior;
-  run(scene.far_provider);
-  scene.far_constraint.radius = &scene.close_range;
-  run(scene.far_provider);
-  Require(scene.far_range.maximum == 1700 && scene.close_range.maximum == 700,
-          "radius replacement within the same constraint restores the prior range");
-  haven_fixture_section = SectionID::Starbase_Exterior;
-  run(replacement);
-  scene.far_constraint.radius = &scene.far_range;
-
-  haven_fixture_section   = SectionID::Starbase_Interior;
-  scene.far_range.minimum = scene.far_range.maximum = 1000;
-  run(scene.far_provider);
-  config.graphics.interior_zoom_scale = std::numeric_limits<float>::max();
-  run(scene.far_provider);
-  Require(scene.far_range.maximum == 1000 && native_interior_radius.empty(),
-          "overflow restores our last finite write and retires the entry");
-  config.graphics.interior_zoom_scale = 2;
-  warp_root_failure                   = true;
-  run(scene.far_provider);
-  warp_root_failure = false;
-  Require(scene.far_range.maximum == 1000 && native_interior_radius.empty(), "failed strong custody cannot mutate");
-  weak_root_refusal = [](Il2CppObject*) { return true; };
-  run(scene.far_provider);
-  weak_root_refusal = nullptr;
-  Require(scene.far_range.maximum == 1000 && native_interior_radius.empty() && warp_roots.size() == roots,
-          "failed weak custody cannot capture or mutate");
-
-  run(scene.far_provider);
-  for (auto& [handle, target] : warp_roots)
-    if (target == &scene.far_provider.header)
-      target = nullptr;
-  std::this_thread::sleep_for(std::chrono::milliseconds(1100));
-  run(scene.close_provider);
-  Require(scene.far_range.maximum == 1000 && scene.close_range.maximum == 700 && native_interior_radius.size() == 1
-              && warp_roots.size() == roots + 3,
-          "periodic prune restores a surviving radius and releases an expired provider's weak handles");
-  haven_fixture_section = SectionID::Starbase_Exterior;
-  run(replacement);
-  haven_fixture_section = SectionID::Starbase_Interior;
-
-  std::array<HavenFixtureRange, kInteriorProviderLimit + 1>      ranges;
-  std::array<HavenFixtureConstraint, kInteriorProviderLimit + 1> constraints;
-  std::array<HavenFixtureProvider, kInteriorProviderLimit + 1>   providers;
-  for (size_t i = 0; i < providers.size(); ++i) {
-    ranges[i]               = scene.far_range;
-    constraints[i]          = scene.far_constraint;
-    constraints[i].radius   = &ranges[i];
-    providers[i]            = scene.far_provider;
-    providers[i].constraint = &constraints[i];
-    run(providers[i]);
+  Require(close_enough(distance(), 4000) && close_enough(scene.result.clip - native_clip, 3040),
+          "far soft stop actually reaches the requested scaled distance instead of widening an unused bound");
+  run();
+  Require(close_enough(distance(), 4000) && close_enough(scene.result.clip - native_clip, 3040),
+          "fresh native output prevents repeated callbacks from compounding zoom");
+  scene.blend.ratio = .9f;
+  run();
+  native();
+  Require(close_enough(distance(), 640), "native closest soft stop remains reachable at nonzero soft limits");
+  scene.blend.ratio = 1;
+  run();
+  native();
+  Require(close_enough(distance(), 600), "native hard closest stop remains reachable");
+  scene.blend.ratio = 0;
+  run();
+  Require(close_enough(distance(), 4000) && close_enough(scene.result.clip - native_clip, 3000),
+          "native hard far stop extends to the same requested distance");
+  scene.blend.ratio = .5f;
+  run();
+  Require(close_enough(distance(), 2320) && close_enough(scene.result.clip - native_clip, 1520),
+          "midpoint scales continuously between native near and the extended far stop");
+  scene.blend.source = reinterpret_cast<FrameProvider*>(&scene.close_provider);
+  scene.blend.target = reinterpret_cast<FrameProvider*>(&scene.far_provider);
+  scene.blend.ratio  = .1f;
+  run();
+  native();
+  scene.blend.ratio = .9f;
+  run();
+  Require(close_enough(distance(), 4000) && close_enough(scene.result.clip - native_clip, 3040),
+          "reversed endpoint order reaches the same extended far distance");
+  scene.blend.ratio = .5f;
+  run();
+  Require(close_enough(distance(), 2320), "reversed midpoint has the same continuous expansion");
+  scene.blend.ratio = 0;
+  run();
+  native();
+  Require(close_enough(distance(), 600), "reversed hard closest stop remains native");
+  scene.blend.ratio = 1;
+  run();
+  Require(close_enough(distance(), 4000), "reversed hard far stop reaches the requested distance");
+  const auto unpanned = scene.result.position;
+  pan                 = {355, 0, 295};
+  run();
+  Require(close_enough(distance(), 4000) && close_enough(scene.result.position.x, unpanned.x + 355)
+              && close_enough(scene.result.position.y, unpanned.y)
+              && close_enough(scene.result.position.z, unpanned.z + 295),
+          "translated station pivots preserve the zoom reach and native pan displacement");
+  pan = {};
+  const std::array endpoint_pans{std::pair{unity::Vector3{50, 15, -35}, unity::Vector3{}},
+                                 std::pair{unity::Vector3{}, unity::Vector3{-80, -25, 60}},
+                                 std::pair{unity::Vector3{50, 15, -35}, unity::Vector3{-80, -25, 60}}};
+  for (const bool source_is_outer : {true, false}) {
+    scene.blend.source =
+        reinterpret_cast<FrameProvider*>(source_is_outer ? &scene.far_provider : &scene.close_provider);
+    scene.blend.target =
+        reinterpret_cast<FrameProvider*>(source_is_outer ? &scene.close_provider : &scene.far_provider);
+    const float inner_ratio = source_is_outer ? .9f : .1f, outer_ratio = source_is_outer ? .1f : .9f;
+    const float inner_hard = source_is_outer ? 1.f : 0.f, outer_hard = source_is_outer ? 0.f : 1.f;
+    for (const float ratio : {inner_hard, inner_ratio, .5f, outer_ratio, outer_hard}) {
+      scene.blend.ratio = ratio;
+      close_offset = far_offset = {};
+      run();
+      // Establish the physical zoom reach only before applying independent
+      // anchors. Once they move, one common world pivot is no longer the model.
+      Require(close_enough(distance(), ratio == inner_hard    ? 600.f
+                                       : ratio == inner_ratio ? 640.f
+                                       : ratio == .5f         ? 2320.f
+                                                              : 4000.f),
+              "unpanned near/mid/far baseline remains qualified in either endpoint order");
+      if (ratio == inner_ratio || ratio == inner_hard)
+        native();
+      const auto baseline_output = scene.result.position, baseline_native = native_position;
+      const auto baseline_clip = scene.result.clip;
+      for (const auto& [inner_pan, outer_pan] : endpoint_pans) {
+        close_offset = inner_pan;
+        far_offset   = outer_pan;
+        run();
+        const auto translation =
+            unity::Vector3{native_position.x - baseline_native.x, native_position.y - baseline_native.y,
+                           native_position.z - baseline_native.z};
+        Require(close_enough(scene.result.position.x - baseline_output.x, translation.x)
+                    && close_enough(scene.result.position.y - baseline_output.y, translation.y)
+                    && close_enough(scene.result.position.z - baseline_output.z, translation.z)
+                    && close_enough(scene.result.clip, baseline_clip),
+                "one or both independently panned endpoints preserve the exact native blended translation and zoom");
+        if (ratio == inner_ratio || ratio == inner_hard)
+          native();
+        const auto first_output = scene.result.position;
+        run();
+        Require(close_enough(scene.result.position.x, first_output.x)
+                    && close_enough(scene.result.position.y, first_output.y)
+                    && close_enough(scene.result.position.z, first_output.z)
+                    && close_enough(scene.result.clip, baseline_clip),
+                "independent native pan cannot compound zoom on repeated callbacks");
+        close_offset = far_offset = {};
+        run();
+        Require(close_enough(scene.result.position.x, baseline_output.x)
+                    && close_enough(scene.result.position.y, baseline_output.y)
+                    && close_enough(scene.result.position.z, baseline_output.z)
+                    && close_enough(scene.result.clip, baseline_clip),
+                "clearing independent pan returns to the verified zoom baseline without recovery toggles");
+      }
+    }
   }
-  Require(native_interior_radius.size() == kInteriorProviderLimit && ranges.back().maximum == 1000,
-          "bounded live owner admission leaves the seventeenth native range untouched");
+  haven_curve_squared = true;
+  scene.blend.ratio   = .1f;
+  run();
+  native();
+  scene.blend.ratio = .9f;
+  run();
+  Require(close_enough(distance(), 4000) && close_enough(scene.result.clip - native_clip, 3076),
+          "nonlinear native curve uses its actual soft-stop weights and still reaches the requested far distance");
+  haven_curve_squared                 = false;
+  config.graphics.interior_zoom_scale = 1;
+  run();
+  native();
+  config.graphics.interior_zoom_scale = 4;
+  haven_fixture_section               = SectionID::Starbase_Exterior;
+  run();
+  native();
+  haven_fixture_section = SectionID::Navigation_System;
+  run();
+  native();
+  haven_fixture_section         = SectionID::Starbase_Interior;
+  station_zoom_current_provider = nullptr;
+  run();
+  native();
+  station_zoom_current_provider = reinterpret_cast<FrameProvider*>(&scene.close_provider);
+  run();
+  native();
+  station_zoom_current_provider = reinterpret_cast<FrameProvider*>(blend);
+  station_zoom_instance_failure = true;
+  run();
+  native();
+  station_zoom_instance_failure = false;
+  station_zoom_provider_failure = true;
+  run();
+  native();
+  station_zoom_provider_failure = false;
+  haven_curve_failure           = true;
+  run();
+  native();
+  haven_curve_failure = false;
+  haven_curve_flat    = true;
+  run();
+  native();
+  haven_curve_flat                    = false;
   config.graphics.interior_zoom_scale = std::numeric_limits<float>::quiet_NaN();
-  run(replacement);
-  Require(std::ranges::all_of(ranges, [](const auto& range) { return range.maximum == 1000; })
-              && native_interior_radius.empty() && warp_roots.size() == roots,
-          "invalid live scale restores every owned range and releases all weak handles");
+  run();
+  native();
+  config.graphics.interior_zoom_scale = 4;
+  scene.target_frame.fov              = 42;
+  run();
+  native();
+  scene.target_frame.fov  = 43;
+  scene.far_provider.look = nullptr;
+  run();
+  native();
+  scene.far_provider.look = scene.far_provider.pivot;
+  interior_zoom_installed = false;
+  run();
+  native();
   bindings_config_override = nullptr;
-  native_interior_radius.clear();
-  std::cout << "Station camera production callback: recreated providers, shared radius, native restoration and disable "
-               "passed\n";
+  Require(warp_roots.empty(), "stateless zoom retains no managed endpoint or constraint owners");
+  std::cout << "Station production blend zoom: native near, actual far reach, both directions, nonlinear soft stops, "
+               "active-provider gating and stateless fallback passed\n";
 }
 } // namespace
