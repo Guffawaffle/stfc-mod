@@ -179,9 +179,14 @@ const std::vector<KeyChord>& ChordsOf(Action action)
 // release, so letting go of CTRL before PGUP does not turn a held CTRL-PGUP into PGUP. At most one entry per key.
 std::vector<unity::KeyCode> used_keys;
 
-bool IsUsed(unity::KeyCode key)
+void PruneReleasedKeys()
 {
   std::erase_if(used_keys, [](unity::KeyCode used) { return !unity::Key::Pressed(used); });
+}
+
+bool IsUsed(unity::KeyCode key)
+{
+  PruneReleasedKeys();
   return std::ranges::contains(used_keys, key);
 }
 
@@ -194,6 +199,8 @@ bool ModifiersHeld(const KeyChord& chord)
 template <bool (*KeyState)(unity::KeyCode), bool ExtraShift = false>
 bool Matches(Action action, bool allow_mouse = true)
 {
+  // Dispatch matches every frame, including released frames where no chord reaches its ownership check.
+  PruneReleasedKeys();
   for (const auto& chord : ChordsOf(action)) {
     if (!allow_mouse && chord.key >= unity::KeyCode::Mouse0 && chord.key <= unity::KeyCode::Mouse6)
       continue;
@@ -214,7 +221,7 @@ bool Matches(Action action, bool allow_mouse = true)
                        unity::KeyCode::RightCommand, unity::KeyCode::LeftWindows,  unity::KeyCode::RightWindows};
         modified = std::ranges::any_of(other_modifiers, unity::Key::Pressed);
       }
-      if (modified || (!resolved.shift && IsUsed(resolved.key)))
+      if (modified || (!resolved.shift && std::ranges::contains(used_keys, resolved.key)))
         continue;
     } else {
       if (!ModifiersHeld(chord))
