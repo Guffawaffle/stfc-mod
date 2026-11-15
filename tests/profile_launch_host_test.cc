@@ -294,7 +294,7 @@ std::wstring Quote(std::wstring_view value)
 void Run(const fs::path& executable, const fs::path& suite_root, const Case& test)
 {
   const auto directory = suite_root / test.name;
-  fs::create_directory(directory);
+  Check(fs::create_directory(directory), "fixture child directory already exists");
   auto command = Quote(executable.wstring()) + L" --child " + Quote(directory.wstring()) + L" "
                  + Quote(std::wstring(test.name.begin(), test.name.end()));
   for (const auto& argument : test.arguments)
@@ -355,10 +355,11 @@ int wmain(int argc, wchar_t** argv)
       return 0;
     }
     const auto executable = fs::canonical(argv[0]);
+    const auto temp_root  = fs::canonical(fs::temp_directory_path());
     const auto suite_root =
-        fs::temp_directory_path()
+        temp_root
         / ("stfc-profile-host-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(GetTickCount64()));
-    fs::create_directory(suite_root);
+    Check(fs::create_directory(suite_root), "fixture root already exists");
     const auto cases = Cases();
     try {
       for (const auto& test : cases)
@@ -367,7 +368,10 @@ int wmain(int argc, wchar_t** argv)
       std::cerr << "Synthetic fixture evidence: " << suite_root << '\n';
       throw;
     }
-    fs::remove_all(suite_root);
+    const auto cleanup = fs::canonical(suite_root);
+    Check(cleanup.is_absolute() && cleanup.parent_path() == temp_root && cleanup.filename() == suite_root.filename(),
+          "fixture cleanup target left its temporary parent");
+    fs::remove_all(cleanup);
     std::cout << "Profile host: " << cases.size() << " subprocess cases passed (enabled=" << STFC_PROFILES_ENABLED
               << ").\n";
     return 0;
