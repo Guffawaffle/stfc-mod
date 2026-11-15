@@ -85,6 +85,10 @@ does not reserve the installation. See the pinned component's C API for that lea
 4. Quit both games and their isolated sign-in browser windows. Restart B, then A; verify each retains its own
    account and local state. Also check your ordinary game setup is unchanged.
 
+On Mac, also check ordinary **Engage!** from the preview launcher. Launch and update operations must refuse
+overlap on the same installation, including from another preview launcher window. Leave that update check
+pending if no game update is available; do not force an update to test it.
+
 On failure, record the package manifest, OS/architecture, game version, command/error or panel message,
 and which profile/game/browser was open. Logs can contain account information: share only redacted excerpts.
 Use **Open Profile Folder** on Mac, or `directory` from the helper's list on Windows, to locate profile logs.

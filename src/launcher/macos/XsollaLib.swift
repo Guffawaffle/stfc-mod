@@ -308,7 +308,7 @@ struct XsollaUpdater {
     #if PROFILES_PREVIEW
     let gameDirectory = URL(fileURLWithPath: gamePath, isDirectory: true)
       .appendingPathComponent("Star Trek Fleet Command.app/Contents/MacOS", isDirectory: true)
-    let reservation = try InstallationUpdateReservation.acquire(gameDirectory: gameDirectory)
+    let reservation = try InstallationReservation.acquire(gameDirectory: gameDirectory, forUpdate: true)
     defer { reservation.release() }
     guard self.installedVersion() == installedVersion else {
       throw XsollaError.invalidUpdatePlan("The installed game changed while checking for an update. Check again.")

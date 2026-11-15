@@ -102,8 +102,8 @@ func ensureGameHasLoaderEntitlements(gameApp: URL, requireExactSelection: Bool =
   }
 
   #if PROFILES_PREVIEW
-  let reservation = try InstallationUpdateReservation.acquire(
-    gameDirectory: URL(fileURLWithPath: selectedExecutable).deletingLastPathComponent())
+  let reservation = try InstallationReservation.acquire(
+    gameDirectory: URL(fileURLWithPath: selectedExecutable).deletingLastPathComponent(), forUpdate: true)
   defer { reservation.release() }
   #endif
 
