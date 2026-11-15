@@ -226,7 +226,9 @@ public:
     bool              free_resize         = true;
     bool              allow_cursor        = true;
     float             keyboard_zoom_speed = 350.0f;
-    // TODO(tashcan): read (with enable_experimental) but nothing applies it.
+    float             system_pan_speed    = 1.0f;
+    float             galaxy_pan_speed    = 1.0f;
+    // Retained for frozen configuration compatibility; this legacy setting has no runtime effect.
     float system_pan_momentum = 0.4f;
     // How much of the pan speed is kept each frame after a drag or key is released.
     float system_pan_momentum_falloff = 0.8f;
@@ -293,6 +295,8 @@ public:
     bool disable_galaxy_chat             = false;
     bool disable_veil_chat               = false;
     bool show_player_title               = true;
+    bool auto_open_chat                  = false;
+    float default_chat_width             = 0.0f;
     bool allow_officer_preset_reordering = false;
     // Only player ships received by this client for the viewed system are counted.
     bool system_player_ship_counter = true;

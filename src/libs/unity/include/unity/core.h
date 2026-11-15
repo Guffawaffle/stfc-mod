@@ -102,6 +102,13 @@ template <typename T> T* FindObject()
   return type ? static_cast<T*>(UnityObject::Class::Call<"FindObjectOfType", Il2CppObject*>(type)) : nullptr;
 }
 
+// Every active loaded T. This is a scene query; use it for discrete actions, never as a frame poll.
+template <typename T> il2cpp::Array<T*>* FindObjectsOfType()
+{
+  auto* type = T::Class::TypeObject();
+  return type ? UnityObject::Class::Call<"FindObjectsOfType", il2cpp::Array<T*>*>(type) : nullptr;
+}
+
 // Behaviour.isActiveAndEnabled for any MonoBehaviour. The getter resolves once on Behaviour itself, so bindings
 // resolved on their runtime class, such as Widget`1, can share it. It goes through the managed getter rather than an
 // internal call: Unity 6 registers only get_isActiveAndEnabled_Injected, which takes the native object pointer. False

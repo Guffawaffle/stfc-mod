@@ -7,8 +7,10 @@ namespace camera_pan_fixture
 {
 struct PanObject {
   Il2CppObject   header;
+  NodeDepth      depth = NodeDepth::SolarSystem;
   unity::Vector2 last{4.0f, -2.0f};
   float          delta = 2.0f, keyboard = 3.0f;
+  bool           panning  = false;
   Il2CppObject*  tracking = nullptr;
   float          normal = 7.0f, extended = 19.0f;
 };
@@ -90,10 +92,11 @@ bool ShortcutsAllowed(const MethodInfo*)
     ReplacePolicy();
   return shortcuts_allowed;
 }
-void Move(NavigationPan*, unity::Vector2 delta, bool momentum, const MethodInfo*)
+void Move(NavigationPan* actual, unity::Vector2 delta, bool momentum, const MethodInfo*)
 {
   Require(momentum, "pan retains the native momentum argument");
   moves.push_back(delta);
+  actual->SetLastDelta(delta);
 }
 bool Near(unity::Vector2 actual, unity::Vector2 expected)
 { return std::abs(actual.x - expected.x) < 0.0001f && std::abs(actual.y - expected.y) < 0.0001f; }
@@ -113,6 +116,9 @@ void Run(std::string_view mode)
   auto&         hub       = Define("Digit.Client.Core", "Hub", IL2CPP_TYPE_CLASS, &object_class);
   auto&         shortcuts = Define("Digit.Prime.GameInput", "ShortcutsManager", IL2CPP_TYPE_CLASS, &object_class);
   pan.klass.instance_size = sizeof(PanObject);
+  auto& node_depth = Define("Digit.PrimeServer.Models", "NodeDepth", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(NodeDepth));
+  node_depth.is_enum = true;
+  AddField(pan, "_nodeDepth", node_depth, offsetof(PanObject, depth));
   if (mode != "camera-pan-missing-block")
     AddField(pan, "BlockPan", mode == "camera-pan-foreign-block" ? int_class : bool_class, 0, true);
   if (mode != "camera-pan-missing-last")
@@ -121,6 +127,8 @@ void Run(std::string_view mode)
     AddField(pan, "_deltaScaler", float_class, offsetof(PanObject, delta));
   if (mode != "camera-pan-missing-speed")
     AddField(pan, "_keyboardDeltaScaler", float_class, offsetof(PanObject, keyboard));
+  if (mode != "camera-pan-missing-panning")
+    AddField(pan, "_panningStarted", bool_class, offsetof(PanObject, panning));
   if (mode != "camera-pan-missing-tracking")
     AddField(pan, "_trackingPOI", mode == "camera-pan-foreign-tracking" ? int_class : poi,
              offsetof(PanObject, tracking));
@@ -139,9 +147,14 @@ void Run(std::string_view mode)
 
   PanObject  object{{&pan.klass}};
   auto*      receiver = reinterpret_cast<NavigationPan*>(&object);
+  float          observed_delta = 0, observed_keyboard = 0;
+  unity::Vector2 observed_last{};
   const auto original = [&](NavigationPan* actual) {
     Require(actual == receiver, "native pan receives its original receiver");
     ++originals;
+    observed_delta    = actual->deltaScaler();
+    observed_keyboard = actual->keyboardDeltaScaler();
+    observed_last     = actual->lastDelta();
     object.last = {8.0f, 6.0f};
     return true;
   };
@@ -152,6 +165,8 @@ void Run(std::string_view mode)
   config.ui.disable_move_keys                 = false;
   config.graphics.disable_target_camera_lock  = false;
   config.graphics.system_pan_momentum_falloff = 0.5f;
+  config.graphics.system_pan_speed            = 1.0f;
+  config.graphics.galaxy_pan_speed            = 2.5f;
   auto* previous_selection                    = selected;
   selected                                    = nullptr;
   fleet_native_keys                           = {Action::kMoveRight};
@@ -160,6 +175,32 @@ void Run(std::string_view mode)
     ++input_frame;
     return NavigationPan_LateUpdate_Hook(original, receiver);
   };
+
+  // Both keyboard routes use this controller's depth, independently of the displayed section.
+  // Keep these within the existing mode so no test-driver or CI registration is needed.
+  if (mode == "camera-pan-diagonal" || mode == "camera-pan-native") {
+    config.graphics.system_pan_speed = 0.5f;
+    for (auto [depth, multiplier] :
+         std::array{std::pair{NodeDepth::SolarSystem, 0.5f}, std::pair{NodeDepth::Galaxy, 2.5f},
+                    std::pair{NodeDepth::PlanetSystem, 1.0f}, std::pair{NodeDepth::Starbase, 1.0f},
+                    std::pair{static_cast<NodeDepth>(0), 1.0f}, std::pair{static_cast<NodeDepth>(3), 1.0f}}) {
+      object.depth                       = depth;
+      object.last                        = {};
+      config.control.use_scopely_hotkeys = mode == "camera-pan-native";
+      frame();
+      if (config.control.use_scopely_hotkeys)
+        Require(observed_keyboard == 6.0f * multiplier,
+                "native keys select only their own view's speed; other depths stay native");
+      else
+        Require(Near(moves.back(), {-6.0f * multiplier, 0}),
+                "mod keys select only their own view's speed; other depths stay native");
+    }
+    object.depth                       = NodeDepth::SolarSystem;
+    object.last                        = {4, -2};
+    config.control.use_scopely_hotkeys = false;
+    moves.clear();
+    originals = 0;
+  }
 
   if (mode.starts_with("camera-pan-missing-") || mode.starts_with("camera-pan-foreign-")) {
     missing_mouse   = mode == "camera-pan-missing-mouse";
@@ -189,15 +230,25 @@ void Run(std::string_view mode)
     }
   } else if (mode == "camera-pan-native") {
     config.control.use_scopely_hotkeys = true;
+    config.graphics.system_pan_speed   = 1.5f;
     frame();
     Require(originals == 1 && moves.empty() && Near(object.last, {8.0f, 6.0f}) && object.extended == object.normal,
             "configured native keyboard mode runs native pan once without a second mod glide");
+    Require(observed_delta == 1.0f && observed_keyboard == 9.0f && Near(observed_last, {2.0f, -1.0f})
+                && object.delta == 2.0f && object.keyboard == 3.0f,
+            "native pan applies one fade, scales fresh keys once and restores its native fields");
+    object.panning  = true;
+    const auto last = object.last;
+    frame();
+    Require(originals == 1 && Near(object.last, last),
+            "recognizer-only dragging suppresses native replay when legacy pointer input is false");
   } else if (mode == "camera-pan-diagonal") {
+    config.graphics.system_pan_speed = 1.5f;
     fleet_native_keys = {Action::kMoveRight, Action::kMoveUp};
     frame();
-    const float component = -3.0f / std::sqrt(2.0f);
+    const float component = -4.5f / std::sqrt(2.0f);
     Require(moves.size() == 1 && Near(moves.back(), {2.0f * component, 2.0f * component})
-                && Near(object.last, {component, component}),
+                && Near(object.last, {2.0f * component, 2.0f * component}),
             "diagonal keyboard pan is normalized and uses one native movement per frame");
   } else if (mode == "camera-pan-opposed") {
     object.last       = {};
@@ -206,6 +257,7 @@ void Run(std::string_view mode)
     Require(moves.size() <= 1 && NoMovement() && Near(object.last, {}), "opposite directions cancel");
   } else if (mode == "camera-pan-coast") {
     fleet_native_keys.clear();
+    config.graphics.system_pan_speed = 10.0f;
     frame();
     Require(moves.size() == 1 && Near(moves.back(), {2.0f, -1.0f}) && Near(object.last, {2.0f, -1.0f}),
             "released drag delta decays by the configured per-update falloff and moves once");

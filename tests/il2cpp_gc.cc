@@ -14,6 +14,7 @@ uintptr_t                                         next_handle     = 1;
 bool                                              fail_allocation = false;
 int                                               frees           = 0;
 bool                                              weak            = false;
+bool                                              runtime_alive   = true;
 
 void Require(bool condition)
 {
@@ -24,6 +25,7 @@ void Require(bool condition)
 
 API(Il2CppGCHandle, il2cpp_gchandle_new, (Il2CppObject * object, bool pinned))
 {
+  Require(runtime_alive);
   if (!object || pinned)
     throw std::runtime_error("invalid root");
   if (fail_allocation)
@@ -35,6 +37,7 @@ API(Il2CppGCHandle, il2cpp_gchandle_new, (Il2CppObject * object, bool pinned))
 END_API
 API(Il2CppGCHandle, il2cpp_gchandle_new_weakref, (Il2CppObject * object, bool resurrect))
 {
+  Require(runtime_alive);
   if (resurrect)
     throw std::runtime_error("unexpected resurrection");
   weak = true;
@@ -42,10 +45,14 @@ API(Il2CppGCHandle, il2cpp_gchandle_new_weakref, (Il2CppObject * object, bool re
 }
 END_API
 API(Il2CppObject*, il2cpp_gchandle_get_target, (Il2CppGCHandle handle))
-{ return targets.at(handle); }
+{
+  Require(runtime_alive);
+  return targets.at(handle);
+}
 END_API
 API(void, il2cpp_gchandle_free, (Il2CppGCHandle handle))
 {
+  Require(runtime_alive);
   if (targets.erase(handle) != 1)
     throw std::runtime_error("handle freed twice");
   ++frees;
@@ -79,5 +86,21 @@ int main()
     Require(root && !root.Get());
   }
   Require(frees == 3 && targets.empty());
+  {
+    auto strong = il2cpp::GcHandle::Strong(&object);
+    auto weak_root = il2cpp::GcHandle::Weak(&other);
+    Require(strong.Get() == &object && weak_root.Get() == &other);
+    il2cpp::GcHandle::StopRuntime();
+    runtime_alive = false;
+    targets.clear(); // Native teardown has reclaimed its table before C++ statics are destroyed.
+    Require(!strong && !strong.Get() && !weak_root && !weak_root.Get());
+    Require(!il2cpp::GcHandle::Strong(&object) && !il2cpp::GcHandle::Weak(&other));
+    auto moved = std::move(strong);
+    weak_root = std::move(moved);
+    weak_root.Reset();
+    weak_root.Reset();
+    il2cpp::GcHandle::StopRuntime(); // Terminal and idempotent, not an in-process reload reset.
+  }
+  Require(frees == 3 && targets.empty()); // No API call touched the reclaimed handle table.
   std::cout << "IL2CPP GC ownership tests passed\n";
 }

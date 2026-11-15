@@ -749,6 +749,23 @@ bool EnsureShipTileBinding()
 
 namespace ship_pin_input
 {
+void ResetForReload()
+{
+  auto& state = PinInput();
+  state.policy.Reset();
+  ++state.generation;
+  state.tiles.clear();
+  state.source.Reset();
+  state.scroll.Reset();
+  state.cue.Reset();
+  state.target.Reset();
+  state.band.Reset();
+  state.cue_viewport.Reset();
+  state.group_hovered        = false;
+  state.source_highlighted   = false;
+  state.group_refresh_frames = 0;
+}
+
 bool Install()
 {
   auto& state = PinInput();

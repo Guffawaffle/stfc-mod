@@ -448,6 +448,9 @@ void CancelAwaitedButton()
   pending_button.reset();
 }
 
+void ResetScreenShortcuts()
+{ CancelAwaitedButton(); }
+
 bool PressAwaitedButton()
 {
   const auto& control = Config::Get().control;

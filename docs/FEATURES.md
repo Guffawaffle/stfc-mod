@@ -29,7 +29,8 @@ F11 does not toggle borderless mode in this build.
 - Choose mod hotkeys or the game's native hotkeys. Remap actions, including alternatives for the same action.
 - Open screens, select chat tabs, and focus a search field by shortcut.
 - Select ships 1 through 8. Configure the double-tap interval that locates a selected ship.
-- Use context-sensitive attack, warp, recall, repair, cancel, and cargo actions.
+- Use context-sensitive attack, warp, recall, repair, cancel, and cargo actions. The primary action also joins a wave
+  defense from its course or viewer card.
 - Clear text focus with Escape and control whether Escape opens the exit prompt, including an optional double press.
 
 Extended shortcuts add controls such as cargo toggles and zoom-preset saving.
@@ -58,6 +59,8 @@ The [shortcut reference](KEYMAPPING.md) lists the defaults.
 - Limit Daily Goals **Claim All** to selected Federation, Klingon, or Romulan goals. Its toggle can start enabled each session.
   `ui.daily_bulk_claim_factions` lists the factions; blank means all three, and `none` by itself excludes all of them. Other dailies stay eligible.
 - Hide Galaxy or Veil Chat, and player titles under chat names. Set supported HUD buttons to automatic, always shown, or always hidden.
+- Open alliance side chat once per login with `ui.auto_open_chat`, and choose its initial width with
+  `ui.default_chat_width`. Both preserve the game's behavior by default. These controls are also in Mod Settings → Chat.
 - Hide **Exchange All** in the artifact-shards popup while retaining single exchanges.
 
 The supported HUD buttons are Field Training, Missions, Outposts, and Q Trials.
@@ -100,6 +103,10 @@ Recent battle journals can replay after a restart or login.
 Proxy, certificate verification, name-cache, and diagnostic options are in the settings example.
 
 ## Compatibility switches
+
+During an in-process game restart, the mod pauses frame work and shortcuts, discards session-owned UI requests,
+and waits for the game's screen transition to settle for three seconds before resuming. The game continues updating
+throughout. The log records these steps under `[Reload]`; this does not repair a failed connection or asset download.
 
 `[patches]` keys disable hook groups in every build. Changes require a restart.
 Use them to isolate a broken hook or a conflict with another mod.

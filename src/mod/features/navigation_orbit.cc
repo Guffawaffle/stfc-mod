@@ -224,8 +224,17 @@ unity::Vector2 NavigationOrbitScreenPan(unity::Vector2 pixels, float distance, f
 }
 void NavigationPan_MoveCamera_OrbitHook(auto original, NavigationPan* _this, unity::Vector2 delta, bool momentum)
 {
-  auto& state = NavigationOrbit();
-  auto* zoom  = state.zoom.Get<NavigationZoom>();
+  // Only fresh pointer movement is scaled here. Keys are scaled by LateUpdate; cached glide is already in
+  // world units. The shared detour also serves NavigationOrbit when the Pan hook group is unavailable.
+  const bool  pan_installed = std::ranges::any_of(FeatureInstallations(), [](const FeatureInstallation& feature) {
+    return feature.name && std::string_view(feature.name) == kPan.name && feature.state == InstallState::kInstalled;
+  });
+  const float multiplier    = pan_installed && !momentum && NavigationPan::FieldsAvailable() && _this->panningStarted()
+                                  ? CameraPanSpeed(_this->nodeDepth(), Config::Get().graphics.system_pan_speed,
+                                                   Config::Get().graphics.galaxy_pan_speed)
+                                  : 1.0f;
+  auto&       state         = NavigationOrbit();
+  auto*       zoom          = state.zoom.Get<NavigationZoom>();
   if (zoom && NavigationOrbitEnabled() && NavigationOrbitSection()) {
     const auto depth       = system_orbit::Field<"_nodeDepth", NodeDepth>(_this);
     const auto camera      = system_orbit::Field<"_sceneCamera", unity::Camera*>(_this);
@@ -235,7 +244,7 @@ void NavigationPan_MoveCamera_OrbitHook(auto original, NavigationPan* _this, uni
       state.pan = il2cpp::GcHandle::Strong(_this);
   }
   if (!NavigationOrbitFreePan(_this)) {
-    original(_this, delta, momentum);
+    original(_this, delta * multiplier, momentum);
     return;
   }
   if (!momentum) {
@@ -256,6 +265,7 @@ void NavigationPan_MoveCamera_OrbitHook(auto original, NavigationPan* _this, uni
     delta = NavigationOrbitScreenPan(pixels.value, state.distance, fov.value, height.value, state.yaw,
                                      1 - (1 - speed.value) * normalized.value);
   }
+  delta = delta * multiplier;
   original(_this, std::isfinite(delta.x) && std::isfinite(delta.y) ? delta : unity::Vector2{}, momentum);
 }
 bool NavigationOrbitExtendClip(unity::Camera* camera, float baseline, float expanded)
@@ -422,13 +432,11 @@ void NavigationZoom_LateUpdate_OrbitHook(auto original, NavigationZoom* _this)
 }
 bool InstallNavigationOrbit()
 {
-  if (!system_orbit::Available())
+  if (!system_orbit::Available() || !navigation_orbit::EnsurePanMovement())
     return false;
   il2cpp::HookSet hooks("NavigationOrbit");
   IL2CPP_STAGE(hooks, NavigationPan::Class::Method<OrbitVector3(OrbitVector3)>("ClampPositionInside"),
                NavigationPan_ClampPositionInside_OrbitHook);
-  IL2CPP_STAGE(hooks, NavigationPan::Class::Method<void(unity::Vector2, bool)>("MoveCamera"),
-               NavigationPan_MoveCamera_OrbitHook);
   IL2CPP_STAGE(hooks, NavigationZoom::Class::Method<void()>("UpdateCameraPosition"),
                NavigationZoom_UpdateCameraPosition_OrbitHook);
   IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(NavigationZoom::Class::Method<void()>("LateUpdate")),
@@ -440,6 +448,17 @@ bool InstallNavigationOrbit()
 
 bool navigation_orbit::Available()
 { return NavigationOrbit().installed; }
+
+bool navigation_orbit::EnsurePanMovement()
+{
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("PanMovement");
+    IL2CPP_STAGE(hooks, NavigationPan::Class::Method<void(unity::Vector2, bool)>("MoveCamera"),
+                 NavigationPan_MoveCamera_OrbitHook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
 
 navigation_orbit::ZoomUpdateScope::ZoomUpdateScope(NavigationZoom* value)
     : zoom(value)

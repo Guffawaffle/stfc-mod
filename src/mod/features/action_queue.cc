@@ -546,8 +546,9 @@ void ResetQueueRecoveryTracking()
 { ClearRequests(); }
 
 // Shared installers use CheckedEntry; macOS declines undersized native entries. Windows targets are unchanged.
-const Feature kActionQueueRecovery{"ActionQueueRecovery", &Config::Patches::actionqueuerecoveryhooks,
-                                   InstallActionQueueRecovery};
+const Feature kActionQueueRecovery{"ActionQueueRecovery",         &Config::Patches::actionqueuerecoveryhooks,
+                                   InstallActionQueueRecovery,    nullptr,
+                                   InstallRequirement::kOptional, ClearRequests};
 const Feature kThinQueueProtection{"ThinQueueProtection", &Config::Patches::thinqueueprotectionhooks,
                                    InstallThinQueueProtection};
 const Feature kQueueAddressGuard{"QueueAddressGuard", &Config::Patches::queueaddressguardhooks,

@@ -10,6 +10,10 @@ using ScreenManagerUpdateCallback = void (*)();
 bool                      RegisterFrameCallback(ScreenManagerUpdateCallback callback, const char* name) noexcept;
 il2cpp::HookInstallResult EnsureFrameTick();
 il2cpp::HookInstallResult FrameTickInstallation();
+// The shared in-process teardown observers, independently owned from the frame anchor.
+bool EnsureReloadGuards();
+// Game-thread-only reload observation for native hooks that also dispatch mod shortcuts.
+bool ModSessionSuspended() noexcept;
 // Physical anchor installation may precede completion of host initialization. No host callbacks, reload or
 // shortcuts run until both are ready. Querying this does not trigger installation.
 bool FrameDeliveryAvailable() noexcept;

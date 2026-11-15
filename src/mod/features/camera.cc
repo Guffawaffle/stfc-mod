@@ -8,6 +8,8 @@
 #include "features/galaxy.h"
 #include "features/haven_orbit.h"
 #include "features/navigation_orbit.h"
+#include "features/zoom_entry.h"
+#include "frame.h"
 #include "runtime_config.h"
 #include "settings/basic_gameplay_settings.h"
 #include "shortcuts.h"
@@ -38,28 +40,95 @@ namespace
 // --- Zoom ---
 bool camera_zoom_installed = false;
 
-// One pending system-entry default belongs to that camera. Other native camera
-// instances must not consume it. Never release a GC handle after IL2CPP teardown.
-il2cpp::GcHandle& PendingDefaultZoom()
+struct ZoomEntryState {
+  il2cpp::GcHandle controller;
+  ZoomEntry::Gate  gate;
+};
+struct ZoomEntryCache {
+  std::unordered_map<NavigationZoom*, ZoomEntryState> entries;
+  std::deque<NavigationZoom*>                         prune;
+  bool                                                view_visible = false;
+};
+ZoomEntryCache& ZoomEntries()
 {
-  static auto* owner = new il2cpp::GcHandle;
-  return *owner;
+  // Weak custody distinguishes recycled addresses without keeping old scenes alive. It is retired explicitly
+  // during reload, rather than by static destruction after the managed runtime has shut down.
+  static auto* cache = new ZoomEntryCache;
+  return *cache;
 }
 uint64_t zoom_default_generation = 0;
+uint64_t zoom_reset_generation   = 0;
 
-bool TakeDefaultZoom(NavigationZoom* zoom)
+bool SystemZoomViewReady()
 {
-  auto& owner   = PendingDefaultZoom();
-  auto* pending = owner.Get<NavigationZoom>();
-  if (!pending) {
-    owner.Reset();
+  auto* sections = Hub::Sections();
+  if (!sections || sections->CurrentSection() != SectionID::Navigation_System)
     return false;
+  const auto changing = sections->TryIsSectionChangeInProgress();
+  return changing && !changing.value;
+}
+
+void ObserveZoomVisibility(bool visible)
+{
+  auto& cache = ZoomEntries();
+  if (std::exchange(cache.view_visible, visible) && !visible)
+    for (auto& [_, entry] : cache.entries)
+      entry.gate.Observe(false);
+}
+
+void ZoomFrame()
+{
+  // Cached controllers may stop updating while hidden. Observe the section from the shared frame tick so their
+  // next visible system update is a new entry, even if no SetDepth or SetViewParameters callback ran.
+  if (ZoomEntries().view_visible)
+    ObserveZoomVisibility(SystemZoomViewReady());
+}
+
+ZoomEntryState* ObserveZoomDepth(NavigationZoom* zoom)
+{
+  auto&      cache   = ZoomEntries();
+  const auto depth   = zoom->TryDepth();
+  const bool system  = depth && depth.value == NodeDepth::SolarSystem;
+  const bool visible = SystemZoomViewReady();
+  ObserveZoomVisibility(visible);
+  auto entry = cache.entries.find(zoom);
+  if (entry != cache.entries.end() && entry->second.controller.Get() != zoom) {
+    cache.entries.erase(entry);
+    std::erase(cache.prune, zoom);
+    entry = cache.entries.end();
   }
-  if (pending != zoom)
-    return false;
-  owner.Reset();
-  const auto depth = zoom->TryDepth();
-  return depth && depth.value == NodeDepth::SolarSystem;
+  if (entry == cache.entries.end()) {
+    if (!system)
+      return nullptr;
+    // Prune a bounded number only when a controller is first seen, not on each native camera update.
+    const auto count = std::min(size_t{4}, cache.prune.size());
+    for (size_t i = 0; i < count; ++i) {
+      auto* candidate = cache.prune.front();
+      cache.prune.pop_front();
+      const auto old = cache.entries.find(candidate);
+      if (old != cache.entries.end() && old->second.controller.Get() != candidate)
+        cache.entries.erase(old);
+      else
+        cache.prune.push_back(candidate);
+    }
+    auto weak = il2cpp::GcHandle::Weak(zoom);
+    if (!weak)
+      return nullptr;
+    entry = cache.entries.emplace(zoom, ZoomEntryState{std::move(weak), {}}).first;
+    cache.prune.push_back(zoom);
+  }
+  entry->second.gate.Observe(system, visible);
+  return &entry->second;
+}
+
+void ResetZoom()
+{
+  ++zoom_default_generation;
+  ++zoom_reset_generation;
+  auto& cache = ZoomEntries();
+  cache.entries.clear();
+  cache.prune.clear();
+  cache.view_visible = false;
 }
 
 // Native camera wheel consumption is scoped separately from mod keyboard zoom.
@@ -200,7 +269,7 @@ bool ApplyZoomRange(NavigationZoom* zoom, float radius)
   // At max_zoom the camera still has to reach the far side of the system and its backdrop, hence the 3.75x clip.
   // Clearing to black instead of the skybox hides the void past the backdrop's edge.
   if (camera) {
-    auto* scene = camera.Get<unity::Camera>();
+    auto*      scene       = camera.Get<unity::Camera>();
     const auto same_inputs = [&] {
       const auto current = zoom->TrySceneCamera();
       return current && current.value == scene && Config::Get().graphics.zoom == max_zoom;
@@ -321,6 +390,28 @@ bool ZoomAtMouse(NavigationZoom* zoom, float value, bool absolute)
   return zoom->TryCall<"ZoomCameraAtWorldPoint", void>().succeeded;
 }
 
+void ApplyEntryDefault(NavigationZoom* zoom)
+{
+  const auto* entry = ObserveZoomDepth(zoom);
+  if (!entry || !entry->gate.in_system || !entry->gate.pending)
+    return;
+  const auto target     = Config::Get().graphics.default_system_zoom;
+  const auto generation = zoom_default_generation;
+  const auto reset      = zoom_reset_generation;
+  // Zero is the fork's explicit native/remembered-zoom choice. It consumes this entry without a camera write.
+  // Positive defaults remain pending until the native camera, range and pointer inputs can actually apply them.
+  const bool applied = target == 0.0f || (target > 0.0f && std::isfinite(target) && ZoomAtMouse(zoom, target, true));
+  if (!applied || generation != zoom_default_generation || reset != zoom_reset_generation
+      || Config::Get().graphics.default_system_zoom != target)
+    return;
+  // The managed setter may synchronously reload or replace camera state. Never retain a map reference across it.
+  auto&      cache   = ZoomEntries();
+  const auto current = cache.entries.find(zoom);
+  if (current != cache.entries.end() && current->second.controller.Get() == zoom && current->second.gate.Consume(true)
+      && target != 0.0f)
+    spdlog::info("[Zoom] system entry default applied: requested={}", target);
+}
+
 // Keyboard zoom: Q/E zoom by keyboard_zoom_speed per second, presets jump, SHIFT-F1.. store the current zoom.
 // ZoomMin goes all the way out (graphics.zoom) and ZoomMax close in. Returns false when a preset was stored, which
 // skips the game's update for that frame.
@@ -380,6 +471,11 @@ bool KeyboardZoom(NavigationZoom* zoom)
 
 void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
 {
+  if (ModSessionSuspended()) {
+    NativeZoomUpdateScope native_update(_this);
+    original(_this);
+    return;
+  }
   unity::Key::Poll();
   auto owner = il2cpp::GcHandle::Strong(_this);
   if (!owner) {
@@ -392,6 +488,8 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
   if (!camera_zoom_installed) {
     NativeZoomUpdateScope native_update(_this);
     original(_this);
+    if (ModSessionSuspended())
+      return;
     camera_update.Complete();
     FleetLabelsAfterZoom(_this);
     galaxy_controls::AfterZoom(_this);
@@ -399,15 +497,12 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
   }
   KeepZoomRange(_this);
 
-  // The jump on entering a system is not keyboard input, so it happens even while a text field has focus.
-  bool run_game_update = true;
-  if (TakeDefaultZoom(_this)) {
-    // Zero preserves the game's entry zoom. Consume this camera's pending entry even when no jump is requested.
-    const auto default_zoom = Config::Get().graphics.default_system_zoom;
-    if (default_zoom != 0.0f)
-      ZoomAtMouse(_this, default_zoom, true);
-  } else if (!unity::Key::IsInputFocused())
-    run_game_update = KeyboardZoom(_this);
+  // Initial/cached controllers may reach System view without a depth callback, notably on macOS. Detect the
+  // visible entry from Update too; while it is pending, native setup wins over keyboard input in this frame.
+  const auto* entry            = ObserveZoomDepth(_this);
+  const bool  pending_default  = entry && entry->gate.pending;
+  const auto  reset_generation = zoom_reset_generation;
+  const bool  run_game_update  = pending_default || unity::Key::IsInputFocused() || KeyboardZoom(_this);
   if (!run_game_update) {
     camera_update.Complete();
     return;
@@ -417,7 +512,13 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
     NativeZoomUpdateScope native_update(_this);
     original(_this);
   }
+  if (ModSessionSuspended() || reset_generation != zoom_reset_generation)
+    return;
   KeepZoomRange(_this);
+  // Native entry work can replace the distance/range in Update. Apply afterward, using the same qualified
+  // geometry as presets. A reload inside the native callback invalidates the old entry rather than recreating it.
+  if (reset_generation == zoom_reset_generation)
+    ApplyEntryDefault(_this);
   camera_update.Complete();
   FleetLabelsAfterZoom(_this);
   galaxy_controls::AfterZoom(_this);
@@ -427,14 +528,16 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
 template <typename Original, typename... Args>
 void EnterDepth(Original original, NavigationZoom* zoom, NodeDepth depth, float radius, Args... args)
 {
+  if (ModSessionSuspended())
+    return original(zoom, args...);
   const auto generation = ++zoom_default_generation;
   auto       owner      = il2cpp::GcHandle::Strong(zoom);
   if (!owner)
     return original(zoom, args...);
   FleetLabelsFollowDepth(zoom, depth);
   if (depth != NodeDepth::SolarSystem) {
-    if (PendingDefaultZoom().Get<NavigationZoom>() == zoom)
-      PendingDefaultZoom().Reset();
+    if (const auto existing = ZoomEntries().entries.find(zoom); existing != ZoomEntries().entries.end())
+      existing->second.gate.Observe(false);
     return original(zoom, args...);
   }
   navigation_orbit::ZoomUpdateScope camera_update(zoom);
@@ -443,7 +546,8 @@ void EnterDepth(Original original, NavigationZoom* zoom, NodeDepth depth, float 
   ApplyZoomRange(zoom, 0.0f);
   camera_update.Complete();
   if (generation == zoom_default_generation)
-    PendingDefaultZoom() = il2cpp::GcHandle::Weak(zoom);
+    if (auto* entry = ObserveZoomDepth(zoom))
+      entry->gate.pending = true;
 }
 
 void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom* _this, float radius, NodeDepth depth)
@@ -593,7 +697,7 @@ bool ModMovesCamera()
 
 struct PanSettings {
   bool  hotkeys, native_hotkeys, move_disabled, hotkey_hooks, unlock;
-  float falloff;
+  float falloff, system_speed, galaxy_speed;
   bool  operator==(const PanSettings&) const = default;
 };
 PanSettings ReadPanSettings()
@@ -604,7 +708,9 @@ PanSettings ReadPanSettings()
           config.ui.disable_move_keys,
           config.patches.hotkeyhooks,
           config.graphics.disable_target_camera_lock,
-          config.graphics.system_pan_momentum_falloff};
+          config.graphics.system_pan_momentum_falloff,
+          config.graphics.system_pan_speed,
+          config.graphics.galaxy_pan_speed};
 }
 bool KeyboardPanActive(const PanSettings& settings)
 {
@@ -622,25 +728,48 @@ bool KeyboardPanAllowed()
          && !unity::Key::IsInputFocused();
 }
 
+// Native LateUpdate fades cached motion with deltaScaler and uses the same scaler for fresh keys. Supply our
+// one configured fade separately, while preserving native keyboard amplitude and restoring both fields.
+struct NativePanScalers {
+  NavigationPan* pan;
+  float          delta, keyboard;
+  NativePanScalers(NavigationPan* value, float speed)
+      : pan(value)
+      , delta(value->deltaScaler())
+      , keyboard(value->keyboardDeltaScaler())
+  {
+    pan->SetDeltaScaler(1.0f);
+    pan->SetKeyboardDeltaScaler(keyboard * delta * speed);
+  }
+  ~NativePanScalers()
+  {
+    pan->SetDeltaScaler(delta);
+    pan->SetKeyboardDeltaScaler(keyboard);
+  }
+};
+
 // Replaces the game's LateUpdate: the keyboard source is the mod's shortcuts, and the pan keeps gliding after the
 // drag or key is released. Each frame moves the camera once: by the keys while one is held, otherwise by the
 // glide.
 bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
 {
+  if (ModSessionSuspended()) {
+    original(_this);
+    return true;
+  }
   unity::Key::Poll();
   const auto settings = ReadPanSettings();
   const bool keyboard = KeyboardPanActive(settings);
   const bool fields   = NavigationPan::FieldsAvailable();
-
-  // With the game's own hotkeys, its LateUpdate pans and glides by itself; only the extended range is ours.
-  if (keyboard && (settings.native_hotkeys || !settings.hotkey_hooks)) {
-    if (fields && settings.unlock && _this->trackingPOI())
-      _this->SetTrackingPOI(nullptr);
-    original(_this);
-    if (fields)
-      _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
+  const bool native   = keyboard && (settings.native_hotkeys || !settings.hotkey_hooks);
+  if (!fields) {
+    if (native)
+      original(_this);
     return true;
   }
+
+  const auto  depth     = _this->nodeDepth();
+  const float pan_speed = CameraPanSpeed(depth, settings.system_speed, settings.galaxy_speed);
 
   auto       owner         = il2cpp::GcHandle::Strong(_this);
   const auto pointer_state = unity::Input::TryPointerHeld();
@@ -652,16 +781,31 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
   auto       d       = _this->lastDelta();
   const auto tracked = _this->trackingPOI();
   const bool blocked = _this->BlockPan() || (tracked && !settings.unlock);
-  const bool pointer = pointer_state.value;
+  const bool pointer = pointer_state.value || _this->panningStarted();
   bool       by_keys = false;
-  const bool allowed = keyboard && !blocked && !pointer && KeyboardPanAllowed();
+  const bool allowed = keyboard && !native && !blocked && !pointer && KeyboardPanAllowed();
   if (ReadPanSettings() != settings)
     return true;
   const auto current_pointer = unity::Input::TryPointerHeld();
-  if (!current_pointer || current_pointer.value != pointer || _this->trackingPOI() != tracked
-      || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked || !std::isfinite(d.x) || !std::isfinite(d.y)
-      || !std::isfinite(settings.falloff))
+  if (!current_pointer || (current_pointer.value || _this->panningStarted()) != pointer
+      || _this->trackingPOI() != tracked || (_this->BlockPan() || (tracked && !settings.unlock)) != blocked
+      || !std::isfinite(d.x) || !std::isfinite(d.y) || !std::isfinite(settings.falloff) || _this->nodeDepth() != depth
+      || !std::isfinite(pan_speed))
     return true;
+  if (native) {
+    if (!pointer) {
+      const float native_delta = _this->deltaScaler(), native_keyboard = _this->keyboardDeltaScaler();
+      const auto  faded = blocked ? unity::Vector2{} : d * settings.falloff;
+      if (!std::isfinite(native_delta) || !std::isfinite(native_keyboard * native_delta * pan_speed)
+          || !std::isfinite(faded.x) || !std::isfinite(faded.y))
+        return true;
+      _this->SetLastDelta(faded);
+      NativePanScalers scalers(_this, pan_speed);
+      original(_this);
+    }
+    _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
+    return true;
+  }
   if (allowed && KeyboardPanActive(settings)) {
     // Opposite bindings cancel; normalize diagonals like the native 2D composite. MoveCamera takes a drag, and
     // dragging left moves the view right, hence the negation.
@@ -674,10 +818,11 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
         return true;
       d                   = {-x / length * speed, -y / length * speed};
       by_keys             = true;
-      const auto movement = d * scale;
+      const auto movement = d * (scale * pan_speed);
       if (!std::isfinite(movement.x) || !std::isfinite(movement.y))
         return true;
       _this->MoveCamera(movement, true);
+      d = _this->lastDelta();
     }
   }
 
@@ -689,10 +834,12 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
     if (!std::isfinite(d.x) || !std::isfinite(d.y))
       return true;
     _this->MoveCamera(d, true);
+    d = _this->lastDelta();
   }
-  if (ReadPanSettings() != settings || _this->trackingPOI() != tracked)
+  if (ReadPanSettings() != settings || _this->trackingPOI() != tracked || _this->nodeDepth() != depth)
     return true;
-  _this->SetLastDelta(d);
+  if (!pointer || blocked)
+    _this->SetLastDelta(d);
   _this->SetFarMagRadiusRatioSystemExtended(_this->farMagRadiusRatioSystemNormal());
   return true;
 }
@@ -726,133 +873,11 @@ TKTouch* TKTouch_populateWithPosition_Hook(auto original, TKTouch* _this, uintpt
 }
 
 // --- Station interior zoom ---
-//
-// The interior view blends from a fixed close frame out to an orbit pinned at one radius, so its far stop is that
-// orbit's radius. Widening the orbit's [min, max] lets the zoom go further. The same orbit is the exterior station
-// camera, so it is widened only inside the interior and put back everywhere else.
-
-struct InteriorRadiusRange {
-  float min, max;
-  bool  operator==(const InteriorRadiusRange&) const = default;
-};
-struct InteriorRadiusEntry {
-  il2cpp::GcHandle    provider, constraint, radius;
-  InteriorRadiusRange native, applied;
-  bool                owns_write = false;
-};
-// Weak identities distinguish reused addresses and replaced constraints. The process-lifetime owner avoids
-// releasing handles after IL2CPP teardown. As in the frozen implementation, admit at most 16 live owners.
-auto&            native_interior_radius  = *new std::unordered_map<OrbitFrameProvider*, InteriorRadiusEntry>;
-constexpr size_t kInteriorProviderLimit  = 16;
-bool             interior_zoom_installed = false;
-
-InteriorRadiusRange ReadInteriorRadius(FloatConstraint* radius)
-{ return {radius->min(), radius->max()}; }
-
-void WriteInteriorRadius(FloatConstraint* radius, InteriorRadiusRange range)
-{
-  radius->SetMin(range.min);
-  radius->SetMax(range.max);
-}
-
-void RestoreInteriorRadius(InteriorRadiusEntry& entry)
-{
-  if (!entry.owns_write)
-    return;
-  auto radius = il2cpp::GcHandle::Strong(entry.radius.Get());
-  // A later native/other-feature write supersedes ours; never restore over it.
-  if (radius && ReadInteriorRadius(radius.Get<FloatConstraint>()) == entry.applied)
-    WriteInteriorRadius(radius.Get<FloatConstraint>(), entry.native);
-}
-
-void PruneInteriorRadii()
-{
-  static auto next = std::chrono::steady_clock::time_point{};
-  const auto  now  = std::chrono::steady_clock::now();
-  if (now < next)
-    return;
-  next = now + std::chrono::seconds(1);
-  for (auto it = native_interior_radius.begin(); it != native_interior_radius.end();) {
-    auto& entry = it->second;
-    if (!entry.provider.Get() || !entry.constraint.Get() || !entry.radius.Get()) {
-      RestoreInteriorRadius(entry);
-      it = native_interior_radius.erase(it);
-    } else {
-      ++it;
-    }
-  }
-}
-
-void ApplyInteriorRadius(OrbitFrameProvider* provider)
-{
-  if (!interior_zoom_installed)
-    return;
-  PruneInteriorRadii();
-  auto*      sections = Hub::Sections();
-  const bool interior = sections && sections->CurrentSection() == SectionID::Starbase_Interior;
-  const auto scale    = Config::Get().graphics.interior_zoom_scale;
-  if (!interior || !std::isfinite(scale) || scale <= 1.0f) {
-    // Exit/disable restores even retired providers which no longer receive callbacks.
-    for (auto& [_, entry] : native_interior_radius)
-      RestoreInteriorRadius(entry);
-    native_interior_radius.clear();
-    return;
-  }
-
-  auto provider_owner = il2cpp::GcHandle::Strong(provider);
-  if (!provider_owner)
-    return;
-  auto* constraint       = provider->constraint();
-  auto  constraint_owner = il2cpp::GcHandle::Strong(constraint);
-  auto* radius           = constraint_owner ? constraint->radius() : nullptr;
-  auto  radius_owner     = il2cpp::GcHandle::Strong(radius);
-  auto  cached           = native_interior_radius.find(provider);
-  if (cached != native_interior_radius.end()
-      && (cached->second.provider.Get() != provider || cached->second.constraint.Get() != constraint
-          || cached->second.radius.Get() != radius)) {
-    RestoreInteriorRadius(cached->second);
-    native_interior_radius.erase(cached);
-    cached = native_interior_radius.end();
-  }
-  if (!radius_owner)
-    return;
-
-  auto it = cached;
-  if (it == native_interior_radius.end()) {
-    // Different providers can alias one FloatData; its already widened range is never a new baseline.
-    it = std::ranges::find_if(native_interior_radius,
-                              [radius](const auto& item) { return item.second.radius.Get() == radius; });
-  }
-  if (it == native_interior_radius.end()) {
-    if (native_interior_radius.size() >= kInteriorProviderLimit)
-      return;
-    const auto          native = ReadInteriorRadius(radius);
-    InteriorRadiusEntry entry{il2cpp::GcHandle::Weak(provider), il2cpp::GcHandle::Weak(constraint),
-                              il2cpp::GcHandle::Weak(radius), native, native};
-    if (!entry.provider.Get() || !entry.constraint.Get() || !entry.radius.Get())
-      return;
-    it = native_interior_radius.emplace(provider, std::move(entry)).first;
-  }
-  auto&      entry    = it->second;
-  const auto observed = ReadInteriorRadius(radius);
-  if (observed != entry.applied)
-    entry.native = observed;
-  const InteriorRadiusRange widened{entry.native.min * scale, entry.native.max * scale};
-  if (!std::isfinite(widened.min) || !std::isfinite(widened.max)) {
-    RestoreInteriorRadius(entry);
-    native_interior_radius.erase(it);
-    return;
-  }
-  if (observed != widened)
-    WriteInteriorRadius(radius, widened);
-  entry.applied    = widened;
-  entry.owns_write = widened != entry.native;
-}
+// The shared blend callback extends only the rendered output; native endpoints and constraints stay intact.
+bool interior_zoom_installed = false;
 
 void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider* _this, unity::Camera* primary_camera)
 {
-  ApplyInteriorRadius(_this);
-  // The game clamps the camera against the widened or restored range.
   original(_this, primary_camera);
   haven_orbit::ApplyConstraints(_this);
 }
@@ -887,6 +912,8 @@ bool InstallZoom()
 
 bool InstallPan()
 {
+  if (!navigation_orbit::EnsurePanMovement())
+    return false;
   il2cpp::HookSet hooks("Pan");
   IL2CPP_STAGE(hooks, OrbitFrameProvider::Class::Method("UpdateInputData"), OrbitFrameProvider_UpdateInputData_Hook);
   IL2CPP_STAGE(hooks, TKTouch::Class::Method("populateWithPosition"), TKTouch_populateWithPosition_Hook);
@@ -911,14 +938,25 @@ bool InstallScrollZoomGuard()
 
 bool InstallInteriorZoom()
 {
-  if (!OrbitFrameProvider::ConstraintRadiusFieldsAvailable()) {
-    spdlog::warn("[InteriorZoom] orbit radius fields unavailable; native behavior retained");
-    return false;
-  }
-  interior_zoom_installed = EnsureOrbitConstraints();
+  interior_zoom_installed = EnsureCameraBlendZoom();
   return interior_zoom_installed;
 }
 } // namespace
+
+bool InteriorZoomInstalled()
+{ return interior_zoom_installed; }
+
+float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed)
+{
+  switch (depth) {
+    case NodeDepth::SolarSystem:
+      return system_speed;
+    case NodeDepth::Galaxy:
+      return galaxy_speed;
+    default:
+      return 1.0f;
+  }
+}
 
 bool EnsureNavigationZoomUpdates()
 {
@@ -942,7 +980,8 @@ bool EnsureOrbitConstraints()
   return installed;
 }
 
-const Feature kZoom{"Zoom", &Config::Patches::zoomhooks, InstallZoom};
+const Feature kZoom{"Zoom",    &Config::Patches::zoomhooks,   InstallZoom,
+                    ZoomFrame, InstallRequirement::kOptional, ResetZoom};
 const Feature kScrollZoomGuard{"ScrollZoomGuard", &Config::Patches::zoomhooks, InstallScrollZoomGuard};
 const Feature kPan{"Pan", &Config::Patches::panhooks, InstallPan};
 const Feature kInteriorZoom{"InteriorZoom", &Config::Patches::interiorzoomhooks, InstallInteriorZoom};

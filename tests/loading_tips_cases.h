@@ -47,17 +47,15 @@ void LoadingTipsConsumerCases()
   }
   Require(custom > 0 && native > 0 && originals == 202,
           "seeded production callback exercises both weighted custom text and native pass-through");
-  MonoSingleton_PrepareAllForReload_Hook([&] {
-    Require(tip_picker.first_screen && tip_picker.last == std::size(kTipTexts),
-            "tip reset occurs before the game's native reload callback");
-    ++originals;
-  });
+  ResetLoadingScreens();
+  Require(tip_picker.first_screen && tip_picker.last == std::size(kTipTexts),
+          "reload reset retires the previous session's tip selection");
   LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
-  Require(label->text.starts_with("Welcome to Star Trek Fleet Command") && originals == 204,
+  Require(label->text.starts_with("Welcome to Star Trek Fleet Command") && originals == 203,
           "a reload makes the next enabled screen a fresh welcome");
   tip->image = nullptr;
   LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
-  Require(originals == 205, "an unavailable native label preserves original delivery without dereferencing null");
+  Require(originals == 204, "an unavailable native label preserves original delivery without dereferencing null");
   std::cout << "Loading tips production consumer passed\n";
 }
 } // namespace
