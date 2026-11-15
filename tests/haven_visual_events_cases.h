@@ -197,6 +197,7 @@ struct HavenEventsScene {
 
 void HavenVisualEventsCases(std::string_view mode)
 {
+  haven_zoom_installed = true; // Exercise the installed consumer without installing native detours.
   Require(mode == "haven-visual-events", "unknown Haven event fixture mode");
   HavenFixtureGeometry camera("haven-zoom-native");
   auto& transform = Define("UnityEngine", "Transform", IL2CPP_TYPE_CLASS, &component_class);
