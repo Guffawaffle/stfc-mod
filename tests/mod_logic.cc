@@ -985,7 +985,8 @@ void Matching()
   Hold({unity::KeyCode::PageUp});
   Check(!Shortcut::IsPressed(Action::kUiScaleUp), "plain chord waits for the key's release");
   Hold({});
-  Check(!Shortcut::Owns(unity::KeyCode::PageUp), "releasing the key frees it");
+  // Ordinary matching in any view must retire released keys without camera ownership queries.
+  Check(!Shortcut::IsPressed(Action::kMoveDown), "unrelated matching while all keys are released");
   Hold({unity::KeyCode::PageUp});
   Check(Shortcut::IsPressed(Action::kUiScaleUp), "plain chord after a release");
 
@@ -994,6 +995,7 @@ void Matching()
   Hold({unity::KeyCode::LeftControl, unity::KeyCode::DownArrow});
   Check(Shortcut::IsDown(Action::kMoveDown) && Shortcut::IsDown(Action::kMoveDown),
         "explicit movement chord keeps matching");
+  Check(!Shortcut::Owns(unity::KeyCode::DownArrow), "movement does not claim its modified key");
   held.fill(false);
 }
 } // namespace
