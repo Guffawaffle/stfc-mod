@@ -305,6 +305,24 @@ bool ArmadaViewerShown(ArmadaObjectViewerWidget* armada)
   return true;
 }
 
+// The primary action joins a wave defense first: through the set-course widget's join button when it listens, else
+// through the primary button of a shown wave defense viewer. Both press the game's own button, so its checks run.
+bool JoinWaveDefense()
+{
+  if (auto* navigation = unity::Newest<NavigationInteractionUIViewController>();
+      navigation && navigation->TryPressJoinWaveDefense())
+    return true;
+  // A scene query rather than a tracked type, which would add constructor detours for this popup and its subclasses.
+  for (auto* viewer : il2cpp::Items(unity::FindObjectsOfType<WaveDefenseObjectViewerWidget>())) {
+    auto* parent = viewer && ControllerShown(viewer->visibilityController()) ? viewer->Parent() : nullptr;
+    if (parent && parent->IsShowing()) {
+      viewer->PressPrimaryButton();
+      return true;
+    }
+  }
+  return false;
+}
+
 // Requests `type` in one of `states`. If that did not succeed, a fleet already in `help_state` asks for alliance
 // help. Preserve the frozen short circuit: successful normal actions do not also submit a help action.
 bool RequestFleetAction(FleetLocalViewController* panel, FleetPlayerData* fleet, ActionType type,
@@ -977,6 +995,9 @@ bool ActOnViewer(const FleetPress& pressed, FleetPlayerData* fleet)
 
 void ActOnSelectedFleet(const FleetPress& pressed, const DeferredFleetPress* replay = nullptr)
 {
+  // A deferred target action must retain its exact source; only a fresh primary press may join a wave.
+  if (!replay && Shortcut::IsDown(Action::kActionPrimary) && JoinWaveDefense())
+    return;
   auto* panel = FleetBarViewController::NewestPanel();
   auto* fleet = panel ? panel->fleet() : nullptr;
   if (!fleet)
@@ -1520,6 +1541,17 @@ bool InstallQueueSwitch()
 
 bool TargetViewerShown()
 { return TargetViewers::AnyShown(); }
+
+void ResetFleetShortcuts()
+{
+  pending_replay.reset();
+  fleet_selection_repeat.reset();
+  CancelTargetCargo();
+  // Reload already owns the game's teardown. Retire our coroutine observation without invoking it again.
+  auto& tow = DiscoveryTowing();
+  ++tow.generation;
+  tow.run.reset();
+}
 
 bool SelectShipShortcutsAt(FleetSelectionClock::time_point now)
 {

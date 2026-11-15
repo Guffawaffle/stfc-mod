@@ -295,6 +295,8 @@ public:
     bool disable_galaxy_chat             = false;
     bool disable_veil_chat               = false;
     bool show_player_title               = true;
+    bool auto_open_chat                  = false;
+    float default_chat_width             = 0.0f;
     bool allow_officer_preset_reordering = false;
     // Only player ships received by this client for the viewed system are counted.
     bool system_player_ship_counter = true;

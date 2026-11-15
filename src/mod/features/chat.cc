@@ -1,9 +1,11 @@
 // Chat: the shortcuts that open it and switch channel; [ui] disable_galaxy_chat and disable_veil_chat, which grey
-// out those tabs in full-screen chat, keep the chat preview off them, and drop their messages from the preview; and
-// [ui] show_player_title, which can hide the title row under each sender's name.
+// out those tabs in full-screen chat, keep the chat preview off them, and drop their messages from the preview;
+// [ui] show_player_title, which can hide the title row under each sender's name; and [ui] auto_open_chat and
+// default_chat_width, which open alliance side chat and set its starting width once per login.
 // Chat portrait retention keeps downloaded avatars available when chat rows are reused.
 
 #include "config.h"
+#include "features/chat_startup.h"
 #include "features/features.h"
 #include "shortcuts.h"
 
@@ -16,12 +18,72 @@
 #include <unity/core.h>
 #include <unity/input.h>
 #include <unity/tracker.h>
+#include <unity/ui.h>
 
+#include <chrono>
 #include <optional>
+#include <unordered_map>
 #include <utility>
 
 namespace
 {
+// --- Side chat on login ---
+
+il2cpp::GcHandle  chat_preview; // Weak: the preview the native AboutToShow hook most recently observed.
+ChatStartup::Gate chat_startup;
+bool              chat_width_applied = false;
+
+void ObserveChatPreview(ChatPreviewController* preview)
+{
+  if (!Config::Get().ui.auto_open_chat || chat_preview.Get() == preview)
+    return;
+  chat_preview             = il2cpp::GcHandle::Weak(preview);
+  chat_startup.ready_since = -1;
+}
+
+void ChatFrame()
+{
+  const auto& ui           = Config::Get().ui;
+  const bool  custom_width = ui.default_chat_width > 0;
+  if (!ui.auto_open_chat && !custom_width)
+    return;
+  auto sections = il2cpp::GcHandle::Strong(Hub::Sections());
+  if (!sections)
+    return;
+  const auto section = sections.Get<SectionManager>()->CurrentSection();
+  if (section == SectionID::Login || section == SectionID::AppInit) {
+    chat_startup       = {};
+    chat_width_applied = false;
+    // The preview may initialize during login. Retain its weak observation until the real readiness gate opens.
+    return;
+  }
+  // Once both requests are complete, only the section observation above remains for the next login boundary.
+  if ((!ui.auto_open_chat || chat_startup.completed) && (!custom_width || chat_width_applied))
+    return;
+  auto  manager = il2cpp::GcHandle::Strong(ChatManager::Existing());
+  auto* chat    = manager.Get<ChatManager>();
+  if (!chat)
+    return;
+  const bool side_open = chat->IsSideChatOpen();
+  if (side_open && custom_width && !chat_width_applied) {
+    auto screens = il2cpp::GcHandle::Strong(ScreenManager::Existing());
+    auto frames  = il2cpp::GcHandle::Strong(screens ? screens.Get<ScreenManager>()->frameManager() : nullptr);
+    if (frames)
+      chat_width_applied = frames.Get<UIFrameManager>()->ResizeSideFrame(ui.default_chat_width);
+  }
+  if (!ui.auto_open_chat || chat_startup.completed)
+    return;
+  auto         preview = il2cpp::GcHandle::Strong(chat_preview.Get());
+  const bool   station = section == SectionID::Starbase_Interior || section == SectionID::Starbase_Exterior;
+  const bool   ready   = station && preview && preview.Get<ChatPreviewController>()->isSectionChangedCompleted()
+                         && chat->isContextInitialised() && chat->IsSideChatAllowed();
+  const double now     = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  if (chat_startup.Tick(ready, side_open || Hub::IsInChat(), now)) {
+    spdlog::info("[Chat] readiness settled; opening alliance side chat");
+    chat->OpenChannel(ChatChannelCategory::Alliance, ChatViewMode::Side);
+  }
+}
+
 #ifdef _MODDBG
 struct ChatSubmitTrace {
   int32_t                  frame   = -1;
@@ -197,6 +259,7 @@ void FocusAlliance(ChatPreviewController* preview, int32_t alliance)
 void ChatPreviewController_AboutToShow_Hook(auto original, ChatPreviewController* _this)
 {
   original(_this);
+  ObserveChatPreview(_this);
   // The preview reopens on the last panel; move off it only if that channel is disabled.
   const auto tabs = ChatTabs::Current();
   auto       root = il2cpp::GcHandle::Strong(tabs ? _this->swipeScroller() : nullptr);
@@ -233,23 +296,75 @@ void ChatPreviewController_OnRegionalMessageReceived_Hook(auto original, ChatPre
 //
 // Only chat rows lose their title: the same profile widget appears on other screens.
 
+struct ChatTitleLayout {
+  il2cpp::GcHandle element;
+  bool             original_ignore = false;
+};
+std::unordered_map<unity::LayoutElement*, ChatTitleLayout> chat_title_layouts;
+
+void RestoreChatTitleLayout(UserProfileWidget* profile)
+{
+  auto owner     = il2cpp::GcHandle::Strong(profile);
+  auto title     = il2cpp::GcHandle::Strong(owner ? profile->playerTitleWidget() : nullptr);
+  auto container = il2cpp::GcHandle::Strong(title ? title.Get<PlayerTitleWidget>()->container() : nullptr);
+  auto element   = il2cpp::GcHandle::Strong(
+      container ? container.Get<unity::GameObject>()->GetComponent<unity::LayoutElement>() : nullptr);
+  const auto saved = chat_title_layouts.find(element.Get<unity::LayoutElement>());
+  if (saved == chat_title_layouts.end())
+    return;
+  if (saved->second.element.Get() == element.Get())
+    element.Get<unity::LayoutElement>()->SetIgnoreLayout(saved->second.original_ignore);
+  chat_title_layouts.erase(saved);
+}
+
 void HideChatTitle(UserProfileWidget* profile)
 {
   auto owner = il2cpp::GcHandle::Strong(profile);
   if (!owner)
     return;
   auto row = il2cpp::GcHandle::Strong(chat_title_binding::Parent<ChatMessageWidget>(profile));
-  if (!row)
+  if (!row) {
+    RestoreChatTitleLayout(profile);
     return;
+  }
   auto title  = il2cpp::GcHandle::Strong(profile->playerTitleWidget());
   auto object = il2cpp::GcHandle::Strong(title ? title.Get<PlayerTitleWidget>()->gameObject() : nullptr);
   if (object)
     object.Get<unity::GameObject>()->SetActive(false);
+  // The container reserves height even after its title child is hidden. Native binding can reactivate it, so
+  // exclude its LayoutElement until titles are enabled again as well.
+  auto container = il2cpp::GcHandle::Strong(title ? title.Get<PlayerTitleWidget>()->container() : nullptr);
+  if (container) {
+    auto element = il2cpp::GcHandle::Strong(container.Get<unity::GameObject>()->GetComponent<unity::LayoutElement>());
+    if (element) {
+      std::erase_if(chat_title_layouts, [](const auto& item) { return !item.second.element.Get(); });
+      auto* key = element.Get<unity::LayoutElement>();
+      if (!chat_title_layouts.contains(key)) {
+        const auto original_ignore = key->TryCall<"get_ignoreLayout", bool()>();
+        auto       weak            = il2cpp::GcHandle::Weak(key);
+        if (original_ignore && weak)
+          chat_title_layouts.emplace(key, ChatTitleLayout{std::move(weak), original_ignore.value});
+      }
+      if (chat_title_layouts.contains(key))
+        key->SetIgnoreLayout(true);
+    }
+    container.Get<unity::GameObject>()->SetActive(false);
+  }
+  // The virtualized list caches complete row heights. Refresh its measurement, not only the inner profile.
+  auto row_object = il2cpp::GcHandle::Strong(row.Get<ChatMessageWidget>()->gameObject());
+  auto rect       = il2cpp::GcHandle::Strong(
+      row_object ? row_object.Get<unity::GameObject>()->GetComponent<unity::RectTransform>() : nullptr);
+  if (rect) {
+    unity::LayoutRebuilder::ForceRebuildLayoutImmediate(rect.Get<unity::RectTransform>());
+    unity::LayoutRebuilder::MarkLayoutForRebuild(rect.Get<unity::RectTransform>());
+  }
 }
 
 // The game shows the title again on every update, so it is hidden after each one.
 void UserProfileWidget_UpdatePlayerTitle_Hook(auto original, UserProfileWidget* _this)
 {
+  if (Config::Get().ui.show_player_title)
+    RestoreChatTitleLayout(_this);
   original(_this);
   if (!Config::Get().ui.show_player_title)
     HideChatTitle(_this);
@@ -258,12 +373,27 @@ void UserProfileWidget_UpdatePlayerTitle_Hook(auto original, UserProfileWidget* 
 // Hook the substantive implementation, not the tiny shared SetWidgetData/OnDidBindContext wrappers.
 void PlayerTitleWidget_Bind_Hook(auto original, PlayerTitleWidget* _this)
 {
+  if (Config::Get().ui.show_player_title) {
+    auto profile = il2cpp::GcHandle::Strong(chat_title_binding::Parent<UserProfileWidget>(_this));
+    RestoreChatTitleLayout(profile.Get<UserProfileWidget>());
+  }
   original(_this);
   if (Config::Get().ui.show_player_title)
     return;
   auto profile = il2cpp::GcHandle::Strong(chat_title_binding::Parent<UserProfileWidget>(_this));
   HideChatTitle(profile.Get<UserProfileWidget>());
 }
+
+// Called before reload tears down the managers. Do not call back into native UI from this reset.
+void ResetChat()
+{
+  chat_preview.Reset();
+  chat_startup       = {};
+  chat_width_applied = false;
+}
+
+void ResetChatTitles()
+{ chat_title_layouts.clear(); }
 
 bool InstallChat()
 {
@@ -356,6 +486,8 @@ bool ChatChannelShortcuts()
   return false;
 }
 
-const Feature kChat{"Chat", &Config::Patches::chatpatches, InstallChat};
+const Feature kChat{"Chat",    &Config::Patches::chatpatches, InstallChat,
+                    ChatFrame, InstallRequirement::kOptional, ResetChat};
 const Feature kChatAvatarRetention{"ChatAvatarRetention", &Config::Patches::chatpatches, InstallChatAvatarRetention};
-const Feature kChatTitles{"ChatTitles", &Config::Patches::chattitledisplayhooks, InstallChatTitles};
+const Feature kChatTitles{"ChatTitles", &Config::Patches::chattitledisplayhooks, InstallChatTitles,
+                          nullptr,      InstallRequirement::kOptional,           ResetChatTitles};

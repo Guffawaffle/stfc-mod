@@ -22,6 +22,7 @@ bool ConsumeTileClick(ShipTileWidget*)
 }
 void RefreshVisible() {}
 void Tick() {}
+void ResetForReload() {}
 } // namespace dock_fixture_input
 
 // Existing preset fixtures supply Read/PrepareAsync/Status. Dock's otherwise unused pin writer must remain inert.

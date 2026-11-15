@@ -162,6 +162,10 @@ struct SectionManager : il2cpp::Object {
 
   SectionID CurrentSection()
   { return Get<"CurrentSection", SectionID>(); }
+  bool IsSectionChangeInProgress()
+  { return Get<"IsSectionChangeInProgress", bool>(); }
+  il2cpp::CallResult<bool> TryIsSectionChangeInProgress()
+  { return TryCall<"get_IsSectionChangeInProgress", bool>(); }
   SectionStorage* sectionStorage()
   { return Field<"_sectionStorage", SectionStorage*>(); }
 
@@ -177,6 +181,9 @@ struct SectionManager : il2cpp::Object {
 template <typename T> struct MonoSingleton : il2cpp::Object {
   static T* Instance()
   { return T::Class::template Get<"Instance", T*>(); }
+  // Observe the existing singleton without searching the scene or creating a replacement during teardown.
+  static T* Existing()
+  { return T::Class::template Field<"s_instance", T*>(); }
 };
 
 // The non-generic MonoSingleton base; its static PrepareAllForReload runs before the game reloads.
@@ -186,6 +193,12 @@ using MonoSingletonBase = il2cpp::Class<"Assembly-CSharp", "", "MonoSingleton">;
 struct CustomReloadArgs {
   Il2CppObject* section_args;
   bool          force_fake_reload;
+};
+
+struct AppReloadArgs {
+  bool                               switch_to_login_screen;
+  bool                               quick_reloading;
+  il2cpp::Nullable<CustomReloadArgs> custom_reload_args;
 };
 
 struct PrimeApp : il2cpp::Object {

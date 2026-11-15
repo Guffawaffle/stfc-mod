@@ -4,6 +4,13 @@
 
 #include <stdexcept>
 
+#if __APPLE__
+#include <il2cpp/hook.h>
+
+#include <cstdint>
+#include <cstring>
+#endif
+
 #if !_WIN32
 #include <dlfcn.h>
 extern "C" {
@@ -13,6 +20,49 @@ extern "C" {
 #undef DO_API
 #undef DO_API_NO_RETURN
 }
+#endif
+
+#if __APPLE__
+namespace
+{
+void Runtime_Shutdown_Hook(auto original)
+{
+  il2cpp::GcHandle::StopRuntime();
+  // Diagnostics cannot prevent the native runtime from completing terminal shutdown.
+  try {
+    il2cpp::Report("[IL2CPP] runtime shutting down; native GC handles disabled");
+  } catch (...) {
+  }
+  original();
+}
+
+void* RuntimeShutdownBody(void* entry)
+{
+  if (!entry)
+    return nullptr;
+  const auto* code = static_cast<const uint8_t*>(entry);
+#if defined(__aarch64__) || defined(__arm64__)
+  uint32_t instruction;
+  std::memcpy(&instruction, code, sizeof(instruction));
+  if ((instruction & 0xfc000000u) != 0x14000000u)
+    return nullptr;
+  int64_t displacement = instruction & 0x03ffffffu;
+  if (displacement & 0x02000000)
+    displacement -= 0x04000000;
+  return reinterpret_cast<void*>(reinterpret_cast<intptr_t>(entry) + displacement * 4);
+#elif __x86_64__
+  // Intel uses a balanced frame prologue followed by a tail jump, not a lone-jump thunk.
+  constexpr uint8_t prefix[] = {0x55, 0x48, 0x89, 0xe5, 0x5d, 0xe9};
+  if (std::memcmp(code, prefix, sizeof(prefix)) != 0)
+    return nullptr;
+  int32_t displacement;
+  std::memcpy(&displacement, code + sizeof(prefix), sizeof(displacement));
+  return reinterpret_cast<void*>(reinterpret_cast<intptr_t>(entry) + 10 + displacement);
+#else
+  return nullptr;
+#endif
+}
+} // namespace
 #endif
 
 void il2cpp::Initialize(void* assembly)
@@ -78,5 +128,17 @@ void il2cpp::Initialize(void* assembly)
 #undef REQUIRE_API
 #else
   (void)assembly;
+#endif
+#if __APPLE__
+  // The public API wrappers are smaller than a native patch. Follow only the recognized upstream wrappers,
+  // then check the substantive Runtime::Shutdown body's extent on the actual loaded client before staging it.
+  auto* shutdown = RuntimeShutdownBody(reinterpret_cast<void*>(il2cpp_shutdown));
+  if (!shutdown)
+    throw std::runtime_error("unrecognized il2cpp_shutdown wrapper; cannot protect native GC handle teardown");
+  shutdown = il2cpp::CheckedNativeEntry(shutdown);
+  il2cpp::HookSet hooks("RuntimeShutdown");
+  IL2CPP_STAGE_AT(hooks, shutdown, Runtime_Shutdown_Hook);
+  if (!hooks.Commit())
+    throw std::runtime_error("failed to protect native GC handles during runtime shutdown");
 #endif
 }

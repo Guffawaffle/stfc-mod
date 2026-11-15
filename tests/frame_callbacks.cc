@@ -49,6 +49,17 @@ void Second()
 { Record(2); }
 void Third()
 { Record(3); }
+bool allow_callbacks = true, request_suspension = false;
+bool ContinueCallbacks() noexcept
+{ return allow_callbacks; }
+void SuspendDuringCallback()
+{
+  Record(4);
+  if (request_suspension) {
+    request_suspension = false;
+    allow_callbacks = false;
+  }
+}
 void ThrowStandard()
 { throw std::runtime_error("callback failure"); }
 void ThrowUnknown()
@@ -192,12 +203,31 @@ void UnknownAndUnreportedExceptions()
 }
 } // namespace
 
+void SuspensionBetweenCallbacks()
+{
+  FrameCallbacks registry;
+  Reset(registry);
+  allow_callbacks = true;
+  request_suspension = true;
+  registry.Register(SuspendDuringCallback, "reload");
+  registry.Register(Second, "later service");
+  registry.Dispatch(ContinueCallbacks);
+  Order({4});
+  registry.Dispatch(ContinueCallbacks);
+  Order({4});
+  allow_callbacks = true;
+  registry.Dispatch(ContinueCallbacks);
+  Order({4, 4, 2});
+  Check(registry.Register(Third, "new service"), "suspending a frame must release the dispatch guard");
+}
+
 int main()
 {
   try {
     RegistrationAndOrder();
     DispatchRejectsRegistration();
     RecursiveDispatch();
+    SuspensionBetweenCallbacks();
     ExceptionsAndOwnedName();
     ReporterFailure();
     UnknownAndUnreportedExceptions();

@@ -380,6 +380,14 @@ struct TabBarViewController : il2cpp::Object {
   { return Field<"_tabBar", TabBar*>(); }
 };
 
+struct UIFrameManager : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "UIFrameManager">;
+
+  // Native code clamps width to the side frame's minimum and the available canvas space.
+  bool ResizeSideFrame(float width)
+  { return static_cast<bool>(TryCall<"ResizeSideFrame", void(float)>(width)); }
+};
+
 struct ScreenManager : MonoSingleton<ScreenManager> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "ScreenManager">;
 
@@ -427,6 +435,8 @@ struct ScreenManager : MonoSingleton<ScreenManager> {
 
   unity::CanvasScaler* canvasRootScaler()
   { return Field<"m_canvasRootScaler", unity::CanvasScaler*>(); }
+  UIFrameManager* frameManager()
+  { return Field<"_frameManager", UIFrameManager*>(); }
 };
 
 struct KeyboardConfirmHandler : unity::Behaviour {

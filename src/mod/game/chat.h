@@ -31,6 +31,10 @@ enum class ChatViewMode : int32_t {
 struct ChatManager : MonoSingleton<ChatManager> {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatManager">;
 
+  bool isContextInitialised()
+  { return Field<"_isContextInitialised", bool>(); }
+  bool IsSideChatAllowed()
+  { return Get<"IsSideChatAllowed", bool>(); }
   bool IsSideChatOpen()
   { return Get<"IsSideChatOpen", bool>(); }
   void SetViewMode(ChatViewMode value)
@@ -67,6 +71,9 @@ struct ChatPreviewController : il2cpp::Object {
   { return Field<"_swipeScroller", SwipeScroller*>(); }
   void SetFocusedPanel(ChatChannelCategory value)
   { SetField<"_focusedPanel">(value); }
+  // Set after the preview finishes its visibility refresh for the new section.
+  bool isSectionChangedCompleted()
+  { return Field<"_isSectionChangedCompleted", bool>(); }
 };
 
 struct ChatMessageListLocalViewController : il2cpp::Object {
@@ -241,6 +248,9 @@ inline il2cpp::CallResult<bool> OwnsPointer()
 
 struct PlayerTitleWidget : unity::Component {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.PlayerAvatars", "PlayerTitleWidget">;
+
+  unity::GameObject* container()
+  { return Field<"_container", unity::GameObject*>(); }
 };
 
 struct FrameAndAvatarWidget : unity::Component {
