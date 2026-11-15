@@ -52,7 +52,9 @@ jobs:
             -Dstfc_build_channel=ci
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify proxy binary contract
-        run: python scripts/verify-windows-binary.py
+        run: >-
+          python scripts/verify-windows-binary.py --identity
+          "stfc-identity-v1;distribution=netniv.stfc-community-mod;source=git:${{ github.sha }};base=${{ github.sha }};build=github:${{ github.run_id }}:${{ github.run_attempt }}:windows;mode=release;channel=ci"
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: stfc-community-mod
