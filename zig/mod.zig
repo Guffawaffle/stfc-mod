@@ -97,7 +97,13 @@ pub fn add(ctx: *const Ctx, libs: []const Lib) void {
     ctx.applyCompile(library);
     if (ctx.isWindows()) {
         // version.dll proxies the system DLL: the .def forwards its exports, the .rc carries the build identity.
-        library.win32_module_definition = b.path("src/platform/windows/version.def");
+        library.win32_module_definition = if (ctx.options.profiles)
+            b.addWriteFiles().add("profiles-version.def", b.fmt("{s}\nSTFCProfilesExplicitLaunchContractV1 DATA\nSTFCProfilesBrowserLaunchW\n", .{
+                compat.readFile(b, b.path("src/platform/windows/version.def"), .limited(64 * 1024)),
+            }))
+        else
+            b.path("src/platform/windows/version.def");
+        library.win32_module_definition.?.addStepDependencies(&library.step);
         entry.addIncludePath(b.path("src/platform/windows"));
         entry.addWin32ResourceFile(.{
             .file = b.path("src/platform/windows/version.rc"),
@@ -230,6 +236,7 @@ pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: 
             b.fmt("-Duse_original_bg={}", .{options.use_original_bg}),
         });
         if (options.bg_image.len != 0) child.addArg(b.fmt("-Dbg_image={s}", .{options.bg_image}));
+        if (options.profiles) child.addArg("-Dprofiles=true");
         if (options.macos_sdk) |sdk| child.addArg(b.fmt("-Dmacos-sdk={s}", .{sdk}));
         child.addArg("--prefix");
         prefixes[i] = child.addOutputDirectoryArg(arch);
@@ -243,5 +250,13 @@ pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: 
         merge.addFileArg(prefixes[1].path(b, binary));
         const merged = merge.addOutputFileArg(std.fs.path.basename(binary));
         step.dependOn(&b.addInstallFile(merged, binary).step);
+    }
+    if (options.profiles) {
+        const merge = b.addRunArtifact(lipo);
+        merge.addFileArg(prefixes[0].path(b, "bin/stfc-profiles"));
+        merge.addFileArg(prefixes[1].path(b, "bin/stfc-profiles"));
+        const merged = merge.addOutputFileArg("stfc-profiles");
+        step.dependOn(&b.addInstallFile(merged, "bin/stfc-profiles").step);
+        step.dependOn(&b.addInstallFile(merged, "lib/stfc-profiles").step);
     }
 }

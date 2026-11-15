@@ -2,6 +2,7 @@
 // older releases.
 
 #include "file.h"
+#include "profile_launch.h"
 
 #include <spdlog/spdlog.h>
 
@@ -72,6 +73,10 @@ std::vector<std::string> Arguments()
 // Where the mod's files live: beside the -ccm profile, the macOS preferences folder, or the working directory.
 std::filesystem::path Directory([[maybe_unused]] bool legacy = false)
 {
+#if STFC_PROFILES_ENABLED
+  if (profile_launch::Requested())
+    return profile_launch::Directory();
+#endif
   if (!profile_path.empty())
     return profile_path.parent_path();
 #if __APPLE__
@@ -128,6 +133,18 @@ void Init()
     else if (args[i] == "-ccm" && i + 1 < args.size())
       profile_path = FromUtf8(args[++i]);
   }
+
+#if STFC_PROFILES_ENABLED
+  if (profile_launch::Requested()) {
+    const auto& directory = profile_launch::Directory();
+    const auto  logs      = directory / "logs";
+    std::filesystem::create_directories(logs);
+    config_name = ToUtf8(directory / "config.toml");
+    vars_name   = ToUtf8(directory / "runtime.toml");
+    log_name    = ToUtf8(logs / "community-mod.log");
+    return;
+  }
+#endif
 
   if (profile_path.empty()) {
     config_name = kDefaultConfig;

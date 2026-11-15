@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct STFC_Community_Patch_LauncherApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+  #if PROFILES_PREVIEW
+  @FocusedValue(\.profilesPresentation) private var profilesPresentation
+  #endif
 
   var body: some Scene {
     WindowGroup {
@@ -20,5 +23,27 @@ struct STFC_Community_Patch_LauncherApp: App {
         .fixedSize()
     }
     .windowResizability(.contentSize)
+    #if PROFILES_PREVIEW
+    .commands {
+      CommandGroup(after: .sidebar) {
+        Button("Profiles…") { profilesPresentation?.wrappedValue = true }
+          .keyboardShortcut("p", modifiers: [.command, .shift])
+          .disabled(profilesPresentation == nil)
+      }
+    }
+    #endif
   }
 }
+
+#if PROFILES_PREVIEW
+private struct ProfilesPresentationKey: FocusedValueKey {
+  typealias Value = Binding<Bool>
+}
+
+extension FocusedValues {
+  var profilesPresentation: Binding<Bool>? {
+    get { self[ProfilesPresentationKey.self] }
+    set { self[ProfilesPresentationKey.self] = newValue }
+  }
+}
+#endif

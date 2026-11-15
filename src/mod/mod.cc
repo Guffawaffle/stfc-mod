@@ -6,6 +6,7 @@
 #include "config.h"
 #include "features/features.h"
 #include "file.h"
+#include "profile_launch.h"
 #include "reload.h"
 #include "version.h"
 
@@ -355,6 +356,7 @@ int il2cpp_init_Hook(auto original, const char* domain_name)
   // Keeping the settings pointer is safe here because only the frame tick reloads, and it is not installed yet.
   const Config* config = nullptr;
   try {
+    profile_launch::Prepare();
     File::Init();
     StartLogging();
     LogBanner();
@@ -364,12 +366,21 @@ int il2cpp_init_Hook(auto original, const char* domain_name)
     config = &Config::Get();
     LogSeparator();
   } catch (const std::exception& error) {
+    if (profile_launch::Requested())
+      profile_launch::Abort(error.what());
     // The file logger may not exist; spdlog falls back to its console logger.
     spdlog::error("setup failed, so no features are installed: {}", error.what());
+  } catch (...) {
+    if (profile_launch::Requested())
+      profile_launch::Abort("Could not initialize the requested profile's configuration and logging.");
+    ReportStartupFailure("setup failed, so no features are installed");
   }
 
   // Bindings resolve against the runtime's metadata, so nothing is installed before the domain exists.
   const auto result = original(domain_name);
+  if (!result && profile_launch::Requested())
+    profile_launch::Abort("The game runtime did not initialize.");
+  profile_launch::Install();
   if (!config)
     return result;
 
@@ -392,25 +403,30 @@ bool ModReloading()
 
 void StartMod()
 {
+  profile_launch::Initialize();
+  try {
 #if _WIN32
-  auto assembly = LoadLibraryA("GameAssembly.dll");
+    auto assembly = LoadLibraryA("GameAssembly.dll");
 #else
-  char     executable[PATH_MAX];
-  uint32_t size = sizeof(executable);
-  if (_NSGetExecutablePath(executable, &size) != 0) {
-    ReportStartupFailure("the executable path does not fit");
-    return;
-  }
-  const auto assembly_path = std::filesystem::path(executable).parent_path() / "../Frameworks/GameAssembly.dylib";
-  auto       assembly      = dlopen(assembly_path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    char     executable[PATH_MAX];
+    uint32_t size = sizeof(executable);
+    if (_NSGetExecutablePath(executable, &size) != 0) {
+      if (profile_launch::Requested())
+        profile_launch::Abort("The game executable path does not fit.");
+      ReportStartupFailure("the executable path does not fit");
+      return;
+    }
+    const auto assembly_path = std::filesystem::path(executable).parent_path() / "../Frameworks/GameAssembly.dylib";
+    auto       assembly      = dlopen(assembly_path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
 #endif
 
-  if (!assembly) {
-    ReportStartupFailure("failed to load GameAssembly");
-    return;
-  }
+    if (!assembly) {
+      if (profile_launch::Requested())
+        profile_launch::Abort("GameAssembly could not be loaded.");
+      ReportStartupFailure("failed to load GameAssembly");
+      return;
+    }
 
-  try {
     il2cpp::Initialize(assembly);
 #if _WIN32
     auto il2cpp_init = reinterpret_cast<void*>(GetProcAddress(assembly, "il2cpp_init"));
@@ -419,9 +435,18 @@ void StartMod()
 #endif
     il2cpp::HookSet hooks("il2cpp_init");
     IL2CPP_STAGE_AT(hooks, il2cpp_init, il2cpp_init_Hook);
-    if (!hooks.Commit())
+    if (!hooks.Commit()) {
+      if (profile_launch::Requested())
+        profile_launch::Abort("The early game initialization hook is unavailable.");
       ReportStartupFailure("failed to hook il2cpp_init");
+    }
   } catch (const std::exception& error) {
+    if (profile_launch::Requested())
+      profile_launch::Abort(error.what());
     ReportStartupFailure(std::format("failed to hook il2cpp_init: {}", error.what()).c_str());
+  } catch (...) {
+    if (profile_launch::Requested())
+      profile_launch::Abort("The early game initialization hook could not be installed.");
+    ReportStartupFailure("failed to hook il2cpp_init");
   }
 }

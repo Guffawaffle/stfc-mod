@@ -26,6 +26,7 @@ pub const Options = struct {
     test_optimize: ?OptimizeMode,
     msvc_sysroot: ?[]const u8,
     macos_sdk: ?[]const u8,
+    profiles: bool,
 
     /// Declare the shared options. Call once from `build`.
     pub fn parse(b: *Build) Options {
@@ -45,6 +46,7 @@ pub const Options = struct {
             ),
             .msvc_sysroot = b.option([]const u8, "msvc-sysroot", "Path to an extracted MSVC + Windows SDK toolchain"),
             .macos_sdk = b.option([]const u8, "macos-sdk", "Path to a MacOSX.sdk directory"),
+            .profiles = b.option(bool, "profiles", "Embed the pinned Profiles adapter and matching CLI") orelse false,
         };
     }
 };
@@ -273,6 +275,9 @@ pub const Lib = struct {
     /// independent static libraries compile in parallel.
     dependencies: []const Lib = &.{},
     system_libs: []const []const u8 = &.{},
+    frameworks: []const []const u8 = &.{},
+    /// Static archives produced outside Zig, such as the optional Windows archive dependency.
+    object_files: []const Build.LazyPath = &.{},
     include_dirs: []const Build.LazyPath = &.{},
     /// Preprocessor defines consumers must match, such as SPDLOG_COMPILED_LIB.
     defines: []const [2][]const u8 = &.{},
@@ -293,11 +298,14 @@ pub const Lib = struct {
         if (lib.artifact) |artifact| module.linkLibrary(artifact);
         for (lib.dependencies) |dependency| dependency.linkInto(module);
         for (lib.system_libs) |name| module.linkSystemLibrary(name, .{});
+        for (lib.frameworks) |name| module.linkFramework(name, .{});
+        for (lib.object_files) |file| module.addObjectFile(file);
     }
 
     /// Make `step` build this library and its whole dependency closure.
     pub fn addBuildDependencies(lib: Lib, step: *Build.Step) void {
         if (lib.artifact) |artifact| step.dependOn(&artifact.step);
+        for (lib.object_files) |file| file.addStepDependencies(step);
         for (lib.dependencies) |dependency| dependency.addBuildDependencies(step);
     }
 

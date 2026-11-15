@@ -22,6 +22,7 @@ enum EntitlementError: LocalizedError {
   case gameRunning
   case accessNotGranted
   case wrongBundleSelected(String)
+  case differentBundleSelected
   case entitlementVerificationFailed
   case entitlementApplicationFailed
 
@@ -35,6 +36,8 @@ enum EntitlementError: LocalizedError {
       return "The launcher needs access to the game bundle to enable the mod"
     case .wrongBundleSelected(let path):
       return "\(path) is not the Star Trek Fleet Command app"
+    case .differentBundleSelected:
+      return "Choose the game selected in Profiles, or return to Profiles and choose this game first."
     case .entitlementVerificationFailed:
       return "Failed to verify game entitlements"
     case .entitlementApplicationFailed:
@@ -45,11 +48,17 @@ enum EntitlementError: LocalizedError {
 
 // Checks the game's entitlements and re-signs its executable only when they are missing. Even after a game update
 // the new binary normally still carries them. Blocks while the file panel is open, so call it off the main thread.
-func ensureGameHasLoaderEntitlements() throws(EntitlementError) {
+func ensureGameHasLoaderEntitlements() throws {
   guard let installPath = try? XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath() else {
     throw EntitlementError.gamePathNotFound
   }
-  let gameAppPath = (installPath as NSString).appendingPathComponent("Star Trek Fleet Command.app")
+  let gameApp = URL(fileURLWithPath: installPath).appendingPathComponent("Star Trek Fleet Command.app", isDirectory: true)
+  try ensureGameHasLoaderEntitlements(gameApp: gameApp)
+}
+
+// Named launches use the game selected in the Profiles panel, independently of the ordinary launcher path.
+func ensureGameHasLoaderEntitlements(gameApp: URL, requireExactSelection: Bool = false) throws {
+  let gameAppPath = gameApp.path
   let gamePath = (gameAppPath as NSString).appendingPathComponent(gameExecutableInBundle)
 
   if checkEntitlements(executablePath: gamePath, expected: loaderEntitlements) {
@@ -67,6 +76,11 @@ func ensureGameHasLoaderEntitlements() throws(EntitlementError) {
   guard let confirmedURL = requestGameBundleAccess(gameAppPath: gameAppPath, gamePath: gamePath) else {
     logger.error("User did not confirm access to game bundle")
     throw EntitlementError.accessNotGranted
+  }
+  if requireExactSelection,
+    confirmedURL.resolvingSymlinksInPath().standardizedFileURL != gameApp.resolvingSymlinksInPath().standardizedFileURL
+  {
+    throw EntitlementError.differentBundleSelected
   }
   // Access is granted to the selected bundle only, so that is the one signed. It must still be the game.
   let selectedExecutable = confirmedURL.appendingPathComponent(gameExecutableInBundle).path
@@ -86,6 +100,12 @@ func ensureGameHasLoaderEntitlements() throws(EntitlementError) {
   defer {
     confirmedURL.stopAccessingSecurityScopedResource()
   }
+
+  #if PROFILES_PREVIEW
+  let reservation = try InstallationUpdateReservation.acquire(
+    gameDirectory: URL(fileURLWithPath: selectedExecutable).deletingLastPathComponent())
+  defer { reservation.release() }
+  #endif
 
   // Only the main executable is signed, so nested frameworks and plugins keep their own signatures.
   logger.info("Applying loader entitlements to the game binary")

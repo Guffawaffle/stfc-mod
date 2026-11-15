@@ -7,6 +7,7 @@
 //!   zig/protobuf.zig    protobuf-lite, Abseil, and generated game messages
 //!   zig/mod.zig         IL2CPP and Unity libraries, the mod, platform entry points, macos-universal
 //!   zig/launcher.zig    the Swift launcher app
+//!   zig/profiles.zig    optional pinned Profiles core, adapter and matching CLI
 //!   zig/tests.zig       native fixtures and the dependency smoke test
 //!   zig/tools/          host programs the build runs
 const std = @import("std");
@@ -14,11 +15,13 @@ const builtin = @import("builtin");
 const compat = @import("zig/compat.zig");
 const Ctx = @import("zig/ctx.zig").Ctx;
 const Options = @import("zig/ctx.zig").Options;
+const Lib = @import("zig/ctx.zig").Lib;
 const globFiles = @import("zig/ctx.zig").globFiles;
 const deps = @import("zig/deps.zig");
 const launcher = @import("zig/launcher.zig");
 const mod = @import("zig/mod.zig");
 const protobuf = @import("zig/protobuf.zig");
+const profiles = @import("zig/profiles.zig");
 const tests = @import("zig/tests.zig");
 const toolchains = @import("zig/toolchains.zig");
 
@@ -65,8 +68,14 @@ pub fn build(b: *std.Build) void {
     const curl = deps.curl(ctx, zlib) orelse return;
     const cpr = deps.cpr(ctx, curl);
     const unity = mod.unity(ctx, il2cpp, spud);
-    mod.add(ctx, &.{ il2cpp, unity, spdlog, spud, proto, proto_runtime, cpr, curl, toml, deps.nlohmannJson(ctx) });
-    launcher.add(ctx);
+    const json = deps.nlohmannJson(ctx);
+    const profile_component: ?profiles.Component = if (options.profiles)
+        profiles.add(ctx, json, spud, spdlog, zlib) orelse return
+    else
+        null;
+    const profile_lib: Lib = if (profile_component) |component| component.runtime else .{};
+    mod.add(ctx, &.{ il2cpp, unity, spdlog, spud, proto, proto_runtime, cpr, curl, toml, json, profile_lib });
+    launcher.add(ctx, if (profile_component) |component| component.source else null, json);
     tests.addDependencySmoke(ctx, &.{ proto, proto_runtime, cpr, curl, zlib });
 
     // Build one dependency in isolation, to check a pin bump or a cross-compile without the mod.

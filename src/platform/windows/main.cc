@@ -7,6 +7,11 @@
 
 #include "mod.h"
 
+#if STFC_PROFILES_ENABLED
+// Inspected without executing the DLL before an explicit named launch.
+extern "C" __declspec(dllexport) const unsigned int STFCProfilesExplicitLaunchContractV1 = 1;
+#endif
+
 // Before the mod's log exists, failures go to the debugger output (DebugView shows it without a debugger): the
 // game has no console, so its stderr goes nowhere.
 void ReportStartupFailure(const char* message)

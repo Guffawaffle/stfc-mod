@@ -13,6 +13,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", nargs="?", default="zig-out/bin/version.dll")
     parser.add_argument("--identity", help="Expected complete stfc-identity-v1 version-resource marker")
+    parser.add_argument("--profiles", action="store_true", help="Require the opt-in Profiles launch exports")
     args = parser.parse_args()
     data = Path(args.binary).read_bytes()
 
@@ -65,8 +66,20 @@ def main() -> None:
     exports = {string(u32(name_table + i * 4)) for i in range(name_count)}
     definition = (ROOT / "src/platform/windows/version.def").read_text()
     expected = set(definition.split("EXPORTS", 1)[1].split())
+    if args.profiles:
+        expected |= {"STFCProfilesExplicitLaunchContractV1", "STFCProfilesBrowserLaunchW"}
     if exports != expected:
         raise SystemExit(f"Export mismatch: missing={expected - exports}, extra={exports - expected}")
+
+    if args.profiles:
+        # The CLI requires a data export with value 1, not just an identically named function.
+        ordinals = offset(u32(export_directory + 36))
+        functions = offset(u32(export_directory + 28))
+        for index in range(name_count):
+            if string(u32(name_table + index * 4)) == "STFCProfilesExplicitLaunchContractV1":
+                value = offset(u32(functions + u16(ordinals + index * 2) * 4))
+                if u32(value) != 1:
+                    raise SystemExit("Incorrect Profiles explicit-launch contract value")
 
     marker = args.identity or DEFAULT_MARKER
     if marker.encode("utf-16le") not in data:

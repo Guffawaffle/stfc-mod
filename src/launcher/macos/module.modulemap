@@ -2,3 +2,8 @@ module librsync {
     header "rsync.h"
     export *
 }
+
+module STFCProfiles {
+    header "ProfilesBridge.h"
+    export *
+}
