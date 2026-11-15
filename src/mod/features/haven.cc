@@ -1,3 +1,4 @@
+// Station cameras: interior_zoom_scale preserves the native close view while extending the blended output.
 // Haven, the planetary base: [graphics] haven_zoom extends camera zoom-out with reversible road depth bias;
 // hide_haven_water controls water independently. [ui] reverse_haven_history lists help history newest first.
 
@@ -29,7 +30,8 @@
 
 namespace
 {
-// --- Haven zoom ---
+// --- Shared station blend zoom ---
+bool haven_zoom_installed = false;
 
 // Discovery is shared by road bias and water. Persistent records hold weak references; every native operation
 // reacquires local strong custody and a checked identity. Unavailable observations never become false or zero.
@@ -524,27 +526,60 @@ std::optional<float> HavenOrbitRadius(FrameProvider* provider)
 bool HavenFinite(std::floating_point auto... values)
 { return (std::isfinite(values) && ...); }
 
+// Interior orbit constraints can be disabled or allow a range. The current native radius, rather than its
+// limits, identifies the endpoint; no constraint asset is read as a new baseline or changed.
+std::optional<float> InteriorOrbitRadius(FrameProvider* provider)
+{
+  auto* orbit = provider ? provider->As<OrbitFrameProvider>() : nullptr;
+  if (!orbit || orbit->Is<PlanetaryOrbitFrameProvider>())
+    return std::nullopt;
+  const auto radius = haven_binding::Field<"_radius", float>(orbit);
+  return radius && std::isfinite(radius.value) && radius.value > 0 ? std::optional{radius.value} : std::nullopt;
+}
+
 void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider* _this, unity::Camera* camera)
 {
   // Native input, constraints and endpoint updates run first. Only this blend's newly generated output is extended;
   // endpoint assets and normalized LOD stay native.
   original(_this, camera);
-  const auto max_zoom = Config::Get().graphics.haven_zoom;
-  const bool hidden   = Config::Get().graphics.hide_haven_water;
-  if ((!std::isfinite(max_zoom) || max_zoom <= 0.0f) && !hidden)
+  bool interior = false;
+  if (InteriorZoomInstalled()) {
+    auto* sections = Hub::Sections();
+    if (sections && sections->CurrentSection() == SectionID::Starbase_Interior) {
+      const auto controller = CameraController::Class::TryCall<"get_Instance", CameraController*>();
+      const auto current    = controller && controller.value
+                                  ? controller.value->TryCall<"get_CurrentProvider", FrameProvider*>()
+                                  : il2cpp::CallResult<FrameProvider*>{};
+      interior              = current && current.value == _this;
+    }
+  }
+  if (!interior && !haven_zoom_installed)
+    return;
+  const auto scale = Config::Get().graphics.interior_zoom_scale;
+  if (interior && (!std::isfinite(scale) || scale <= 1.0f))
+    return;
+  auto       max_zoom = interior ? 0.0f : Config::Get().graphics.haven_zoom;
+  const bool hidden   = !interior && Config::Get().graphics.hide_haven_water;
+  if (!interior && (!std::isfinite(max_zoom) || max_zoom <= 0.0f) && !hidden)
     return; // Pending interventions still drain through this feature's existing frame callback.
 
   const auto source_observed = haven_binding::Field<"_sourceFrameProvider", FrameProvider*>(_this);
   const auto target_observed = haven_binding::Field<"_targetFrameProvider", FrameProvider*>(_this);
   auto*      source          = source_observed ? source_observed.value : nullptr;
   auto*      target          = target_observed ? target_observed.value : nullptr;
-  const auto source_pinned   = HavenOrbitRadius(source);
-  const auto target_pinned   = source_pinned ? HavenOrbitRadius(target) : std::nullopt;
-  if (!target_pinned)
+  const auto source_distance = interior ? InteriorOrbitRadius(source) : HavenOrbitRadius(source);
+  const auto target_distance =
+      source_distance ? (interior ? InteriorOrbitRadius(target) : HavenOrbitRadius(target)) : std::nullopt;
+  if (!target_distance)
     return;
-  const float source_radius = *source_pinned, target_radius = *target_pinned;
+  const float source_radius = *source_distance, target_radius = *target_distance;
   if (source_radius == target_radius)
     return;
+  if (interior) {
+    max_zoom = std::max(source_radius, target_radius) * scale;
+    if (!std::isfinite(max_zoom))
+      return;
+  }
 
   auto*      source_orbit = source->As<AbstractOrbitFrameProvider>();
   auto*      target_orbit = target->As<AbstractOrbitFrameProvider>();
@@ -552,8 +587,9 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   const auto pivot_b      = haven_binding::Field<"_orbitPivot", TargetController*>(target_orbit);
   const auto look_a       = haven_binding::Field<"_lookTarget", TargetController*>(source_orbit);
   const auto look_b       = haven_binding::Field<"_lookTarget", TargetController*>(target_orbit);
-  if (!pivot_a || !pivot_b || !look_a || !look_b || !pivot_a.value || pivot_b.value != pivot_a.value
-      || look_a.value != pivot_a.value || look_b.value != pivot_a.value)
+  // Haven shares one pivot. The station endpoints each look at their own independently panned pivot.
+  if (!pivot_a || !pivot_b || !look_a || !look_b || !pivot_a.value || !pivot_b.value || look_a.value != pivot_a.value
+      || look_b.value != pivot_b.value || (!interior && pivot_b.value != pivot_a.value))
     return;
   const auto source_frame_observed = haven_binding::Field<"_sourceFrame", CameraFrame*>(_this);
   const auto target_frame_observed = haven_binding::Field<"_targetFrame", CameraFrame*>(_this);
@@ -593,8 +629,8 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   const auto gap                    = std::abs(source_radius - target_radius);
   const auto rotation_length        = ar.x * ar.x + ar.y * ar.y + ar.z * ar.z + ar.w * ar.w;
   const auto target_rotation_length = br.x * br.x + br.y * br.y + br.z * br.z + br.w * br.w;
-  // Qualify the common-pivot, same-facing perspective orbit measured in Haven: unit rotations that agree up to sign
-  // (|dot| = 1) and one field of view. Only then is moving along the camera's back axis the same as a wider orbit.
+  // Qualify the same-facing, radially oriented perspective orbits: unit rotations
+  // that agree up to sign (|dot| = 1) and one field of view. Only then does the camera's back axis widen the orbit.
   // Preserve native output when a client changes that geometry or camera mode.
   if (!HavenFinite(rotation_length, target_rotation_length, rotation_dot, af, bf)
       || std::abs(rotation_length - 1.0f) > 0.0001f || std::abs(target_rotation_length - 1.0f) > 0.0001f
@@ -602,10 +638,14 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
       || orthographic_a.value || orthographic_b.value || orthographic_result.value)
     return;
 
+  // Interior endpoints may pan their own pivots independently. Native blending already preserves that
+  // interpolated anchor; the shared radial axis lets us extend zoom without requiring coincident origins.
+
   // Water belongs to the qualified Haven scene, independently of curve shape or requested zoom expansion.
   const bool expanded = std::isfinite(max_zoom) && max_zoom > std::max(source_radius, target_radius);
-  if (auto* visuals = HavenVisuals())
-    visuals->Apply(expanded, hidden);
+  if (!interior)
+    if (auto* visuals = HavenVisuals())
+      visuals->Apply(expanded, hidden);
   if (!expanded)
     return;
 
@@ -639,9 +679,9 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   if (extra <= 0.0)
     return;
 
-  // Sequential endpoint updates can cache different positions of their shared pivot during pan. Use the camera back
-  // axis so expansion remains steady: the rotation's forward vector is (2(xz + wy), 2(yz - wx), 1 - 2(x^2 + y^2)), and
-  // the camera moves `extra` against it. The far plane moves out by the same amount.
+  // Preserve native pivot interpolation and pan offsets by adding only along the shared camera back axis.
+  // The rotation's forward vector is (2(xz + wy), 2(yz - wx), 1 - 2(x^2 + y^2)); move `extra` against it.
+  // The far plane moves out by the same amount.
   position.x += static_cast<float>(-2.0 * (ar.x * ar.z + ar.w * ar.y) * extra);
   position.y += static_cast<float>(-2.0 * (ar.y * ar.z - ar.w * ar.x) * extra);
   position.z += static_cast<float>((2.0 * (ar.x * ar.x + ar.y * ar.y) - 1.0) * extra);
@@ -656,9 +696,10 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
     return;
   result->SetPosition(position);
   result->SetFarPlane(clip);
-  static bool reported = false;
-  if (!std::exchange(reported, true))
-    spdlog::info("[HavenZoom] expanded native outer distance {} to maximum {}", native_outer, max_zoom);
+  static std::array<bool, 2> reported{};
+  if (!std::exchange(reported[interior ? 1 : 0], true))
+    spdlog::info("[{}] expanded native outer distance {} to maximum {}", interior ? "InteriorZoom" : "HavenZoom",
+                 native_outer, max_zoom);
 }
 
 // --- Help history ---
@@ -706,16 +747,17 @@ bool InstallHavenZoom()
     spdlog::warn("[HavenZoom] visual lifecycle readiness unavailable; keeping native camera");
     return false;
   }
+  if (!EnsureCameraBlendZoom())
+    return false;
   il2cpp::HookSet hooks("HavenZoom");
-  IL2CPP_STAGE(hooks, BlendFrameProvider::Class::Method<void(unity::Camera*)>("UpdateCameraFrame"),
-               BlendFrameProvider_UpdateCameraFrame_Hook);
   IL2CPP_STAGE(hooks, haven_orbit_binding::Starbase::Class::Method<void()>("ResetInitialVisualLoadState"),
                PlanetaryStarbaseManager_ResetInitialVisualLoadState_Hook);
   IL2CPP_STAGE(hooks, haven_orbit_binding::Starbase::Class::Method<void()>("ClearMapModuleVisualState"),
                PlanetaryStarbaseManager_ClearMapModuleVisualState_Hook);
   IL2CPP_STAGE(hooks, HavenAssetLodStreaming::Method<void(unity::GameObject*)>("RefreshMeshAndMaterial"),
                AssetLODStreaming_RefreshMeshAndMaterial_Hook);
-  return hooks.Commit();
+  haven_zoom_installed = hooks.Commit();
+  return haven_zoom_installed;
 }
 
 bool InstallHavenHistory()
@@ -726,6 +768,17 @@ bool InstallHavenHistory()
   return hooks.Commit();
 }
 } // namespace
+
+bool EnsureCameraBlendZoom()
+{
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("CameraBlendZoom");
+    IL2CPP_STAGE(hooks, BlendFrameProvider::Class::Method<void(unity::Camera*)>("UpdateCameraFrame"),
+                 BlendFrameProvider_UpdateCameraFrame_Hook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
 
 const Feature kHavenZoom{"HavenZoom", &Config::Patches::havenzoomhooks, InstallHavenZoom, HavenVisualsFrame};
 const Feature kHavenHistory{"HavenHistory", &Config::Patches::havenhistoryhooks, InstallHavenHistory};
