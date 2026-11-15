@@ -98,6 +98,11 @@ struct EventSystem : Behaviour {
 struct LayoutElement : Behaviour {
   using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "LayoutElement">;
 
+  bool ignoreLayout()
+  { return Get<"ignoreLayout", bool>(); }
+  void SetIgnoreLayout(bool value)
+  { Set<"ignoreLayout">(value); }
+
   bool ExcludeFromLayout()
   {
     if (!TryCall<"set_ignoreLayout", void(bool)>(true))
@@ -105,6 +110,15 @@ struct LayoutElement : Behaviour {
     const auto ignored = TryCall<"get_ignoreLayout", bool>();
     return ignored && ignored.value;
   }
+};
+
+struct LayoutRebuilder {
+  using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "LayoutRebuilder">;
+
+  static void ForceRebuildLayoutImmediate(RectTransform* rect)
+  { Class::Call<"ForceRebuildLayoutImmediate">(rect); }
+  static void MarkLayoutForRebuild(RectTransform* rect)
+  { Class::Call<"MarkLayoutForRebuild">(rect); }
 };
 
 struct HorizontalLayoutGroup : Behaviour {

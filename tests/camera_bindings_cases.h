@@ -22,6 +22,10 @@ inline il2cpp::CallResult<bool> PinchStarted(NavigationZoom*)
 #include "../src/mod/features/camera.cc"
 #undef scroll_input
 
+bool camera_fixture_session_suspended = false;
+bool ModSessionSuspended() noexcept
+{ return camera_fixture_session_suspended; }
+
 #ifndef STFC_ORBIT_FIXTURE
 // This isolated camera fixture does not install hooks. The orbit fixture supplies the shared implementation.
 bool navigation_orbit::EnsurePanMovement()
@@ -46,6 +50,15 @@ struct CameraNativeScene {
   unity::Color              background{1, 2, 3, 4};
 };
 int     camera_native_distance_sets = 0, camera_native_zoom_calls = 0;
+Il2CppObject  camera_native_sections{};
+SectionID     camera_native_section          = SectionID::Navigation_System;
+bool          camera_native_section_changing = false;
+Il2CppObject* CameraNativeSections(const MethodInfo*)
+{ return &camera_native_sections; }
+SectionID CameraNativeSection(Il2CppObject*, const MethodInfo*)
+{ return camera_native_section; }
+bool CameraNativeSectionChanging(Il2CppObject*, const MethodInfo*)
+{ return camera_native_section_changing; }
 int     camera_native_clip_gets = 0, camera_native_clip_sets = 0, camera_native_flags_sets = 0,
         camera_native_background_gets = 0, camera_native_background_sets = 0, camera_native_boxed_calls = 0;
 bool    camera_native_distance_throws = false, camera_native_set_throws = false, camera_native_zoom_throws = false;
@@ -143,6 +156,18 @@ unity::Vector3 CameraNativeWorld(unity::Camera*, unity::Vector3, const MethodInf
 
 void CameraNativeCases(std::string_view mode)
 {
+  auto& hub          = Define("Digit.Client.Core", "Hub", IL2CPP_TYPE_CLASS, &object_class);
+  auto& sections     = Define("Digit.Client.Sections", "SectionManager", IL2CPP_TYPE_CLASS, &object_class);
+  auto& get_sections = AddMethod(hub, "get_SectionManager", reinterpret_cast<void*>(&CameraNativeSections), T(sections),
+                                 {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(hub, "SectionManager", &get_sections);
+  auto& get_section =
+      AddMethod(sections, "get_CurrentSection", reinterpret_cast<void*>(&CameraNativeSection), T(int_class), {});
+  AddProperty(sections, "CurrentSection", &get_section);
+  auto& changing = AddMethod(sections, "get_IsSectionChangeInProgress",
+                             reinterpret_cast<void*>(&CameraNativeSectionChanging), T(bool_class), {});
+  AddProperty(sections, "IsSectionChangeInProgress", &changing);
+  camera_native_sections.klass = &sections.klass;
   auto& zoom_class  = Define("Digit.Prime.Navigation", "NavigationZoom", IL2CPP_TYPE_CLASS, &object_class);
   auto& scene_class = Define("UnityEngine", "Camera", IL2CPP_TYPE_CLASS, &unity_object_class);
   auto& vector2     = Define("UnityEngine", "Vector2", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(unity::Vector2));
@@ -438,19 +463,27 @@ void CameraNativeCases(std::string_view mode)
   KeepZoomRange(zoom);
   Require(object.maximum == 110.0f, "extended range is restricted to system depth");
   object.depth         = NodeDepth::SolarSystem;
-  PendingDefaultZoom() = il2cpp::GcHandle::Weak(zoom);
-  Require(!TakeDefaultZoom(other_zoom) && PendingDefaultZoom().Get<NavigationZoom>() == zoom && TakeDefaultZoom(zoom)
-              && !PendingDefaultZoom(),
-          "another camera cannot consume a pending system-entry default");
+  ResetZoom();
+  config.graphics.default_system_zoom = 0.0f;
+  Require(ObserveZoomDepth(zoom)->gate.pending && ObserveZoomDepth(other_zoom)->gate.pending,
+          "each initially visible system controller detects its own first entry without a depth callback");
+  ApplyEntryDefault(other_zoom);
+  Require(ZoomEntries().entries.at(zoom).gate.pending && !ZoomEntries().entries.at(other_zoom).gate.pending,
+          "another camera consumes only its own entry");
+  ApplyEntryDefault(zoom);
   EnterDepth(
       [&](auto*, NodeDepth) {
         EnterDepth([](auto*, NodeDepth) {}, other_zoom, NodeDepth::SolarSystem, 500.0f, NodeDepth::SolarSystem);
       },
       zoom, NodeDepth::SolarSystem, 500.0f, NodeDepth::SolarSystem);
-  Require(PendingDefaultZoom().Get<NavigationZoom>() == other_zoom,
-          "reentrant newer camera entry cannot be overwritten by the outer completion");
-  EnterDepth([](auto*, NodeDepth) {}, other_zoom, NodeDepth::Galaxy, 0.0f, NodeDepth::Galaxy);
-  Require(!PendingDefaultZoom(), "leaving system clears only that camera's deferred default");
+  Require(ZoomEntries().entries.at(other_zoom).gate.pending && !ZoomEntries().entries.at(zoom).gate.pending,
+          "a reentrant newer entry is not overwritten by the older outer completion");
+  EnterDepth([&](auto*, NodeDepth) { other.depth = NodeDepth::Galaxy; }, other_zoom, NodeDepth::Galaxy, 0.0f,
+             NodeDepth::Galaxy);
+  Require(!ZoomEntries().entries.at(other_zoom).gate.pending, "leaving system clears only that controller's entry");
+  other.depth = NodeDepth::SolarSystem;
+  ResetZoom();
+  ObserveZoomDepth(zoom)->gate.Consume(true);
   camera_zoom_installed = true;
   selected              = &selected_object;
   has_input_field       = true;
@@ -464,26 +497,78 @@ void CameraNativeCases(std::string_view mode)
   const auto native_entry_distance    = object.distance;
   const auto before_entry_sets        = camera_native_distance_sets;
   const auto before_entry_saves       = fleet_native_save_calls;
-  config.graphics.default_system_zoom = 0.0f;
-  PendingDefaultZoom()                = il2cpp::GcHandle::Weak(zoom);
+  ZoomEntries().entries.at(zoom).gate.pending = true;
   NavigationZoom_Update_Hook([&](auto*) { ++originals; }, other_zoom);
-  Require(PendingDefaultZoom().Get<NavigationZoom>() == zoom && camera_native_zoom_calls == before_focus
+  Require(ZoomEntries().entries.at(zoom).gate.pending && camera_native_zoom_calls == before_focus
               && camera_native_distance_sets == before_entry_sets && originals == 2,
-          "another camera's update cannot consume or apply a zero system-entry default");
+          "another camera's update cannot consume or apply this camera's zero default");
   NavigationZoom_Update_Hook([&](auto*) { ++originals; }, zoom);
-  Require(!PendingDefaultZoom() && object.distance == native_entry_distance && camera_native_zoom_calls == before_focus
-              && camera_native_distance_sets == before_entry_sets && originals == 3
-              && config.graphics.default_system_zoom == 0.0f && fleet_native_save_calls == before_entry_saves,
-          "zero entry default preserves native distance and saved preference while consuming its pending owner");
+  Require(!ZoomEntries().entries.at(zoom).gate.pending && object.distance == native_entry_distance
+              && camera_native_zoom_calls == before_focus && camera_native_distance_sets == before_entry_sets
+              && originals == 3 && config.graphics.default_system_zoom == 0.0f
+              && fleet_native_save_calls == before_entry_saves,
+          "zero entry preserves native distance and saved preference while consuming its controller's entry");
   config.graphics.default_system_zoom = 800.0f;
   NavigationZoom_Update_Hook([&](auto*) { ++originals; }, zoom);
   Require(object.distance == native_entry_distance && camera_native_zoom_calls == before_focus && originals == 4,
-          "a consumed zero entry cannot apply a later positive default without a new system entry");
-  PendingDefaultZoom() = il2cpp::GcHandle::Weak(zoom);
-  NavigationZoom_Update_Hook([&](auto*) { ++originals; }, zoom);
-  Require(!PendingDefaultZoom() && object.distance == 802.0f && camera_native_zoom_calls == before_focus + 1
-              && camera_native_distance_sets == before_entry_sets + 1 && originals == 5,
-          "positive system-entry default still applies once while text has focus");
+          "a consumed zero entry cannot apply a later positive default without a new entry");
+  ZoomEntries().entries.at(zoom).gate.pending = true;
+  NavigationZoom_Update_Hook(
+      [&](auto*) {
+        ++originals;
+        object.distance = 15.0f;
+        object.maximum  = 110.0f;
+      },
+      zoom);
+  Require(!ZoomEntries().entries.at(zoom).gate.pending && object.distance == 802.0f
+              && camera_native_zoom_calls == before_focus + 1 && camera_native_distance_sets == before_entry_sets + 1
+              && originals == 5,
+          "positive entry default follows native distance/range resets once, even with text focus");
+
+  const auto after_first_default = camera_native_distance_sets;
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 22.0f; }, zoom);
+  Require(object.distance == 22.0f && camera_native_distance_sets == after_first_default,
+          "a ready camera is not pulled back to the default on subsequent updates");
+  camera_native_section = SectionID::Navigation_Galaxy;
+  ZoomFrame();
+  Require(!ZoomEntries().entries.at(zoom).gate.in_system,
+          "shared frame observes a cached controller leaving even without its native update");
+  camera_native_section = SectionID::Navigation_System;
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 25.0f; }, zoom);
+  Require(object.distance == 802.0f && camera_native_distance_sets == after_first_default + 1,
+          "returning to a cached system view applies the default without a depth callback");
+
+  camera_native_section_changing = true;
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 27.0f; }, zoom);
+  Require(object.distance == 27.0f && !ZoomEntries().entries.at(zoom).gate.in_system,
+          "unfinished section transitions cannot apply an entry default");
+  camera_native_section_changing = false;
+  object.camera                  = nullptr;
+  const auto before_unready      = camera_native_distance_sets;
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 29.0f; }, zoom);
+  Require(object.distance == 29.0f && ZoomEntries().entries.at(zoom).gate.pending
+              && camera_native_distance_sets == before_unready,
+          "an absent scene camera retains the request without writing distance");
+  object.camera = reinterpret_cast<unity::Camera*>(&scene);
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 31.0f; }, zoom);
+  Require(object.distance == 802.0f && !ZoomEntries().entries.at(zoom).gate.pending,
+          "entry retries when its native scene camera becomes ready");
+
+  const auto before_reload                    = camera_native_distance_sets;
+  ZoomEntries().entries.at(zoom).gate.pending = true;
+  NavigationZoom_Update_Hook(
+      [&](auto*) {
+        ResetZoom();
+        object.distance = 33.0f;
+      },
+      zoom);
+  Require(ZoomEntries().entries.empty() && object.distance == 33.0f && camera_native_distance_sets == before_reload,
+          "reload during native update invalidates the older deferred entry");
+  camera_fixture_session_suspended = true;
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 35.0f; }, zoom);
+  Require(ZoomEntries().entries.empty() && object.distance == 35.0f && camera_native_distance_sets == before_reload,
+          "suspended sessions deliver native camera update without mod entry or keyboard work");
+  camera_fixture_session_suspended = false;
   selected = nullptr;
   fleet_native_keys.clear();
   ++input_frame;
@@ -527,7 +612,7 @@ void CameraNativeCases(std::string_view mode)
   Require(MouseScrollAsPinchRecognizer_ReadInput_Hook([](auto*) { return 2.0f; }, nullptr) == 2.0f
               && !scroll_queries_available,
           "failed UI ownership query retains native input instead of blocking unknown state");
-  PendingDefaultZoom().Reset();
+  ResetZoom();
   object.distance                      = 30.0f;
   object.minimum                       = 10.0f;
   object.maximum                       = 110.0f;

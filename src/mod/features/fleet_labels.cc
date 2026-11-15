@@ -38,6 +38,20 @@ public:
   void Refresh()
   { refresh_pending_ = true; }
 
+  // Teardown owns the old widgets. Drop custody without restoring or reapplying their native labels.
+  void Reset()
+  {
+    ++generation_;
+    ++camera_revision_;
+    visibility_.clear();
+    widgets_.clear();
+    camera_          = {};
+    profiles_        = {};
+    profiles_known_  = false;
+    refresh_pending_ = true;
+    refreshing_      = false;
+  }
+
   uint64_t Revision(NavigationLOD* lod) const
   {
     const auto found = widgets_.find(lod);
@@ -509,6 +523,9 @@ private:
 // Weak handles must be released while IL2CPP is alive, never by static destruction after its teardown.
 auto& fleet_labels = *new FleetLabels;
 
+void ResetFleetLabels()
+{ fleet_labels.Reset(); }
+
 // --- Hooks ---
 
 void NavigationZoomEventHandler_OnZoomChanged_Hook(auto original, NavigationZoomEventHandler* _this, ZoomLevels level)
@@ -685,5 +702,7 @@ void FleetLabelsAfterZoom(NavigationZoom* zoom)
 void RefreshFleetLabelControls()
 { fleet_labels.Refresh(); }
 
-const Feature kFleetLabels{"FleetLabels", &Config::Patches::zoomhooks, InstallFleetLabels};
-const Feature kBaseLabels{"BaseLabels", &Config::Patches::zoomhooks, InstallBaseLabels};
+const Feature kFleetLabels{"FleetLabels", &Config::Patches::zoomhooks,   InstallFleetLabels,
+                           nullptr,       InstallRequirement::kOptional, ResetFleetLabels};
+const Feature kBaseLabels{"BaseLabels", &Config::Patches::zoomhooks,   InstallBaseLabels,
+                          nullptr,      InstallRequirement::kOptional, ResetFleetLabels};
