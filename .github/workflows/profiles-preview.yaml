@@ -125,7 +125,7 @@ jobs:
           scripts/assemble-mac-app.sh "staging/STFC Community Mod.app" staging/arm64 staging/x86_64
           APP="staging/STFC Community Mod.app"
           for binary in MacOS/macOSLauncher stfc-community-mod-loader libstfc-community-mod.dylib stfc-profiles; do
-            lipo -verify_arch arm64 x86_64 "$APP/Contents/$binary"
+            lipo "$APP/Contents/$binary" -verify_arch arm64 x86_64
           done
           codesign --verify --deep --strict "$APP"
       - name: Package Mac preview
