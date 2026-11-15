@@ -5,13 +5,15 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = (ROOT / 'scripts/sign-macos-release.sh').read_text(encoding='utf-8')
-BASH = os.environ.get('STFC_TEST_BASH') or shutil.which('bash')
-if not BASH and os.name == 'nt':
-    BASH = 'C:/Program Files/Git/bin/bash.exe'
+WORKFLOW = (ROOT / '.github/workflows/sign-macos.yaml').read_text(encoding='utf-8')
+GIT_BASH = Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Git/bin/bash.exe'
+BASH = os.environ.get('STFC_TEST_BASH') or (
+    str(GIT_BASH) if os.name == 'nt' and GIT_BASH.is_file() else shutil.which('bash'))
 
 
 def section(start, end):
@@ -105,6 +107,44 @@ security() { printf '%s\\n' "$QUERY_OUTPUT"; }
                 result = self.run_shell(setup + block + '\nprintf "%s %s\\n" "${#restore_keychains[@]}" "${#signing_keychains[@]}"', QUERY_OUTPUT=output)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout.strip(), f'{count} {count + 1}')
+
+    def package_gate(self, *, missing='', empty='', provenance='{"dmgNotarization":{"status":"Accepted"}}'):
+        block = WORKFLOW.split('      - name: Require the complete notarized package\n', 1)[1]
+        block = block.split('      - name: Upload signed macOS artifact\n', 1)[0]
+        gate = textwrap.dedent(block.split('        run: |\n', 1)[1])
+        # Execute the actual workflow block against isolated synthetic files.
+        setup = '''cd "$work"
+mkdir signed-macos
+for file in stfc-community-mod-installer.dmg stfc-community-mod-macos-universal.tar.zst \\
+  stfc-community-mod-macos-universal.tar.zst.sha256 macos-provenance.json ci-input.json \\
+  mac-build-identity.json mac-source-identity.json; do
+  if [[ "$file" != "$MISSING" ]]; then
+    if [[ "$file" == "$EMPTY" ]]; then : > "signed-macos/$file"
+    elif [[ "$file" == macos-provenance.json ]]; then printf '%s' "$PROVENANCE" > "signed-macos/$file"
+    else printf 'fixture' > "signed-macos/$file"; fi
+  fi
+done
+'''
+        return self.run_shell(setup + gate, MISSING=missing, EMPTY=empty, PROVENANCE=provenance)
+
+    def test_complete_accepted_package_passes_upload_gate(self):
+        result = self.package_gate()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_missing_or_empty_package_member_blocks_upload(self):
+        files = ('stfc-community-mod-installer.dmg', 'stfc-community-mod-macos-universal.tar.zst',
+                 'stfc-community-mod-macos-universal.tar.zst.sha256', 'macos-provenance.json',
+                 'ci-input.json', 'mac-build-identity.json', 'mac-source-identity.json')
+        for file in files:
+            for field in ('missing', 'empty'):
+                with self.subTest(file=file, field=field):
+                    self.assertNotEqual(self.package_gate(**{field: file}).returncode, 0)
+
+    def test_missing_rejected_or_invalid_notarization_blocks_upload(self):
+        for provenance in ('{}', '{"dmgNotarization":{"status":"Invalid"}}',
+                           '{"dmgNotarization":{"status":"In Progress"}}', 'invalid json'):
+            with self.subTest(provenance=provenance):
+                self.assertNotEqual(self.package_gate(provenance=provenance).returncode, 0)
 
 
 if __name__ == '__main__':
