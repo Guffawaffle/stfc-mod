@@ -992,6 +992,9 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "disable_galaxy_chat", u.disable_galaxy_chat);
   r.Read("ui", "disable_veil_chat", u.disable_veil_chat);
   r.Read("ui", "show_player_title", u.show_player_title);
+  r.Read("ui", "auto_open_chat", u.auto_open_chat);
+  r.ReadValid("ui", "default_chat_width", u.default_chat_width,
+              [](float value) { return std::isfinite(value) && value >= 0.0f; });
   r.Read("ui", "allow_officer_preset_reordering", u.allow_officer_preset_reordering);
   r.Read("ui", "battle_log_summary_preview", u.battle_log_summary_preview);
   r.Read("ui", "officer_compatibility_filter", u.officer_compatibility_filter);

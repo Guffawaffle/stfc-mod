@@ -304,10 +304,10 @@ void Jobs()
 void HavenRecovery()
 {
   auto       target     = Target();
-  const auto send_haven = [&] {
+  const auto send_haven = [&](bool first) {
     auto upload = Take(target);
-    Check(upload.stream == Stream::kHaven && upload.first_sync,
-          "every changed Haven building batch retains the frozen full-sync marker");
+    Check(upload.stream == Stream::kHaven && upload.first_sync == first,
+          "only the first complete Haven snapshot carries the full-sync marker");
     auto records = upload.Records();
     target.Complete(std::move(upload), true, store.Generation(), now);
     return records;
@@ -318,13 +318,20 @@ void HavenRecovery()
   Check(!OrdinarySessionOpen(store.Generation()), "invalid required protobuf seals its generation");
   store.Reset();
   game::PlanetaryBase haven;
+  Process(EntityGroup::Kind::PlanetaryBaseData, haven);
+  Check(!target.Next(store, now), "empty Haven pieces wait for a complete initial snapshot");
   (*haven.mutable_pieces())[8] = 2;
   Process(EntityGroup::Kind::PlanetaryBaseData, haven);
-  Check(Send(target) == json::parse(R"([{"type":"haven_pieces","sid":8,"count":2}])"),
-        "valid Haven pieces after a fresh session reset are delivered");
+  auto pieces = Take(target);
+  Check(pieces.stream == Stream::kHavenPieces && pieces.first_sync
+            && pieces.Records() == json::parse(R"([{"type":"haven_pieces","sid":8,"count":2}])"),
+        "the first nonempty Haven pieces snapshot is full-sync");
+  target.Complete(std::move(pieces), true, store.Generation(), now);
   (*haven.mutable_pieces())[8] = 3;
   Process(EntityGroup::Kind::PlanetaryBaseData, haven);
-  Check(Send(target)[0]["count"] == 3, "Haven piece updates are delivered");
+  pieces = Take(target);
+  Check(!pieces.first_sync && pieces.Records()[0]["count"] == 3, "later Haven piece updates are deltas");
+  target.Complete(std::move(pieces), true, store.Generation(), now);
 
   game::PlanetaryMapData map;
   auto&                  building = (*map.mutable_buildings())[5];
@@ -336,14 +343,14 @@ void HavenRecovery()
   second_building       = building;
   second_building.set_position(43);
   Process(EntityGroup::Kind::PlanetaryMapData, map);
-  Check(send_haven() == json::parse(R"([{"type":"haven","id":5,"sid":8,"level":2,"status":1,"position":42},
+  Check(send_haven(true) == json::parse(R"([{"type":"haven","id":5,"sid":8,"level":2,"status":1,"position":42},
                                      {"type":"haven","id":6,"sid":8,"level":2,"status":1,"position":43}])"),
         "Haven buildings include their map identity, status and position");
   building.set_position(99);
   Process(EntityGroup::Kind::PlanetaryMapData, map);
-  const auto changed = send_haven();
-  Check(changed.size() == 2 && changed[0]["position"] == 99 && changed[1]["position"] == 43,
-        "full-marked Haven updates retain the canonical snapshot including unchanged buildings");
+  const auto changed = send_haven(false);
+  Check(changed.size() == 1 && changed[0]["position"] == 99,
+        "later Haven updates include only changed buildings");
   Process(EntityGroup::Kind::PlanetaryMapData, map);
   Check(!target.Next(store, now), "unchanged Haven buildings are suppressed");
 
@@ -359,7 +366,21 @@ void HavenRecovery()
   process_map({store.Generation(), response.SerializeAsString()});
   Check(!target.Next(store, now), "owned maps require a captured local identity");
   process_map({store.Generation(), response.SerializeAsString(), "local"});
-  Check(send_haven()[0]["level"] == 3, "local player's Haven response is delivered");
+  Check(send_haven(false)[0]["level"] == 3, "local player's Haven response is delivered");
+
+  game::PlanetaryMapData empty_map;
+  Process(EntityGroup::Kind::PlanetaryMapData, empty_map);
+  Check(!target.Next(store, now), "an empty Haven list cannot wipe the acknowledged snapshot");
+  auto later = Target();
+  auto snapshot = Take(later);
+  Check(snapshot.stream == Stream::kHaven && snapshot.first_sync && snapshot.Records().size() == 2,
+        "a new target still receives the complete latest Haven snapshot");
+  game::PlanetaryMapProsperityResponse prosperity;
+  prosperity.set_prosperity(42);
+  Process(EntityGroup::Kind::PlanetaryMapProsperity, prosperity);
+  auto delta = Take(target);
+  Check(delta.stream == Stream::kHavenProsperity && !delta.first_sync,
+        "prosperity changes never claim to be a full Haven snapshot");
 }
 void ShipTolerance()
 {

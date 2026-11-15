@@ -10,10 +10,12 @@
 #include "frame_callbacks.h"
 #include "installation.h"
 #include "profile_launch.h"
+#include "reload.h"
 #include "runtime_config.h"
 #include "shortcuts.h"
 #include "version.h"
 
+#include "game/app.h"
 #include "game/ui.h"
 
 #include <il2cpp/hook.h>
@@ -24,6 +26,7 @@
 #include <unity/input.h>
 
 #include <array>
+#include <chrono>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -239,7 +242,14 @@ constexpr const Feature* kFeatures[] = {
 std::array<InstallGuard, std::size(kFeatures)>        feature_owners;
 std::array<FeatureInstallation, std::size(kFeatures)> feature_reports;
 InstallGuard                                          features_owner, setup_owner, bootstrap_owner, frame_owner;
+InstallGuard                                          reload_owner;
 il2cpp::HookInstallResult                             frame_result;
+reload::Gate                                         reload_gate;
+uint32_t                                             reload_call_depth = 0;
+uint64_t                                             reload_generation = 0;
+std::chrono::steady_clock::time_point                 reload_started;
+bool                                                 reload_wait_reported      = false;
+bool                                                 reload_navigation_pending = false;
 
 // Reporting must not let an allocation/logging failure turn uncertain native patches into an ordinary optional
 // failure. This is deliberately process-fatal; the M3 profile bootstrap must also stop before login on refusal.
@@ -310,6 +320,73 @@ template <typename Work> void RunGuarded(const char* name, Work&& work) noexcept
   }
 }
 
+void BeginReload(const char* source) noexcept
+{
+  const bool first = !reload_gate.suspended;
+  reload_gate.Begin();
+  if (first) {
+    ++reload_generation;
+    reload_started            = std::chrono::steady_clock::now();
+    reload_wait_reported      = false;
+    reload_navigation_pending = true;
+    RunGuarded("Reload", [&] {
+      spdlog::info("[Reload] session {} starting at {}; suspending mod frame work", reload_generation, source);
+    });
+  }
+  // Both teardown stages can run; discard anything a native callback observed between them too. The callbacks
+  // only forget native custody and pending work, never invoke the managers the game is about to tear down.
+  for (size_t i = 0; i < std::size(kFeatures); ++i)
+    if (feature_reports[i].state == InstallState::kInstalled && kFeatures[i]->reset)
+      RunGuarded(kFeatures[i]->name, kFeatures[i]->reset);
+  RunGuarded("ScreenShortcuts", ResetScreenShortcuts);
+  RunGuarded("FleetShortcuts", ResetFleetShortcuts);
+}
+
+struct ReloadCallScope {
+  ReloadCallScope()
+  { ++reload_call_depth; }
+  ~ReloadCallScope()
+  { --reload_call_depth; }
+};
+
+void PrimeApp_DoReload_Hook(auto original, PrimeApp* _this, AppReloadArgs args)
+{
+  BeginReload("PrimeApp.DoReload");
+  ReloadCallScope scope;
+  original(_this, args);
+}
+
+void MonoSingleton_PrepareAllForReload_Hook(auto original)
+{
+  BeginReload("MonoSingleton.PrepareAllForReload");
+  ReloadCallScope scope;
+  original();
+}
+
+void ResumeAfterReload(ScreenManager* screen)
+{
+  // Read existing singletons only: Instance getters can recreate managers in the middle of teardown.
+  auto*      sections = Hub::Sections();
+  const auto section  = sections ? sections->CurrentSection() : SectionID::AppInit;
+  const auto changing = sections ? sections->TryIsSectionChangeInProgress() : il2cpp::CallResult<bool>{};
+  const bool ready = reload_call_depth == 0 && sections && ScreenManager::Existing() == screen && changing
+                     && !changing.value && section != SectionID::AppInit && section != SectionID::Login
+                     && section != SectionID::Reentry && section != SectionID::IntroVideo;
+  const auto now = std::chrono::steady_clock::now();
+  if (reload_gate.Tick(ready, std::chrono::duration<double>(now.time_since_epoch()).count())) {
+    spdlog::info("[Reload] session {} ready after {} ms in section {}; resuming mod frame work", reload_generation,
+                 std::chrono::duration_cast<std::chrono::milliseconds>(now - reload_started).count(),
+                 static_cast<int32_t>(section));
+  } else if (!reload_wait_reported && now - reload_started >= std::chrono::seconds(60)) {
+    reload_wait_reported = true;
+    spdlog::warn("[Reload] session {} still waiting for readiness in section {}; game updates remain active",
+                 reload_generation, static_cast<int32_t>(section));
+  }
+}
+
+bool ContinueFrameDispatch() noexcept
+{ return !reload_gate.suspended; }
+
 // ScreenManager.Update is the mod's frame tick and runs in every hotkey mode: input, the settings file watch and
 // each installed feature's frame work, then the shortcut dispatch. Skipping the game's Update swallows a key a
 // shortcut used, so the game does not handle it as well.
@@ -317,7 +394,7 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
 {
   // An early demand for the shared anchor must not reload/replace Config while InstallFeatures still holds its
   // startup reference, or dispatch partially initialized services. The native game keeps its own Update.
-  if (!FrameDeliveryAvailable()) {
+  if (il2cpp::HookStateIndeterminate() || !FrameDispatchReady(features_owner.State(), frame_result.Installed())) {
     original(_this);
     return;
   }
@@ -335,6 +412,22 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
   } scope{dispatching};
   dispatching = true;
   RunGuarded("Input", unity::Key::Poll);
+  if (reload_gate.suspended) {
+    // Preserve native Update even on the frame that completes readiness; mod work starts on the next frame.
+    original(_this);
+    RunGuarded("Reload", [&] { ResumeAfterReload(_this); });
+    return;
+  }
+  if (reload_navigation_pending) {
+    RunGuarded("Reload", [] {
+      const auto section = Hub::CurrentSection();
+      if (section == SectionID::Navigation_System || section == SectionID::Navigation_Galaxy) {
+        reload_navigation_pending = false;
+        spdlog::info("[Reload] session {} reached navigation section {}", reload_generation,
+                     static_cast<int32_t>(section));
+      }
+    });
+  }
   RunGuarded("ShortcutCapture", [] {
     // An inactive editor adds no engine queries. Held modifiers and popup keys must drain before gameplay resumes.
     if (!Shortcut::CaptureBlocksShortcuts())
@@ -347,7 +440,11 @@ void ScreenManager_Update_Hook(auto original, ScreenManager* _this)
     Shortcut::UpdateCapture(unity::Application::isFocused(), unity::Input::anyKey());
   });
   RunGuarded("Settings", Config::ReloadIfChanged);
-  FrameServices().Dispatch();
+  FrameServices().Dispatch(ContinueFrameDispatch);
+  if (reload_gate.suspended) {
+    original(_this);
+    return;
+  }
   bool handled = false;
   RunGuarded("Shortcuts", [&] { handled = HandleShortcuts(); });
   if (!handled)
@@ -530,8 +627,35 @@ bool RegisterFrameCallback(ScreenManagerUpdateCallback callback, const char* nam
 il2cpp::HookInstallResult FrameTickInstallation()
 { return frame_result; }
 
+bool ModSessionSuspended() noexcept
+{ return reload_gate.suspended; }
+
 bool FrameDeliveryAvailable() noexcept
-{ return !il2cpp::HookStateIndeterminate() && FrameDispatchReady(features_owner.State(), frame_result.Installed()); }
+{
+  return !il2cpp::HookStateIndeterminate() && !reload_gate.suspended
+         && FrameDispatchReady(features_owner.State(), frame_result.Installed());
+}
+
+bool EnsureReloadGuards()
+{
+  try {
+    reload_owner.Run(true, [] {
+      il2cpp::HookSet hooks("ReloadGuards");
+      IL2CPP_STAGE_AT(hooks, il2cpp::CheckedEntry(PrimeApp::Class::Method<void(AppReloadArgs)>("DoReload")),
+                     PrimeApp_DoReload_Hook);
+      IL2CPP_STAGE_AT(hooks,
+                     il2cpp::CheckedEntry(MonoSingletonBase::StaticMethod<void()>("PrepareAllForReload")),
+                     MonoSingleton_PrepareAllForReload_Hook);
+      return hooks.Commit();
+    });
+  } catch (...) {
+    if (il2cpp::HookStateIndeterminate())
+      AbortInstallation("ReloadGuards");
+  }
+  if (MustAbortInstallation(reload_owner.State(), InstallRequirement::kOptional))
+    AbortInstallation("ReloadGuards");
+  return reload_owner.State() == InstallState::kInstalled;
+}
 
 il2cpp::HookInstallResult EnsureFrameTick()
 {
@@ -561,6 +685,10 @@ il2cpp::HookInstallResult EnsureFrameTick()
   }
   if (MustAbortInstallation(frame_owner.State(), InstallRequirement::kOptional))
     AbortInstallation("FrameTick");
+  // Lifecycle observations are an optional independent transaction. Missing reload metadata must not roll back
+  // the already installed frame anchor or its unrelated services; uncertain native state still fails closed.
+  if (frame_result.Installed())
+    EnsureReloadGuards();
   return frame_result;
 }
 

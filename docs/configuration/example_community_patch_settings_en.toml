@@ -910,6 +910,12 @@ disable_veil_chat = false
 # Show player title rows in chat messages.
 show_player_title = true
 
+# Open alliance side chat once per login, after the station and chat are ready.
+auto_open_chat = false
+
+# Initial side-chat width in canvas units. Zero preserves the game's width; positive values fit the available space.
+default_chat_width = 0.0
+
 # Subgroup: Chest Purchases
 # -------------------------
 

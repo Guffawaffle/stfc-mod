@@ -122,6 +122,24 @@ struct MissionsObjectViewerWidget : ObjectViewerBaseWidget {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "MissionsObjectViewerWidget">;
 };
 
+struct WaveDefenseObjectViewerWidget : ObjectViewerBaseWidget {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "WaveDefenseObjectViewerWidget">;
+
+  GenericButtonWidget* primaryButton()
+  { return Field<"_primaryButton", GenericButtonWidget*>(); }
+
+  // Presses the primary button the viewer shows, through the button's own Press, when the widget is active and its
+  // context interactable.
+  void PressPrimaryButton()
+  {
+    auto* widget   = primaryButton();
+    auto* listener = widget && widget->isActiveAndEnabled() ? widget->semaphoreButtonListener() : nullptr;
+    auto* context  = listener ? widget->Context() : nullptr;
+    if (context && context->Interactable())
+      listener->Press();
+  }
+};
+
 struct StarNodeObjectViewerWidget : ObjectViewerBaseWidget {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "StarNodeObjectViewerWidget">;
 

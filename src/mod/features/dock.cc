@@ -336,6 +336,22 @@ bool double_click_installed = false;
 FleetPlayerData*                      last_clicked_ship = nullptr;
 std::chrono::steady_clock::time_point last_click_time{};
 
+void ResetDockAssignment()
+{
+  last_clicked_ship = nullptr;
+  last_click_time   = {};
+}
+
+void ResetPinnedUi()
+{
+  auto& state = PinState();
+  state.save_context.Reset();
+  state.refresh_context.Reset();
+  state.refresh_frames = 0;
+  // An admitted write and its receipt remain valid. Only the old view and gesture are session-owned.
+  ship_pin_input::ResetForReload();
+}
+
 bool DockAssignmentAllowed(bool from_enter)
 {
   if (from_enter && (Shortcut::CaptureBlocksShortcuts() || unity::Key::IsInputFocused()))
@@ -472,21 +488,25 @@ FleetPlayerData* ManagedDockFleet()
   return dock_fleet && dock_fleet->Id() == fleet->Id() ? fleet : nullptr;
 }
 
+int64_t last_managed_fleet_id = 0;
+
+void ResetDockSelection()
+{ last_managed_fleet_id = 0; }
+
 void DockSelectionFrame()
 {
   // Ten times a second; selecting a slot is not urgent.
   static Throttle throttle(std::chrono::milliseconds(100));
-  static int64_t  last_fleet_id = 0;
   if (!throttle.Due())
     return;
   auto* fleet = ManagedDockFleet();
   if (!fleet) {
-    last_fleet_id = 0;
+    last_managed_fleet_id = 0;
     return;
   }
   const auto id  = fleet->Id();
   auto*      bar = unity::Newest<FleetBarViewController>();
-  if (id == last_fleet_id || !bar)
+  if (id == last_managed_fleet_id || !bar)
     return;
   if (const auto index = fleet->Index(); !bar->IsIndexSelected(index)) {
     // The bar's own selection flow updates both the highlight and the fleet panel.
@@ -496,7 +516,7 @@ void DockSelectionFrame()
       return;
     spdlog::debug("[DockSelection] selected dock slot {} for fleet {}", index + 1, id);
   }
-  last_fleet_id = id;
+  last_managed_fleet_id = id;
 }
 
 // --- Installation ---
@@ -620,13 +640,17 @@ bool Place(FleetPlayerData* ship, std::optional<int64_t> target, ShipManagementV
 }
 } // namespace ship_pins
 
-const Feature kPinnedShips{"PinnedShips", &Config::Patches::pinnedshiphooks, InstallPinnedShips};
+const Feature kPinnedShips{"PinnedShips", &Config::Patches::pinnedshiphooks, InstallPinnedShips,
+                           nullptr,       InstallRequirement::kOptional,     ResetPinnedUi};
 // The old downstream parsed pinnedshipclicktoggle but did not consume it. Pin
 // badge input follows the actual pinnedshiphooks owner; Shift-click is not a substitute.
-const Feature kPinnedShipClick{"PinnedShipClick", &Config::Patches::pinnedshiphooks, InstallPinnedShipClick};
-const Feature kDoubleClickAssign{"DoubleClickAssign", &Config::Patches::doubleclickassignshiphooks,
-                                 InstallDoubleClickAssign};
+const Feature kPinnedShipClick{"PinnedShipClick", &Config::Patches::pinnedshiphooks, InstallPinnedShipClick,
+                               nullptr,           InstallRequirement::kOptional,     ResetPinnedUi};
+const Feature kDoubleClickAssign{"DoubleClickAssign",           &Config::Patches::doubleclickassignshiphooks,
+                                 InstallDoubleClickAssign,      nullptr,
+                                 InstallRequirement::kOptional, ResetDockAssignment};
 // Enter was driven by the hotkey patch in PLAY, independently of ordinary shortcut mode.
 const Feature kAssignOnEnter{"AssignOnEnter", &Config::Patches::hotkeyhooks, nullptr, AssignOnEnterFrame};
 // Frame work only, installed with the hotkeys it was introduced with.
-const Feature kDockSelection{"DockSelection", &Config::Patches::hotkeyhooks, nullptr, DockSelectionFrame};
+const Feature kDockSelection{"DockSelection",    &Config::Patches::hotkeyhooks, nullptr,
+                             DockSelectionFrame, InstallRequirement::kOptional, ResetDockSelection};

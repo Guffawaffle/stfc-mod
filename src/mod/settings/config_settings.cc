@@ -608,6 +608,11 @@ void RegisterConfigSettings(PageCatalog& catalog)
        Restart, "Native preset integration is currently unavailable.");
   BOOL("chat", ui, show_player_title, "Show player titles", Owner("ChatTitles"), ReopenView,
        "Reopen chat to rebuild existing message titles.");
+  BOOL("chat", ui, auto_open_chat, "Open alliance chat on login", Owner("Chat"), Restart,
+       "Open alliance side chat once the station and chat have finished loading.");
+  FLOAT("chat", ui, default_chat_width, "Initial side-chat width", Owner("Chat"), Restart,
+        "Starting width in canvas units. Zero keeps the game's width; larger values fit the available space.",
+        "canvas units", 0, 10000, 1000, 25);
   BOOL("chat", ui, disable_galaxy_chat, "Disable galaxy chat", Owner("Chat"), Restart,
        "Disable galaxy chat tabs and previews.");
   BOOL("chat", ui, disable_veil_chat, "Disable Veil chat", Owner("Chat"), Restart,
