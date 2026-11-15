@@ -150,6 +150,10 @@ fn windowsArchive(ctx: *const Ctx, source: std.Build.LazyPath, zlib: Lib) ?Lib {
 // fetched source tree. Recipe sources are immutable Zig packages; normal mod builds do not fetch either one.
 const archive_producer =
     \\function main(source, recipes, archive_notices, xz_notices, stage)
+    \\    -- Zig 0.17 supplies relative LazyPaths; XMake changes cwd for the generated project.
+    \\    source, recipes = path.absolute(source), path.absolute(recipes)
+    \\    archive_notices, xz_notices = path.absolute(archive_notices), path.absolute(xz_notices)
+    \\    stage = path.absolute(stage)
     \\    os.mkdir(stage)
     \\    local notices = path.join(stage, "notices")
     \\    os.mkdir(path.join(notices, "libarchive"))
