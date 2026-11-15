@@ -519,7 +519,11 @@ bool CaptureBlocksShortcuts() noexcept
 { return capture_guard.BlocksShortcuts(); }
 
 void UpdateCapture(bool focused, bool held) noexcept
-{ capture_guard.BeforeDispatch(focused, held); }
+{
+  // Capture skips matching, but released keys must still retire their ordinary shortcut ownership.
+  PruneReleasedKeys();
+  capture_guard.BeforeDispatch(focused, held);
+}
 
 bool Owns(unity::KeyCode key)
 { return capture_guard.BlocksShortcuts() ? unity::Key::Pressed(key) : IsUsed(key); }
