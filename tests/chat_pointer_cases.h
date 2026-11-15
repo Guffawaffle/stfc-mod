@@ -8,6 +8,11 @@ struct ChatPointerHit {
   Il2CppObject       header;
   unity::GameObject* object = nullptr;
 };
+struct ChatPointerWaveCourse {
+  Il2CppObject header;
+  FleetNativeVisibility* visibility = nullptr;
+  FleetMissionListener* join = nullptr;
+};
 Il2CppObject                                      chat_pointer_list{}, chat_pointer_count_box{}, chat_pointer_rewards{};
 ChatPointerHit                                    chat_pointer_hit{};
 Il2CppObject                                      chat_pointer_messages{}, chat_pointer_preview{}, chat_pointer_full{};
@@ -148,6 +153,48 @@ void ChatPointerCases()
   chat_pointer_hits.clear();
   Require(FleetActionShortcuts() && chat_pointer_primary_calls == 4 && warp_roots.empty(),
           "next known world hit recovers ordinary primary dispatch");
+
+  // The default SPACE|MOUSE1 recall-cancel binding keeps FleetPress::Any true after mouse primary is filtered.
+  // Exercise the real Wave action with its native course button visible, rather than just the rewards shortcut.
+  fleet_native_widgets.erase(&rewards.klass);
+  auto& behaviour = Define("UnityEngine", "Behaviour", IL2CPP_TYPE_CLASS, &component_class);
+  const auto& active = AddMethod(behaviour, "get_isActiveAndEnabled",
+                                reinterpret_cast<void*>(&FleetMissionActive), T(bool_class), {});
+  AddProperty(behaviour, "isActiveAndEnabled", &active);
+  auto& button = Define("UnityEngine.UI", "Button", IL2CPP_TYPE_CLASS, &behaviour);
+  AddMethod(button, "Press", reinterpret_cast<void*>(&FleetMissionPress), T(void_class), {});
+  auto& listener = Define("Digit.Client.UI", "SemaphoreButtonListener", IL2CPP_TYPE_CLASS, &component_class);
+  AddField(listener, "_button", button, offsetof(FleetMissionListener, button));
+  auto& visibility = Define("Digit.Client.UI", "VisibilityController", IL2CPP_TYPE_CLASS, &object_class);
+  AddField(visibility, "_state", int_class, offsetof(FleetNativeVisibility, state));
+  auto& course = Define("Digit.Prime.Navigation", "SetCourseWidget", IL2CPP_TYPE_CLASS, &behaviour);
+  AddField(course, "_visibilityController", visibility, offsetof(ChatPointerWaveCourse, visibility));
+  AddField(course, "_joinWaveDefenseButton", listener, offsetof(ChatPointerWaveCourse, join));
+  auto& navigation = Define("Digit.Prime.Navigation", "NavigationInteractionUIViewController",
+                            IL2CPP_TYPE_CLASS, &component_class);
+  AddField(navigation, "_setCourseWidget", course, offsetof(FleetMissionNavigation, course));
+  FleetMissionButton native_button{{&button.klass}};
+  FleetMissionListener native_listener{{&listener.klass}, &native_button};
+  FleetNativeVisibility native_visibility{{&visibility.klass}, VisibilityState::Visible};
+  ChatPointerWaveCourse native_course{{&course.klass}, &native_visibility, &native_listener};
+  FleetMissionNavigation native_navigation{{&navigation.klass}, nullptr,
+                                            reinterpret_cast<FleetNativeViewer*>(&native_course)};
+  fleet_native_widgets[&navigation.klass] = {&native_navigation.header};
+  fleet_native_keys = {Action::kActionPrimary, Action::kActionRecallCancel};
+  fleet_native_primary_mouse = true;
+  chat_pointer_hits = {&chat_pointer_object};
+  for (const auto owner : {1, 2, 3}) {
+    chat_pointer_owner = owner;
+    Require(!FleetActionShortcuts() && fleet_mission_presses == 0,
+            "chat-owned default left click cannot join a visible wave through recall-cancel admission");
+  }
+  chat_pointer_query_throws = true;
+  Require(!FleetActionShortcuts() && fleet_mission_presses == 0,
+          "unknown mouse ownership cannot join a wave through another admitted action");
+  chat_pointer_query_throws = false;
+  fleet_native_primary_mouse = false;
+  Require(!FleetActionShortcuts() && fleet_mission_presses == 1,
+          "keyboard primary still joins the wave through its native button");
   fleet_native_keys.clear();
   fleet_native_primary_mouse = false;
   fleet_native_widgets.clear();

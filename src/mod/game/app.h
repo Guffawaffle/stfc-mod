@@ -200,6 +200,10 @@ struct AppReloadArgs {
   bool                               quick_reloading;
   il2cpp::Nullable<CustomReloadArgs> custom_reload_args;
 };
+// Client 275 metadata: two leading bools, then Nullable<CustomReloadArgs> at offset 8 on both 64-bit targets.
+static_assert(sizeof(CustomReloadArgs) == 16 && offsetof(CustomReloadArgs, force_fake_reload) == 8);
+static_assert(sizeof(AppReloadArgs) == 32 && offsetof(AppReloadArgs, switch_to_login_screen) == 0
+              && offsetof(AppReloadArgs, quick_reloading) == 1 && offsetof(AppReloadArgs, custom_reload_args) == 8);
 
 struct PrimeApp : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Core", "PrimeApp">;

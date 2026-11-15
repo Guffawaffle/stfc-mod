@@ -996,7 +996,7 @@ bool ActOnViewer(const FleetPress& pressed, FleetPlayerData* fleet)
 void ActOnSelectedFleet(const FleetPress& pressed, const DeferredFleetPress* replay = nullptr)
 {
   // A deferred target action must retain its exact source; only a fresh primary press may join a wave.
-  if (!replay && Shortcut::IsDown(Action::kActionPrimary) && JoinWaveDefense())
+  if (!replay && pressed.primary && JoinWaveDefense())
     return;
   auto* panel = FleetBarViewController::NewestPanel();
   auto* fleet = panel ? panel->fleet() : nullptr;

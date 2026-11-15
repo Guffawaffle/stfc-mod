@@ -29,7 +29,8 @@ namespace
 {
 // --- Side chat on login ---
 
-il2cpp::GcHandle  chat_preview; // Weak: the preview the native AboutToShow hook most recently observed.
+// Explicit live resets release this weak owner; static teardown must not call a stopped runtime on Windows.
+auto& chat_preview = *new il2cpp::GcHandle;
 ChatStartup::Gate chat_startup;
 bool              chat_width_applied = false;
 
@@ -300,7 +301,7 @@ struct ChatTitleLayout {
   il2cpp::GcHandle element;
   bool             original_ignore = false;
 };
-std::unordered_map<unity::LayoutElement*, ChatTitleLayout> chat_title_layouts;
+auto& chat_title_layouts = *new std::unordered_map<unity::LayoutElement*, ChatTitleLayout>;
 
 void RestoreChatTitleLayout(UserProfileWidget* profile)
 {
