@@ -4,6 +4,7 @@
 #include "config.h"
 #include "features/features.h"
 #include "file.h"
+#include "frame.h"
 #include "version.h"
 
 #include "game/loading.h"
@@ -32,8 +33,7 @@ namespace
 {
 bool ShowSprite(unity::Image* image, unity::Sprite* sprite, bool preserve_aspect)
 {
-  return image->TryCall<"set_sprite">(sprite)
-         && image->TryCall<"set_color">(unity::Color{1.0f, 1.0f, 1.0f, 1.0f})
+  return image->TryCall<"set_sprite">(sprite) && image->TryCall<"set_color">(unity::Color{1.0f, 1.0f, 1.0f, 1.0f})
          && image->TryCall<"set_type">(unity::Image::Type::Simple)
          && image->TryCall<"set_preserveAspect">(preserve_aspect) && image->TryCall<"set_raycastTarget">(false);
 }
@@ -92,8 +92,8 @@ unity::GameObject* CreateOverlay(const char* name, unity::ImageAsset& asset, uni
                                  unity::Vector2 anchor_min, unity::Vector2 anchor_max, bool preserve_aspect,
                                  bool behind_siblings)
 {
-  auto* sprite    = parent ? asset.Sprite() : nullptr;
-  auto* object    = sprite ? il2cpp::Allocate<unity::GameObject>() : nullptr;
+  auto* sprite = parent ? asset.Sprite() : nullptr;
+  auto* object = sprite ? il2cpp::Allocate<unity::GameObject>() : nullptr;
   if (!object)
     return nullptr;
   // A failed attempt can already own a Unity object parented to the canvas.
@@ -114,7 +114,7 @@ unity::GameObject* CreateOverlay(const char* name, unity::ImageAsset& asset, uni
   if (!object->TryCall<".ctor">(il2cpp::NewString(name)))
     return nullptr;
   provisional.constructed = true;
-  auto* transform = object->GetComponent<unity::Transform>();
+  auto* transform         = object->GetComponent<unity::Transform>();
   if (!transform)
     return nullptr;
   // Attached to the canvas root, so the overlay covers the whole screen.
@@ -213,8 +213,8 @@ void LoginSequence_Awake_Hook(auto original, LoginSequence* _this)
   // The next login generation must observe changed files and discard the old
   // rooted wrappers even if Unity has not unloaded their native textures yet.
   screen_images = {};
-  auto* canvas     = _this->mainCanvas();
-  auto* root       = canvas ? canvas->transform() : nullptr;
+  auto* canvas  = _this->mainCanvas();
+  auto* root    = canvas ? canvas->transform() : nullptr;
   if (!root)
     return;
 
@@ -303,9 +303,9 @@ void LoadingTipViewController_SetRandomTipLocalisedText_Hook(auto original, Load
 // attempt rather than kept, since nothing roots them between hooks. A new controller or a reload starts over.
 struct TransitionState {
   il2cpp::GcHandle owner, animator;
-  bool        customized = false;
-  bool        overlay    = false;
-  ScreenLogos logos;
+  bool             customized = false;
+  bool             overlay    = false;
+  ScreenLogos      logos;
 };
 // Like ScreenImages, weak handles must not be released after runtime shutdown.
 TransitionState& transition_screen = *new TransitionState;
@@ -448,29 +448,17 @@ void SlideShowViewController_ShowCurrentSlide_Hook(auto original, SlideShowViewC
     HideImage(_this->image());
 }
 
-// The hierarchy holding our overlays is destroyed during a reload; forget it so Awake does not touch dead objects.
-void MonoSingleton_PrepareAllForReload_Hook(auto original)
+// Teardown owns the native hierarchy. Drop rooted image wrappers and session observations without touching it.
+void ResetLoadingScreens()
 {
   transition_screen = {};
+  screen_images     = {};
   tip_picker.Reset();
-  original();
-}
-
-// Shared by the login, tip and transition installs, whichever of them run, so it is its own set, installed on the
-// first call.
-bool InstallReloadReset()
-{
-  static const bool loading_reload_installed = [] {
-    il2cpp::HookSet hooks("LoadingScreens");
-    IL2CPP_STAGE(hooks, MonoSingletonBase::Method("PrepareAllForReload"), MonoSingleton_PrepareAllForReload_Hook);
-    return hooks.Commit();
-  }();
-  return loading_reload_installed;
 }
 
 bool InstallLoginScreen()
 {
-  if (!InstallReloadReset())
+  if (!EnsureReloadGuards())
     return false;
   il2cpp::HookSet hooks("LoginScreen");
   IL2CPP_STAGE(hooks, LoginSequence::Class::Method("Awake"), LoginSequence_Awake_Hook);
@@ -479,7 +467,7 @@ bool InstallLoginScreen()
 
 bool InstallTransitionScreen()
 {
-  if (!InstallReloadReset())
+  if (!EnsureReloadGuards())
     return false;
   il2cpp::HookSet hooks("TransitionScreen");
   IL2CPP_STAGE(hooks, TransitionViewController::Class::Method("Awake"), TransitionViewController_Awake_Hook);
@@ -494,7 +482,7 @@ bool InstallTransitionScreen()
 
 bool InstallLoadingTips()
 {
-  if (!InstallReloadReset())
+  if (!EnsureReloadGuards())
     return false;
   il2cpp::HookSet hooks("LoadingTips");
   IL2CPP_STAGE(hooks, LoadingTipViewController::Class::Method("SetRandomTipLocalisedText"),
@@ -503,6 +491,13 @@ bool InstallLoadingTips()
 }
 } // namespace
 
-const Feature kLoginScreen{"LoginScreen", &Config::Patches::loadingscreenhooks, InstallLoginScreen};
-const Feature kTransitionScreen{"TransitionScreen", &Config::Patches::transitionscreenhooks, InstallTransitionScreen};
-const Feature kLoadingTips{"LoadingTips", &Config::Patches::loadingtiphooks, InstallLoadingTips};
+const Feature kLoginScreen{"LoginScreen", &Config::Patches::loadingscreenhooks, InstallLoginScreen,
+                           nullptr,       InstallRequirement::kOptional,        ResetLoadingScreens};
+const Feature kTransitionScreen{"TransitionScreen",
+                                &Config::Patches::transitionscreenhooks,
+                                InstallTransitionScreen,
+                                nullptr,
+                                InstallRequirement::kOptional,
+                                ResetLoadingScreens};
+const Feature kLoadingTips{"LoadingTips", &Config::Patches::loadingtiphooks, InstallLoadingTips,
+                           nullptr,       InstallRequirement::kOptional,     ResetLoadingScreens};

@@ -44,7 +44,9 @@ public:
 
   // A recursive dispatch is suppressed. One callback or reporter throwing must
   // not skip later subscribers or strand the registry in its dispatching state.
-  void Dispatch() noexcept
+  // The host can suspend a pass between callbacks when one causes an in-process reload.
+  // A null predicate preserves ordinary process-lifetime subscriber behavior.
+  void Dispatch(bool (*continue_dispatch)() noexcept = nullptr) noexcept
   {
     if (dispatching_)
       return;
@@ -60,6 +62,8 @@ public:
     // Registration is rejected while this range is borrowed, so no snapshot or
     // per-frame collection allocation is necessary.
     for (const auto& entry : entries_) {
+      if (continue_dispatch && !continue_dispatch())
+        break;
       try {
         entry.callback();
       } catch (...) {

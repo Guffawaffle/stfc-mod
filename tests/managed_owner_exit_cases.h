@@ -10,12 +10,18 @@ void ManagedOwnerExitCases(std::string_view mode)
 {
   const bool store = mode == "owner-exit-store";
   const bool work  = mode == "owner-exit-store-work";
-  Require(store || work || mode == "owner-exit-ft", "known managed-owner exit mode");
+  const bool chat = mode == "owner-exit-chat";
+  Require(store || work || chat || mode == "owner-exit-ft", "known managed-owner exit mode");
   Require(warp_roots.empty() && alliance_store_tooltips.empty() && ship_name_rows.empty() && !alliance_store_work.source,
           "fresh process owners");
-  const auto populate = [store, work] {
+  const auto populate = [store, work, chat] {
     auto* object = &base_object.header;
-    if (store) {
+    if (chat) {
+      chat_preview = il2cpp::GcHandle::Weak(object);
+      ChatTitleLayout row;
+      row.element = il2cpp::GcHandle::Weak(object);
+      chat_title_layouts.emplace(reinterpret_cast<unity::LayoutElement*>(object), std::move(row));
+    } else if (store) {
       auto entry      = std::make_shared<OwnedStoreTooltip>();
       entry->widget   = il2cpp::GcHandle::Weak(object);
       entry->plain    = il2cpp::GcHandle::Weak(object);
@@ -40,6 +46,8 @@ void ManagedOwnerExitCases(std::string_view mode)
   alliance_store_tooltips.clear();
   ship_name_rows.clear();
   alliance_store_work = {};
+  ResetChat();
+  ResetChatTitles();
   Require(warp_roots.empty(), "explicit live cache retirement still releases its managed handles");
   populate();
   Require(warp_roots.size() == count, "cache retains live handles until normal exit");

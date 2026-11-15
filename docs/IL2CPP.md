@@ -249,6 +249,9 @@ feature table. No profile isolation capability is enabled or claimed by these in
 The GC scans native stacks, so managed pointers in local variables remain visible to it.
 Pointers stored in C++ statics or heap objects need `GcHandle::Strong` roots.
 Release roots before runtime shutdown. Roots do not destroy Unity native resources.
+On macOS the mod marks GC handles unavailable before the runtime's actual shutdown body runs. Retained native
+owners can then release their bookkeeping without calling the stopped runtime. An in-process game reload does
+not stop IL2CPP; its session-owned references are discarded separately while the runtime is still available.
 
 `unity::Track<T>()` tracks a class and its subclasses from hook installation onward.
 It cannot discover instances created earlier.

@@ -2,7 +2,12 @@
 
 // Production login/transition consumers and Unity ImageAsset. Only the managed
 // runtime, scene hierarchy, image decoder and filesystem path boundary are fake.
+// The shared reload observer is installed independently; this fixture exercises the feature's reset callback.
+bool LoadingFixtureReloadGuards()
+{ return true; }
+#define EnsureReloadGuards LoadingFixtureReloadGuards
 #include "../src/mod/features/loading_screens.cc"
+#undef EnsureReloadGuards
 #include <chrono>
 #include <set>
 
@@ -411,7 +416,7 @@ void LoadingArtworkConsumerCases(std::string_view mode)
     Require(transition_screen.owner.Get() == &replacement->header && !transition_screen.overlay
                 && !replacement->animator->enabled && loading_decodes >= decodes,
             "a replacement controller does not inherit the former overlay/complete flags; black mode keeps its background");
-    MonoSingleton_PrepareAllForReload_Hook([&] { ++originals; });
+    ResetLoadingScreens();
     Require(!transition_screen.owner && !transition_screen.overlay && tip_picker.first_screen,
             "reload forgets former scene ownership and resets the welcome tip before native reload");
   }

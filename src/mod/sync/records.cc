@@ -146,12 +146,21 @@ namespace
         records[module.id()] = {{"bid", module.id()}, {"level", module.level()}};
     });
   }
+  // An empty list is not a complete Haven; upstream never sends one, and the first-sync flag waits for a real list.
+  void PublishHaven(Stream stream, RecordSet records, uint64_t generation)
+  {
+    if (!records.empty())
+      Publish(stream, std::move(records), generation, Update::kFull);
+  }
   void ProcessHavenBase(const Input& input)
   {
-    Read<pb::PlanetaryBase>(input, Stream::kHavenPieces, [](const auto& response, auto& records) {
-      for (const auto& [piece, count] : response.pieces())
-        records[piece] = {{"sid", piece}, {"count", count}};
-    });
+    const auto response = Parse<pb::PlanetaryBase>(input, pb::PlanetaryBase::default_instance().GetTypeName());
+    if (!response)
+      return;
+    RecordSet records;
+    for (const auto& [piece, count] : response->pieces())
+      records[piece] = {{"sid", piece}, {"count", count}};
+    PublishHaven(Stream::kHavenPieces, std::move(records), input.generation);
   }
   void HavenBuildings(const pb::PlanetaryMapData& response, RecordSet& records)
   {
@@ -163,7 +172,14 @@ namespace
                      {"position", building.position()}};
   }
   void ProcessHavenMap(const Input& input)
-  { Read<pb::PlanetaryMapData>(input, Stream::kHaven, HavenBuildings); }
+  {
+    const auto response = Parse<pb::PlanetaryMapData>(input, pb::PlanetaryMapData::default_instance().GetTypeName());
+    if (!response)
+      return;
+    RecordSet records;
+    HavenBuildings(*response, records);
+    PublishHaven(Stream::kHaven, std::move(records), input.generation);
+  }
   void ProcessHavenResponse(const Input& input)
   {
     const auto response = Parse<pb::PlanetaryMapResponse>(input, "Haven map");
@@ -171,7 +187,7 @@ namespace
       return;
     RecordSet records;
     HavenBuildings(response->mapdata(), records);
-    Publish(Stream::kHaven, std::move(records), input.generation);
+    PublishHaven(Stream::kHaven, std::move(records), input.generation);
   }
   void ProcessHavenProsperity(const Input& input)
   {

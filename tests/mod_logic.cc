@@ -1,9 +1,11 @@
 // Settings parsing and shortcut matching, run against production code with Unity input replaced by a fake.
 #include "config.h"
 #include "features/hyperthermic_decay_state.h"
+#include "features/chat_startup.h"
 #include "features/notification_audio.h"
 #include "features/ship_shortcut_hint.h"
 #include "features/toast_text.h"
+#include "reload.h"
 #include "shortcuts.h"
 #include "text.h"
 
@@ -1013,10 +1015,52 @@ bool IsModified()
 }
 } // namespace unity::Key
 
+void ChatStartupOptions()
+{
+  toml::table effective;
+  const auto defaults = Config::Parse(toml::table{}, effective, false);
+  Check(!defaults->ui.auto_open_chat && defaults->ui.default_chat_width == 0.0f,
+        "side chat startup and sizing preserve native defaults");
+  const auto configured = Config::Parse(toml::parse("[ui]\nauto_open_chat=true\ndefault_chat_width=550"), effective, false);
+  Check(configured->ui.auto_open_chat && configured->ui.default_chat_width == 550.0f,
+        "side chat startup options parse without experimental mode");
+  for (const auto value : {"-1", "nan", "inf", "'bad'"}) {
+    const auto invalid = Config::Parse(toml::parse(std::string("[ui]\ndefault_chat_width=") + value), effective, false);
+    Check(invalid->ui.default_chat_width == 0.0f && effective["ui"]["default_chat_width"].value<float>() == 0.0f,
+          "invalid chat width keeps the native default and truthful effective value");
+  }
+  ChatStartup::Gate gate;
+  Check(!gate.Tick(false, false, 0) && !gate.Tick(true, false, 1) && !gate.Tick(true, false, 3.9),
+        "side chat waits for readiness to settle");
+  Check(!gate.Tick(false, false, 4) && !gate.Tick(true, false, 5) && !gate.Tick(true, false, 7.9)
+            && gate.Tick(true, false, 8),
+        "an interrupted readiness window starts the full delay again");
+  Check(!gate.Tick(true, false, 20), "manually closing side chat never reopens it in the same login");
+  gate = {};
+  Check(!gate.Tick(true, true, 21) && !gate.Tick(true, false, 30),
+        "already-open chat completes the once-per-login action");
+  gate = {};
+  Check(!gate.Tick(true, false, 40) && gate.Tick(true, false, 43), "a new login starts a fresh readiness window");
+
+  reload::Gate reload;
+  Check(!reload.Tick(true, 0), "ordinary frames never request a reload resume");
+  reload.Begin();
+  Check(reload.suspended && !reload.Tick(false, 10) && !reload.Tick(true, 11) && !reload.Tick(true, 13.9),
+        "reload keeps mod work paused until the native game is ready for three seconds");
+  Check(!reload.Tick(false, 14) && !reload.Tick(true, 15) && reload.Tick(true, 18) && !reload.suspended,
+        "readiness loss restarts reload settling and resumes once");
+  Check(!reload.Tick(true, 30), "an already-resumed reload never resumes twice");
+  reload.Begin();
+  Check(!reload.Tick(true, 40), "a second reload starts a fresh settling period");
+  reload.Begin();
+  Check(!reload.Tick(true, 42) && reload.Tick(true, 45), "a nested teardown restarts readiness sampling");
+}
+
 int main()
 {
   ShipHints();
   HyperthermicDecay();
+  ChatStartupOptions();
   StringHelpers();
   Timestamps();
   ToastText();

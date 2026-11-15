@@ -447,6 +447,8 @@ struct SetCourseWidget : unity::Behaviour {
 
   VisibilityController* visibilityController()
   { return Field<"_visibilityController", VisibilityController*>(); }
+  SemaphoreButtonListener* joinWaveDefenseButton()
+  { return Field<"_joinWaveDefenseButton", SemaphoreButtonListener*>(); }
 };
 
 struct MissionLocationWidget : Widget<NavigationInteractionUIContext> {
@@ -479,6 +481,17 @@ struct NavigationInteractionUIViewController : il2cpp::Object {
     return available
                ? il2cpp::CallResult<FleetNavigationHelper*>{true, Field<"_fleetNavHelper", FleetNavigationHelper*>()}
                : il2cpp::CallResult<FleetNavigationHelper*>{};
+  }
+  // Presses the set-course widget's wave defense join button when it is listening. Button.Press keeps Unity's
+  // active and interactable checks and the game's own join callback.
+  bool TryPressJoinWaveDefense()
+  {
+    auto* widget   = IsSetCourseVisible() ? Field<"_setCourseWidget", SetCourseWidget*>() : nullptr;
+    auto* listener = widget ? widget->joinWaveDefenseButton() : nullptr;
+    if (!listener || !unity::ActiveAndEnabled(listener))
+      return false;
+    listener->Press();
+    return true;
   }
 };
 inline il2cpp::CallResult<NavigationInteractionUIViewController*> NavigationManager::TryInteractionController()
