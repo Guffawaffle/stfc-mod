@@ -78,6 +78,17 @@ void ChatPointerRewardPrimary(Il2CppObject*, const MethodInfo*)
 
 void ChatPointerCases()
 {
+  // Full fleet dispatch requires a live navigation section, even when a rewards-screen shortcut does not.
+  auto& hub = Define("Digit.Client.Core", "Hub", IL2CPP_TYPE_CLASS, &object_class);
+  auto& sections = Define("Digit.Client.Sections", "SectionManager", IL2CPP_TYPE_CLASS, &object_class);
+  auto& get_sections = AddMethod(hub, "get_SectionManager", reinterpret_cast<void*>(&CameraNativeSections), T(sections),
+                                 {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(hub, "SectionManager", &get_sections);
+  auto& get_section = AddMethod(sections, "get_CurrentSection", reinterpret_cast<void*>(&CameraNativeSection),
+                                T(int_class), {});
+  AddProperty(sections, "CurrentSection", &get_section);
+  camera_native_sections.klass = &sections.klass;
+  camera_native_section = SectionID::Navigation_System;
   auto& vector2  = Define("UnityEngine", "Vector2", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(unity::Vector2));
   auto& raycasts = Define("Digit.Client.UI", "RaycastExtensions", IL2CPP_TYPE_CLASS, &object_class);
   auto& raycast  = Define("UnityEngine.EventSystems", "RaycastResult", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(void*));
