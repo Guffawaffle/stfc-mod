@@ -765,133 +765,11 @@ TKTouch* TKTouch_populateWithPosition_Hook(auto original, TKTouch* _this, uintpt
 }
 
 // --- Station interior zoom ---
-//
-// The interior view blends from a fixed close frame out to an orbit pinned at one radius, so its far stop is that
-// orbit's radius. Widening the orbit's [min, max] lets the zoom go further. The same orbit is the exterior station
-// camera, so it is widened only inside the interior and put back everywhere else.
-
-struct InteriorRadiusRange {
-  float min, max;
-  bool  operator==(const InteriorRadiusRange&) const = default;
-};
-struct InteriorRadiusEntry {
-  il2cpp::GcHandle    provider, constraint, radius;
-  InteriorRadiusRange native, applied;
-  bool                owns_write = false;
-};
-// Weak identities distinguish reused addresses and replaced constraints. The process-lifetime owner avoids
-// releasing handles after IL2CPP teardown. As in the frozen implementation, admit at most 16 live owners.
-auto&            native_interior_radius  = *new std::unordered_map<OrbitFrameProvider*, InteriorRadiusEntry>;
-constexpr size_t kInteriorProviderLimit  = 16;
-bool             interior_zoom_installed = false;
-
-InteriorRadiusRange ReadInteriorRadius(FloatConstraint* radius)
-{ return {radius->min(), radius->max()}; }
-
-void WriteInteriorRadius(FloatConstraint* radius, InteriorRadiusRange range)
-{
-  radius->SetMin(range.min);
-  radius->SetMax(range.max);
-}
-
-void RestoreInteriorRadius(InteriorRadiusEntry& entry)
-{
-  if (!entry.owns_write)
-    return;
-  auto radius = il2cpp::GcHandle::Strong(entry.radius.Get());
-  // A later native/other-feature write supersedes ours; never restore over it.
-  if (radius && ReadInteriorRadius(radius.Get<FloatConstraint>()) == entry.applied)
-    WriteInteriorRadius(radius.Get<FloatConstraint>(), entry.native);
-}
-
-void PruneInteriorRadii()
-{
-  static auto next = std::chrono::steady_clock::time_point{};
-  const auto  now  = std::chrono::steady_clock::now();
-  if (now < next)
-    return;
-  next = now + std::chrono::seconds(1);
-  for (auto it = native_interior_radius.begin(); it != native_interior_radius.end();) {
-    auto& entry = it->second;
-    if (!entry.provider.Get() || !entry.constraint.Get() || !entry.radius.Get()) {
-      RestoreInteriorRadius(entry);
-      it = native_interior_radius.erase(it);
-    } else {
-      ++it;
-    }
-  }
-}
-
-void ApplyInteriorRadius(OrbitFrameProvider* provider)
-{
-  if (!interior_zoom_installed)
-    return;
-  PruneInteriorRadii();
-  auto*      sections = Hub::Sections();
-  const bool interior = sections && sections->CurrentSection() == SectionID::Starbase_Interior;
-  const auto scale    = Config::Get().graphics.interior_zoom_scale;
-  if (!interior || !std::isfinite(scale) || scale <= 1.0f) {
-    // Exit/disable restores even retired providers which no longer receive callbacks.
-    for (auto& [_, entry] : native_interior_radius)
-      RestoreInteriorRadius(entry);
-    native_interior_radius.clear();
-    return;
-  }
-
-  auto provider_owner = il2cpp::GcHandle::Strong(provider);
-  if (!provider_owner)
-    return;
-  auto* constraint       = provider->constraint();
-  auto  constraint_owner = il2cpp::GcHandle::Strong(constraint);
-  auto* radius           = constraint_owner ? constraint->radius() : nullptr;
-  auto  radius_owner     = il2cpp::GcHandle::Strong(radius);
-  auto  cached           = native_interior_radius.find(provider);
-  if (cached != native_interior_radius.end()
-      && (cached->second.provider.Get() != provider || cached->second.constraint.Get() != constraint
-          || cached->second.radius.Get() != radius)) {
-    RestoreInteriorRadius(cached->second);
-    native_interior_radius.erase(cached);
-    cached = native_interior_radius.end();
-  }
-  if (!radius_owner)
-    return;
-
-  auto it = cached;
-  if (it == native_interior_radius.end()) {
-    // Different providers can alias one FloatData; its already widened range is never a new baseline.
-    it = std::ranges::find_if(native_interior_radius,
-                              [radius](const auto& item) { return item.second.radius.Get() == radius; });
-  }
-  if (it == native_interior_radius.end()) {
-    if (native_interior_radius.size() >= kInteriorProviderLimit)
-      return;
-    const auto          native = ReadInteriorRadius(radius);
-    InteriorRadiusEntry entry{il2cpp::GcHandle::Weak(provider), il2cpp::GcHandle::Weak(constraint),
-                              il2cpp::GcHandle::Weak(radius), native, native};
-    if (!entry.provider.Get() || !entry.constraint.Get() || !entry.radius.Get())
-      return;
-    it = native_interior_radius.emplace(provider, std::move(entry)).first;
-  }
-  auto&      entry    = it->second;
-  const auto observed = ReadInteriorRadius(radius);
-  if (observed != entry.applied)
-    entry.native = observed;
-  const InteriorRadiusRange widened{entry.native.min * scale, entry.native.max * scale};
-  if (!std::isfinite(widened.min) || !std::isfinite(widened.max)) {
-    RestoreInteriorRadius(entry);
-    native_interior_radius.erase(it);
-    return;
-  }
-  if (observed != widened)
-    WriteInteriorRadius(radius, widened);
-  entry.applied    = widened;
-  entry.owns_write = widened != entry.native;
-}
+// The shared blend callback extends only the rendered output; native endpoints and constraints stay intact.
+bool interior_zoom_installed = false;
 
 void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider* _this, unity::Camera* primary_camera)
 {
-  ApplyInteriorRadius(_this);
-  // The game clamps the camera against the widened or restored range.
   original(_this, primary_camera);
   haven_orbit::ApplyConstraints(_this);
 }
@@ -952,14 +830,13 @@ bool InstallScrollZoomGuard()
 
 bool InstallInteriorZoom()
 {
-  if (!OrbitFrameProvider::ConstraintRadiusFieldsAvailable()) {
-    spdlog::warn("[InteriorZoom] orbit radius fields unavailable; native behavior retained");
-    return false;
-  }
-  interior_zoom_installed = EnsureOrbitConstraints();
+  interior_zoom_installed = EnsureCameraBlendZoom();
   return interior_zoom_installed;
 }
 } // namespace
+
+bool InteriorZoomInstalled()
+{ return interior_zoom_installed; }
 
 float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed)
 {
