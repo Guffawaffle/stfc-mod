@@ -88,10 +88,7 @@ jobs:
       - name: Build runtime, helper and Profiles launcher
         run: |
           zig build install launcher -Dprofiles=true -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast \
-            "-Dstfc_source_state_id=git:${{ github.sha }}" \
-            "-Dstfc_base_commit=${{ env.UPSTREAM_BASE }}" \
-            "-Dstfc_build_invocation_id=github:${{ github.run_id }}:${{ github.run_attempt }}:${{ matrix.arch }}" \
-            -Dstfc_build_channel=ci --summary all
+            --summary all
       - name: Verify portable linkage
         run: |
           scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \
