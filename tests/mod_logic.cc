@@ -325,6 +325,52 @@ void AbilityRecoveryPatch()
     }
 }
 
+void MiningPreviewControls()
+{
+  toml::table effective;
+  Check(Config::Parse({}, effective, false)->ui.mining_preview_cargo_first,
+        "mining preview defaults to cargo before ship");
+  for (bool automatic : {false, true})
+    for (bool players : {false, true})
+      for (bool cargo_first : {false, true}) {
+        const auto config = Config::Parse(toml::table{{"ui", toml::table{{"show_cargo_default", automatic},
+                                                                         {"show_player_cargo", players},
+                                                                         {"mining_preview_cargo_first", cargo_first}}}},
+                                          effective, false);
+        Check(config->ui.mining_preview_cargo_first == cargo_first,
+              "mining first card parses independently of general/player cargo settings");
+      }
+  Load("[shortcuts]\ncycle_mining_preview='CMD-F8'\naction_view='V'\n");
+  Hold({unity::KeyCode::LeftCommand, unity::KeyCode::F8});
+  Check(Shortcut::IsDown(Action::kCycleMiningPreview) && !Shortcut::IsDown(Action::kActionView),
+        "mining cycle accepts a Mac Command binding independently of target details");
+  Hold({});
+  Load("[shortcuts]\ncycle_mining_preview=''\naction_view='V'\n");
+  Hold({unity::KeyCode::V});
+  Check(!Shortcut::HasBinding(Action::kCycleMiningPreview) && Shortcut::IsDown(Action::kActionView),
+        "unbinding mining cycle leaves generic target details bound");
+  Hold({});
+  auto inherited = Load("[shortcuts]\naction_view='cmd-f8|Mouse4'\n");
+  Check(Shortcut::Describe(Action::kCycleMiningPreview) == "CMD-F8 | MOUSE4"
+            && Value(inherited, "shortcuts", "cycle_mining_preview") == "CMD-F8 | MOUSE4"
+            && Value(inherited, "shortcuts_source", "cycle_mining_preview") == "inherited:action_view",
+        "an absent mining binding preserves legacy alternatives and records their canonical source");
+  for (const auto* disabled : {"", "NONE"}) {
+    inherited = Load(std::string("[shortcuts]\naction_view='") + disabled + "'\n");
+    Check(!Shortcut::HasBinding(Action::kCycleMiningPreview)
+              && Value(inherited, "shortcuts", "cycle_mining_preview") == "NONE",
+          "a deliberately disabled legacy view binding keeps mining cycling disabled");
+    inherited = Load(std::string("[shortcuts]\naction_view='CMD-F8'\ncycle_mining_preview='") + disabled + "'\n");
+    Check(!Shortcut::HasBinding(Action::kCycleMiningPreview) && Shortcut::Describe(Action::kActionView) == "CMD-F8"
+              && Value(inherited, "shortcuts_source", "cycle_mining_preview") == "config",
+          "an explicit disabled mining binding wins over a custom legacy view binding");
+  }
+  inherited = Load("[shortcuts]\naction_view='CMD-F8'\ncycle_mining_preview='F7'\n");
+  Check(Shortcut::Describe(Action::kCycleMiningPreview) == "F7" && Shortcut::Describe(Action::kActionView) == "CMD-F8"
+            && Value(inherited, "shortcuts_source", "cycle_mining_preview") == "config",
+        "an explicit mining shortcut overrides inheritance without changing the legacy action");
+}
+
 void LoadingArtworkPolicy()
 {
   for (bool transition : {false, true})
@@ -1072,6 +1118,7 @@ int main()
   DefaultBindings();
   Loading();
   AbilityRecoveryPatch();
+  MiningPreviewControls();
   LoadingArtworkPolicy();
   ExampleSettings();
   NotificationAudio();

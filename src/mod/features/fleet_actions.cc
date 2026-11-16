@@ -1161,7 +1161,11 @@ void ToggleTargetCargo()
 // reads cannot become a station or hostile classification merely because an unavailable value defaults to null.
 bool ShowsCargoByDefault(RewardsButtonWidget* widget)
 {
-  if (!widget || !Config::Get().ui.show_cargo_default || mining_preview::SuppressAutomaticCargo(widget))
+  if (!widget)
+    return false;
+  if (const auto mining = mining_preview::AutomaticCargo(widget))
+    return *mining;
+  if (!Config::Get().ui.show_cargo_default)
     return false;
   auto owner  = WarpRoot(widget);
   auto target = owner ? WarpRoot(owner.Get<RewardsButtonWidget>()->TryCall<"get_Context", BattleTargetData*>())
@@ -1679,12 +1683,12 @@ bool FleetActionShortcuts()
   if (pressed.Any() && Hub::IsInSystemOrGalaxyOrStarbase() && !Hub::IsInChat())
     ActOnSelectedFleet(pressed, replayed ? &*replayed : nullptr);
 
-  if (Shortcut::IsDown(Action::kActionView)) {
-    if (mining_preview::Cycle())
-      CancelTargetCargo();
-    else
-      ToggleTargetCargo();
-  }
+  // Shared defaults preserve V/middle-click, but one press advances only one card.
+  const bool mining_cycled = Shortcut::IsDown(Action::kCycleMiningPreview) && mining_preview::Cycle();
+  if (mining_cycled)
+    CancelTargetCargo();
+  else if (Shortcut::IsDown(Action::kActionView))
+    ToggleTargetCargo();
   if (!pending_target_cargo.empty())
     ShowPendingTargetCargo();
   return false;

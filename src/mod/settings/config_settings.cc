@@ -547,6 +547,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("previews", ui, show_cargo_default, "Automatically open cargo", hotkeys, Live,
        "Automatically expand supported preview cargo.");
   BOOL("previews", ui, show_player_cargo, "Player cargo", hotkeys, Live, "Automatically show cargo for player fleets.");
+  BOOL("previews", ui, mining_preview_cargo_first, "Mining node: cargo before ship", Owner("MiningPreview"), ReopenView,
+       "Cycle an occupied node to cargo, then ship, then node. Off opens ship before cargo. Independent of automatic "
+       "player cargo; reopen the node to apply. Bind Cycle mining node / ship / cargo in Shortcuts.");
   BOOL("previews", ui, show_station_cargo, "Station cargo", hotkeys, Live, "Automatically show cargo for stations.");
   BOOL("previews", ui, show_hostile_cargo, "Hostile cargo", hotkeys, Live, "Automatically show cargo for hostiles.");
   BOOL("previews", ui, show_armada_cargo, "Armada cargo", hotkeys, Live,

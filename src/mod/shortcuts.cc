@@ -489,6 +489,13 @@ Bindings Parse(const toml::table& config, toml::table& parsed, bool extended, bo
       continue;
     BindSetting(shortcuts, effective, sources, setting, result[std::to_underlying(setting.action)]);
   }
+  // Mining cycling previously shared action_view. Keep an existing custom (or disabled) binding until the
+  // player explicitly sets the new independent action; key presence, including an empty string, wins.
+  if (shortcuts && !shortcuts->contains("cycle_mining_preview") && shortcuts->contains("action_view")) {
+    result[std::to_underlying(Action::kCycleMiningPreview)] = result[std::to_underlying(Action::kActionView)];
+    effective.insert_or_assign("cycle_mining_preview", effective["action_view"].value_or(std::string("NONE")));
+    sources.insert_or_assign("cycle_mining_preview", "inherited:action_view");
+  }
   return result;
 }
 

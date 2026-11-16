@@ -345,6 +345,10 @@ public:
     bool show_hostile_cargo    = true;
     bool show_armada_cargo     = true;
     bool instant_cargo_counter = true;
+
+    // Occupied mining-node cycle: node -> cargo -> ship -> node, or ship before cargo when false.
+    bool mining_preview_cargo_first = true;
+
     // Decimal places in abbreviated cargo values such as 1.25M.
     int cargo_significant_decimals = 2;
 

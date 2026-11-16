@@ -593,8 +593,12 @@ action_queue_clear = "CTRL-C"
 # TAB or Mouse4
 action_secondary = "TAB|MOUSE4"
 
-# V or Mouse2
+# Toggle details/cargo for ordinary targets: V or middle mouse
 action_view = "V|MOUSE2"
+
+# Occupied mining node -> first occupant card -> other occupant card -> same node.
+# Bind a keyboard key or another mouse button if middle-click is unavailable.
+cycle_mining_preview = "V|MOUSE2"
 
 # Requires Kir'Shara artifact
 toggle_queue = "CTRL-Q"
@@ -1044,6 +1048,11 @@ show_hostile_cargo = true
 
 # Set to true to always show the rewards for selected ships/stations
 show_player_cargo = true
+
+# Occupied mining-node cycle starts with cargo, then ship, then the original node.
+# False starts with ship, then cargo, then node. Independent of show_cargo_default
+# and show_player_cargo; reopen the mining node after changing this preference.
+mining_preview_cargo_first = true
 
 # Set to true to always show the rewards for selected ships/stations
 show_station_cargo = true

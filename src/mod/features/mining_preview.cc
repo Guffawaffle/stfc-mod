@@ -1,5 +1,5 @@
-// ActionView cycles an occupied mining node through its foreign occupant and
-// cargo, then returns to the same node. It owns no independent shortcut path.
+// The configured mining-preview action cycles an occupied node through its
+// foreign occupant and cargo, then returns to the same node.
 #include "features/mining_preview.h"
 #include "config.h"
 #include "features/features.h"
@@ -113,7 +113,7 @@ bool MiningBegin()
     session.node            = observed.id;
     session.type            = observed.type;
     session.fleet           = id.value;
-    session.cargo_first     = Config::Get().ui.show_cargo_default && Config::Get().ui.show_player_cargo;
+    session.cargo_first     = Config::Get().ui.mining_preview_cargo_first;
     session.cargo_requested = session.cargo_first;
     session.polling.Start(Clock::now());
     // Native occupant ship POI code used by play; node type is retained exactly.
@@ -209,19 +209,26 @@ bool mining_preview::Cycle()
   }
 }
 
-bool mining_preview::SuppressAutomaticCargo(RewardsButtonWidget* widget)
+std::optional<bool> mining_preview::AutomaticCargo(RewardsButtonWidget* widget)
 {
   auto& session = MiningSession();
-  if (!session.context || !session.context.Get() || !MiningSystemMap() || session.cargo_requested || !widget)
-    return false;
-  const auto  context = widget->TryCall<"get_Context", BattleTargetData*>();
-  auto        data    = context ? il2cpp::GcHandle::Strong(context.value) : il2cpp::GcHandle{};
-  const auto& a       = binding::Native();
-  auto        fleet   = data ? il2cpp::GcHandle::Strong(binding::Read<FleetDeployedData*>(data.Get(), a.target_fleet))
-                             : il2cpp::GcHandle{};
-  const auto  id      = fleet ? planned_warp_binding::Scalar<"get_ID", int64_t>(fleet.Get<FleetDeployedData>())
-                              : il2cpp::CallResult<int64_t>{};
-  return id && id.value == session.fleet;
+  if (!session.context || !MiningSystemMap() || !widget)
+    return {};
+  auto navigation = il2cpp::GcHandle::Strong(session.context.Get());
+  if (!navigation)
+    return {};
+  const auto  fleet_id  = session.fleet;
+  const bool  requested = session.cargo_requested;
+  const auto  context   = widget->TryCall<"get_Context", BattleTargetData*>();
+  auto        data      = context ? il2cpp::GcHandle::Strong(context.value) : il2cpp::GcHandle{};
+  const auto& a         = binding::Native();
+  auto        fleet     = data ? il2cpp::GcHandle::Strong(binding::Read<FleetDeployedData*>(data.Get(), a.target_fleet))
+                               : il2cpp::GcHandle{};
+  const auto  id        = fleet ? planned_warp_binding::Scalar<"get_ID", int64_t>(fleet.Get<FleetDeployedData>())
+                                : il2cpp::CallResult<int64_t>{};
+  if (session.context.Get() != navigation.Get() || session.fleet != fleet_id || session.cargo_requested != requested)
+    return {};
+  return id && id.value == fleet_id ? std::optional(requested) : std::nullopt;
 }
 
 const Feature kMiningPreview{"MiningPreview", &Config::Patches::hotkeyhooks, InstallMiningPreview, MiningPreviewFrame};
