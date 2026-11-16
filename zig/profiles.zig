@@ -5,7 +5,7 @@ const builtin = @import("builtin");
 const Ctx = @import("ctx.zig").Ctx;
 const Lib = @import("ctx.zig").Lib;
 
-pub const revision = "1cd7a9ccdba5df872b95b9342c0eb8ef8a7cb6eb";
+pub const revision = "5515386d40bd543f74cc5e90b5c8dff19a77362d";
 
 pub const Component = struct {
     source: std.Build.LazyPath,

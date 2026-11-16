@@ -31,7 +31,9 @@ mod checkout. Builds explicitly select `aai-host`, `aai-ui-lab`, `profiles` and 
 patch toggles; dirty-source overrides and automatic local source discovery are
 not used. Neither private sources nor build caches are uploaded as artifacts.
 
-Profiles is pinned at `1cd7a9ccdba5df872b95b9342c0eb8ef8a7cb6eb`. The Mac launcher
+Profiles is pinned at `5515386d40bd543f74cc5e90b5c8dff19a77362d`. This revision binds Mac
+runtime APIs to the loaded game library, avoiding collisions with the mod's API pointer
+variables. The Mac launcher
 includes **Profiles…** and its matching browser helper. Each package records this pin
 alongside the AAI pin. Mac account/browser isolation still requires actual player testing.
 

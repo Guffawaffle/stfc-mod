@@ -6,8 +6,8 @@
     .dependencies = .{
         .stfc_profiles = .{
             .lazy = true,
-            .url = "https://github.com/Guffawaffle/stfc-profiles/archive/1cd7a9ccdba5df872b95b9342c0eb8ef8a7cb6eb.tar.gz",
-            .hash = "N-V-__8AACXiCgDTi5ZlENqIFDNoejTPltT6aMgoJjiwRbEo",
+            .url = "https://github.com/Guffawaffle/stfc-profiles/archive/5515386d40bd543f74cc5e90b5c8dff19a77362d.tar.gz",
+            .hash = "N-V-__8AAHUMCwCoYHo9p_BFyg3D_SPCPS6ICCrKMowwHu0x",
         },
         .profiles_xmake_recipes = .{
             .lazy = true,

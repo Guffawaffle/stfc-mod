@@ -18,7 +18,7 @@ vendor source is modified. The standalone TOML producer retains the owning
 repository's license and its component third-party notices.
 
 `-Dprofiles=true` enables GPL-3.0 Profiles source at
-`1cd7a9ccdba5df872b95b9342c0eb8ef8a7cb6eb`, pinned by URL and Zig content hash.
+`5515386d40bd543f74cc5e90b5c8dff19a77362d`, pinned by URL and Zig content hash.
 It links the downstream isolation adapter into the existing bootstrap and installs the matching CLI.
 The Mac launcher links a separate catalog/C API archive against the SDK's libc++ headers.
 The Profiles standalone bootstrap and vendored SPUD are not built.
