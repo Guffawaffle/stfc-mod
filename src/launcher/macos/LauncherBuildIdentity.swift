@@ -1,7 +1,27 @@
 // The bundle supplies the exact player-facing version and channel selected before signing.
+import AppKit
 import Foundation
 
 enum LauncherBuildIdentity {
+  static let channelLabel: String = {
+    switch Bundle.main.object(forInfoDictionaryKey: "STFCBuildChannel") as? String {
+    case "release": return "Release"
+    case "pre": return "Pre"
+    case "dev": return "DEV"
+    case "ci": return "CI"
+    default: return "Local"
+    }
+  }()
+
+  @MainActor static func showAbout() {
+    NSApplication.shared.orderFrontStandardAboutPanel(options: [
+      .applicationVersion: displayVersion,
+      .version: "",
+      .credits: NSAttributedString(
+        string: "An independent fork of the STFC Community Mod.\nWith thanks to the upstream project and its contributors."),
+    ])
+  }
+
   static let displayVersion: String = {
     if let value = Bundle.main.object(forInfoDictionaryKey: "STFCDisplayVersion") as? String,
       !value.isEmpty

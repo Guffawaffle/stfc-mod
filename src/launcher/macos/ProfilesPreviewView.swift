@@ -6,14 +6,14 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct LaunchProfile: Decodable, Identifiable, Sendable {
+struct LaunchProfile: Decodable, Identifiable, Sendable {
   let id: String
   let name: String
   let kind: String
   let directory: String
 }
 
-private struct ProfileReply: Decodable, Sendable {
+struct ProfileReply: Decodable, Sendable {
   struct Problem: Decodable, Sendable { let message: String }
   let ok: Bool
   let error: Problem?
@@ -24,7 +24,7 @@ private struct ProfileReply: Decodable, Sendable {
   let readiness: String?
 }
 
-private enum ProfileCoordinator {
+enum ProfileCoordinator {
   static var directory: URL { Bundle.main.bundleURL.appendingPathComponent("Contents", isDirectory: true) }
 
   static func failure(_ message: String) -> NSError {
@@ -77,6 +77,38 @@ private enum ProfileCoordinator {
       }
     }
   }
+
+  static func isGameApp(_ app: URL) -> Bool {
+    FileManager.default.isExecutableFile(atPath: app.appendingPathComponent("Contents/MacOS/Star Trek Fleet Command").path)
+  }
+
+  static func installedGameApp() -> URL? {
+    guard let install = try? XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath() else { return nil }
+    let app = URL(fileURLWithPath: install)
+      .appendingPathComponent("Star Trek Fleet Command.app", isDirectory: true)
+      .resolvingSymlinksInPath().standardizedFileURL
+    return isGameApp(app) ? app : nil
+  }
+
+  // Both launcher entry points use the same exact game selection, bundled runtime and isolation handshake.
+  // The coordinator owns the installation reservation through the launched session; the UI does not acquire one.
+  static func launch(profile: LaunchProfile, gameApp: URL) async throws -> ProfileReply {
+    let runtime = directory.appendingPathComponent("libstfc-community-mod.dylib")
+    guard FileManager.default.fileExists(atPath: runtime.path),
+      FileManager.default.isExecutableFile(atPath: directory.appendingPathComponent("stfc-profiles").path)
+    else {
+      throw failure("The profiles helper or runtime is missing. Install the complete Profiles preview app.")
+    }
+    try await prepareGame(gameApp)
+    let gameDirectory = gameApp.appendingPathComponent("Contents/MacOS", isDirectory: true)
+    let reply = try await call([
+      "launch", "--profile", profile.id, "--game", gameDirectory.path, "--runtime", runtime.path,
+    ])
+    guard reply.readiness == "ready", let pid = reply.processId, pid > 0 else {
+      throw failure("The game did not confirm profile isolation. Check whether it is still running before retrying.")
+    }
+    return reply
+  }
 }
 
 struct ProfilesPreviewView: View {
@@ -109,10 +141,7 @@ struct ProfilesPreviewView: View {
     .disabled(busy)
     .interactiveDismissDisabled(busy)
     .task {
-      if let install = try? XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath() {
-        let app = URL(fileURLWithPath: install).appendingPathComponent("Star Trek Fleet Command.app", isDirectory: true)
-        if isGameApp(app) { gameApp = app }
-      }
+      gameApp = ProfileCoordinator.installedGameApp()
       await refresh()
     }
   }
@@ -148,7 +177,7 @@ struct ProfilesPreviewView: View {
           Task { await refresh() }
         }
       }
-      Text("Use Engage in the launcher for ordinary play. Profile sign-in needs Chrome or Edge in Applications. Quit a profile's game and sign-in browser before opening it again.")
+      Text("Use Launch game with Ordinary game selected in the launcher for ordinary play. Profile sign-in needs Chrome or Edge in Applications. Quit a profile's game and sign-in browser before opening it again.")
         .font(.caption).foregroundStyle(.secondary)
       if busy { ProgressView().controlSize(.small) }
       if !status.isEmpty { Text(status).textSelection(.enabled) }
@@ -190,10 +219,6 @@ struct ProfilesPreviewView: View {
     }
   }
 
-  private func isGameApp(_ app: URL) -> Bool {
-    FileManager.default.isExecutableFile(atPath: app.appendingPathComponent("Contents/MacOS/Star Trek Fleet Command").path)
-  }
-
   private func chooseGame() {
     let panel = NSOpenPanel()
     panel.title = "Choose Star Trek Fleet Command.app"
@@ -202,7 +227,7 @@ struct ProfilesPreviewView: View {
     panel.allowsMultipleSelection = false
     panel.allowedContentTypes = [.applicationBundle]
     guard panel.runModal() == .OK, let app = panel.url else { return }
-    guard isGameApp(app) else {
+    guard ProfileCoordinator.isGameApp(app) else {
       problem = "Choose Star Trek Fleet Command.app containing the game executable."
       return
     }
@@ -212,25 +237,16 @@ struct ProfilesPreviewView: View {
   }
 
   private func launchProfile() {
-    guard let profile = selected, let app = gameApp, let directory = gameDirectory, !busy else { return }
+    guard let profile = selected, let app = gameApp, !busy else { return }
     busy = true
     problem = ""
     status = "Waiting for \(profile.name) to start…"
     Task { @MainActor in
       defer { busy = false }
       do {
-        let runtime = ProfileCoordinator.directory.appendingPathComponent("libstfc-community-mod.dylib")
-        guard FileManager.default.fileExists(atPath: runtime.path),
-          FileManager.default.isExecutableFile(atPath: ProfileCoordinator.directory.appendingPathComponent("stfc-profiles").path)
-        else {
-          throw ProfileCoordinator.failure("The profiles helper or runtime is missing. Install the complete Profiles preview app.")
-        }
-        try await ProfileCoordinator.prepareGame(app)
-        let reply = try await ProfileCoordinator.call([
-          "launch", "--profile", profile.id, "--game", directory.path, "--runtime", runtime.path,
-        ])
-        guard reply.readiness == "ready", let pid = reply.processId, pid > 0 else {
-          throw ProfileCoordinator.failure("The game did not confirm profile isolation. Check whether it is still running before retrying.")
+        let reply = try await ProfileCoordinator.launch(profile: profile, gameApp: app)
+        guard let pid = reply.processId else {
+          throw ProfileCoordinator.failure("The game did not return its process ID.")
         }
         status = "\(profile.name) is ready (PID \(pid)). Sign in to the account you want in its browser window."
       } catch {

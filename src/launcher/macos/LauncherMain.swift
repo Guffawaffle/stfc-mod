@@ -17,19 +17,16 @@ struct STFC_Community_Patch_LauncherApp: App {
   #endif
 
   var body: some Scene {
-    WindowGroup {
+    WindowGroup("STFC Mod") {
       ContentView()
-        .frame(width: 600, height: 400)
+        .frame(width: 560, height: 520)
         .fixedSize()
     }
     .windowResizability(.contentSize)
     .commands {
       CommandGroup(replacing: .appInfo) {
         Button("About STFC Community Mod") {
-          NSApplication.shared.orderFrontStandardAboutPanel(options: [
-            .applicationVersion: LauncherBuildIdentity.displayVersion,
-            .version: "",
-          ])
+          LauncherBuildIdentity.showAbout()
         }
       }
       CommandGroup(after: .sidebar) {

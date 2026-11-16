@@ -1,4 +1,4 @@
-// The launcher's buttons: configure the mod, update the game, and launch it through the mod's loader.
+// Launch controls use the existing loader, updater and optional profile coordinator.
 
 import AppKit
 import SwiftUI
@@ -7,6 +7,13 @@ import os
 private let logger = Logger(subsystem: "com.stfcmod.startrekpatch", category: "launcher")
 
 struct ActionView: View {
+  #if PROFILES_PREVIEW
+  @Binding var showingProfiles: Bool
+  @State private var profiles: [LaunchProfile] = []
+  @State private var selectedProfileID: String?
+  @State private var profileLaunching = false
+  @State private var profileListProblem = ""
+  #endif
   private let gameUpdater = XsollaUpdater(gameName: "Star Trek Fleet Command")
   @State private var gameVersion = 0
   @State private var gameUpdateAvailable = false
@@ -17,103 +24,239 @@ struct ActionView: View {
   @State private var gameRunning = false
   @State private var showErrorAlert = false
   @State private var errorMessage = ""
+  @State private var launchStatus = ""
 
   var body: some View {
-    GeometryReader { geo in
-      Grid(horizontalSpacing: 8) {
-        GridRow {
-          lcarsButton("Configure\nMod", color: .lcarViolet, action: openConfigSite)
-          lcarsButton("Open TOML", color: .lcarViolet, action: openConfigFile)
-            .help("Open community_patch_settings.toml in your associated app or TextEdit")
+    VStack(spacing: 0) {
+      HStack {
+        Text("QUICK LAUNCH").font(.system(size: 11, weight: .semibold)).tracking(1)
+          .foregroundStyle(.secondary)
+        Spacer()
+        HStack(spacing: 5) {
+          Circle().frame(width: 5, height: 5)
+          Text(LauncherBuildIdentity.channelLabel).font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(LauncherPalette.channel)
+        .padding(.horizontal, 8).padding(.vertical, 6)
+        .background(LauncherPalette.channel.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+      }
+      .padding(.horizontal, 24).padding(.top, 16)
 
-          if gameInstalled {
-            Group {
-              lcarsButton(gameUpdateAvailable ? "Update Game!" : "", color: .lcarTan) {
-                guard gameUpdateAvailable, !updating else { return }
-                // Set before the task starts, so a second click cannot start a second update.
-                updating = true
-                Task { await updateGame() }
-              }
-              lcarsButton("Engage!", color: .lcarOrange) {
-                withAnimation { launchGame() }
-              }
-            }
-            .opacity(updating || gameRunning ? 0.5 : 1.0)
-            .allowsHitTesting(!updating && !gameRunning)
-          } else {
-            Text("Game not installed")
-              .font(.lcars(size: 24))
-              .foregroundStyle(Color.lcarTan)
-              .lineLimit(1)
-              .minimumScaleFactor(0.7)
-              .frame(width: 192, height: 50)
+      Spacer(minLength: 8)
+      Image(nsImage: NSApplication.shared.applicationIconImage)
+        .resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
+        .accessibilityLabel("STFC Mod")
+      Text("STFC Mod").font(.system(size: 23, weight: .bold)).padding(.top, 6)
+      Text(launchDescription).font(.system(size: 13)).foregroundStyle(.secondary)
+        .multilineTextAlignment(.center).lineLimit(2)
+        .frame(maxWidth: 410, minHeight: 28).padding(.horizontal, 24).padding(.top, 6)
+      launchButton.padding(.top, 10)
+      utilityButtons.padding(.top, 16)
+      Spacer(minLength: 8)
+
+      if updating {
+        HStack(spacing: 8) {
+          ProgressView().controlSize(.small)
+          Text(updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)").font(.caption)
+        }
+        .padding(.horizontal, 24).padding(.bottom, 12)
+      } else if !launchStatus.isEmpty {
+        Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+          .lineLimit(2).help(launchStatus).padding(.horizontal, 24).padding(.bottom, 12)
+          .accessibilityAddTraits(.updatesFrequently)
+      }
+      Divider()
+      HStack(spacing: 20) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(LauncherBuildIdentity.displayVersion).textSelection(.enabled)
+          Text(gameInstalled ? "Game build \(gameVersion)" : "Game not installed")
+        }
+        .font(.system(size: 11)).foregroundStyle(.secondary)
+        Spacer(minLength: 0)
+        Button("About & credits") { LauncherBuildIdentity.showAbout() }
+          .buttonStyle(.link).font(.system(size: 11))
+      }
+      .padding(.horizontal, 24).padding(.vertical, 14)
+      .background(LauncherPalette.surface)
+    }
+    .background(LauncherPalette.background)
+    .task {
+      // Check installed data and available updates once a minute, never on redraw.
+      repeat {
+        gameVersion = gameUpdater.installedVersion()
+        gameInstalled = gameVersion > 0
+        gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
+        try? await Task.sleep(for: .seconds(60))
+      } while !Task.isCancelled
+    }
+    #if PROFILES_PREVIEW
+    .task { await refreshProfiles() }
+    .onChange(of: showingProfiles) { _, presented in
+      if !presented { Task { await refreshProfiles() } }
+    }
+    #endif
+    .alert("Error", isPresented: $showErrorAlert) {
+      Button("OK", role: .cancel) {}
+    } message: { Text(errorMessage) }
+  }
+
+  private var launchDescription: String {
+    #if PROFILES_PREVIEW
+    if let profile = selectedProfile { return "\(profile.name) · Separate login and settings." }
+    #endif
+    return "Your existing login and normal settings."
+  }
+
+  private var launchTitle: String {
+    #if PROFILES_PREVIEW
+    if profileLaunching { return "Launching…" }
+    if let profile = selectedProfile { return "Launch \(profile.name)" }
+    #endif
+    return gameRunning ? "Game running" : "Launch game"
+  }
+
+  private var launchDisabled: Bool {
+    if updating || !gameInstalled { return true }
+    #if PROFILES_PREVIEW
+    if profileLaunching { return true }
+    if selectedProfile != nil { return false }
+    #endif
+    return gameRunning
+  }
+
+  private var launchButton: some View {
+    HStack(spacing: 0) {
+      Button(action: launchSelected) {
+        Label(launchTitle, systemImage: "play")
+          .font(.system(size: 14, weight: .semibold)).lineLimit(1).truncationMode(.middle)
+          .frame(maxWidth: .infinity, minHeight: 48).contentShape(Rectangle())
+      }
+      .buttonStyle(.plain).disabled(launchDisabled)
+      .help(launchDescription)
+      #if PROFILES_PREVIEW
+      Rectangle().fill(LauncherPalette.onAccent.opacity(0.23)).frame(width: 1, height: 48)
+      Menu {
+        Button { selectProfile(nil) } label: {
+          if selectedProfileID == nil { Label("Ordinary game", systemImage: "checkmark") }
+          else { Text("Ordinary game") }
+        }
+        ForEach(profiles) { profile in
+          Button { selectProfile(profile.id) } label: {
+            if selectedProfileID == profile.id { Label(profile.name, systemImage: "checkmark") }
+            else { Text(profile.name) }
           }
         }
-      }
-      .frame(width: geo.size.width, height: 150)
-      .offset(x: 85, y: 20)
-      .task {
-        // The update service is polled once a minute while the launcher is open.
-        repeat {
-          gameVersion = gameUpdater.installedVersion()
-          gameInstalled = gameVersion > 0
-          gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
-          try? await Task.sleep(for: .seconds(60))
-        } while !Task.isCancelled
-      }
-      .overlay(alignment: .bottomTrailing) {
-        VStack(alignment: .trailing, spacing: 2) {
-          Text("Mod Version: \(LauncherBuildIdentity.displayVersion)")
-            .textSelection(.enabled)
-          Text("Game Version: \(String(format: "%02d", gameVersion))")
+        if !profileListProblem.isEmpty {
+          Divider()
+          Text("Profiles unavailable").disabled(true)
+          Button("Retry loading profiles") { Task { await refreshProfiles() } }
         }
-        .font(.lcars(size: 17))
-        .foregroundStyle(Color.lcarTan)
-        .offset(x: -10)
+        Divider()
+        Button("Manage profiles…") { showingProfiles = true }
+      } label: {
+        Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+          .frame(width: 36, height: 48).contentShape(Rectangle())
       }
-      .overlay(alignment: .bottomLeading) {
-        if updating {
-          HStack {
-            PulsatingView()
-            Text("\(updateAction) (\(updateSubAction))")
-              .font(.lcars(size: 17))
-              .foregroundStyle(Color.lcarTan)
-              .offset(x: -10)
-          }
-          .offset(x: 115, y: 10)
-        }
+      .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+      .accessibilityLabel("Choose launch target")
+      .help("Choose ordinary play or a profile. Selection does not launch the game.")
+      .disabled(updating || profileLaunching)
+      #endif
+    }
+    .foregroundStyle(LauncherPalette.onAccent)
+    .background(LauncherPalette.accent, in: RoundedRectangle(cornerRadius: 9))
+    .frame(width: 330)
+  }
+
+  private var utilityButtons: some View {
+    HStack(spacing: 10) {
+      #if PROFILES_PREVIEW
+      Button { showingProfiles = true } label: { Label("Profiles", systemImage: "square.3.layers.3d") }
+        .disabled(updating || profileLaunching)
+      #endif
+      Menu {
+        Button("Open web configuration", action: openConfigSite)
+        Button("Open ordinary TOML", action: openConfigFile)
+      } label: { Label("Mod settings", systemImage: "slider.horizontal.3") }
+      .help("Settings for ordinary play. Named profiles have their own configuration folders.")
+      Button(action: requestUpdate) {
+        Label(gameUpdateAvailable ? "Update game" : "Game update", systemImage: "arrow.down.to.line")
       }
-      .alert("Error", isPresented: $showErrorAlert) {
-        Button("OK", role: .cancel) {}
-      } message: {
-        Text(errorMessage)
-      }
+      .disabled(updateDisabled)
+    }
+    .font(.system(size: 12)).buttonStyle(.bordered).controlSize(.large)
+  }
+
+  private func requestUpdate() {
+    guard gameInstalled, !updating, !gameRunning else { return }
+    #if PROFILES_PREVIEW
+    guard !profileLaunching else { return }
+    #endif
+    // Claim the UI state before scheduling, including when checking for an update.
+    updating = true
+    updateAction = "Checking for updates"
+    updateSubAction = ""
+    launchStatus = ""
+    Task { @MainActor in
+      gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
+      if gameUpdateAvailable { await updateGame() }
+      else { updating = false; launchStatus = "No game update is currently reported." }
     }
   }
 
-  // A rounded LCARS button in `color`. Without text it shows random LCARS-style digits.
-  private func lcarsButton(_ text: String, color: Color, action: @escaping @MainActor () -> Void) -> some View {
-    Button(action: action) {
-      RoundedRectangle(cornerRadius: 20)
-        .frame(width: 92, height: 50)
-        .overlay(alignment: .bottomTrailing) {
-          HStack {
-            Spacer()
-            Text(text.isEmpty ? "\(randomDigits(4))-\(randomDigits(3))" : text)
-              .font(.lcars(size: 17))
-              .foregroundStyle(.black)
-              .lineLimit(text.contains("\n") ? 2 : 1)
-              .multilineTextAlignment(.trailing)
-              .minimumScaleFactor(0.7)
-          }
-          .padding(.bottom, 5)
-          .padding(.leading, 8)
-          .padding(.trailing, 12)
-        }
-        .foregroundStyle(color)
-    }
-    .buttonStyle(.plain)
+  private var updateDisabled: Bool {
+    #if PROFILES_PREVIEW
+    if profileLaunching { return true }
+    #endif
+    return updating || gameRunning || !gameInstalled
   }
+
+  private func launchSelected() {
+    guard !launchDisabled else { return }
+    launchStatus = ""
+    #if PROFILES_PREVIEW
+    if let profile = selectedProfile { launchProfile(profile); return }
+    #endif
+    launchGame()
+  }
+
+  #if PROFILES_PREVIEW
+  private var selectedProfile: LaunchProfile? { profiles.first { $0.id == selectedProfileID } }
+
+  private func selectProfile(_ id: String?) {
+    selectedProfileID = id
+    launchStatus = ""
+  }
+
+  @MainActor private func refreshProfiles() async {
+    do {
+      let reply = try await ProfileCoordinator.call(["list"])
+      guard let listed = reply.profiles else { throw ProfileCoordinator.failure("The profiles list was missing.") }
+      profiles = listed.filter { $0.kind == "isolated" }
+      profileListProblem = reply.issues?.map(\.message).joined(separator: "\n") ?? ""
+      if let id = selectedProfileID, !profiles.contains(where: { $0.id == id }) {
+        selectedProfileID = nil
+        launchStatus = "The selected profile is no longer available. Ordinary game is selected."
+      }
+    } catch { profileListProblem = error.localizedDescription }
+  }
+
+  private func launchProfile(_ profile: LaunchProfile) {
+    guard let app = ProfileCoordinator.installedGameApp() else {
+      showError("The installed game could not be found. Open Profiles to choose its game app.")
+      return
+    }
+    profileLaunching = true
+    launchStatus = "Waiting for \(profile.name) to start…"
+    Task { @MainActor in
+      defer { profileLaunching = false }
+      do {
+        _ = try await ProfileCoordinator.launch(profile: profile, gameApp: app)
+        launchStatus = "\(profile.name) started."
+      } catch { launchStatus = ""; showError(error.localizedDescription) }
+    }
+  }
+  #endif
 
   private func openConfigSite() {
     guard let configSiteURL = URL(string: "https://modconfig.pages.dev") else { return }
@@ -273,22 +416,4 @@ private func runGame() throws {
     throw LaunchError.loaderFailed(error)
   }
   process.waitUntilExit()
-}
-
-// The pulsing dot shown while an update runs.
-struct PulsatingView: View {
-  @State private var animate = false
-
-  var body: some View {
-    ZStack {
-      Circle().fill(Color.lcarTan.opacity(0.25)).frame(width: 40, height: 40).scaleEffect(animate ? 1 : 0)
-      Circle().fill(Color.lcarTan.opacity(0.35)).frame(width: 30, height: 30).scaleEffect(animate ? 1 : 0)
-      Circle().fill(Color.lcarTan.opacity(0.45)).frame(width: 15, height: 15).scaleEffect(animate ? 1 : 0)
-      Circle().fill(Color.lcarTan).frame(width: 16.25, height: 16.25)
-    }
-    .onAppear { animate = true }
-    .animation(
-      animate ? Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true) : .default,
-      value: animate)
-  }
 }
