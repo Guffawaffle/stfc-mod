@@ -3,6 +3,10 @@
 import SwiftUI
 
 struct ContentView: View {
+  #if PROFILES_PREVIEW
+  @State private var showingProfiles = false
+  #endif
+
   var body: some View {
     GeometryReader { geo in
       ZStack {
@@ -16,6 +20,16 @@ struct ContentView: View {
       }
     }
     .ignoresSafeArea()
+    #if PROFILES_PREVIEW
+    .overlay(alignment: .topTrailing) {
+      Button("Profiles…") { showingProfiles = true }
+        .buttonStyle(.bordered)
+        .tint(.lcarOrange)
+        .padding(12)
+    }
+    .focusedValue(\.profilesPresentation, $showingProfiles)
+    .sheet(isPresented: $showingProfiles) { ProfilesPreviewView() }
+    #endif
   }
 
   private var topContent: some View {

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Assembles and signs the launcher bundle from Zig install prefixes, one per architecture. Each prefix holds
-# macOSLauncher.app, bin/stfc-community-mod-loader and lib/libstfc-community-mod.dylib. With several prefixes the
+# macOSLauncher.app, bin/stfc-community-mod-loader and lib/libstfc-community-mod.dylib. Profiles previews also
+# hold bin/stfc-profiles, which must remain beside the bundled dylib for isolated browser sign-in. With several prefixes the
 # binaries are merged into universal ones; the first prefix supplies the bundle's resources.
 #
 # Usage: scripts/assemble-mac-app.sh <output .app> <prefix>...
@@ -15,6 +16,14 @@ APP="$1"
 shift
 PREFIXES=("$@")
 SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROFILES=0
+for prefix in "${PREFIXES[@]}"; do
+  if [[ -f "$prefix/bin/stfc-profiles" ]]; then PROFILES=$((PROFILES + 1)); fi
+done
+if ((PROFILES != 0 && PROFILES != ${#PREFIXES[@]})); then
+  echo "Cannot mix ordinary and Profiles-enabled launcher builds" >&2
+  exit 1
+fi
 
 # merge <path inside each prefix> <destination>
 merge() {
@@ -30,6 +39,9 @@ ditto "${PREFIXES[0]}/macOSLauncher.app" "$APP"
 merge macOSLauncher.app/Contents/MacOS/macOSLauncher "$APP/Contents/MacOS/macOSLauncher"
 merge bin/stfc-community-mod-loader "$APP/Contents/stfc-community-mod-loader"
 merge lib/libstfc-community-mod.dylib "$APP/Contents/libstfc-community-mod.dylib"
+if ((PROFILES)); then
+  merge bin/stfc-profiles "$APP/Contents/stfc-profiles"
+fi
 
 for file in Info.plist Resources/Assets.car Resources/launcher.icns MacOS/macOSLauncher \
   stfc-community-mod-loader libstfc-community-mod.dylib; do
@@ -41,6 +53,9 @@ done
 
 "$SCRIPTS/check-mac-linkage.sh" "$APP/Contents/MacOS/macOSLauncher" "$APP/Contents/stfc-community-mod-loader" \
   "$APP/Contents/libstfc-community-mod.dylib"
+if ((PROFILES)); then
+  "$SCRIPTS/check-mac-linkage.sh" "$APP/Contents/stfc-profiles"
+fi
 
 # Ad hoc: the bundle is not notarized, and the launcher re-signs the game itself when it has to.
 codesign --force --deep --sign - "$APP"

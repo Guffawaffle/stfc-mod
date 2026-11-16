@@ -305,6 +305,15 @@ struct XsollaUpdater {
     let plan = try await fetchUpdatePlan(from: installedVersion)
     let tempGamePath = withoutTrailingSeparator(try gameTempPath())
     let gamePath = withoutTrailingSeparator(try self.gamePath())
+    #if PROFILES_PREVIEW
+    let gameDirectory = URL(fileURLWithPath: gamePath, isDirectory: true)
+      .appendingPathComponent("Star Trek Fleet Command.app/Contents/MacOS", isDirectory: true)
+    let reservation = try InstallationReservation.acquire(gameDirectory: gameDirectory, forUpdate: true)
+    defer { reservation.release() }
+    guard self.installedVersion() == installedVersion else {
+      throw XsollaError.invalidUpdatePlan("The installed game changed while checking for an update. Check again.")
+    }
+    #endif
     // Patched and copied files wait here until every action has succeeded. It can hold much of the game, so it is
     // removed in the background once the update ends, whether or not it succeeded.
     let staging = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)

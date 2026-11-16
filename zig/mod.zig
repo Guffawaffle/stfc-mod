@@ -56,7 +56,7 @@ pub fn unity(ctx: *const Ctx, runtime: Lib, spud: Lib) Lib {
 
 /// The `mods` static library and the binary the game loads: version.dll on Windows, the injected dylib and its
 /// loader on macOS. `libs` is everything the mod compiles against.
-pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Build.Step, development_package: bool) void {
+pub fn add(ctx: *const Ctx, libs: []const Lib, development_package: bool) void {
     const b = ctx.b;
     const flags = ctx.cxxFlags("c++23", &.{
         "-fms-extensions",
@@ -78,7 +78,6 @@ pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Buil
     embedImages(ctx, module);
     addModSources(ctx, module, flags);
     const mods = ctx.staticLib("mods", module);
-    if (profiles_verification) |verify| mods.step.dependOn(verify);
     const mods_step = b.step("mods", "Build the core mod static library");
     mods_step.dependOn(&b.addInstallArtifact(mods, .{}).step);
     for (libs) |lib| lib.addBuildDependencies(mods_step);
@@ -99,10 +98,9 @@ pub fn add(ctx: *const Ctx, libs: []const Lib, profiles_verification: ?*std.Buil
         .root_module = entry,
     });
     ctx.applyCompile(library);
-    if (profiles_verification) |verify| library.step.dependOn(verify);
     if (ctx.isWindows()) {
         // version.dll proxies the system DLL: the .def forwards its exports, the .rc carries the build identity.
-        library.win32_module_definition = b.path(if (profiles_verification != null)
+        library.win32_module_definition = b.path(if (ctx.options.profiles)
             "src/platform/windows/profiles-version.def"
         else
             "src/platform/windows/version.def");
@@ -259,12 +257,8 @@ fn addLoader(ctx: *const Ctx, flags: []const []const u8) void {
 
 /// `macos-universal`: run this build for both macOS architectures and lipo the dylib and loader together.
 /// Each architecture is a child `zig build` because one graph resolves a single -Dtarget.
-pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: Options, profiles_host: bool, aai_options: anytype) void {
+pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: Options, aai_options: anytype) void {
     const step = b.step("macos-universal", "Build and merge ARM64 and Intel macOS dylib and loader");
-    if (profiles_host) {
-        step.dependOn(&b.addFail("Profiles host universal packaging is not qualified; build an explicit thin Windows/macOS target with its verified dependency prefix").step);
-        return;
-    }
     const lipo = hostTool(b, "lipo", "zig/tools/lipo.zig", .ReleaseSafe);
     var prefixes: [2]std.Build.LazyPath = undefined;
     inline for (.{ "aarch64", "x86_64" }, 0..) |arch, i| {
@@ -277,6 +271,7 @@ pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: 
             b.fmt("-Dmoddbg={}", .{options.moddbg}),
             b.fmt("-Duse_original_bg={}", .{options.use_original_bg}),
         });
+        if (options.profiles) child.addArg("-Dprofiles=true");
         if (options.bg_image.len != 0) child.addArg(b.fmt("-Dbg_image={s}", .{options.bg_image}));
         if (options.macos_sdk) |sdk| child.addArg(b.fmt("-Dmacos-sdk={s}", .{sdk}));
         if (aai_options.host) {
@@ -297,5 +292,15 @@ pub fn addUniversal(b: *std.Build, optimize: std.builtin.OptimizeMode, options: 
         merge.addFileArg(prefixes[1].path(b, binary));
         const merged = merge.addOutputFileArg(std.fs.path.basename(binary));
         step.dependOn(&b.addInstallFile(merged, binary).step);
+    }
+    if (options.profiles) {
+        const merge = b.addRunArtifact(lipo);
+        merge.addFileArg(prefixes[0].path(b, "bin/stfc-profiles"));
+        merge.addFileArg(prefixes[1].path(b, "bin/stfc-profiles"));
+        const merged = merge.addOutputFileArg("stfc-profiles");
+        step.dependOn(&b.addInstallFile(merged, "bin/stfc-profiles").step);
+        step.dependOn(&b.addInstallFile(merged, "lib/stfc-profiles").step);
+        inline for (.{ "source.txt", "LICENSE" }) |name|
+            step.dependOn(&b.addInstallFile(prefixes[0].path(b, "share/stfc-profiles/" ++ name), "share/stfc-profiles/" ++ name).step);
     }
 }

@@ -235,8 +235,19 @@ private enum LaunchError: LocalizedError {
 
 // Runs the game through the mod's loader until it exits. A free function, so it can run off the main actor.
 private func runGame() throws {
+  #if PROFILES_PREVIEW
+  let install = try XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath()
+  let gameApp = URL(fileURLWithPath: install)
+    .appendingPathComponent("Star Trek Fleet Command.app", isDirectory: true)
+    .resolvingSymlinksInPath().standardizedFileURL
+  let gameDirectory = gameApp.appendingPathComponent("Contents/MacOS", isDirectory: true)
+  #endif
   do {
+    #if PROFILES_PREVIEW
+    try ensureGameHasLoaderEntitlements(gameApp: gameApp, requireExactSelection: true, requireConfiguredGame: true)
+    #else
     try ensureGameHasLoaderEntitlements()
+    #endif
   } catch {
     logger.error("Error ensuring game entitlements: \(error.localizedDescription, privacy: .public)")
     throw error
@@ -249,6 +260,12 @@ private func runGame() throws {
   let process = Process()
   process.executableURL = URL(fileURLWithPath: loader)
   process.environment = LauncherBuildIdentity.gameEnvironment()
+  #if PROFILES_PREVIEW
+  // Admission must precede exec/dyld, and the loader must use this exact admitted directory.
+  let reservation = try InstallationReservation.acquire(gameDirectory: gameDirectory, forUpdate: false)
+  defer { reservation.release() }
+  process.arguments = ["--game-directory", gameDirectory.path]
+  #endif
   do {
     try process.run()
   } catch {

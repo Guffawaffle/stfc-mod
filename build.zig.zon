@@ -4,6 +4,26 @@
     .fingerprint = 0x3332afbd34425758,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
+        .stfc_profiles = .{
+            .lazy = true,
+            .url = "https://github.com/Guffawaffle/stfc-profiles/archive/1cd7a9ccdba5df872b95b9342c0eb8ef8a7cb6eb.tar.gz",
+            .hash = "N-V-__8AACXiCgDTi5ZlENqIFDNoejTPltT6aMgoJjiwRbEo",
+        },
+        .profiles_xmake_recipes = .{
+            .lazy = true,
+            .url = "https://github.com/xmake-io/xmake-repo/archive/fc22e7373c18d9920f54c6b93c19c2dd91fa0b1f.tar.gz",
+            .hash = "N-V-__8AAK6ZcwAgFUHWHFhFeuM7zHptQ5HigCz-rUoGlF9D",
+        },
+        .profiles_libarchive_notices = .{
+            .lazy = true,
+            .url = "https://libarchive.org/downloads/libarchive-3.8.9.tar.gz",
+            .hash = "N-V-__8AAMy0pgHQceccj6iBXwG1B2Ha-vpAQJF6iwRrgmIn",
+        },
+        .profiles_xz_notices = .{
+            .lazy = true,
+            .url = "https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.gz",
+            .hash = "N-V-__8AAPqQtACu3v9x4rIwYEMAqLR3cC5VQpwt0ympNt-B",
+        },
         .simdutf = .{
             .lazy = true,
             .url = "https://github.com/simdutf/simdutf/archive/refs/tags/v8.2.0.tar.gz",
