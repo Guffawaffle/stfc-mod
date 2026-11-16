@@ -1,4 +1,4 @@
-// The launcher app: one fixed-size window, and quitting when it closes.
+// The launcher app: a resizable window, and quitting when it closes.
 
 import AppKit
 import SwiftUI
@@ -19,10 +19,10 @@ struct STFC_Community_Patch_LauncherApp: App {
   var body: some Scene {
     WindowGroup("STFC Mod") {
       ContentView()
-        .frame(width: 560, height: 520)
-        .fixedSize()
+        .frame(minWidth: 360, minHeight: 360)
     }
-    .windowResizability(.contentSize)
+    .defaultSize(width: 560, height: 520)
+    .windowResizability(.contentMinSize)
     .commands {
       CommandGroup(replacing: .appInfo) {
         Button("About STFC Community Mod") {

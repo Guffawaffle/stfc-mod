@@ -177,7 +177,7 @@ struct ProfilesPreviewView: View {
           Task { await refresh() }
         }
       }
-      Text("Use Launch game with Ordinary game selected in the launcher for ordinary play. Profile sign-in needs Chrome or Edge in Applications. Quit a profile's game and sign-in browser before opening it again.")
+      Text("Select your existing login in the launcher's menu for ordinary play. Profile sign-in needs Chrome or Edge in Applications. Quit a profile's game and sign-in browser before opening it again.")
         .font(.caption).foregroundStyle(.secondary)
       if busy { ProgressView().controlSize(.small) }
       if !status.isEmpty { Text(status).textSelection(.enabled) }

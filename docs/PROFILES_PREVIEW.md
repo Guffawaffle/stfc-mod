@@ -54,10 +54,15 @@ Use the complete preview app, which supports Intel and Apple Silicon on macOS 14
 ad hoc and is not notarized. macOS may require explicit approval to open a downloaded test app. Keep your
 ordinary launcher available so you can return to it afterward.
 
-Open the preview launcher and choose **Profiles…** in its header or View menu (Command–Shift–P). Choose
+Open the preview launcher and choose **Profiles** below the launch button or in the View menu (Command–Shift–P). Choose
 the exact `Star Trek Fleet Command.app` to test, create `Net test A` and `Net test B`, then use **Launch
 Profile** for each. The helper, runtime and browser guardian are bundled; Terminal is optional. Normal
-**Engage!** continues to launch ordinary play.
+**Launch game** continues to launch ordinary play when **Ordinary game** is selected in the launch dropdown.
+Choose **Rename ordinary game…** from that dropdown or **Mod settings** to give your existing login a
+recognizable launcher name. The name is saved between launches; leave it blank to restore the default.
+
+Drag the launcher's window edges to resize it. It starts at 560 × 520 and can shrink to 360 × 360;
+controls stack and the middle section scrolls when needed, while the version stays visible below.
 
 Install Chrome or Edge in `/Applications` for isolated sign-in. Safari/default-browser fallback is deliberately
 not used. If the game needs loader entitlements, the launcher uses its normal authorization flow to prepare
@@ -92,7 +97,7 @@ does not reserve the installation. See the pinned component's C API for that lea
 4. Quit both games and their isolated sign-in browser windows. Restart B, then A; verify each retains its own
    account and local state. Also check your ordinary game setup is unchanged.
 
-On Mac, also check ordinary **Engage!** from the preview launcher. Launch and update operations must refuse
+On Mac, also check your ordinary launch from the preview launcher. Launch and update operations must refuse
 overlap on the same installation, including from another preview launcher window. Leave that update check
 pending if no game update is available; do not force an update to test it.
 
@@ -105,4 +110,4 @@ Do not remove catalog files or use `--root` to work around a failed live launch.
 
 Profiles support is an explicit `-Dprofiles=true` build option. Normal DEV packages select it alongside AAI;
 ordinary core/release builds keep their existing selection. This separate CI preview includes the downstream core without AAI.
-The Mac app retains the downstream version/channel display and ordinary Engage launch path.
+The Mac app retains the downstream version/channel display and ordinary launch path.

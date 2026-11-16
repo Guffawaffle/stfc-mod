@@ -7,6 +7,9 @@ import os
 private let logger = Logger(subsystem: "com.stfcmod.startrekpatch", category: "launcher")
 
 struct ActionView: View {
+  @AppStorage("launcher.ordinaryGameName") private var ordinaryGameName = ""
+  @State private var ordinaryGameNameDraft = ""
+  @State private var showingOrdinaryGameRename = false
   #if PROFILES_PREVIEW
   @Binding var showingProfiles: Bool
   @State private var profiles: [LaunchProfile] = []
@@ -42,39 +45,50 @@ struct ActionView: View {
       }
       .padding(.horizontal, 24).padding(.top, 16)
 
-      Spacer(minLength: 8)
-      Image(nsImage: NSApplication.shared.applicationIconImage)
-        .resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
-        .accessibilityLabel("STFC Mod")
-      Text("STFC Mod").font(.system(size: 23, weight: .bold)).padding(.top, 6)
-      Text(launchDescription).font(.system(size: 13)).foregroundStyle(.secondary)
-        .multilineTextAlignment(.center).lineLimit(2)
-        .frame(maxWidth: 410, minHeight: 28).padding(.horizontal, 24).padding(.top, 6)
-      launchButton.padding(.top, 10)
-      utilityButtons.padding(.top, 16)
-      Spacer(minLength: 8)
+      GeometryReader { geometry in
+        ScrollView(.vertical) {
+          VStack(spacing: 0) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+              .resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
+              .accessibilityLabel("STFC Mod")
+            Text("STFC Mod").font(.system(size: 23, weight: .bold)).padding(.top, 6)
+            Text(launchDescription).font(.system(size: 13)).foregroundStyle(.secondary)
+              .multilineTextAlignment(.center).lineLimit(2).help(launchDescription)
+              .frame(maxWidth: 410, minHeight: 28).padding(.top, 6)
+            launchButton.padding(.top, 10)
+            utilityButtons.padding(.top, 16)
 
-      if updating {
-        HStack(spacing: 8) {
-          ProgressView().controlSize(.small)
-          Text(updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)").font(.caption)
+            if updating {
+              HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)").font(.caption)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+              .padding(.top, 16)
+            } else if !launchStatus.isEmpty {
+              Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true).help(launchStatus).padding(.top, 16)
+                .accessibilityAddTraits(.updatesFrequently)
+            }
+          }
+          .padding(.horizontal, 24).padding(.vertical, 16)
+          .frame(maxWidth: .infinity)
+          // Center at the default size; scroll instead of clipping in a short window.
+          .frame(minHeight: geometry.size.height)
         }
-        .padding(.horizontal, 24).padding(.bottom, 12)
-      } else if !launchStatus.isEmpty {
-        Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-          .lineLimit(2).help(launchStatus).padding(.horizontal, 24).padding(.bottom, 12)
-          .accessibilityAddTraits(.updatesFrequently)
+        .scrollBounceBehavior(.basedOnSize)
       }
       Divider()
       HStack(spacing: 20) {
         VStack(alignment: .leading, spacing: 4) {
           Text(LauncherBuildIdentity.displayVersion).textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
           Text(gameInstalled ? "Game build \(gameVersion)" : "Game not installed")
         }
         .font(.system(size: 11)).foregroundStyle(.secondary)
         Spacer(minLength: 0)
         Button("About & credits") { LauncherBuildIdentity.showAbout() }
-          .buttonStyle(.link).font(.system(size: 11))
+          .buttonStyle(.link).font(.system(size: 11)).fixedSize()
       }
       .padding(.horizontal, 24).padding(.vertical, 14)
       .background(LauncherPalette.surface)
@@ -98,13 +112,33 @@ struct ActionView: View {
     .alert("Error", isPresented: $showErrorAlert) {
       Button("OK", role: .cancel) {}
     } message: { Text(errorMessage) }
+    .alert("Rename ordinary game", isPresented: $showingOrdinaryGameRename) {
+      TextField("Ordinary game", text: $ordinaryGameNameDraft)
+      Button("Save") {
+        ordinaryGameName = ordinaryGameNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Choose a launcher name for your existing login and settings. Leave it blank to use Ordinary game.")
+    }
+  }
+
+  private var ordinaryLaunchName: String {
+    ordinaryGameName.isEmpty ? "Ordinary game" : ordinaryGameName
+  }
+
+  private func renameOrdinaryGame() {
+    ordinaryGameNameDraft = ordinaryGameName
+    showingOrdinaryGameRename = true
   }
 
   private var launchDescription: String {
     #if PROFILES_PREVIEW
     if let profile = selectedProfile { return "\(profile.name) · Separate login and settings." }
     #endif
-    return "Your existing login and normal settings."
+    return ordinaryGameName.isEmpty
+      ? "Your existing login and normal settings."
+      : "\(ordinaryLaunchName) · Your existing login and normal settings."
   }
 
   private var launchTitle: String {
@@ -112,7 +146,8 @@ struct ActionView: View {
     if profileLaunching { return "Launching…" }
     if let profile = selectedProfile { return "Launch \(profile.name)" }
     #endif
-    return gameRunning ? "Game running" : "Launch game"
+    if gameRunning { return "Game running" }
+    return ordinaryGameName.isEmpty ? "Launch game" : "Launch \(ordinaryLaunchName)"
   }
 
   private var launchDisabled: Bool {
@@ -137,8 +172,8 @@ struct ActionView: View {
       Rectangle().fill(LauncherPalette.onAccent.opacity(0.23)).frame(width: 1, height: 48)
       Menu {
         Button { selectProfile(nil) } label: {
-          if selectedProfileID == nil { Label("Ordinary game", systemImage: "checkmark") }
-          else { Text("Ordinary game") }
+          if selectedProfileID == nil { Label(ordinaryLaunchName, systemImage: "checkmark") }
+          else { Text(ordinaryLaunchName) }
         }
         ForEach(profiles) { profile in
           Button { selectProfile(profile.id) } label: {
@@ -152,6 +187,7 @@ struct ActionView: View {
           Button("Retry loading profiles") { Task { await refreshProfiles() } }
         }
         Divider()
+        Button("Rename ordinary game…", action: renameOrdinaryGame)
         Button("Manage profiles…") { showingProfiles = true }
       } label: {
         Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
@@ -165,26 +201,33 @@ struct ActionView: View {
     }
     .foregroundStyle(LauncherPalette.onAccent)
     .background(LauncherPalette.accent, in: RoundedRectangle(cornerRadius: 9))
-    .frame(width: 330)
+    .frame(maxWidth: 330)
   }
 
   private var utilityButtons: some View {
-    HStack(spacing: 10) {
-      #if PROFILES_PREVIEW
-      Button { showingProfiles = true } label: { Label("Profiles", systemImage: "square.3.layers.3d") }
-        .disabled(updating || profileLaunching)
-      #endif
-      Menu {
-        Button("Open web configuration", action: openConfigSite)
-        Button("Open ordinary TOML", action: openConfigFile)
-      } label: { Label("Mod settings", systemImage: "slider.horizontal.3") }
-      .help("Settings for ordinary play. Named profiles have their own configuration folders.")
-      Button(action: requestUpdate) {
-        Label(gameUpdateAvailable ? "Update game" : "Game update", systemImage: "arrow.down.to.line")
-      }
-      .disabled(updateDisabled)
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: 10) { utilityControls }.fixedSize(horizontal: true, vertical: false)
+      VStack(spacing: 10) { utilityControls }
     }
     .font(.system(size: 12)).buttonStyle(.bordered).controlSize(.large)
+  }
+
+  @ViewBuilder private var utilityControls: some View {
+    #if PROFILES_PREVIEW
+    Button { showingProfiles = true } label: { Label("Profiles", systemImage: "square.3.layers.3d") }
+      .disabled(updating || profileLaunching)
+    #endif
+    Menu {
+      Button("Open web configuration", action: openConfigSite)
+      Button("Open ordinary TOML", action: openConfigFile)
+      Divider()
+      Button("Rename ordinary game…", action: renameOrdinaryGame)
+    } label: { Label("Mod settings", systemImage: "slider.horizontal.3") }
+    .help("Settings for ordinary play. Named profiles have their own configuration folders.")
+    Button(action: requestUpdate) {
+      Label(gameUpdateAvailable ? "Update game" : "Game update", systemImage: "arrow.down.to.line")
+    }
+    .disabled(updateDisabled)
   }
 
   private func requestUpdate() {
@@ -236,7 +279,7 @@ struct ActionView: View {
       profileListProblem = reply.issues?.map(\.message).joined(separator: "\n") ?? ""
       if let id = selectedProfileID, !profiles.contains(where: { $0.id == id }) {
         selectedProfileID = nil
-        launchStatus = "The selected profile is no longer available. Ordinary game is selected."
+        launchStatus = "The selected profile is no longer available. \(ordinaryLaunchName) is selected."
       }
     } catch { profileListProblem = error.localizedDescription }
   }
