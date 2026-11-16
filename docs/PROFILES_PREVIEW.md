@@ -5,9 +5,10 @@ Open it and drag the app to Applications, keeping your ordinary launcher availab
 The DEV app includes AAI, Profiles and the matching helper; open **Profiles…** to test accounts.
 See [DEV releases](development-releases.md) for the complete package contents.
 
-This downstream test package combines downstream mod code with the pinned Profiles component and its matching
-helper. `manifest.json` identifies the exact source and packaged file hashes. It is a preview, not a released
-mod or proof that every game subsystem is isolated. PlayerPrefs and the sign-in browser are separated;
+Profiles-enabled packages combine downstream mod code with the pinned Profiles component and its matching
+helper. Standalone CI previews include `manifest.json` with source and file hashes. Normal DEV releases
+include AAI and publish `dev-release.json` plus `SHA256SUMS` alongside their download assets.
+These test builds do not establish that every game subsystem is isolated. PlayerPrefs and the sign-in browser are separated;
 shared game caches and other SDK storage are outside that guarantee.
 
 Start with two new test profiles. Importing an existing Windows user's saved login is a separate feature and
@@ -17,7 +18,8 @@ is not needed for these checks. Keep this package's runtime and helper together.
 
 Quit games using the installation you intend to test. Preserve its existing `version.dll` somewhere outside
 the game directory, then place this package's `version.dll` beside `prime.exe`. Keep `stfc-profiles.exe` in
-the extracted package. Use a game installation supported by the downstream mod; this build contains no AAI.
+the extracted package. Use a game installation supported by the downstream mod. Standalone CI previews
+contain the core mod without AAI; normal DEV packages include AAI and UI Lab.
 
 In PowerShell, replace the two paths below. The helper creates immutable IDs; a profile name is not a launch ID.
 

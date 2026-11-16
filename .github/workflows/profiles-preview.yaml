@@ -1,19 +1,6 @@
 name: Downstream Profiles test preview
 
 on:
-  push:
-    branches: [play-dev]
-    paths:
-      - ".github/workflows/profiles-preview.yaml"
-      - "build.zig*"
-      - "zig/**"
-      - "src/profiles/**"
-      - "src/mod/profile_launch.*"
-      - "src/platform/**"
-      - "src/launcher/macos/**"
-      - "scripts/package-profiles-preview.py"
-      - "scripts/assemble-mac-app.sh"
-      - "docs/PROFILES_PREVIEW.md"
   workflow_dispatch:
 
 permissions:
