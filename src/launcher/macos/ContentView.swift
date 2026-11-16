@@ -29,7 +29,7 @@ enum LauncherPalette {
   static var channel: Color {
     switch LauncherBuildIdentity.channelLabel {
     case "DEV": return adaptive(light: 0x6844a5, dark: 0xceb4ff)
-    case "Pre": return adaptive(light: 0x855800, dark: 0xedb95f)
+    case "Pre": return adaptive(light: 0x2e5b9c, dark: 0xb9dfff)
     case "CI": return adaptive(light: 0x426478, dark: 0xb9d8ea)
     default: return adaptive(light: 0x136875, dark: 0x59d7e4)
     }

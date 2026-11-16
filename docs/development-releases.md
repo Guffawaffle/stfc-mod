@@ -3,7 +3,7 @@
 The fork's `play-dev` branch builds the explicit AAI and Profiles development product. Every
 push runs the **Development package** workflow and retains a preview package.
 A tag such as `v1.1.9.5-guffa.6-dev.1` publishes the same product as a GitHub
-prerelease. DEV uses the violet launcher icon and the complete tag in its display
+prerelease. DEV uses the blue waffle icon with a violet DEV badge and the complete tag in its display
 version. Core PR builds retain their CI identity and require no private source.
 
 ## Configure source access once
@@ -63,7 +63,16 @@ The usual Mac DMG includes the complete DEV app, Profiles helper, notices and DE
 Packaging mounts it read-only and verifies the app's file hashes, executable modes,
 signature and Applications shortcut. Open the DMG and drag the app to Applications;
 keep your ordinary launcher available while testing. Use **Profiles…** to create and
-launch separate accounts; **Engage!** remains the ordinary launch path.
+launch separate accounts. **Launch game** with **Ordinary game** selected is the
+ordinary launch path. The slim arrow chooses a named profile; choosing it does
+not launch until you press the main button.
+
+For the compact launcher preview, check the Dock icon, full version footer,
+ordinary launch, and profile picker. In the game, bind **Cycle mining node / ship /
+cargo** under **Shortcuts → Previews & Cargo**. On another player's occupied
+node, it cycles through the ship and cargo and returns to that node. **Mining
+node: cargo before ship** under **Mod Settings → Previews & Cargo** chooses their
+order independently of the ordinary player-cargo settings.
 
 The standalone Mac archive contains the dylib, adjacent executable `stfc-profiles`
 helper and notices. Install all of them together. The standard Windows ZIP and tar
