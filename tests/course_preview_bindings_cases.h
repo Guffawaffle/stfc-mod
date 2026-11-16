@@ -114,6 +114,27 @@ void CargoPreviewNativeCases(std::string_view mode)
     Require(warp_roots.size() == roots, "unavailable field releases acquired roots");
     return;
   }
+  ui.show_cargo_default = ui.show_player_cargo = false;
+  fleet_native_mining_cargo                    = true;
+  Require(ShowsCargoByDefault(native_widget), "mining cargo-first overrides general automatic cargo switches");
+  ui.show_cargo_default = ui.show_player_cargo = true;
+  fleet_native_mining_cargo                    = false;
+  Require(!ShowsCargoByDefault(native_widget), "mining ship-first suppresses general automatic cargo");
+  fleet_native_mining_cargo.reset();
+  fleet_native_mining_cycle = true;
+  fleet_native_keys         = {Action::kCycleMiningPreview, Action::kActionView};
+  FleetActionShortcuts();
+  Require(fleet_native_mining_cycles == 1 && pending_target_cargo.empty(),
+          "shared mining/view binding advances once and never also toggles ordinary cargo");
+  fleet_native_keys = {Action::kActionView};
+  FleetActionShortcuts();
+  Require(fleet_native_mining_cycles == 1 && pending_target_cargo.size() == 1,
+          "generic target details still toggle cargo independently of the mining binding");
+  CancelTargetCargo();
+  fleet_native_mining_cycle = false;
+  fleet_native_keys.clear();
+  preview_cargo_shows = 0;
+  cargo.state         = VisibilityState::Hidden;
   Require(ShowsCargoByDefault(native_widget), "confirmed null deployed target preserves station category");
   ui.show_station_cargo = false;
   Require(!ShowsCargoByDefault(native_widget), "station category retains its independent flag");

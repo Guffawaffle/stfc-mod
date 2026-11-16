@@ -1030,6 +1030,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "extend_donation_max", u.extend_donation_max);
   r.Read("ui", "show_cargo_default", u.show_cargo_default);
   r.Read("ui", "show_player_cargo", u.show_player_cargo);
+  r.Read("ui", "mining_preview_cargo_first", u.mining_preview_cargo_first);
   r.Read("ui", "show_station_cargo", u.show_station_cargo);
   r.Read("ui", "show_hostile_cargo", u.show_hostile_cargo);
   r.Read("ui", "show_armada_cargo", u.show_armada_cargo);
