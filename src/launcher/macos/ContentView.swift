@@ -21,13 +21,16 @@ struct ContentView: View {
     }
     .ignoresSafeArea()
     #if PROFILES_PREVIEW
-    .overlay(alignment: .topTrailing) {
+    .overlay(alignment: .topLeading) {
       Button("Profiles…") { showingProfiles = true }
-        .buttonStyle(.bordered)
+        .buttonStyle(.borderedProminent)
         .tint(.lcarOrange)
-        .padding(12)
+        .foregroundStyle(.black)
+        .padding(.top, 12)
+        .padding(.leading, 112)
     }
-    .focusedValue(\.profilesPresentation, $showingProfiles)
+    // Menu commands belong to the active window, even before any control has keyboard focus.
+    .focusedSceneValue(\.profilesPresentation, $showingProfiles)
     .sheet(isPresented: $showingProfiles) { ProfilesPreviewView() }
     #endif
   }
