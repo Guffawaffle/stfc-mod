@@ -3,8 +3,11 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import plistlib
 import tempfile
+import tarfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -13,6 +16,7 @@ DEV = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(DEV)
 SOURCE = "a" * 40
 CONTEXT = dict(schema=DEV.SCHEMA, repository=DEV.REPOSITORY, source=SOURCE, aai_pin="b" * 40,
+               profiles_pin="c" * 40, profiles_host=True,
                tag="v1.1.9.5-guffa.6-dev.1", base="1.1.9.5", fork_revision=6, channel="dev",
                run_id="123", run_number=17, run_attempt=1)
 
@@ -46,12 +50,89 @@ class DevelopmentReleaseTest(unittest.TestCase):
             (root / "src/mod/version.h").write_text("".join(
                 f"#define {name} {value}\n" for name, value in zip(names, (1, 1, 9, 5, 6))), encoding="utf-8")
             (root / "zig/aai.zig").write_text(f'pub const pinned_revision = "{"b" * 40}";\n', encoding="utf-8")
+            (root / "zig/profiles.zig").write_text(f'pub const revision = "{"c" * 40}";\n', encoding="utf-8")
             with patch.dict(os.environ, env), patch.object(DEV, "command", return_value=SOURCE), \
                     patch.object(DEV, "ROOT", root):
                 selected = DEV.resolve("refs/tags/" + CONTEXT["tag"], SOURCE, output)
             self.assertEqual(selected["tag"], CONTEXT["tag"])
             self.assertEqual(selected["aai_pin"], "b" * 40)
             self.assertTrue(selected["aai_host"])
+            self.assertEqual(selected["profiles_pin"], "c" * 40)
+            self.assertTrue(selected["profiles_host"])
+
+    def test_missing_helper_and_mismatched_profile_pin_are_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            notices = root / "notices"
+            notices.mkdir()
+            (notices / "source.txt").write_text("Guffawaffle/stfc-profiles\n" + CONTEXT["profiles_pin"] + "\n")
+            (notices / "LICENSE").write_text("fixture license")
+            helper = root / "stfc-profiles"
+            with self.assertRaises((ValueError, OSError)):
+                DEV.verify_profiles(CONTEXT, helper, notices)
+            helper.write_bytes(b"fixture helper")
+            DEV.verify_profiles(CONTEXT, helper, notices)
+            (notices / "source.txt").write_text("Guffawaffle/stfc-profiles\n" + "d" * 40 + "\n")
+            with self.assertRaises(ValueError):
+                DEV.verify_profiles(CONTEXT, helper, notices)
+
+    def test_normal_windows_package_stays_compatible_and_complete_bundles_keep_helpers(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            windows = root / "windows/bin/version.dll"
+            windows.parent.mkdir(parents=True)
+            windows.write_bytes(b"fixture DLL")
+            (windows.parent / "stfc-profiles.exe").write_bytes(b"fixture CLI")
+            notices = windows.parent.parent / "share/stfc-profiles"
+            notices.mkdir(parents=True)
+            (notices / "source.txt").write_text("Guffawaffle/stfc-profiles\n" + CONTEXT["profiles_pin"] + "\n")
+            (notices / "LICENSE").write_text("fixture license")
+            app = root / "STFC Community Mod.app"
+            (app / "Contents/Resources/notices/profiles").mkdir(parents=True)
+            (app / "Contents/libstfc-community-mod.dylib").write_bytes(b"fixture dylib")
+            (app / "Contents/stfc-profiles").write_bytes(b"fixture Mac helper")
+            (app / "Contents/Resources/notices/profiles/LICENSE").write_text("fixture license")
+
+            def package_tool(args, **kwargs):
+                if args[0] == "zstd":
+                    # Keep the intermediate tar for direct inventory inspection; no compressor is needed here.
+                    Path(args[-1]).write_bytes(Path(args[3]).read_bytes())
+                elif args[0] == "bash":
+                    Path(args[-1]).write_bytes(b"fixture DMG")
+                else:
+                    self.fail(f"unexpected packaging tool: {args[0]}")
+
+            output = root / "dist"
+            with patch.object(DEV, "verify_windows"), patch.object(DEV, "verify_app"), \
+                    patch.object(DEV, "verify_dmg"), patch.object(DEV.subprocess, "run", side_effect=package_tool):
+                DEV.package(CONTEXT, windows, app, output)
+            with zipfile.ZipFile(output / "stfc-community-mod.zip") as archive:
+                self.assertEqual(archive.namelist(), ["version.dll"])
+            with zipfile.ZipFile(output / "stfc-community-mod-profiles-windows-x64.zip") as archive:
+                self.assertTrue({"version.dll", "stfc-profiles.exe", "README.md", "notices/profiles/LICENSE",
+                                 "notices/profiles/source.txt"}.issubset(archive.namelist()))
+            with tarfile.open(output / "stfc-community-mod-windows-x64.tar.zst") as archive:
+                self.assertEqual(archive.getnames(), ["version.dll"])
+            with tarfile.open(output / "stfc-community-mod-macos-universal.tar.zst") as archive:
+                self.assertTrue({"libstfc-community-mod.dylib", "stfc-profiles", "notices/profiles/LICENSE"}
+                                .issubset(archive.getnames()))
+            DEV.verify_assets(CONTEXT, output)
+
+    def test_modified_dmg_app_is_rejected_and_volume_is_detached(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            app = root / "STFC Community Mod.app"
+            mount = root / "volume"
+            mounted = mount / app.name
+            app.mkdir()
+            mounted.mkdir(parents=True)
+            (app / "payload").write_bytes(b"verified")
+            (mounted / "payload").write_bytes(b"changed")
+            attached = plistlib.dumps({"system-entities": [{"mount-point": str(mount)}]})
+            with patch.object(DEV, "verify_app"), patch.object(DEV.subprocess, "check_output", return_value=attached), \
+                    patch.object(DEV.subprocess, "run") as commands, self.assertRaises(ValueError):
+                DEV.verify_dmg(CONTEXT, app, root / "fixture.dmg")
+            self.assertEqual(commands.call_args_list[-1].args[0], ["hdiutil", "detach", str(mount)])
 
     def make_assets(self, directory):
         for name in DEV.payload_names(CONTEXT["tag"]):

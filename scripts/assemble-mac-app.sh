@@ -24,6 +24,16 @@ if ((PROFILES != 0 && PROFILES != ${#PREFIXES[@]})); then
   echo "Cannot mix ordinary and Profiles-enabled launcher builds" >&2
   exit 1
 fi
+if ((PROFILES)); then
+  for prefix in "${PREFIXES[@]}"; do
+    if [[ ! -f "$prefix/share/stfc-profiles/source.txt" || ! -f "$prefix/share/stfc-profiles/LICENSE" ]]; then
+      echo "Missing Profiles source receipt or license in $prefix" >&2
+      exit 1
+    fi
+    cmp "${PREFIXES[0]}/share/stfc-profiles/source.txt" "$prefix/share/stfc-profiles/source.txt"
+    cmp "${PREFIXES[0]}/share/stfc-profiles/LICENSE" "$prefix/share/stfc-profiles/LICENSE"
+  done
+fi
 
 # merge <path inside each prefix> <destination>
 merge() {
@@ -41,6 +51,10 @@ merge bin/stfc-community-mod-loader "$APP/Contents/stfc-community-mod-loader"
 merge lib/libstfc-community-mod.dylib "$APP/Contents/libstfc-community-mod.dylib"
 if ((PROFILES)); then
   merge bin/stfc-profiles "$APP/Contents/stfc-profiles"
+  mkdir -p "$APP/Contents/Resources/notices"
+  ditto "${PREFIXES[0]}/share/stfc-profiles" "$APP/Contents/Resources/notices/profiles"
+  cp "$SCRIPTS/../LICENSE" "$APP/Contents/Resources/notices/mod-LICENSE"
+  cp "$SCRIPTS/../docs/THIRD_PARTY.md" "$APP/Contents/Resources/notices/THIRD_PARTY.md"
 fi
 
 for file in Info.plist Resources/Assets.car Resources/launcher.icns MacOS/macOSLauncher \

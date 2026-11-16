@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import subprocess
 import tarfile
@@ -68,9 +69,13 @@ def resolve(ref, source, output):
                       (ROOT / "zig/aai.zig").read_text(encoding="utf-8"), re.MULTILINE)
     if len(pins) != 1:
         raise ValueError("missing or ambiguous immutable AAI pin")
+    profile_pins = re.findall(r'^pub const revision = "([0-9a-f]{40})";',
+                             (ROOT / "zig/profiles.zig").read_text(encoding="utf-8"), re.MULTILINE)
+    if len(profile_pins) != 1:
+        raise ValueError("missing or ambiguous immutable Profiles pin")
     context = dict(schema=SCHEMA, repository=REPOSITORY, source=source, aai_pin=pins[0], tag=tag,
                    base=base, fork_revision=revision, channel="dev", mode="releasedbg",
-                   aai_host=True, aai_ui_lab=True,
+                   aai_host=True, aai_ui_lab=True, profiles_host=True, profiles_pin=profile_pins[0],
                    run_id=str(IDENTITY.numeric(os.environ["GITHUB_RUN_ID"], "run ID", 1)),
                    run_number=IDENTITY.numeric(os.environ["GITHUB_RUN_NUMBER"], "run number", 1),
                    run_attempt=IDENTITY.numeric(os.environ["GITHUB_RUN_ATTEMPT"], "run attempt", 1))
@@ -98,6 +103,60 @@ def verify_mac(context, prefixes):
             raise ValueError("Mac app identity differs from this DEV run")
         if sha256(app / "Contents/Resources/launcher.icns") != icon_hash:
             raise ValueError("Mac app is missing the DEV icon")
+        verify_profiles(context, prefix / "bin/stfc-profiles", prefix / "share/stfc-profiles")
+
+
+def verify_profiles(context, helper, notices):
+    IDENTITY.regular_file(helper)
+    receipt = IDENTITY.regular_file(notices / "source.txt").read_text(encoding="utf-8").splitlines()
+    if receipt != ["Guffawaffle/stfc-profiles", context["profiles_pin"]]:
+        raise ValueError("Profiles source receipt differs from the selected pin")
+    IDENTITY.regular_file(notices / "LICENSE")
+
+
+def verify_app(context, app):
+    _, fields = IDENTITY.read_plist(app / "Contents/Info.plist")
+    if IDENTITY.validate_plist(fields) != metadata(context):
+        raise ValueError("Assembled Mac app identity differs from this DEV run")
+    if sha256(app / "Contents/Resources/launcher.icns") != sha256(ROOT / "assets/launcher-icons/launcher-dev.icns"):
+        raise ValueError("Assembled Mac app is missing the DEV icon")
+    helper = app / "Contents/stfc-profiles"
+    verify_profiles(context, helper, app / "Contents/Resources/notices/profiles")
+    if not helper.stat().st_mode & 0o111:
+        raise ValueError("Mac Profiles helper is not executable")
+
+
+def app_files(app):
+    files = {}
+    for path in sorted(app.rglob("*")):
+        name = path.relative_to(app).as_posix()
+        if path.is_symlink():
+            files[name] = {"symlink": str(path.readlink())}
+        elif path.is_file():
+            files[name] = {"sha256": sha256(path), "mode": path.stat().st_mode & 0o777}
+    return files
+
+
+def verify_dmg(context, app, dmg):
+    expected = app_files(app)
+    subprocess.run(["hdiutil", "verify", str(dmg)], check=True)
+    attached = plistlib.loads(subprocess.check_output(
+        ["hdiutil", "attach", "-readonly", "-nobrowse", "-plist", str(dmg)]))
+    mounts = [Path(entry["mount-point"]) for entry in attached.get("system-entities", []) if "mount-point" in entry]
+    try:
+        if len(mounts) != 1:
+            raise ValueError("expected exactly one mounted DEV installer volume")
+        mounted = mounts[0] / app.name
+        verify_app(context, mounted)
+        if app_files(mounted) != expected:
+            raise ValueError("DMG app contents differ from the verified signed app")
+        shortcut = mounts[0] / "Applications"
+        if not shortcut.is_symlink() or shortcut.readlink() != Path("/Applications"):
+            raise ValueError("DMG is missing the normal Applications shortcut")
+        subprocess.run(["codesign", "--verify", "--deep", "--strict", str(mounted)], check=True)
+    finally:
+        for mount in mounts:
+            subprocess.run(["hdiutil", "detach", str(mount)], check=True)
 
 
 def verify_windows(context, dll):
@@ -105,7 +164,7 @@ def verify_windows(context, dll):
     marker = (f"stfc-identity-v1;distribution=netniv.stfc-community-mod;source=git:{context['source']};"
               f"base={context['source']};build={invocation};mode=releasedbg;channel=dev")
     subprocess.run([os.sys.executable, str(ROOT / "scripts/verify-windows-binary.py"),
-                    str(dll), "--identity", marker], check=True)
+                    str(dll), "--profiles-host", "--identity", marker], check=True)
     data = dll.read_bytes()
     product = context["tag"].removeprefix("v") if context["tag"] else (
         f"{context['base']}-guffa.{context['fork_revision']}")
@@ -124,7 +183,8 @@ def verify_windows(context, dll):
 def payload_names(tag):
     names = {"stfc-community-mod.zip", "stfc-community-mod-windows-x64.tar.zst",
              "stfc-community-mod-windows-x64.tar.zst.sha256", "stfc-community-mod-macos-universal.tar.zst",
-             "stfc-community-mod-macos-universal.tar.zst.sha256", "stfc-community-mod-installer.dmg"}
+             "stfc-community-mod-macos-universal.tar.zst.sha256", "stfc-community-mod-installer.dmg",
+             "stfc-community-mod-profiles-windows-x64.zip"}
     if tag:
         names.add(f"stfc-community-mod-{tag}.zip")
     return names
@@ -132,11 +192,25 @@ def payload_names(tag):
 
 def package(context, windows, app, output):
     verify_windows(context, windows)
+    helper = windows.parent / "stfc-profiles.exe"
+    notices = windows.parent.parent / "share/stfc-profiles"
+    verify_profiles(context, helper, notices)
+    verify_app(context, app)
     output.mkdir(parents=True, exist_ok=True)
     if any(output.iterdir()):
         raise ValueError("package output must be empty")
     with zipfile.ZipFile(output / "stfc-community-mod.zip", "w", zipfile.ZIP_DEFLATED) as archive:
         archive.write(windows, "version.dll")
+    # Keep the canonical DLL-only ZIP compatible with existing Windows updaters.
+    with zipfile.ZipFile(output / "stfc-community-mod-profiles-windows-x64.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.write(windows, "version.dll")
+        archive.write(helper, "stfc-profiles.exe")
+        archive.write(ROOT / "LICENSE", "notices/mod-LICENSE")
+        archive.write(ROOT / "docs/THIRD_PARTY.md", "notices/THIRD_PARTY.md")
+        archive.write(ROOT / "docs/PROFILES_PREVIEW.md", "README.md")
+        for file in sorted(notices.rglob("*")):
+            if file.is_file():
+                archive.write(file, "notices/profiles/" + file.relative_to(notices).as_posix())
     if context["tag"]:
         (output / f"stfc-community-mod-{context['tag']}.zip").write_bytes(
             (output / "stfc-community-mod.zip").read_bytes())
@@ -148,10 +222,14 @@ def package(context, windows, app, output):
             tar = Path(temporary) / "payload.tar"
             with tarfile.open(tar, "w") as archive:
                 archive.add(file, arcname=member, recursive=False)
+                if name == "macos-universal":
+                    archive.add(app / "Contents/stfc-profiles", arcname="stfc-profiles", recursive=False)
+                    archive.add(app / "Contents/Resources/notices", arcname="notices")
             subprocess.run(["zstd", "-15", "-T0", str(tar), "-o", str(path)], check=True)
         path.with_suffix(path.suffix + ".sha256").write_text(sha256(path) + "\n", encoding="utf-8")
     subprocess.run(["bash", str(ROOT / "scripts/create-mac-dmg.sh"), str(app),
                     str(output / "stfc-community-mod-installer.dmg")], check=True)
+    verify_dmg(context, app, output / "stfc-community-mod-installer.dmg")
     manifest = dict(context, display_version=metadata(context)["STFCDisplayVersion"],
                     signing={"windows": "unsigned", "macos": "ad-hoc; not notarized"},
                     assets={path.name: {"sha256": sha256(path), "size": path.stat().st_size}
@@ -211,10 +289,12 @@ def publish(context, output):
         release = api(f"repos/{REPOSITORY}/releases", "POST", dict(
             tag_name=tag, target_commitish=context["source"], name=f"{tag} · DEV", draft=True,
             prerelease=True, make_latest="false", body=(
-                "Explicit AAI development package. Windows is unsigned; macOS is ad hoc signed and not notarized.\n\n"
-                f"Source: `{context['source']}`\nAAI pin: `{context['aai_pin']}`\n"
+                "Explicit AAI and Profiles development package. Windows is unsigned; macOS is ad hoc signed and not notarized.\n\n"
+                f"Source: `{context['source']}`\nAAI pin: `{context['aai_pin']}`\nProfiles pin: `{context['profiles_pin']}`\n"
                 f"[Build run](https://github.com/{REPOSITORY}/actions/runs/{context['run_id']})\n\n"
-                "Use the full macOS installer for the DEV launcher and icon. See dev-release.json and SHA256SUMS for provenance.")))
+                "Use the macOS installer DMG for the complete DEV launcher with Profiles. "
+                "The Profiles Windows ZIP includes the matching CLI; the standard Windows ZIP remains DLL-only. "
+                "See dev-release.json and SHA256SUMS for provenance.")))
     subprocess.run(["gh", "release", "upload", tag, "--repo", REPOSITORY, "--clobber",
                     *map(str, sorted(output.iterdir()))], check=True)
     assets = api(f"repos/{REPOSITORY}/releases/{release['id']}/assets?per_page=100")

@@ -1,5 +1,10 @@
 # Profiles test preview
 
+For a normal downstream DEV release, use its **stfc-community-mod-installer.dmg** on Mac.
+Open it and drag the app to Applications, keeping your ordinary launcher available.
+The DEV app includes AAI, Profiles and the matching helper; open **Profiles…** to test accounts.
+See [DEV releases](development-releases.md) for the complete package contents.
+
 This downstream test package combines downstream mod code with the pinned Profiles component and its matching
 helper. `manifest.json` identifies the exact source and packaged file hashes. It is a preview, not a released
 mod or proof that every game subsystem is isolated. PlayerPrefs and the sign-in browser are separated;
@@ -96,6 +101,6 @@ Do not remove catalog files or use `--root` to work around a failed live launch.
 
 ## Build selection
 
-Profiles support is an explicit `-Dprofiles=true` build option. Ordinary release and AAI development builds
-keep their existing selection; this separate preview includes the complete downstream core without AAI.
+Profiles support is an explicit `-Dprofiles=true` build option. Normal DEV packages select it alongside AAI;
+ordinary core/release builds keep their existing selection. This separate CI preview includes the downstream core without AAI.
 The Mac app retains the downstream version/channel display and ordinary Engage launch path.

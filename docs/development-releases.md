@@ -1,6 +1,6 @@
 # Publish a DEV package
 
-The fork's `play-dev` branch builds the explicit AAI development product. Every
+The fork's `play-dev` branch builds the explicit AAI and Profiles development product. Every
 push runs the **Development package** workflow and retains a preview package.
 A tag such as `v1.1.9.5-guffa.6-dev.1` publishes the same product as a GitHub
 prerelease. DEV uses the violet launcher icon and the complete tag in its display
@@ -27,9 +27,13 @@ axis and one reusable native texture preserve independent quantities and bounded
 redraw work. Shield-rule catalog context
 is separately qualified; effective shield mitigation/floor percentages and the
 energy/kinetic weapon join remain unresolved. The workflow checks out that exact commit outside the
-mod checkout. Builds explicitly select `aai-host`, `aai-ui-lab` and diagnostic
+mod checkout. Builds explicitly select `aai-host`, `aai-ui-lab`, `profiles` and diagnostic
 patch toggles; dirty-source overrides and automatic local source discovery are
 not used. Neither private sources nor build caches are uploaded as artifacts.
+
+Profiles is pinned at `1cd7a9ccdba5df872b95b9342c0eb8ef8a7cb6eb`. The Mac launcher
+includes **Profiles…** and its matching browser helper. Each package records this pin
+alongside the AAI pin. Mac account/browser isolation still requires actual player testing.
 
 ## Publish
 
@@ -53,8 +57,18 @@ not used. Neither private sources nor build caches are uploaded as artifacts.
    and never becomes Latest. Its `dev-release.json` records source, AAI pin,
    build run, mode and payload hashes; `SHA256SUMS` also covers that manifest.
 
-The full Mac installer includes the DEV app and icon. The standalone Mac archive
-contains only the dylib. Windows packages contain only `version.dll`. Windows
+The usual Mac DMG includes the complete DEV app, Profiles helper, notices and DEV icon.
+Packaging mounts it read-only and verifies the app's file hashes, executable modes,
+signature and Applications shortcut. Open the DMG and drag the app to Applications;
+keep your ordinary launcher available while testing. Use **Profiles…** to create and
+launch separate accounts; **Engage!** remains the ordinary launch path.
+
+The standalone Mac archive contains the dylib, adjacent executable `stfc-profiles`
+helper and notices. Install all of them together. The standard Windows ZIP and tar
+remain DLL-only for existing updater compatibility. For complete manual Profiles setup,
+use `stfc-community-mod-profiles-windows-x64.zip`, which includes `version.dll`, the
+matching CLI, setup instructions and notices. Do not feed that richer ZIP to an older
+updater expecting only a DLL. Windows
 DEV binaries are unsigned; Mac apps have only the ad hoc signature required for
 local execution and are not notarized. This workflow has no Apple or Azure
 release-signing environment or credentials.

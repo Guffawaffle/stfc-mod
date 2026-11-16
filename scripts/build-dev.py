@@ -35,7 +35,8 @@ def main():
         tests += ["test-spud"]
     build = ["zig", "build", "install", *([] if windows else ["launcher"]), *tests,
              f"-Dtarget={args.target}", "-Doptimize=ReleaseFast", "-Dtest-optimize=Debug", "-Dmoddbg=true",
-             "-Daai-host=true", "-Daai-ui-lab=true", f"-Daai-source={source}", "--summary", "all"]
+             "-Daai-host=true", "-Daai-ui-lab=true", f"-Daai-source={source}", "-Dprofiles=true",
+             "--summary", "all"]
     if windows:
         build += [f"-Dstfc_source_state_id=git:{context['source']}",
                   f"-Dstfc_base_commit={context['source']}",

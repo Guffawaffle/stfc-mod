@@ -90,6 +90,10 @@ jobs:
         if: matrix.arch == 'windows'
         with:
           arch: x64
+      - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
+        if: matrix.arch == 'windows'
+        with:
+          xmake-version: "3.0.8"
       - name: Build and test the explicit DEV product
         run: ${{ matrix.python }} scripts/build-dev.py --context .dev/dev-context.json --aai-source ../private-aai --target ${{ matrix.target }}
       - name: Read native Windows version resource
@@ -108,14 +112,18 @@ jobs:
         if: matrix.arch != 'windows'
         run: |
           scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \
-            zig-out/bin/stfc-community-mod-loader zig-out/lib/libstfc-community-mod.dylib
+            zig-out/bin/stfc-community-mod-loader zig-out/lib/libstfc-community-mod.dylib zig-out/bin/stfc-profiles
           tar -cf dev-${{ matrix.arch }}.tar -C zig-out \
-            macOSLauncher.app bin/stfc-community-mod-loader lib/libstfc-community-mod.dylib
+            macOSLauncher.app bin/stfc-community-mod-loader lib/libstfc-community-mod.dylib \
+            bin/stfc-profiles share/stfc-profiles
       - uses: actions/upload-artifact@v7.0.1
         if: matrix.arch == 'windows'
         with:
           name: dev-windows
-          path: mod/zig-out/bin/version.dll
+          path: |
+            mod/zig-out/bin/version.dll
+            mod/zig-out/bin/stfc-profiles.exe
+            mod/zig-out/share/stfc-profiles
           if-no-files-found: error
       - uses: actions/upload-artifact@v7.0.1
         if: matrix.arch != 'windows'
@@ -148,7 +156,7 @@ jobs:
       - name: Assemble ad hoc signed universal DEV app
         run: |
           scripts/assemble-mac-app.sh ".staging/STFC Community Mod.app" .staging/arm64 .staging/x86_64
-          for binary in MacOS/macOSLauncher stfc-community-mod-loader libstfc-community-mod.dylib; do
+          for binary in MacOS/macOSLauncher stfc-community-mod-loader libstfc-community-mod.dylib stfc-profiles; do
             archs="$(lipo -archs ".staging/STFC Community Mod.app/Contents/$binary")"
             [[ " $archs " == *" arm64 "* && " $archs " == *" x86_64 "* ]]
           done
@@ -161,7 +169,7 @@ jobs:
       - name: Package and hash verified DEV payloads
         run: |
           python3 scripts/dev-release.py package --context .artifacts/dev-context/dev-context.json \
-            --windows .artifacts/dev-windows/version.dll --app ".staging/STFC Community Mod.app" --output dist
+            --windows .artifacts/dev-windows/bin/version.dll --app ".staging/STFC Community Mod.app" --output dist
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: dev-package
