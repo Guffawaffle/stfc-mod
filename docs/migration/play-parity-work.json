@@ -1,0 +1,769 @@
+{
+  "schema": "stfc-play-parity-work/v1",
+  "primaryPlay": "cad98ef7990dd66167eb64ea5dda525c1fe2c296",
+  "migrationStart": "606025e439c84e1512ce33227473246e69febeec",
+  "repoRoot": "D:/dev/stfc-workspace/worktrees/ripper-foundation/Downstream",
+  "policy": {
+    "speed": "small native builds and boot checks before broad offline qualification",
+    "uiOrder": "feature owners before Settings UI",
+    "cycles": "authorized unless explicit user hold",
+    "stores": "preserve existing formats, account/profile identity, unknown values and source ownership",
+    "runner": "Paused by user request: no LexRunner orchestration, fanout or autonomous implementation decomposition. Continue direct source-preserving porting from pinned PLAY. Earlier 2.5.0 plan/gate receipts are historical; no governed Attempt or bypass.",
+    "outOfScope": [
+      "later play-dev expansion",
+      "AAI",
+      "STFCKitUI expansion",
+      "SQLite",
+      "launcher migration",
+      "new repositories",
+      "release promotion"
+    ],
+    "activeTrialPlatform": "Windows x64, client273; macOS source/build/runtime claims tracked separately",
+    "ci": "Parked by explicit user direction: no workflow edits, PR conflict resolution, merge or rebase during functional restoration.",
+    "promotion": "Wholesale replacement of play is the eventual destination, not authorized as part of this functional phase."
+  },
+  "tasks": [
+    {
+      "id": "P00",
+      "title": "Baseline and source ownership",
+      "deps": [],
+      "status": "checkpointed",
+      "steps": [
+        "Pin play cad98ef7990dd66167eb64ea5dda525c1fe2c296 and current migration606025e4.",
+        "Keep active canonical checkout and parked tooling untouched.",
+        "Retain current DLL/hash/startup observation and original working DLL; no store migration."
+      ],
+      "trial": "Existing ordinary session:49 hook groups, portraits user-confirmed. Subsequent batches get their own identities."
+    },
+    {
+      "id": "P01",
+      "title": "Complete behavioral inventory",
+      "deps": [
+        "P00"
+      ],
+      "status": "source-reconciliation-in-progress",
+      "steps": [
+        "Account for every play hook owner, actual config reader, shortcut action, native UI workflow and platform behavior.",
+        "Label present, partial, missing, accepted replacement and obsolete example-only keys.",
+        "Keep play-dev/AAI/Kit/probes outside primary acceptance."
+      ],
+      "trial": "Prior inventory-complete label was too strong. Independent workflow inspection found additional Settings, notification, Galaxy, preset, diagnostic and degraded-binding contracts; see PLAY-PARITY.md and play-functional-parity.json."
+    },
+    {
+      "id": "P02",
+      "title": "Popup and donation compatibility",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-boot-qualified-interaction-pending",
+      "steps": [
+        "Restore interstitial original-first then CloseWhenReady; preserve shared first-popup counter with PLC offers.",
+        "Restore Windows donation50-cap interception and zero/negative unlimited semantics; keep chest160 behavior separate.",
+        "Preserve macOS donation behavior and qualify it separately."
+      ],
+      "trial": "Boot, first/later offer lifecycle; donation positive/zero caps and ordinary chest/other sliders."
+    },
+    {
+      "id": "P03",
+      "title": "Ship shortcut badges",
+      "deps": [
+        "P01"
+      ],
+      "status": "user-confirmed",
+      "steps": [
+        "Restore graphics.ship_hotkey_badges defaulttrue.",
+        "Bind/release fleet-state and fleetbar badges with actual configured action hints and gapped docks.",
+        "Reuse shared owners; no change to pins or native action-hint relabeling."
+      ],
+      "trial": "Boot; fleetbar/ship selection, custom bindings, on/off/rebind."
+    },
+    {
+      "id": "P04",
+      "title": "Mouse-wheel ownership over UI",
+      "deps": [
+        "P01"
+      ],
+      "status": "user-confirmed",
+      "steps": [
+        "Restore sorted raycast and enabled scroll-handler ancestor ownership.",
+        "Suppress native background wheel zoom only within matching native update/read-input scope.",
+        "Keep keyboard zoom, touch pinch, system/station/Haven behavior and native fallback."
+      ],
+      "trial": "Scroll native panels over system/station/Haven; background stays still and Q/E still zoom."
+    },
+    {
+      "id": "P05",
+      "title": "Base-card retention",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-boot-qualified-interaction-pending",
+      "steps": [
+        "Restore keep_base_card_open false-default and response/context qualification.",
+        "Retain only matching viewed enemy station across attack/recall.",
+        "Handle qualifying recall before unconditional HideInteraction without skipping fleet command/semaphore."
+      ],
+      "trial": "Attack and recall from enemy base card; switch fleet/base and verify stale card not retained."
+    },
+    {
+      "id": "P06",
+      "title": "Mining ActionView cycle",
+      "deps": [
+        "P05"
+      ],
+      "status": "user-confirmed",
+      "steps": [
+        "Restore V/MOUSE2 node→occupant→cargo→node cycle.",
+        "Preserve own-miner exclusion, cargo-first preferences, context ownership and5s timeout.",
+        "Route ActionView before generic cargo toggle; preserve primary Mine action."
+      ],
+      "trial": "Occupied enemy node cycle, own miner, rapid node changes and unavailable occupant."
+    },
+    {
+      "id": "P07",
+      "title": "Keyboard layout and input compatibility",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-boot-and-us-layout-resolution-qualified-switching-pending",
+      "steps": [
+        "Restore physical/layout mode reader and OS layout-change notification using current chord dispatcher.",
+        "Reconcile native/mod/extended mode arbitration, fallthrough and text focus.",
+        "Check held-modifier release, quit/restart, doubletap and shortcut badges against actual play actions."
+      ],
+      "trial": "Switch Windows keyboard layout, native/mod hotkeys and chat focus; no stuck or duplicate actions."
+    },
+    {
+      "id": "P08",
+      "title": "Window, scale and existing camera parity",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-boot-qualified-interaction-pending",
+      "steps": [
+        "Preserve reachable resize/title/cursor behavior; keep never-installed F11/fullscreen fallback dormant.",
+        "Verify resize/cursor/interface/viewer/ship/backdrop scale rather than porting duplicate owners.",
+        "Exercise system/interior zoom, pan/glide, presets/defaults and original restoration.",
+        "User-requested pan momentum/glide follow-up: compare matched PLAY/migration release behavior at identical zoom/falloff; qualify intended behavior before changing the migration one-movement-per-frame path. No separate drag-speed feature requested."
+      ],
+      "trial": "Boot; window toggle/resize, section transitions, preset save/reload and zoom extremes.",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "5c3637af61a3fb270db28f2610e95fe62666d5c6",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-WINDOW-CURSOR.md",
+          "scope": "Reachable Windows resize/title/cursor reconciliation; dormant F11/fullscreen kept off; admitted title IDs and Unicode forwarding retained.",
+          "localChecks": "423/423 Windows core/binding/mod build/run/install steps;13 explicit production window/title/cursor modes and4 retained scaling/File modes pass. Six intended failures reproduced before corrections.",
+          "remaining": [
+            "Native window/display/cursor and current ABI fit",
+            "Existing camera pan/backdrop reconciliation; parked orbit diagnostics and AAI stay deferred"
+          ]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Shared camera pan/backdrop correction",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": [
+            "Native platform/current-client ABI and matched motion feel stay separate",
+            "Mac SDK absent; AAI and parked diagnostics remain deferred"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P09",
+      "title": "Ship OPC/ETA display",
+      "deps": [
+        "P03"
+      ],
+      "status": "windows-boot-qualified-interaction-pending",
+      "steps": [
+        "Restore highlight_opc_fleets and fleet_hud_opc_eta false-default keys and actual owned fleet/cargo/ETA bindings.",
+        "Preserve player/nonplayer distinctions, unavailable data and cleared/recycled labels.",
+        "Separate display from notification threshold/event semantics."
+      ],
+      "trial": "Owned and other fleets, over/under protection, travel/mining/idle and row reuse."
+    },
+    {
+      "id": "P10",
+      "title": "Swap Ship technology indicators",
+      "deps": [
+        "P03"
+      ],
+      "status": "user-confirmed",
+      "steps": [
+        "Restore FT/CT icons, artwork ownership and optional backgrounds with original defaults.",
+        "Share existing ship-tile binding/release path with pin UI; do not port a second pin owner.",
+        "Clear missing/rebound art, maintain space and click/drag behavior."
+      ],
+      "trial": "Open Swap Ship, scroll/reuse tiles, assigned/missing tech and backgrounds on/off."
+    },
+    {
+      "id": "P11",
+      "title": "Orbit input and Haven orbit",
+      "deps": [
+        "P04",
+        "P07"
+      ],
+      "status": "user-confirmed",
+      "steps": [
+        "Add actual play pointer-chord drag/reset actions.",
+        "Restore Haven source/blend/constraint identity and placement/UI/focus gates.",
+        "Reset and release ownership on section/source changes; preserve qualified Haven zoom/visuals."
+      ],
+      "trial": "Right-drag/Alt-right-reset Haven; placement/modal UI and leave/reenter."
+    },
+    {
+      "id": "P12",
+      "title": "System orbit and environment",
+      "deps": [
+        "P11"
+      ],
+      "status": "parked-by-user-not-registered",
+      "steps": [
+        "Restore navigationorbithooks and system camera-rig drag/reset/free-pan/zoom-anchor behavior.",
+        "Port original environment shell/embedded art with material/texture cleanup; no new artwork initiative.",
+        "Preserve farclip/backdrop, section cleanup and native Galaxy behavior."
+      ],
+      "trial": "Orbit/pan/zoom system, expose scene edges, reset and travel."
+    },
+    {
+      "id": "P13",
+      "title": "Galaxy labels and overlay owner",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-boot-qualified-gameplay-and-settings-pending",
+      "steps": [
+        "Restore major/minor detail and thresholds with bind/release/LOD semantics.",
+        "Restore four overlay flags and multi-select, native mode mapping and disable cleanup.",
+        "Use one cohesive Galaxy owner and existing pure policy/dataset validation where available."
+      ],
+      "trial": "Near/far major/minor labels; multiple overlays, last-active toggle and native mode.",
+      "sourceCheckpoint": "251889690a2377429e72e233dafffcbf370fa6dc",
+      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; 213/213 local build steps; installed groups62/62, not gameplay parity"
+    },
+    {
+      "id": "P14",
+      "title": "Galaxy selection and station housing",
+      "deps": [
+        "P13"
+      ],
+      "status": "windows-boot-qualified-gameplay-and-settings-pending",
+      "steps": [
+        "Restore qualified Far-tier extended selection and label proxies.",
+        "Restore station-housing key/data and star/name-row lifecycle using checked metadata.",
+        "Preserve ordinary native dispatch, qualify the correlated Far fallback separately on each platform, and retain disabled native behavior."
+      ],
+      "trial": "Far Galaxy select, known housing/nonhousing systems, zoom/recycled labels and disable.",
+      "sourceCheckpoint": "251889690a2377429e72e233dafffcbf370fa6dc",
+      "evidence": "M8-GALAXY-CONTROLS.md; .ax/galaxy-parity-20261025/touchkit-native-receipt.json; 213/213 local build steps; installed groups62/62, not gameplay parity"
+    },
+    {
+      "id": "P15",
+      "title": "Officer preset native integration",
+      "deps": [
+        "P01"
+      ],
+      "status": "basic-preset-workflows-accepted-windows-and-mac-extended-edges-open",
+      "steps": [
+        "Reuse existing pure order policy and state owner; SlotId0 valid, fixed empties preserved.",
+        "Restore Shift-up/Ctrl-or-Command-down rename gestures and immediate session order.",
+        "Implement qualified canonical save and renderer-index handoff; do not use disproven data-only swap.",
+        "Keep native save exactly once; restoration/unavailable paths explicit."
+      ],
+      "trial": "Move, rename, save crew into intended slot, empty slots and reopen; macOS modifier separate."
+    },
+    {
+      "id": "P16",
+      "title": "Shared notifications and incoming attack",
+      "deps": [
+        "P18"
+      ],
+      "status": "source-restored-local-fixtures-qualified-real-events-pending",
+      "steps": [
+        "Restore play notification_emit capabilities on the existing toast/desktop foundation.",
+        "Restore incoming-player-attack validation, focused/background policy and repeat suppression.",
+        "Preserve filtering, named context formatting and account/session reset."
+      ],
+      "trial": "Synthetic/offline event checks then real incoming attack when available; focused/background suppression."
+    },
+    {
+      "id": "P17",
+      "title": "Owned fleet event notifications",
+      "deps": [
+        "P09",
+        "P16",
+        "P18"
+      ],
+      "status": "source-restored-local-fixtures-qualified-real-events-pending",
+      "steps": [
+        "Restore system/destination arrival, mining start, depletion, dock, repair and OPC event routes.",
+        "Preserve startup arming, owned-fleet/session identity, transition dedupe and thresholds.",
+        "Keep existing provider integration and no duplicate native/desktop notifications."
+      ],
+      "trial": "Travel, mine/deplete, recall/dock/repair and OPC transitions; reopening/restart must not replay startup events."
+    },
+    {
+      "id": "P18",
+      "title": "Custom audio and coalescing",
+      "deps": [
+        "P01"
+      ],
+      "status": "windows-native-wav-and-lifetime-fixtures-qualified-booted-playback-trial-pending",
+      "steps": [
+        "Restore the existing immutable builtin-or-preloaded-WAV cue type; config loading owns file I/O, playback must not read files.",
+        "Restore builtin/file cue representation, custom file paths and native async playback.",
+        "Restore coalescing/preview backend, mute policy and alert mapping for battle/fleet/incoming events.",
+        "Keep platform playback, error/fallback and task ownership distinct."
+      ],
+      "trial": "Builtin/custom file cue, missing file, overlapping alerts, mute and shutdown."
+    },
+    {
+      "id": "P19",
+      "title": "Claims, HUD, cargo and confirmations sweep",
+      "deps": [
+        "P02",
+        "P05"
+      ],
+      "status": "in-progress-hud-cargo-restoration-local-qualified",
+      "steps": [
+        "Verify existing claim drawer/filter/toggle, four HUD Auto/Always/Never and restoration.",
+        "Check cargo formatting/instant counters/defaults and FT/Excelsior/reveal/warp confirmations.",
+        "Fix observed/source-proven deltas in existing owners; do not port obsolete example-only hud_daily_goals or disable_first_popup."
+      ],
+      "trial": "Representative native screens and on/off/reload; no background auto-claim or wrong-target actions.",
+      "assessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "828095b945d08dd0ac32aa618a471450efe057e5",
+          "implementationCommit": "604091667c45d9b41244773789342823ed2163e9",
+          "candidateSha256": "81cf2afb7c2d358690163dc5715b16959935ac589686294ae31dc861df188fd9",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-CLAIM-CONFIRM-TARGETING.md",
+          "scope": "Daily filtering retains local list/row custody and rechecks native count/item identity before removal; unknown observations stop further filtering. FT/alliance RequestAction bypass requires the actual callback target class to match the method declaring class. Existing source preferences, native list identity and Confirm1/Yes3 answers retained.",
+          "localChecks": "Both new baseline modes fail independently; corrected filter/confirmation/combined actual-consumer modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, config edit, reward claim, purchase, upgrade or live ability action.",
+          "remaining": [
+            "Exact-artifact live filtering and confirmation workflow qualification",
+            "Remaining P19 HUD/cargo and reveal/warp confirmation sweep",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "d19bbdcc09663ced90ec742672331aa622076d8b",
+          "implementationCommit": "a05b40173480baf0e41c69885fbe4dc59032ac3f",
+          "candidateSha256": "035db379fb7f97ba07fc20fddf40ea5b2c2afa1d0353a7d50b4c453b63dc3035",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-REVEAL-WARP-CONFIRMATION.md",
+          "scope": "Reveal retains callback/manager custody and rechecks live opt-in and Action identity/shape after native ability lookup. Instant warp compares the exact copied mode/filter policy after final native observations and reads availability/widget binding after final context observation. Changed or unavailable qualification stays native; no action retry or new travel/ability policy.",
+          "localChecks": "Both new baseline modes fail independently; corrected reveal/warp-targeting plus native warp/label and previous claim/confirmation modes pass. Existing test-il2cpp test-mod312/312 steps; clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit, travel/resource spend or ability activation.",
+          "remaining": [
+            "Exact-candidate live reveal/warp workflow qualification without spending resources just for testing",
+            "Remaining P19 HUD/cargo restoration sweep",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "272410c86873bf436aa6d4af1975e25f6c5f9045",
+          "implementationCommit": "ac2314ba965d03ef55bcfa219add530b8e5063e6",
+          "candidateSha256": "4e54052323f2a400bcae74428662c7fa7250c5d52f927504a302dfb943e74a3b",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-HUD-CARGO-RESTORATION.md",
+          "scope": "Missions Auto restoration requeues known unconfirmed baselines through the existing weak-owner deferred queue, including temporarily unavailable buttons. Forced modes do not schedule perpetual restoration. Windows instant cargo retains an operation-local strong widget handle through native rendering and prior snap-flag restoration; unavailable rooting keeps native handling. Counter arithmetic and formatting policy are unchanged.",
+          "localChecks": "Baseline hud-restoration-retry fails at missing frame retry; baseline cargo-custody fails at absent render root. Ten explicit corrected/related modes pass; existing test-il2cpp test-mod312/312 build/run steps, clean stable Windows native41/41 and proxy verification.",
+          "nativeInteraction": "None. No deploy, game input, cycle, TOML edit or resource/reward action. Cargo custody is controlled lifetime hardening, not a reproduced live collection crash.",
+          "remaining": [
+            "Exact-candidate live HUD and cargo presentation qualification",
+            "Broader P19 native workflow acceptance remains open",
+            "Mac build/runtime qualification; instant cargo remains Windows-only pending hook-fit qualification"
+          ]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "f9e66f2428944c09f24ae338252de1eeb5dc1479",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-CAMERA-CONFIRMATION.md",
+          "scope": "Existing FC confirmation and queue switch source/consumer closure; FT ship-name provenance corrected only",
+          "localChecks": "423/423 Windows core/binding/mod steps;50 explicit pan/backdrop/FC modes and10 retained camera/queue/fleet/window/scale modes pass. Verified unchanged-source baseline:20 intended failures,30 controls.",
+          "remaining": [
+            "Native platform/current-client ABI and matched motion feel stay separate",
+            "Mac SDK absent; AAI and parked diagnostics remain deferred"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P20",
+      "title": "Loading, anomaly, labels and chat sweep",
+      "deps": [
+        "P03",
+        "P08"
+      ],
+      "status": "queued",
+      "steps": [
+        "Qualify actual anomaly HUD, loading image/logo/transition/tip and file fallback.",
+        "Exercise system fleet-label four modes, chat channels/titles/portrait retention.",
+        "Retain current stronger ownership and restoration; no play-dev science activation."
+      ],
+      "trial": "Ordinary boot, loading/section transitions, anomaly system and chat scroll/reopen."
+    },
+    {
+      "id": "P21",
+      "title": "Persistence, Profiles and sync closure",
+      "deps": [
+        "P07",
+        "P17",
+        "P18"
+      ],
+      "status": "in-progress-sync-records-source-and-local-qualified",
+      "steps": [
+        "Check every restored feature's save/reload/default semantics through existing writer/state owners.",
+        "Preserve comments/unknown keys/external conflicts and current profile/bootstrap boundaries.",
+        "Qualify sync category/config compatibility and accepted per-target ACK/restart resend behavior; no new database/history.",
+        "Use synthetic loopback before any explicitly configured live sync; explicit-profile runtime needs its own identified trial."
+      ],
+      "trial": "Settings-file edits/reload/save/restart, ordinary and named-profile trials separately, synthetic sync ACK/retry.",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "targetBase": "5c71cf56e56aaabdabf0f48fdb9287dd4c3d30ea",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-SYNC-RECORDS.md",
+          "scope": "Frozen wire/config reconciliation, Haven marker and checked native intake; retained stronger per-target ACK/session semantics; real local uploader configure/retire/re-add fixture.",
+          "localChecks": "431/431 core/binding/mod/sync/local-uploader steps,10 explicit intake modes and5 queue/chat/fleet modes pass.",
+          "remaining": ["SYNC-BATTLES target-interest acquisition correction", "Native/profile/persistence and live receiver qualification stay separate", "Mac reports remain attached to the pre-release tested; AAI deferred"]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "89258418eb32f03a83a6226f294b412107197af6",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-SYNC-BATTLES.md",
+          "scope": "Battle journal/name acquisition follows live target-interest union across backoff and each POST, with own pending release/re-enable and retained successfully acquired records.",
+          "localChecks": "Five failing-before cases; corrected final combined431/431 Windows steps,6 isolated real-CPR local transport modes and17 retained modes pass.",
+          "remaining": ["Ordinary/custom/profile path and persistence reconciliation", "Native client/FollowSettings/real receiver/current Mac qualification remain distinct; AAI deferred"]
+        },
+        {
+          "date": "2026-11-02",
+          "targetBase": "f65fa9af1219ea1e5e9adbfc42202d93bafdb9f9",
+          "evidence": "docs/migration/FEATURE-COHORT-20261102-PATH-PERSISTENCE.md",
+          "scope": "First custom selector and common fallback log rotation restored; scoped namespace/cleanup and existing persistence consumer paths source-reconciled, admitted context stays confined.",
+          "localChecks": "Four independent failing-before cases; final423/423 Windows core/binding/mod steps and19 file/log/cleanup+2 policy cases pass in authorized normal execution. Restricted filesystem comparison retained separately.",
+          "remaining": ["Native Mac/profile/admission/argument acquisition and persistent-store equivalence remain separate", "Retained source reserved-selector ambiguity is not silently changed; AAI deferred"]
+        }
+      ]
+    },
+    {
+      "id": "P22",
+      "title": "Interactive shortcut editing domain",
+      "deps": [
+        "P07"
+      ],
+      "status": "native-editor-source-and-local-fixtures-qualified-game-trial-pending",
+      "steps": [
+        "Adapt existing play capture/draft/replace/remove/overlap/undo/default contracts to current shortcut owner.",
+        "Reuse current parser/dispatcher; no parallel binding engine.",
+        "Preserve cancel/focus/release gating and exact stored chords."
+      ],
+      "trial": "Fixture capture/undo/conflict checks; UI test afterP25."
+    },
+    {
+      "id": "P23",
+      "title": "Full Settings native adapter",
+      "deps": [
+        "P06",
+        "P10",
+        "P12",
+        "P14",
+        "P15",
+        "P19",
+        "P20",
+        "P21",
+        "P22",
+        "P28"
+      ],
+      "status": "native-adapters-source-and-local-fixtures-qualified-game-trial-pending",
+      "steps": [
+        "Reuse preserved model/callback code and actual game category/toggle/selection/slider/text/action assets.",
+        "Adapt closed instance-delegate construction, virtual BindDataContext, roots and pooled-row ownership.",
+        "Restore preference/session/cloud invalidation before originals; shared frame/input lifecycle.",
+        "No engine-state execution during hook installation and no new rendering stack."
+      ],
+      "trial": "Boot first; open native Mod Settings, bind/release/reopen, Back/Escape and stale callback checks.",
+      "assessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "a5f9c142ff3657b1b7249b705cbeeee762f3cb8a",
+          "implementationCommit": "8bb7c00571aa2af9144f2d530b0ecf92bb762219",
+          "candidateSha256": "34ee3eb7207e31bfa065100bc9a5a144abca31ca12d25241474b4ef6648bca38",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-OWNERSHIP.md",
+          "scope": "Typed Settings command dispatch rechecks page/context/row and view registrations after ownership reads. Actual production action consumer fails before and passes after controlled reentrant page departure.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit action/choice/slider consumers pass; clean stable native Windows41/41 plus proxy verification.",
+          "nativeInteraction": "None: Guff retains game control and reinforced no cycle during a wave; no deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows operator check after separately requested deployment",
+            "Full action rendering/restoration/pooling lifecycle",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "0a20d452bff77eb57b4b9b0058100d6c675029fe",
+          "implementationCommit": "0a20b50e3c8047f793fc1fd4a76b916a0316290a",
+          "candidateSha256": "c9aaf51c2db146e3ea32d7dea764ea83c3efda01f2b5e7698e8952343cddddcd",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-CLEANUP.md",
+          "scope": "Actual Settings ReleaseAction/RestoreAction cleanup retains component/context/view ownership, retires completed claims, and defers restoration during render/invocation. Baseline detached-label case fails; corrected controlled lifecycle cases pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows pooling/editor interaction after separately requested deployment",
+            "Render/rebind recovery after deferred cleanup",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "032795f810defa926514281d3e5bb5e631596587",
+          "implementationCommit": "bb5fef8bba733e0c36dd45cb2231315cdd77ef09",
+          "candidateSha256": "76f1d8b89eac8b0742cc8fd8e886a184d9331a361e97aad0891aeac1d5d44e5d",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-REBIND.md",
+          "scope": "Actual Settings SetWidgetData/frame recovery retains a pending row binding through deferred cleanup, then renders a fresh view without replaying native original. Request/view/row/page/epoch identities reject superseded bindings; native release and invalidation cancel pending requests.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit rebind/cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Render-time attached-component ownership during managed observations",
+            "Native Windows pooling/editor interaction after separately requested deployment",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "37ca2c77c3593cc6b1a2518ae8c91182a67a198d",
+          "implementationCommit": "223c2534f14669ebdf01f8d270cb8b8d39a12871",
+          "candidateSha256": "2a66be66b32e9c88257a7403b3529f4e23c8bc2fbb5a01eefa54db3d8438ff37",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-RENDER.md",
+          "scope": "Actual Settings action rendering rechecks attached labels/button/button object after managed observations. Confirmed drift revokes and uses the deferred-binding path; unknown observations remain non-actionable for retry. Controlled baseline detached-label write fails, corrected render/rebind/cleanup/action/choice/slider modes pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; six explicit Settings modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "One authorized AX Zig cycle loaded the exact combined Windows DLL; native navigation and reused rows, keyboard zoom slider500->600->500 via exact editor, collection editor cancel, Notifications reset-confirmation cancel/help commands, and Q Trials choiceAlways->Auto->Always passed. Settings TOML is byte-identical before/after. Returned to station; no further input. No binding/presentation errors in1961 current-process log lines; only beta notice and existing deprecated-key warnings. Timing-specific replacement/deferred-cleanup races remain controlled evidence, not live-induced.",
+          "remaining": [
+            "Live timing-specific component replacement/deferred-cleanup reproduction",
+            "Mac build/runtime qualification"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P24",
+      "title": "Full Settings catalog and tools",
+      "deps": [
+        "P23",
+        "P10",
+        "P14",
+        "P15",
+        "P18"
+      ],
+      "status": "partial-catalog-tools-qualified-text-and-media-workflows-open",
+      "steps": [
+        "Connect all original play pages/controls with actual feature owners and preserving registered-key writer.",
+        "Restore search, conditional sections, exact numeric/text entry, defaults/help/retry and timing/status.",
+        "Restore full shortcut editor and audio/image file pickers with supported-platform fallbacks.",
+        "No reduced starter catalog presented as full parity."
+      ],
+      "trial": "Exercise every control family, full page catalog, search/default/retry and requested-vs-active restart settings.",
+      "assessments": [
+        {
+          "date": "2026-11-01",
+          "targetBase": "572d81a7f97b76657081ba9b06f065a8ca9adc2c",
+          "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+          "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-EXACT-ENTRY.md",
+          "scope": "Existing exact numeric editor: Windows opening, invalid feedback/disabled Apply, Cancel, reopen, Escape and subsequent native Back; no live Apply or preference write.",
+          "localChecks": "Existing test-mod:152/152 build/run steps; production session/catalog with controlled host/persistence boundaries.",
+          "remaining": [
+            "Successful live Apply/save/restart",
+            "Other control families and extended focus/hardware lifecycle",
+            "Mac execution"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "a4c81d9b7f6886985eef70208851a993025892b2",
+          "installedSource": "f53b07ea94a62aad4a7364616ab6ba029cc16f9f",
+          "artifactSha256": "87455393f134acbc6d8c8186e84303cb711c347721a237a324f709c6ac07535e",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-MEDIA-CANCEL.md",
+          "scope": "Windows native image/audio dialog open, Cancel, reopen; image Escape; audio page departure while chooser pending, delayed Escape and page reopen preserving Off. No file selection or preference write.",
+          "localChecks": "Existing test-mod:152/152 build/run steps; production catalog, audio, image, validator and nonjoining task fixtures. Exact fallback/page rejection controlled, not native.",
+          "remaining": [
+            "Successful live media selection/save/restart, Unicode/network paths and image decoding",
+            "Audible preview and native exact-fallback routing",
+            "Mac interaction; independent Mac Command-Q retest"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "2d03621d92adeb4f0ab68e6e6998953a55b8a11d",
+          "implementationCommit": "83369f3ba89facfa7bce2a1fc27ecb54469519f2",
+          "candidateSha256": "6a5c55427ffeba9e621c452718b0b1fb9db9a54af978b4bedeed2c22a1d6f61a",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-CHOICE-SLIDER.md",
+          "scope": "Shared native choice/slider row identity rechecked after managed ownership reads; controlled stale-context choice regression fails before and passes after. Retained model/save/reset presentation assessed locally.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit actual choice consumer passes; clean/stable native Windows releasedbg41/41 and proxy verification.",
+          "nativeInteraction": "None: Guff retains game control; no deployment, cycle, config edit or live test.",
+          "remaining": [
+            "Operator-driven choice/slider/save/reset normal-flow check after deployment",
+            "Actual native reentrant/pooling lifecycle and Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "a5f9c142ff3657b1b7249b705cbeeee762f3cb8a",
+          "implementationCommit": "8bb7c00571aa2af9144f2d530b0ecf92bb762219",
+          "candidateSha256": "34ee3eb7207e31bfa065100bc9a5a144abca31ca12d25241474b4ef6648bca38",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-OWNERSHIP.md",
+          "scope": "Typed Settings command dispatch rechecks page/context/row and view registrations after ownership reads. Actual production action consumer fails before and passes after controlled reentrant page departure.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit action/choice/slider consumers pass; clean stable native Windows41/41 plus proxy verification.",
+          "nativeInteraction": "None: Guff retains game control and reinforced no cycle during a wave; no deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows operator check after separately requested deployment",
+            "Full action rendering/restoration/pooling lifecycle",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "0a20d452bff77eb57b4b9b0058100d6c675029fe",
+          "implementationCommit": "0a20b50e3c8047f793fc1fd4a76b916a0316290a",
+          "candidateSha256": "c9aaf51c2db146e3ea32d7dea764ea83c3efda01f2b5e7698e8952343cddddcd",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-CLEANUP.md",
+          "scope": "Actual Settings ReleaseAction/RestoreAction cleanup retains component/context/view ownership, retires completed claims, and defers restoration during render/invocation. Baseline detached-label case fails; corrected controlled lifecycle cases pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Native Windows pooling/editor interaction after separately requested deployment",
+            "Render/rebind recovery after deferred cleanup",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "032795f810defa926514281d3e5bb5e631596587",
+          "implementationCommit": "bb5fef8bba733e0c36dd45cb2231315cdd77ef09",
+          "candidateSha256": "76f1d8b89eac8b0742cc8fd8e886a184d9331a361e97aad0891aeac1d5d44e5d",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-REBIND.md",
+          "scope": "Actual Settings SetWidgetData/frame recovery retains a pending row binding through deferred cleanup, then renders a fresh view without replaying native original. Request/view/row/page/epoch identities reject superseded bindings; native release and invalidation cancel pending requests.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; explicit rebind/cleanup/action/choice/slider modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "None: game-control/no-cycle holds remain active, including no automatic cycle after the wave. No deploy/cycle/config edit.",
+          "remaining": [
+            "Render-time attached-component ownership during managed observations",
+            "Native Windows pooling/editor interaction after separately requested deployment",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-01",
+          "targetBase": "37ca2c77c3593cc6b1a2518ae8c91182a67a198d",
+          "implementationCommit": "223c2534f14669ebdf01f8d270cb8b8d39a12871",
+          "candidateSha256": "2a66be66b32e9c88257a7403b3529f4e23c8bc2fbb5a01eefa54db3d8438ff37",
+          "evidence": "docs/migration/FEATURE-COHORT-20261101-ACTION-RENDER.md",
+          "scope": "Actual Settings action rendering rechecks attached labels/button/button object after managed observations. Confirmed drift revokes and uses the deferred-binding path; unknown observations remain non-actionable for retry. Controlled baseline detached-label write fails, corrected render/rebind/cleanup/action/choice/slider modes pass.",
+          "localChecks": "Existing test-il2cpp test-mod:312/312 build/run steps; six explicit Settings modes pass; clean stable native Windows41/41 and proxy verification.",
+          "nativeInteraction": "One authorized AX Zig cycle loaded the exact combined Windows DLL; native navigation and reused rows, keyboard zoom slider500->600->500 via exact editor, collection editor cancel, Notifications reset-confirmation cancel/help commands, and Q Trials choiceAlways->Auto->Always passed. Settings TOML is byte-identical before/after. Returned to station; no further input. No binding/presentation errors in1961 current-process log lines; only beta notice and existing deprecated-key warnings. Timing-specific replacement/deferred-cleanup races remain controlled evidence, not live-induced.",
+          "remaining": [
+            "Live timing-specific component replacement/deferred-cleanup reproduction",
+            "Mac build/runtime qualification"
+          ]
+        },
+        {
+          "date": "2026-11-03",
+          "targetBase": "80bc425c7c06b36d22566d6e863531c3740fbbc5",
+          "evidence": "docs/migration/FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md",
+          "scope": "SET-VALUES existing-owner/contract consolidation with6retainedchecks;no coreproductchange",
+          "remaining": [
+            "Native Apply/save/restart or Swift/Mac platform qualification stays separate",
+            "Mac SDK/toolchain absent and release-promotion policy remains open; AAI deferred"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P25",
+      "title": "Whole-play acceptance and platform closure",
+      "deps": [
+        "P24",
+        "P26",
+        "P27"
+      ],
+      "status": "queued",
+      "steps": [
+        "Audit every actual play hook/setting/action/workflow against final source and trial evidence.",
+        "Run full appropriate regression and supported Windows Zig0.16/0.17 builds; broaden only for actual failures.",
+        "Keep macOS build/signing/notarization/runtime qualification separately pending until real environment available.",
+        "Checkpoint full preserved play result before any play-dev/AAI/Kit expansion; no push or promotion by implication."
+      ],
+      "trial": "Boot final candidate and repeat high-use gameplay/settings smoke; identify any remaining blocker by exact feature.",
+      "assessments": [
+        {
+          "date": "2026-11-02",
+          "sourceCheckpoint": "4e7c052a255aa3a0a559471c99c346bf6b181fc6",
+          "evidence": "docs/migration/features/PLAT-MAC-LAUNCH.md",
+          "scope": "Partial C++ loader/Foundation/injection/build source contract only; no proven gap or implementation change.",
+          "remaining": [
+            "Swift updater/rollback and packaging source contract",
+            "Both Mac builds blocked by missing SDK; native qualification separate"
+          ]
+        },
+        {
+          "date": "2026-11-03",
+          "targetBase": "80bc425c7c06b36d22566d6e863531c3740fbbc5",
+          "evidence": "docs/migration/FEATURE-COHORT-20261103-SWIFT-LAUNCHER.md",
+          "scope": "Mac launcher file actions restored, entitlement target mismatch corrected, updater/packaging/controller contracts mapped",
+          "remaining": [
+            "Native Apply/save/restart or Swift/Mac platform qualification stays separate",
+            "Mac SDK/toolchain absent and release-promotion policy remains open; AAI deferred"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "P26",
+      "title": "macOS notification parity",
+      "deps": [
+        "P16",
+        "P18"
+      ],
+      "status": "queued-platform",
+      "steps": [
+        "Restore real play macOS desktop notification delivery where current source is a no-op/TODO.",
+        "Keep native framework/lifetime and custom audio platform boundaries; compile both architectures where SDK permits.",
+        "Require actual macOS trial before declaring that platform restored; do not hold each Windows development cycle for unavailable macOS runtime."
+      ],
+      "trial": "macOS focused/background desktop alerts, audio and application shutdown with an exact signed/test artifact."
+    },
+    {
+      "id": "P27",
+      "title": "Diagnostic and product surface audit",
+      "deps": [
+        "P01"
+      ],
+      "status": "queued",
+      "steps": [
+        "Account for actual play dev-console/error-probe/tracing controls and user-facing version/branding, including disabled-by-default behavior.",
+        "Preserve implemented diagnostics needed for normal troubleshooting without enabling play-dev science/capture probes.",
+        "Map compatibility aliases and documented settings to actual readers; omit truly obsolete unconsumed examples only with an explicit record."
+      ],
+      "trial": "Ordinary boot stays free of opt-in probes; supported diagnostic controls and identity report the correct artifact."
+    },
+    {
+      "id": "P28",
+      "title": "Discovery ship towing",
+      "deps": [
+        "P07"
+      ],
+      "status": "native-coroutine-source-and-local-fixtures-qualified-game-trial-pending",
+      "steps": [
+        "Restore the Shift+ship-number Discovery tow action present in pinned play.",
+        "Use current fleet/deployment/coroutine bindings with truthful readiness, fleet identity and rejected-path handling.",
+        "Do not copy the old synchronous coroutine-draining busy loop or make newer play-dev standalone towing a prerequisite."
+      ],
+      "trial": "Available/unavailable Discovery, invalid fleet, denied tow and successful tow; ordinary ship selection unchanged."
+    }
+  ]
+}

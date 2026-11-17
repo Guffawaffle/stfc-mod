@@ -15,6 +15,11 @@ on:
       artifact_id:
         required: true
         type: string
+      profiles_artifact_id:
+        description: Exact matching Profiles artifact; required for new production releases
+        required: false
+        default: ''
+        type: string
       release_tag:
         description: Exact planned release tag; empty means a signed Pre CI test
         required: false
@@ -50,6 +55,7 @@ jobs:
           SOURCE_SHA: ${{ inputs.source_sha }}
           BUILD_ATTEMPT: ${{ inputs.run_attempt }}
           ARTIFACT_ID: ${{ inputs.artifact_id }}
+          PROFILES_ARTIFACT_ID: ${{ inputs.profiles_artifact_id }}
           RELEASE_TAG: ${{ inputs.release_tag }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
@@ -79,6 +85,19 @@ jobs:
           gh api "repos/$env:GITHUB_REPOSITORY/actions/artifacts/$env:ARTIFACT_ID/zip" > "$env:RUNNER_TEMP/windows.zip"
           python scripts/ci-signing-input.py extract --archive "$env:RUNNER_TEMP/windows.zip" `
             --selection "$env:RUNNER_TEMP/windows-input.json" --destination payload
+          if (($context.selection_mode -ceq 'release' -or $env:RELEASE_TAG) -and -not $env:PROFILES_ARTIFACT_ID) {
+            throw 'Production Windows signing requires the matching Profiles artifact'
+          }
+          if ($env:PROFILES_ARTIFACT_ID) {
+            python scripts/ci-signing-input.py select --run-json "$env:RUNNER_TEMP/run.json" `
+              --artifacts-json "$env:RUNNER_TEMP/artifacts.json" --repository "$env:GITHUB_REPOSITORY" `
+              --run-id "$env:BUILD_RUN_ID" --platform windows-profiles --mode "$($context.selection_mode)" `
+              --expected-sha "$env:SOURCE_SHA" --expected-attempt "$env:BUILD_ATTEMPT" `
+              --expected-artifact "$env:PROFILES_ARTIFACT_ID" --output "$env:RUNNER_TEMP/profiles-input.json"
+            gh api "repos/$env:GITHUB_REPOSITORY/actions/artifacts/$env:PROFILES_ARTIFACT_ID/zip" > "$env:RUNNER_TEMP/profiles.zip"
+            python scripts/ci-signing-input.py extract --archive "$env:RUNNER_TEMP/profiles.zip" `
+              --selection "$env:RUNNER_TEMP/profiles-input.json" --destination profiles-payload
+          }
 
       - name: Verify DLL source and producing attempt before signing
         shell: pwsh
@@ -87,6 +106,7 @@ jobs:
           SOURCE_SHA: ${{ inputs.source_sha }}
           BUILD_RUN_ID: ${{ inputs.build_run_id }}
           BUILD_ATTEMPT: ${{ inputs.run_attempt }}
+          PROFILES_ARTIFACT_ID: ${{ inputs.profiles_artifact_id }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
@@ -106,6 +126,11 @@ jobs:
           "EMBEDDED_SOURCE_SHA=$source" >> $env:GITHUB_ENV
           "SOURCE_RELATIONSHIP=$relationship" >> $env:GITHUB_ENV
           "UNSIGNED_SHA256=$((Get-FileHash payload/version.dll -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_ENV
+          if ($env:PROFILES_ARTIFACT_ID) {
+            python scripts/windows-profiles-package.py verify --payload profiles-payload --dll payload/version.dll `
+              --source $source --run "$($env:BUILD_RUN_ID):$($env:BUILD_ATTEMPT)" `
+              --receipt "$env:RUNNER_TEMP/profiles-unsigned-manifest.json"
+          }
 
       - name: Prepare canonical version label without changing DLL bytes
         id: build_identity
@@ -137,11 +162,25 @@ jobs:
           timestamp-digest: SHA256
           description: ${{ steps.build_identity.outputs.signing_description }}
           description-url: https://github.com/Guffawaffle/stfc-mod
+      - name: Sign the verified matching Profiles helper
+        if: inputs.profiles_artifact_id != ''
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
+        with:
+          endpoint: ${{ vars.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_CODE_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_CERTIFICATE_PROFILE_NAME }}
+          files: ${{ github.workspace }}\profiles-payload\stfc-profiles.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          description: ${{ steps.build_identity.outputs.signing_description }}
+          description-url: https://github.com/Guffawaffle/stfc-mod
       - name: Verify timestamped publisher signature and retain input receipt
         shell: pwsh
         env:
           EXPECTED_PUBLISHER: ${{ vars.WIN_PUBLISHER_NAME }}
           SIGNING_DESCRIPTION: ${{ steps.build_identity.outputs.signing_description }}
+          PROFILES_ARTIFACT_ID: ${{ inputs.profiles_artifact_id }}
         run: |
           $ErrorActionPreference = 'Stop'
           $sig = Get-AuthenticodeSignature -LiteralPath payload/version.dll
@@ -165,6 +204,21 @@ jobs:
           if ($env:SIGNING_DESCRIPTION -cne ('STFC Community Mod | ' + $buildIdentity.STFCDisplayVersion)) {
             throw 'Signing description differs from canonical build identity'
           }
+          $profiles = $null
+          if ($env:PROFILES_ARTIFACT_ID) {
+            $helperSig = Get-AuthenticodeSignature -LiteralPath profiles-payload/stfc-profiles.exe
+            if ($helperSig.Status -ne 'Valid' -or -not $helperSig.TimeStamperCertificate -or
+                $helperSig.SignerCertificate.Thumbprint -cne $cert.Thumbprint) {
+              throw 'Profiles helper requires the same valid timestamped publisher signature as the DLL'
+            }
+            $unsigned = Get-Content -Raw "$env:RUNNER_TEMP/profiles-unsigned-manifest.json" | ConvertFrom-Json
+            $profiles = [ordered]@{
+              ciInput = Get-Content -Raw "$env:RUNNER_TEMP/profiles-input.json" | ConvertFrom-Json
+              revision = $unsigned.profiles.revision
+              unsignedHelperSha256 = $unsigned.files.'stfc-profiles.exe'.sha256
+              signedHelperSha256 = (Get-FileHash profiles-payload/stfc-profiles.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+          }
           [ordered]@{
             repository = $env:GITHUB_REPOSITORY
             sourceCommit = $env:EMBEDDED_SOURCE_SHA
@@ -179,10 +233,16 @@ jobs:
             signedSha256 = (Get-FileHash payload/version.dll -Algorithm SHA256).Hash.ToLowerInvariant()
             signer = $publisher
             certificateThumbprint = $cert.Thumbprint
+            profiles = $profiles
             signingWorkflowCommit = $env:GITHUB_SHA
             signingRunUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
             purpose = 'artifact signing only; no release publication or CI-result change'
           } | ConvertTo-Json -Depth 12 | Set-Content payload/provenance.json -Encoding utf8NoBOM
+          if ($env:PROFILES_ARTIFACT_ID) {
+            python scripts/windows-profiles-package.py package --payload profiles-payload --signed-dll payload/version.dll `
+              --unsigned-receipt "$env:RUNNER_TEMP/profiles-unsigned-manifest.json" `
+              --signing-receipt payload/provenance.json --output payload/stfc-community-mod-profiles-windows-x64.zip
+          }
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: signed-windows-test-${{ inputs.build_run_id }}

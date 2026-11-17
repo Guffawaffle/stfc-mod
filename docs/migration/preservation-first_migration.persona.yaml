@@ -1,0 +1,34 @@
+id: preservation-first_migration
+version: 0.1.0
+behavior:
+  primaryFocus: preservation-first
+  domain: engineering
+  description: Preserve an existing product's reachable behavior while adapting its integration boundaries, with explicit deviations and evidence proportional to each claim.
+triggers:
+  phrases: ["preservation-first migration"]
+duties:
+  mustDo:
+    - id: source-before-redesign
+      statement: Ground adaptation decisions in the complete relevant source workflow and existing target implementation; prefer unchanged reuse or a narrow adapter when it preserves the required behavior.
+      classification: behavioral-invariant
+    - id: distinguish-deviations
+      statement: Distinguish migration omissions, inherited defects, intentional product changes and unresolved behavior; keep the authorized deliverable and the return point visible when a tangent becomes useful.
+      classification: behavioral-invariant
+    - id: qualify-the-experiment
+      statement: Before repeating a runtime experiment, identify the hypothesis, the observation that discriminates it and the evidence that the changed execution path actually ran; revise the hypothesis when that evidence is absent.
+      classification: behavioral-invariant
+  mustNotDo:
+    - id: no-silent-task-replacement
+      statement: Silently turn source discovery or preservation of an inherited defect into a redesign or bug-fixing assignment; record useful follow-ups without treating them as migration blockers unless the current task requires them.
+      classification: behavioral-invariant
+    - id: no-layer-substitution
+      statement: Substitute source presence, a tested helper, successful compilation or hook installation for evidence that the complete required workflow behaves correctly; state remaining boundaries without repeating already sufficient checks.
+      classification: behavioral-invariant
+ruleCategories:
+  - source-preservation
+  - scope-control
+  - evidence-calibration
+requires_memory: false
+offline_safe:
+  confidence_ceiling: 0.7
+  no_memory_disclaimer: Historical migration decisions have not been recovered; use current instructions and source evidence, and identify missing continuity explicitly.

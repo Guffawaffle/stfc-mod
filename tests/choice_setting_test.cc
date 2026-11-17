@@ -51,21 +51,56 @@ int main()
   assert(!normal.value() && normal.Request(true) == Outcome::Rejected && writes == 2);
 
   // Audio has ten built-ins (including Off) plus a retained custom-file slot.
-  int audio_value = 10;
-  ChoiceSetting audio({"audio", "Sound", [&] { return ValueReadResult<int>::Known(audio_value, 1); },
-      [&](int value, std::uint64_t) { audio_value = value; return ApplyResult::Applied; }},
+  int           audio_value = 10;
+  ChoiceSetting audio(
+      {"audio", "Sound", [&] { return ValueReadResult<int>::Known(audio_value, 1); },
+       [&](int value, std::uint64_t) {
+         audio_value = value;
+         return ApplyResult::Applied;
+       }},
       {"Off", "Default", "Info", "Success", "Warning", "Alarm", "Arrival", "Soft", "Ping", "Repair", "Custom"});
   PageCatalog audio_pages("audio_root", "Audio");
   assert(audio_pages.AddPage("alert", "Alert", "audio_root") == Registration::Added);
   assert(audio_pages.AddChoice("alert", audio) == Registration::Added);
   assert(audio_pages.Build().at(1).ControlRows() == 11);
   NativeViewState custom(audio, 10), off(audio, 0);
-  custom.Bind(); off.Bind();
+  custom.Bind();
+  off.Bind();
   assert(custom.value() == true && off.value() == false);
   assert(off.Request(true) == Outcome::AppliedVerified && audio_value == 0);
   custom.Bind();
   assert(custom.Request(true) == Outcome::AppliedVerified && audio_value == 10);
   assert(audio.state().SetFromUser(11, audio.state().Observe()).outcome == Outcome::Rejected);
+
+  int             factions = 7;
+  ChoiceSetting   multi({"factions", "Factions", [&] { return ValueReadResult<int>::Known(factions, 1); },
+                         [&](int value, std::uint64_t) {
+                         factions = value;
+                         return ApplyResult::Applied;
+                         }},
+                        {"Federation", "Klingon", "Romulan"}, ChoiceMode::Multiple);
+  NativeViewState federation(multi, 0), klingon(multi, 1), romulan(multi, 2);
+  federation.Bind();
+  klingon.Bind();
+  romulan.Bind();
+  assert(federation.value() == true && klingon.value() == true && romulan.value() == true);
+  assert(federation.Request(false) == Outcome::AppliedVerified && factions == 6);
+  assert(klingon.Request(false) == Outcome::Conflict && factions == 6);
+  klingon.Bind();
+  {
+    NativeViewState::RenderScope guard(klingon);
+    assert(klingon.Request(false) == Outcome::Suppressed);
+  }
+  assert(klingon.Request(false) == Outcome::AppliedVerified && factions == 4);
+  romulan.Bind();
+  assert(romulan.Request(false) == Outcome::AppliedVerified && factions == 0);
+  assert(multi.SelectionLabel(0) == "None" && multi.SelectionLabel(5) == "Federation, Romulan");
+  federation.Bind();
+  assert(federation.Request(true) == Outcome::AppliedVerified && factions == 1);
+  assert(multi.state().SetFromUser(8, multi.state().Observe()).outcome == Outcome::Rejected);
+  factions = -1;
+  federation.Bind();
+  assert(!federation.value());
 
   Il2CppType integer{}, nothing{};
   integer.type = IL2CPP_TYPE_I4;

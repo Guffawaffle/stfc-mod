@@ -127,7 +127,7 @@ int main()
   assert(!presentation.actionable());
   assert(commandPlan[0].PositionFor(command.id()) == 0);
   assert(commandPlan[0].PositionFor("unknown") == commandPlan[0].items.size());
-  PageCatalog   combined("labels", "Fleet Labels");
+  PageCatalog combined("labels", "Fleet Labels");
   assert(combined.AddHeading("labels", "player.heading", "Player", true) == Registration::Added);
   assert(combined.AddChoice("labels", player) == Registration::Added);
   assert(combined.AddSlider("labels", playerSlider) == Registration::Added);
@@ -169,8 +169,13 @@ int main()
                            return masterAvailable ? ReadResult::Known(masterOn, 1) : ReadResult{};
                          },
                          {}});
+  BooleanSetting dependent({"dependent", "Dependent", [] { return ReadResult::Known(true, 1); }, {}});
   PageCatalog    conditional("conditional", "Conditional sections");
   assert(conditional.AddBoolean("conditional", master) == Registration::Added);
+  assert(conditional.AddBoolean("conditional", dependent, [&] {
+    const auto state = master.Observe().state;
+    return state.known() && *state.value;
+  }) == Registration::Added);
   assert(conditional.AddHeading("conditional", "targets", "Targets", false, [&] {
     const auto state = master.Observe().state;
     return state.known() && *state.value;
@@ -186,12 +191,14 @@ int main()
   for (bool enabled : {false, true, false, true}) {
     masterOn = enabled; // A live change from either UI or shortcut uses the same reader.
     assert(page.IsVisible("master"));
+    assert(page.IsVisible("dependent") == enabled);
     assert(page.IsVisible("targets") == enabled);
     assert(page.IsVisible(setting.id()) == enabled);
     assert(page.IsVisible("later") && page.IsVisible(playerSlider.state().id()));
     assert(value && writes == writesBeforeVisibility); // Hiding/revealing never clears a target preference.
   }
   masterAvailable = false;
+  assert(!page.IsVisible("dependent"));
   assert(!page.IsVisible("targets") && !page.IsVisible(setting.id()));
   assert(page.IsVisible("master") && page.IsVisible("unknown"));
   bool        rejected = false;

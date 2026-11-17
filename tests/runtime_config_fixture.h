@@ -1,4 +1,16 @@
 #pragma once
+namespace mod_state
+{
+inline bool draining = false, settled = true;
+inline void BeginQuitDrain()
+{ draining = true; }
+inline bool QuitDrained()
+{ return settled; }
+inline void ResumeAfterQuitVeto()
+{ draining = false; }
+} // namespace mod_state
+#include "runtime_reload.h"
+#include "toml_editor.h"
 #if _WIN32
 #include <Windows.h>
 #endif
@@ -6,7 +18,9 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -17,12 +31,23 @@ template <class... Args> void warn(const char*, Args&&...) {}
 } // namespace spdlog
 namespace config_edit
 {
-using Value = std::variant<bool, std::string, double, std::int64_t>;
-enum class Outcome { Conflict, InvalidDocument, Unsupported };
 // Controllable boundary; the fixture below includes the actual adapter bodies.
 struct RuntimeConfigWriter {
-  bool failures = false;
-  bool HasFailures() const
+  struct Status {
+    std::uint64_t        revision = 0;
+    Outcome              outcome  = Outcome::AlreadySaved;
+    bool                 pending = false, registered = true;
+    std::optional<Value> subject;
+  };
+  std::uint64_t StatusSequence() const
+  { return submissions; }
+  bool Register(std::string, std::string, std::optional<Value>)
+  { return !stopped; }
+  Status GetStatus(std::string_view, std::string_view) const
+  { return {submissions, failures ? Outcome::IoError : Outcome::Saved, work, true, desired}; }
+  std::optional<Value> desired;
+  bool                 failures = false;
+  bool                 HasFailures() const
   { return failures; }
   bool HasFailure(std::string_view, std::string_view) const
   { return failures; }
@@ -48,12 +73,22 @@ struct RuntimeConfigWriter {
   }
   bool PollStopped() const
   { return finished; }
+  bool Resume()
+  {
+    if (!stopped || !finished || cancelled)
+      return false;
+    stopped = finished = false;
+    return true;
+  }
   void* NativeHandle() const
   { return handle; }
   unsigned Submit(const char*)
   { return stopped || failures ? 0 : ++submissions; }
-  unsigned Submit(const char*, const char*, Value, std::chrono::milliseconds)
-  { return Submit(""); }
+  unsigned Submit(const char*, const char*, Value value, std::chrono::milliseconds)
+  {
+    desired = std::move(value);
+    return Submit("");
+  }
 };
 } // namespace config_edit
 

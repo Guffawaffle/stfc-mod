@@ -1,4 +1,5 @@
 #include "config_save.h"
+#include "config_save_fixture.h"
 
 #include <cassert>
 #include <fstream>
@@ -8,14 +9,13 @@
 #include <Windows.h>
 #endif
 
-int main(int argc, char** argv)
+int main()
 {
-  assert(argc == 2);
-  const std::filesystem::path root(argv[1]);
-  std::filesystem::create_directories(root);
-  const auto        path  = root / "settings.toml";
-  const std::string value = "quotes: \"'\\\n[unexpected]\nenabled = true\nUnicode: \xc3\xa9";
-  toml::table       config{{"value", value}, {"enabled", false}};
+  ConfigSaveFixtureDirectory fixture;
+  const auto&                root  = fixture.Root();
+  const auto                 path  = root / "settings.toml";
+  const std::string          value = "quotes: \"'\\\n[unexpected]\nenabled = true\nUnicode: \xc3\xa9";
+  toml::table                config{{"value", value}, {"enabled", false}};
   SaveConfigDocument(config, path, "# generated\n");
   auto parsed = toml::parse_file(path.string());
   assert(parsed["value"].value<std::string>() == value);
@@ -53,9 +53,14 @@ int main(int argc, char** argv)
   } catch (const std::exception&) {
     failed = true;
   }
+  std::string startupError;
+  assert(!SaveStartupConfigDocument(config, path, {}, startupError));
+  assert(!startupError.empty());
   CloseHandle(handle);
   assert(failed);
   assert(toml::parse_file(path.string())["enabled"].value<bool>() == true);
+  assert(SaveStartupConfigDocument(config, path, {}, startupError) && startupError.empty());
+  assert(toml::parse_file(path.string())["enabled"].value<bool>() == false);
 #else
   const auto mode = std::filesystem::perms::owner_read | std::filesystem::perms::owner_write;
   std::filesystem::permissions(path, mode);

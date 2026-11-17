@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import plistlib
+import re
 import struct
 import subprocess
 import sys
@@ -25,6 +26,11 @@ SOURCE_SPEC.loader.exec_module(SIGNING)
 BASE = "1.1.9.5"
 TAG = "v1.1.9.5-guffa.6"
 SOURCE = "0123456789abcdef0123456789abcdef01234567"
+
+
+def source_fork_revision():
+    header = (ROOT / "src/mod/version.h").read_text()
+    return int(re.search(r"^#define\s+VERSION_FORK_REVISION\s+(\d+)\s*$", header, re.MULTILINE).group(1))
 
 
 def icon(red):
@@ -152,6 +158,20 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(ci["CFBundleVersion"], dev["CFBundleVersion"])
         self.assertEqual(ci["STFCForkRevision"], dev["STFCForkRevision"])
 
+    def test_named_dev_tag_is_exact_and_cannot_claim_another_channel(self):
+        tag = "v1.1.9.5-guffa.6-dev.1"
+        fields = IDENTITY.build_metadata(BASE, channel="dev", release_tag=tag, fork_revision=6)
+        self.assertEqual(fields["STFCDisplayVersion"], "1.1.9.5-guffa.6-dev.1 · DEV")
+        self.assertEqual(fields["CFBundleVersion"], "5.6.1")
+        self.assertEqual(fields["STFCReleaseTag"], tag)
+        for invalid in ("v1.1.9.5-guffa.6", "v1.1.9.5-guffa.7-dev.1", "v1.1.9.0-guffa.6-dev.1",
+                        "v1.1.9.5-guffa.6-dev.0", "v1.1.9.5-guffa.6-dev.01", tag + "\n"):
+            with self.subTest(tag=invalid), self.assertRaises(ValueError):
+                IDENTITY.build_metadata(BASE, channel="dev", release_tag=invalid, fork_revision=6)
+        for channel in ("ci", "pre", "release"):
+            with self.subTest(channel=channel), self.assertRaises(ValueError):
+                IDENTITY.build_metadata(BASE, channel=channel, release_tag=tag, fork_revision=6)
+
     def test_unsigned_ci_and_dev_select_their_own_icons_without_payload_changes(self):
         for channel in ("ci", "dev"):
             with self.subTest(channel=channel):
@@ -217,9 +237,10 @@ class IdentityTests(unittest.TestCase):
                 IDENTITY.build_metadata(BASE, channel="pre", **incomplete)
 
     def test_unnamed_pre_generation_and_stamp_preserve_payload_and_refuse_partial_context(self):
-        output = self.generated(channel="pre", source=SOURCE, fork_revision=6,
+        fork_revision = source_fork_revision()
+        output = self.generated(channel="pre", source=SOURCE, fork_revision=fork_revision,
                                 run_id=99, run_number=19, run_attempt=3)
-        self.assertEqual(output["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b19.3")
+        self.assertEqual(output["STFCDisplayVersion"], f"{BASE}-guffa.{fork_revision} · Pre b19.3")
         IDENTITY.validate_plist(output)
         verified = subprocess.run(
             [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"),
@@ -235,7 +256,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
                                     channel="pre", source=SOURCE, run_id=99, run_number=19, run_attempt=3)
-        self.assertEqual(record["identity"]["STFCDisplayVersion"], "1.1.9.5-guffa.6 · Pre b19.3")
+        self.assertEqual(record["identity"]["STFCDisplayVersion"], f"{BASE}-guffa.{fork_revision} · Pre b19.3")
         self.assertEqual(self.output_icon.read_bytes(), (self.icons / "launcher-pre.icns").read_bytes())
         for name, payload in self.binaries.items():
             self.assertEqual((self.contents / name).read_bytes(), payload)
@@ -384,13 +405,14 @@ class IdentityTests(unittest.TestCase):
 
     def test_cli_generate_and_verifier_accept_default_ci_and_reject_mismatch(self):
         output = self.root / "cli.plist"
+        fork_revision = source_fork_revision()
         command = [sys.executable, str(SCRIPT), "generate", "--template", str(self.input_template),
                    "--base-version", BASE, "--macos-min", "14.6", "--run-id", "55", "--run-number", "19",
-                   "--source", SOURCE, "--fork-revision", "6", "--output", str(output)]
+                   "--source", SOURCE, "--fork-revision", str(fork_revision), "--output", str(output)]
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("CI b19.1", result.stdout)
-        self.assertIn("1.1.9.5-guffa.6", result.stdout)
+        self.assertIn(f"{BASE}-guffa.{fork_revision}", result.stdout)
         verify = [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"), str(output),
                   "--base-version", BASE, "--channel", "ci", "--source", SOURCE]
         result = subprocess.run(verify, capture_output=True, text=True)

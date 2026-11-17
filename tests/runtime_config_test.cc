@@ -1,10 +1,10 @@
 #define CONFIG_RUNTIME_TEST "runtime_config_fixture.h"
-#include "../mods/src/patches/parts/runtime_config.cc"
+#include "../src/mod/runtime_config.cc"
+#include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <string_view>
 #include <thread>
-#include <algorithm>
-#include <iterator>
 
 namespace
 {
@@ -12,40 +12,43 @@ config_edit::RuntimeConfigWriter fixture;
 unsigned                         resumes = 0;
 void                             Reset()
 {
-  fixture   = {};
-  writer    = &fixture;
-  available = true;
-  owner     = CurrentThreadToken();
-  forcing   = false;
-  persistence_unavailable = false;
-  reported_save_failure   = false;
+  fixture                  = {};
+  writer                   = &fixture;
+  available                = true;
+  owner                    = CurrentThreadToken();
+  forcing                  = false;
+  persistence_unavailable  = false;
+  protection_incomplete    = false;
+  reported_save_failure    = false;
+  reported_status_sequence = 0;
+  adapter_status_sequence  = 0;
+  unavailable_settings.clear();
+  requested_settings.clear();
   save_status_changed     = nullptr;
   fixture_update_callback = nullptr;
   draining = stopped = resume = false;
   vote                        = 0;
   resumes                     = 0;
   request_quit                = [](int) { ++resumes; };
+  mod_state::draining         = false;
+  mod_state::settled          = true;
 }
 } // namespace
 int main(int argc, char** argv)
 {
-  for (const auto& [section, key] : config_edit::persisted_settings) {
-    assert(std::count_if(std::begin(config_edit::persisted_settings), std::end(config_edit::persisted_settings),
-                        [&](const auto& entry) {
-                          return std::string_view(entry.first) == section && std::string_view(entry.second) == key;
-                        }) == 1);
-  }
-  // Regression: settings can work live while every save is rejected if their
-  // key is missing from Configure's registration list.
-  for (std::string_view key : {"galaxy_multi_select", "galaxy_overlay_default", "galaxy_overlay_mining",
-                               "galaxy_overlay_hostiles", "galaxy_overlay_hazards", "galaxy_label_major_detail",
-                               "galaxy_label_major_threshold", "galaxy_label_minor_detail",
-                               "galaxy_label_minor_threshold"}) {
-    assert(std::count_if(std::begin(config_edit::persisted_settings), std::end(config_edit::persisted_settings),
-                        [key](const auto& entry) {
-                          return std::string_view(entry.first) == "graphics" && entry.second == key;
-                        }) == 1);
-  }
+  Reset();
+  // Idle TOML does not permit exit while an admitted state edit is still executing.
+  mod_state::settled = false;
+  assert(!WantsQuit([] { return true; }) && mod_state::draining);
+  fixture.finished = true;
+  Update();
+  assert(resumes == 0);
+  mod_state::settled = true;
+  Update();
+  assert(resumes == 1);
+  assert(!WantsQuit([] { return false; }) && mod_state::draining);
+  Update();
+  assert(!draining && !stopped && !mod_state::draining);
   Reset();
 #if _WIN32
   if (argc == 2) {
@@ -77,27 +80,53 @@ int main(int argc, char** argv)
   fixture_update_callback = nullptr;
   assert(runtime_config::SetSaveStatusObserver(save_status_changed));
   assert(fixture_update_callback);
-  runtime_config::SaveWarpMode("warp");
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("warp"), {});
   fixture_update_callback();
   assert(notices == 3 && runtime_config::HasSaveFailures());
   available = true;
   writer    = &fixture;
-  runtime_config::SaveWarpMode("jump");
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("jump"), {});
   Update();
-  assert(notices == 3 && runtime_config::HasSaveFailures()); // Rejected edits remain session-only.
+  assert(notices == 4 && !runtime_config::HasSaveFailures()); // A successful retry clears this key only.
   Reset();
   fixture.failures = true; // Transient thread-start failure is tracked by its key.
-  runtime_config::SaveWarpMode("warp");
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("warp"), {});
   assert(runtime_config::HasSaveFailures() && !persistence_unavailable);
   fixture.failures = false;
-  runtime_config::SaveWarpMode("jump");
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("jump"), {});
   assert(!runtime_config::HasSaveFailures());
   Reset();
-  runtime_config::SaveWarpMode("invalid");
-  assert(fixture.submissions == 0); // Generic submission must retain the mode wrapper's domain check.
+  available = false;
+  runtime_config::SaveSetting("ui", "first", true, {});
+  runtime_config::SaveSetting("ui", "second", true, {});
+  assert(runtime_config::GetSaveStatus("ui", "first", true).state == mod_settings::SaveState::Unavailable);
+  assert(runtime_config::GetSaveStatus("ui", "first", false).state == mod_settings::SaveState::SessionOnly);
+  available = true;
+  runtime_config::SaveSetting("ui", "first", true, {});
+  assert(runtime_config::HasSaveFailures()); // Retrying A cannot conceal unavailable B.
+  assert(runtime_config::GetSaveStatus("ui", "second", true).state == mod_settings::SaveState::Unavailable);
+  runtime_config::SaveSetting("ui", "second", true, {});
+  assert(!runtime_config::HasSaveFailures());
+  Reset();
+  runtime_config::SaveSetting("ui", "mode", std::string("warp"), {});
+  assert(runtime_config::GetSaveStatus("ui", "mode", std::string("warp")).state == mod_settings::SaveState::Saved);
+  assert(runtime_config::GetSaveStatus("ui", "mode", std::string("jump")).state
+         == mod_settings::SaveState::SessionOnly);
+  fixture.work = true;
+  assert(runtime_config::GetSaveStatus("ui", "mode", std::string("warp")).state == mod_settings::SaveState::Pending);
+  assert(runtime_config::GetSaveStatus("ui", "mode", std::string("jump")).state
+         == mod_settings::SaveState::SessionOnly);
+  fixture.work     = false;
+  fixture.failures = true;
+  assert(runtime_config::GetSaveStatus("ui", "mode", std::string("warp")).state == mod_settings::SaveState::Failed);
+  assert(runtime_config::GetSaveStatus("ui", "mode", std::string("jump")).state
+         == mod_settings::SaveState::SessionOnly);
+  Reset();
+  assert(runtime_config::RegisterSetting("ui", "auto_confirm_instant_warp"));
+  assert(!runtime_config::RegisterSetting("", "invalid"));
   assert(WantsQuit([] { return true; }));
   assert(fixture.stopped && stopped && !draining);
-  runtime_config::SaveWarpMode("warp");
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("warp"), {});
   assert(fixture.submissions == 0);
   Update();
   assert(resumes == 0);
@@ -119,7 +148,7 @@ int main(int argc, char** argv)
   fixture.finished = true;
   std::thread foreign([] {
     Update();
-    runtime_config::SaveWarpMode("jump");
+    runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("jump"), {});
   });
   foreign.join();
   assert(resumes == 0 && fixture.submissions == 0);
@@ -130,6 +159,9 @@ int main(int argc, char** argv)
   Update();
   Update();
   assert(resumes == 1);
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("warp"), {});
+  assert(fixture.submissions == 1 && !stopped && !draining && !fixture.stopped);
+  assert(WantsQuit([] { return true; })); // A later explicit quit still works.
 
   Reset();
   fixture.work = true;
@@ -141,9 +173,79 @@ int main(int argc, char** argv)
   Update();
   assert(resumes == 0);
 
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("jump"), {});
+  assert(fixture.submissions == 1 && !draining && !fixture.stopped);
+
   Reset();
   assert(!WantsQuit([] { return false; }));
-  runtime_config::SaveWarpMode("warp");
+  runtime_config::SaveSetting("ui", "auto_confirm_instant_warp", std::string("warp"), {});
   assert(fixture.submissions == 1); // Veto leaves ordinary save admission open.
-  std::puts("Native adapter idle/drain/veto/owner fixtures passed");
+  // Outcome may still say Saved while a newer receipt is pending. Capture must
+  // protect that live intent before disk I/O and own the value across completion.
+  Reset();
+  owner     = 0;
+  available = false;
+  assert(runtime_config::PrepareFrame() && fixture_update_callback && !save_status_changed);
+  fixture_update_callback();
+  runtime_config::SaveSetting("ui", "toggle", false, {});
+  assert(fixture.submissions == 0 && runtime_config::CaptureReload().size() == 1);
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{false});
+  Reset();
+  fixture.work = true;
+  runtime_config::SaveSetting("ui", "toggle", false, {});
+  const auto captured = runtime_config::CaptureReload();
+  assert(captured.size() == 1 && captured[0].value == config_edit::Value{false});
+  std::thread rejected_request([] { runtime_config::SaveSetting("ui", "toggle", true, {}); });
+  rejected_request.join();
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{false});
+  fixture.work = false;
+  assert(runtime_config::CaptureReload().empty());
+  assert(captured[0].value == config_edit::Value{false});
+  // An automatic preset->default update is intentional session state, not a
+  // failed save. Older completed or pending receipts cannot erase its intent.
+  Reset();
+  runtime_config::SaveSetting("graphics", "default_system_zoom", 20.0, {});
+  const auto disk_submissions = fixture.submissions;
+  runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 30.0);
+  assert(fixture.submissions == disk_submissions && !runtime_config::HasSaveFailures());
+  assert(runtime_config::GetSaveStatus("graphics", "default_system_zoom", 30.0).state
+         == mod_settings::SaveState::SessionOnly);
+  assert(runtime_config::CaptureReload().size() == 1);
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{30.0});
+  fixture.work = true;
+  runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 40.0);
+  fixture.work = false;
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{40.0});
+  std::thread rejected_session([] { runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 99.0); });
+  rejected_session.join();
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{40.0});
+  runtime_config::SaveSetting("graphics", "default_system_zoom", 50.0, {});
+  assert(fixture.submissions == disk_submissions + 1 && runtime_config::CaptureReload().empty());
+  assert(runtime_config::GetSaveStatus("graphics", "default_system_zoom", 50.0).state
+         == mod_settings::SaveState::Saved);
+  Reset();
+  writer    = nullptr;
+  available = false;
+  runtime_config::RetainSessionIntent("graphics", "default_system_zoom", 0.0);
+  assert(runtime_config::CaptureReload()[0].value == config_edit::Value{0.0});
+  assert(!runtime_config::HasSaveFailures());
+  assert(runtime_config::GetSaveStatus("graphics", "default_system_zoom", 0.0).state
+         == mod_settings::SaveState::SessionOnly);
+  runtime_config::RetainSessionIntent("", "invalid", 1.0);
+  assert(runtime_config::CaptureReload().size() == 1);
+  Reset();
+  available = false;
+  runtime_config::SaveSetting("ui", "toggle", false, {});
+  runtime_config::SaveSetting("graphics", "amount", std::int64_t{0}, {});
+  runtime_config::SaveSetting("ui", "text", std::string{}, {});
+  assert(runtime_config::CaptureReload().size() == 3);
+  protection_incomplete = true;
+  bool rejected_reload  = false;
+  try {
+    (void)runtime_config::CaptureReload();
+  } catch (const std::runtime_error&) {
+    rejected_reload = true;
+  }
+  assert(rejected_reload);
+  std::puts("Native adapter idle/drain/veto/owner and reload-intent fixtures passed");
 }

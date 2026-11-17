@@ -1,0 +1,84 @@
+// The launcher app: a resizable window, and quitting when it closes.
+
+import AppKit
+import SwiftUI
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+  func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+    true
+  }
+}
+
+@main
+struct STFC_Community_Patch_LauncherApp: App {
+  @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+  #if PROFILES_PREVIEW
+  @FocusedValue(\.profilesPresentation) private var profilesPresentation
+  #endif
+
+  var body: some Scene {
+    WindowGroup("STFC Mod") {
+      ContentView()
+        .frame(minWidth: 360, minHeight: 360)
+    }
+    .defaultSize(width: 560, height: 520)
+    .windowResizability(.contentMinSize)
+    .commands {
+      CommandGroup(replacing: .appInfo) {
+        Button("About STFC Community Mod") {
+          LauncherBuildIdentity.showAbout()
+        }
+      }
+      CommandGroup(after: .sidebar) {
+        #if PROFILES_PREVIEW
+        Button("Profiles…") { profilesPresentation?.wrappedValue = true }
+          .keyboardShortcut("p", modifiers: [.command, .shift])
+          .disabled(profilesPresentation == nil)
+        #endif
+        Divider()
+        Button("View Mod Folder") {
+          openModFolder()
+        }
+      }
+    }
+  }
+
+  private func openModFolder() {
+    guard let directoryURL = ModFiles.directoryURL else {
+      showFolderError("Could not locate your Library folder.")
+      return
+    }
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),
+      isDirectory.boolValue
+    else {
+      showFolderError(
+        "The mod folder is not available at \(directoryURL.path). Launch the game with the mod once to create it.")
+      return
+    }
+    if !NSWorkspace.shared.open(directoryURL) {
+      showFolderError("Could not open the mod folder in Finder.")
+    }
+  }
+
+  private func showFolderError(_ message: String) {
+    let alert = NSAlert()
+    alert.messageText = "Could not open mod folder"
+    alert.informativeText = message
+    alert.addButton(withTitle: "OK")
+    alert.runModal()
+  }
+}
+
+#if PROFILES_PREVIEW
+private struct ProfilesPresentationKey: FocusedValueKey {
+  typealias Value = Binding<Bool>
+}
+
+extension FocusedValues {
+  var profilesPresentation: Binding<Bool>? {
+    get { self[ProfilesPresentationKey.self] }
+    set { self[ProfilesPresentationKey.self] = newValue }
+  }
+}
+#endif

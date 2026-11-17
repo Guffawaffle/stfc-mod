@@ -1,0 +1,212 @@
+# Actual frozen loader defaults, not a copy of current Config declarations.
+# Source: 1baa55fedf1758b19f843cc59707b8901a0b4998
+# mods/src/config.cc + defaultconfig.h + config.h/catalogs.
+# Excludes parked orbit, unassessed claim diagnostics and conditional momentum.
+# Sync categories explicitly fall back to false in Load; unused constants do not apply.
+
+
+[audio]
+alert_armada_battle_lost = "none"
+alert_armada_battle_won = "none"
+alert_armada_created = "none"
+alert_defeat = "none"
+alert_fleet_arrived_at_destination = "none"
+alert_fleet_arrived_in_system = "none"
+alert_fleet_docked = "none"
+alert_fleet_miner_opc = "none"
+alert_fleet_node_depleted = "none"
+alert_fleet_repair_complete = "none"
+alert_fleet_started_mining = "none"
+alert_incoming_player_attack = "none"
+alert_victory = "none"
+coalescing = "same"
+disabled_events = ""
+trace_events = false
+
+[buffs]
+use_out_of_dock_power = true
+
+[config]
+assets_url_override = ""
+settings_url = ""
+
+[control]
+enable_experimental = false
+hotkeys_enabled = true
+hotkeys_extended = true
+keyboard_layout_mode = "physical"
+kirshara_fixes = true
+primary_requires_visible_target = false
+queue_enabled = true
+select_timer = 500
+use_scopely_hotkeys = false
+
+[graphics]
+allow_cursor = true
+borderless_fullscreen = true
+default_system_zoom = 1750
+fr_scale = 2.0
+free_resize = true
+galactic_anomaly_timer = false
+galaxy_extended_selection = false
+galaxy_label_major_detail = "native"
+galaxy_label_major_threshold = 0.5
+galaxy_label_minor_detail = "native"
+galaxy_label_minor_threshold = 0.5
+galaxy_multi_select = false
+galaxy_overlay_default = true
+galaxy_overlay_hazards = false
+galaxy_overlay_hostiles = false
+galaxy_overlay_mining = false
+galaxy_station_housing = false
+haven_zoom = 4000.0
+hide_haven_water = false
+interior_zoom_scale = 2.0
+keyboard_zoom_speed = 350
+loader_enabled = true
+loader_image = ""
+loader_logo_scale = 1.0
+loader_tip_enabled = true
+loader_transition = true
+loader_transition_black = false
+ship_hotkey_badges = true
+system_pan_momentum_falloff = 0.8
+system_zoom_preset_1 = 50
+system_zoom_preset_2 = 500
+system_zoom_preset_3 = 1250
+system_zoom_preset_4 = 2750
+system_zoom_preset_5 = 5000
+transition_time = 0.01
+ui_scale = 0.6
+ui_scale_ship = 1.0
+ui_scale_step = 0.05
+ui_scale_viewer = 1.2
+use_presets_as_default = true
+zoom = 5000
+zoom_label_non_player_detail = "native"
+zoom_label_non_player_threshold = 0.5
+zoom_label_player_detail = "native"
+zoom_label_player_threshold = 0.5
+
+[patches]
+actionqueuerecoveryhooks = true
+artifactexchangehooks = true
+audioeventhooks = true
+basecardhooks = true
+battlelogsummaryhooks = true
+bufffixhooks = true
+cargoformathooks = true
+chatpatches = true
+chattitledisplayhooks = true
+dailyfactionbulkclaimhooks = true
+doubleclickassignshiphooks = true
+forbiddentechconfirmhooks = true
+freeresizehooks = true
+galacticanomalytimerhooks = true
+game_version = true
+giftsbulkclaimhooks = true
+havenhistoryhooks = true
+havenzoomhooks = true
+hotkeyhooks = true
+instantcargocounterhooks = true
+interiorzoomhooks = true
+loadingscreenhooks = true
+loadingtiphooks = true
+miscpatches = true
+missionhudtweakshooks = true
+nativesettingshooks = true
+objecttracker = true
+officerpresetreorderhooks = true
+officersorthooks = true
+panhooks = true
+pinnedshipclicktoggle = true
+pinnedshiphooks = true
+queueaddressguardhooks = true
+revealconfirmhooks = true
+runtimeconfighooks = true
+shiptechindicatorhooks = true
+syncpatches = true
+tempcrashfixes = true
+testpatches = true
+thinqueueprotectionhooks = true
+toastbannerhooks = true
+transitionscreenhooks = true
+uiscalehooks = true
+zoomhooks = true
+
+[sync]
+away_assignments = false
+battlelogs = false
+buffs = false
+buildings = false
+debug = false
+diagnostics = false
+haven = false
+inventory = false
+jobs = false
+logging = false
+missions = false
+officers = false
+proxy = ""
+research = false
+resolver_cache_ttl = 300
+resources = false
+ships = false
+slots = false
+tech = false
+traits = false
+verify_ssl = true
+
+[ui]
+allow_officer_preset_reordering = false
+always_skip_reveal_sequence = true
+arrow_keys_to_select_ship = true
+auto_confirm_ft_upgrade = false
+auto_confirm_instant_warp = "none"
+auto_confirm_reveal_ability = false
+auto_open_bulk_claim_flyout = false
+battle_log_summary_preview = true
+cargo_significant_decimals = 2
+daily_bulk_claim_toggle_default_on = false
+disable_escape_exit = true
+disable_escape_exit_timer = 0
+disable_exchange_all = false
+disable_galaxy_chat = false
+disable_move_keys = false
+disable_preview_locate = false
+disable_preview_recall = false
+disable_toast_banners = false
+disable_veil_chat = false
+disabled_banner_types = ""
+dock_syncmanagement = true
+double_click_to_assign_ship = false
+extend_chest_purchase_max = 160
+extend_donation_max = 80
+extend_donation_slider = true
+fleet_hud_opc_eta = false
+focus_search = true
+format_cargo_values = true
+highlight_opc_fleets = false
+hud_field_training = "auto"
+hud_missions = "auto"
+hud_outposts = "auto"
+hud_q_trials = "auto"
+instant_cargo_counter = true
+instant_warp_always_ask = ""
+instant_warp_auto_jump = ""
+instant_warp_auto_warp = ""
+keep_base_card_open = false
+notify_banner_types = ""
+notify_fleet_events = ""
+notify_incoming_player_attack = false
+officer_sort = true
+only_show_first_popup = false
+reverse_haven_history = true
+show_armada_cargo = true
+show_cargo_default = true
+show_hostile_cargo = true
+show_player_cargo = true
+show_player_title = true
+show_ship_tech_indicator_backgrounds = false
+show_ship_tech_indicators = true
+show_station_cargo = true

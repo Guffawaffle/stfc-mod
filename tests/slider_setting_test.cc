@@ -16,14 +16,15 @@ int main()
   float         value   = 0.33333f;
   bool          enabled = true, available = true;
   int           writes = 0;
-  SliderSetting setting({"threshold", "Threshold",
-                         [&] { return available ? ValueReadResult<float>::Known(value, 1) : ValueReadResult<float>{}; },
-                         [&](float desired, std::uint64_t) {
-                           ++writes;
-                           value = desired;
-                           return ApplyResult::Applied;
-                         }},
-                        0, 1, 0.01f, [&] { return enabled; }, SliderLabel::Percentage, 2, "Enable test feature");
+  SliderSetting setting(
+      {"threshold", "Threshold",
+       [&] { return available ? ValueReadResult<float>::Known(value, 1) : ValueReadResult<float>{}; },
+       [&](float desired, std::uint64_t) {
+         ++writes;
+         value = desired;
+         return ApplyResult::Applied;
+       }},
+      0, 1, 0.01f, [&] { return enabled; }, SliderLabel::Percentage, 2, "Enable test feature");
   NativeViewState view(setting), stale(setting);
   view.Bind();
   stale.Bind();
@@ -78,9 +79,9 @@ int main()
   assert(speedView.disabledReason().empty()); // Generic sliders have no feature-specific instruction.
   value = 2000.0f;
   speedView.Bind();
-  assert(!speedView.known() && speedView.unavailableReason() == "Out of range; edit TOML");
+  assert(!speedView.known() && speedView.unavailableReason() == "Outside slider range; use Edit");
   speedView.Bind(); // Reopening cannot repair a value outside this editor's range.
-  assert(value == 2000.0f && speedView.unavailableReason() == "Out of range; edit TOML");
+  assert(value == 2000.0f && speedView.unavailableReason() == "Outside slider range; use Edit");
   value = 382.1429f;
   speedView.Bind();
   assert(speedView.displayNumber() == 382 && value == 382.1429f);

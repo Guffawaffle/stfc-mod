@@ -1,0 +1,235 @@
+{
+  "schemaVersion": "1.0.0",
+  "target": "integration/ripper-foundation-m1b-20261025",
+  "policy": {
+    "requiredGates": [],
+    "optionalGates": [],
+    "maxWorkers": 3
+  },
+  "items": [
+    {
+      "name": "P00-baseline-and-source-ownership",
+      "deps": [],
+      "gates": []
+    },
+    {
+      "name": "P01-complete-behavioral-inventory",
+      "deps": [
+        "P00-baseline-and-source-ownership"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P02-popup-and-donation-compatibility",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P03-ship-shortcut-badges",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P04-mouse-wheel-ownership-over-ui",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P05-base-card-retention",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P06-mining-actionview-cycle",
+      "deps": [
+        "P05-base-card-retention"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P07-keyboard-layout-and-input-compatibility",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P08-window-scale-and-existing-camera-parity",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P09-ship-opc-eta-display",
+      "deps": [
+        "P03-ship-shortcut-badges"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P10-swap-ship-technology-indicators",
+      "deps": [
+        "P03-ship-shortcut-badges"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P11-orbit-input-and-haven-orbit",
+      "deps": [
+        "P04-mouse-wheel-ownership-over-ui",
+        "P07-keyboard-layout-and-input-compatibility"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P12-system-orbit-and-environment",
+      "deps": [
+        "P11-orbit-input-and-haven-orbit"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P13-galaxy-labels-and-overlay-owner",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P14-galaxy-selection-and-station-housing",
+      "deps": [
+        "P13-galaxy-labels-and-overlay-owner"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P15-officer-preset-native-integration",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P16-shared-notifications-and-incoming-attack",
+      "deps": [
+        "P18-custom-audio-and-coalescing"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P17-owned-fleet-event-notifications",
+      "deps": [
+        "P09-ship-opc-eta-display",
+        "P16-shared-notifications-and-incoming-attack",
+        "P18-custom-audio-and-coalescing"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P18-custom-audio-and-coalescing",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P19-claims-hud-cargo-and-confirmations-sweep",
+      "deps": [
+        "P02-popup-and-donation-compatibility",
+        "P05-base-card-retention"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P20-loading-anomaly-labels-and-chat-sweep",
+      "deps": [
+        "P03-ship-shortcut-badges",
+        "P08-window-scale-and-existing-camera-parity"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P21-persistence-profiles-and-sync-closure",
+      "deps": [
+        "P07-keyboard-layout-and-input-compatibility",
+        "P17-owned-fleet-event-notifications",
+        "P18-custom-audio-and-coalescing"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P22-interactive-shortcut-editing-domain",
+      "deps": [
+        "P07-keyboard-layout-and-input-compatibility"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P23-full-settings-native-adapter",
+      "deps": [
+        "P06-mining-actionview-cycle",
+        "P10-swap-ship-technology-indicators",
+        "P12-system-orbit-and-environment",
+        "P14-galaxy-selection-and-station-housing",
+        "P15-officer-preset-native-integration",
+        "P19-claims-hud-cargo-and-confirmations-sweep",
+        "P20-loading-anomaly-labels-and-chat-sweep",
+        "P21-persistence-profiles-and-sync-closure",
+        "P22-interactive-shortcut-editing-domain",
+        "P28-discovery-ship-towing"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P24-full-settings-catalog-and-tools",
+      "deps": [
+        "P23-full-settings-native-adapter",
+        "P10-swap-ship-technology-indicators",
+        "P14-galaxy-selection-and-station-housing",
+        "P15-officer-preset-native-integration",
+        "P18-custom-audio-and-coalescing"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P25-whole-play-acceptance-and-platform-closure",
+      "deps": [
+        "P24-full-settings-catalog-and-tools",
+        "P26-macos-notification-parity",
+        "P27-diagnostic-and-product-surface-audit"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P26-macos-notification-parity",
+      "deps": [
+        "P16-shared-notifications-and-incoming-attack",
+        "P18-custom-audio-and-coalescing"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P27-diagnostic-and-product-surface-audit",
+      "deps": [
+        "P01-complete-behavioral-inventory"
+      ],
+      "gates": []
+    },
+    {
+      "name": "P28-discovery-ship-towing",
+      "deps": [
+        "P07-keyboard-layout-and-input-compatibility"
+      ],
+      "gates": []
+    }
+  ]
+}
