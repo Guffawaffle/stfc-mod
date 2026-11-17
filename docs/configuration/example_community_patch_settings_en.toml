@@ -155,13 +155,13 @@ enable_experimental = false
 
 [graphics]
 # Select minor systems at far Galaxy zoom without enabling all their rendered entities.
-galaxy_extended_selection = false
+galaxy_extended_selection = true
 # Let the native Default / Mining / Hostiles / Hazards buttons select multiple layers.
-galaxy_multi_select = false
+galaxy_multi_select = true
 # Static, source-qualified station-housing indicator; not live docking-slot availability.
-galaxy_station_housing = false
+galaxy_station_housing = true
 # Mark known Plasma Storm systems from the community reference; does not show free anchoring slots.
-galaxy_starbase_systems = false
+galaxy_starbase_systems = true
 galaxy_overlay_default = true
 galaxy_overlay_mining = false
 galaxy_overlay_hostiles = false
@@ -182,8 +182,9 @@ fr_scale = 2.0
 # Amount of time to spend between transitions. Currently read but not applied
 transition_time = 0.01
 
-# This specifies the amount to scale the UI by, 1.0 being default
-ui_scale = 0.6
+# Interface scale override; 0.0 keeps the game's own scale.
+# Choose a positive override to enable the mod's interface-scale shortcuts.
+ui_scale = 0.0
 
 # This specifies the amount to scale the ship models in System View, 1.0 being default
 ui_scale_ship = 1.0
@@ -288,7 +289,7 @@ borderless_fullscreen = true
 free_resize = true
 
 # Show the remaining Galactic Anomaly time below Help All, Engage, and Claim
-galactic_anomaly_timer = false
+galactic_anomaly_timer = true
 
 # After using a zoom preset it will be set as default zoom
 use_presets_as_default = true
@@ -816,7 +817,7 @@ notify_incoming_player_attack = false
 ## ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC
 notify_fleet_events = ""
 # Allow moving officer presets into occupied slots.
-allow_officer_preset_reordering = false
+allow_officer_preset_reordering = true
 
 # Show player ships known to this client in the viewed system.
 # Ships not received from the server are not counted. Applies live.
@@ -997,8 +998,8 @@ focus_search = true
 
 # Format abbreviated cargo values using Cargo Significant Decimals
 format_cargo_values = true
-highlight_opc_fleets = false
-fleet_hud_opc_eta = false
+highlight_opc_fleets = true
+fleet_hud_opc_eta = true
 
 # Restore the Below Deck Ability officer sort option
 officer_sort = true

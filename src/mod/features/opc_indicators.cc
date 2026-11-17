@@ -1,5 +1,5 @@
 // [ui] highlight_opc_fleets and fleet_hud_opc_eta restore PLAY's native fleet
-// mining indicators. Both are off by default and use the same qualified sample.
+// mining indicators. Both are enabled by default and use the same qualified sample.
 #include "config.h"
 #include "features/features.h"
 #include "features/fleet_opc_sample.h"

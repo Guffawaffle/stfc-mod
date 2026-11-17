@@ -376,8 +376,11 @@ int main()
   Check(starbase && registered.contains("graphics.galaxy_starbase_systems") && !starbase->Observe().state.known(),
         "Alliance Starbase setting is registered but unavailable without its own catalog");
   starbase_available = true;
-  Check(starbase->Observe().state.value == false, "Alliance Starbase marker defaults to disabled");
-  const auto galaxy_before = galaxy_refreshes;
+  Check(starbase->Observe().state.value == true, "Alliance Starbase marker defaults to enabled");
+  // Exercise live enabling and cleanup from explicit off preferences.
+  Config::Get().graphics.galaxy_starbase_systems = false;
+  Config::Get().graphics.galaxy_station_housing  = false;
+  const auto galaxy_before                       = galaxy_refreshes;
   Check(starbase->SetFromUser(true, starbase->Observe()).outcome == Outcome::AppliedVerified
             && Config::Get().graphics.galaxy_starbase_systems && !Config::Get().graphics.galaxy_station_housing
             && std::get<bool>(saved.at("graphics.galaxy_starbase_systems")) && galaxy_refreshes == galaxy_before + 1,
