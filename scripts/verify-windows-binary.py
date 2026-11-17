@@ -102,6 +102,15 @@ def main() -> None:
     if live_exports != len(expected) or name_count != len(expected):
         raise SystemExit(f"Export count mismatch: live={live_exports}, named={name_count}, expected={len(expected)}")
 
+    if args.profiles_host:
+        # The coordinator reads DATA value 1 without running this DLL; a matching symbol name is insufficient.
+        ordinals = offset(u32(export_directory + 36))
+        for index in range(name_count):
+            if string(u32(name_table + index * 4)) == "STFCProfilesExplicitLaunchContractV1":
+                value = offset(u32(address_table + u16(ordinals + index * 2) * 4))
+                if u32(value) != 1:
+                    raise SystemExit("Incorrect Profiles explicit-launch contract value")
+
     marker = args.identity or DEFAULT_MARKER
     if marker.encode("utf-16le") not in data:
         raise SystemExit("Missing or incorrect UTF-16 version-resource provenance marker")

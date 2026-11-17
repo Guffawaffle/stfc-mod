@@ -23,6 +23,7 @@ enum EntitlementError: LocalizedError {
   case accessNotGranted
   case wrongBundleSelected(String)
   case differentGameBundle(String)
+  case differentBundleSelected
   case entitlementVerificationFailed
   case entitlementApplicationFailed
 
@@ -38,6 +39,8 @@ enum EntitlementError: LocalizedError {
       return "\(path) is not the Star Trek Fleet Command app"
     case .differentGameBundle(let path):
       return "Select the game bundle configured in the Xsolla launcher: \(path)"
+    case .differentBundleSelected:
+      return "Choose the game selected in Profiles, or return to Profiles and choose this game first."
     case .entitlementVerificationFailed:
       return "Failed to verify game entitlements"
     case .entitlementApplicationFailed:
@@ -48,11 +51,19 @@ enum EntitlementError: LocalizedError {
 
 // Checks the game's entitlements and re-signs its executable only when they are missing. Even after a game update
 // the new binary normally still carries them. Blocks while the file panel is open, so call it off the main thread.
-func ensureGameHasLoaderEntitlements() throws(EntitlementError) {
+func ensureGameHasLoaderEntitlements() throws {
   guard let installPath = try? XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath() else {
     throw EntitlementError.gamePathNotFound
   }
-  let gameAppPath = (installPath as NSString).appendingPathComponent("Star Trek Fleet Command.app")
+  let gameApp = URL(fileURLWithPath: installPath).appendingPathComponent("Star Trek Fleet Command.app", isDirectory: true)
+  try ensureGameHasLoaderEntitlements(gameApp: gameApp, requireExactSelection: true, requireConfiguredGame: true)
+}
+
+// Named launches use the game selected in Profiles. Ordinary launches also recheck their Xsolla selection.
+func ensureGameHasLoaderEntitlements(
+  gameApp: URL, requireExactSelection: Bool = false, requireConfiguredGame: Bool = false
+) throws {
+  let gameAppPath = gameApp.path
   let gamePath = (gameAppPath as NSString).appendingPathComponent(gameExecutableInBundle)
 
   if checkEntitlements(executablePath: gamePath, expected: loaderEntitlements) {
@@ -67,7 +78,9 @@ func ensureGameHasLoaderEntitlements() throws(EntitlementError) {
   }
 
   // The panel is the user's consent, and grants the security-scoped access that signing needs.
-  guard let confirmedURL = requestGameBundleAccess(gameAppPath: gameAppPath, gamePath: gamePath) else {
+  guard let confirmedURL = requestGameBundleAccess(
+    gameAppPath: gameAppPath, gamePath: gamePath, requireConfiguredGame: requireConfiguredGame)
+  else {
     logger.error("User did not confirm access to game bundle")
     throw EntitlementError.accessNotGranted
   }
@@ -79,30 +92,41 @@ func ensureGameHasLoaderEntitlements() throws(EntitlementError) {
     confirmedURL.stopAccessingSecurityScopedResource()
   }
 
-  // The loader still uses the configured game path. Authorization for another copy must not sign that copy and
-  // then launch the unmodified configured one. Resolve symlinks while the selected resource's access is held.
-  let configuredBundle = canonicalGameBundle(URL(fileURLWithPath: gameAppPath))
-  guard canonicalGameBundle(confirmedURL).path == configuredBundle.path else {
-    logger.error("Selected bundle is not the configured game: \(confirmedURL.path, privacy: .private)")
-    throw EntitlementError.differentGameBundle(gameAppPath)
+  // Authorization for another copy must not sign it and then launch the unmodified requested one. Resolve
+  // symlinks while the selected resource's access is held.
+  let requestedBundle = canonicalGameBundle(gameApp)
+  if requireExactSelection || requireConfiguredGame {
+    guard canonicalGameBundle(confirmedURL).path == requestedBundle.path else {
+      logger.error("Selected bundle is not the requested game: \(confirmedURL.path, privacy: .private)")
+      if requireConfiguredGame { throw EntitlementError.differentGameBundle(gameAppPath) }
+      throw EntitlementError.differentBundleSelected
+    }
   }
   let selectedExecutable = confirmedURL.appendingPathComponent(gameExecutableInBundle).path
   guard FileManager.default.isExecutableFile(atPath: selectedExecutable) else {
     logger.error("Selected bundle has no game executable: \(confirmedURL.path, privacy: .private)")
     throw EntitlementError.wrongBundleSelected(confirmedURL.path)
   }
-  // The launcher settings can also change while the authorization panel is open.
-  guard let currentInstallPath = try? XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath() else {
-    throw EntitlementError.gamePathNotFound
-  }
-  let currentAppPath = (currentInstallPath as NSString).appendingPathComponent("Star Trek Fleet Command.app")
-  guard canonicalGameBundle(URL(fileURLWithPath: currentAppPath)).path == configuredBundle.path else {
-    throw EntitlementError.differentGameBundle(currentAppPath)
+  if requireConfiguredGame {
+    // The launcher settings can also change while the authorization panel is open.
+    guard let currentInstallPath = try? XsollaUpdater(gameName: "Star Trek Fleet Command").gamePath() else {
+      throw EntitlementError.gamePathNotFound
+    }
+    let currentAppPath = (currentInstallPath as NSString).appendingPathComponent("Star Trek Fleet Command.app")
+    guard canonicalGameBundle(URL(fileURLWithPath: currentAppPath)).path == requestedBundle.path else {
+      throw EntitlementError.differentGameBundle(currentAppPath)
+    }
   }
   // The game may have started while the authorization panel was open.
-  guard !isGameRunning(bundlePath: gameAppPath) else {
+  guard !isGameRunning(bundlePath: confirmedURL.path) else {
     throw EntitlementError.gameRunning
   }
+
+  #if PROFILES_PREVIEW
+  let reservation = try InstallationReservation.acquire(
+    gameDirectory: URL(fileURLWithPath: selectedExecutable).deletingLastPathComponent(), forUpdate: true)
+  defer { reservation.release() }
+  #endif
 
   // Only the main executable is signed, so nested frameworks and plugins keep their own signatures.
   logger.info("Applying loader entitlements to the game binary")
@@ -162,9 +186,17 @@ private func checkEntitlements(executablePath: String, expected: [String: Bool])
 }
 
 // Shows the file panel on the main thread and waits for the answer. Must be called off the main thread.
-private func requestGameBundleAccess(gameAppPath: String, gamePath: String) -> URL? {
+private func requestGameBundleAccess(gameAppPath: String, gamePath: String, requireConfiguredGame: Bool) -> URL? {
   let semaphore = DispatchSemaphore(value: 0)
   var result: URL?
+  let selectionInstructions = requireConfiguredGame
+    ? """
+      Select the game bundle configured in the Xsolla launcher. To use another installation, cancel and change
+      the Xsolla launcher setting first.
+      """
+    : """
+      Select the game bundle chosen in Profiles. To use another installation, cancel and choose it in Profiles first.
+      """
   DispatchQueue.main.async {
     let panel = NSOpenPanel()
     panel.message = """
@@ -178,8 +210,7 @@ private func requestGameBundleAccess(gameAppPath: String, gamePath: String) -> U
       The first time, macOS asks you to allow App Management for this launcher. After allowing it, quit the launcher
       and start it again.
 
-      Select the game bundle configured in the Xsolla launcher. To use another installation, cancel and change
-      the Xsolla launcher setting first.
+      \(selectionInstructions)
       Press "Authorize and Continue" to grant access to the game bundle.
       """
     panel.prompt = "Authorize and Continue"

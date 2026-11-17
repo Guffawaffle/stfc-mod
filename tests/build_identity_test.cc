@@ -132,6 +132,23 @@ int main()
           "a core module cannot gain a DEV identity from mismatched descriptive metadata");
   Require(DescriptionVersion(base, {}, SignatureState::Unknown, {}, VER_FORK_VERSION_STR) == VER_FORK_VERSION_STR,
           "unknown signing metadata retains known fork lineage without claiming a channel");
+  const std::string dev_tag   = "v" + std::string(VER_FORK_VERSION_STR) + "-dev.1";
+  const std::string dev_label = std::string(VER_FORK_VERSION_STR) + "-dev.1 · DEV";
+  Require(ValidDisplayVersion(dev_label, base), "a named DEV label retains its package sequence");
+  Require(HandoffVersion(base, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR, true) == dev_label,
+          "the exact source-bound named DEV label reaches the selected Mac development payload");
+  Require(HandoffVersion(base, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR) == VER_FORK_VERSION_STR,
+          "a named DEV label cannot relabel a core payload");
+  Require(DescriptionVersion(base, {}, SignatureState::Absent, {}, VER_FORK_VERSION_STR, true, dev_tag) == dev_label,
+          "the Windows compiled DEV tag supplies its complete unsigned display version");
+  for (const auto* invalid_dev : {"1.1.9.5-guffa.6-dev.01 · DEV", "1.1.9.5-guffa.6-dev.0 · DEV",
+                                  "1.1.9.5-guffa.6-dev.1 · Release", "1.1.9.5-guffa.6-dev.1 · DEV b1.1"})
+    Require(!ValidDisplayVersion(invalid_dev, base), "named DEV tags reject misleading or malformed labels");
+  const std::string mismatched_dev_tag =
+      "v" + std::string(VER_FILE_VERSION_STR) + "-guffa." + std::to_string(1ULL + VERSION_FORK_REVISION) + "-dev.1";
+  Require(FallbackVersion(VER_FORK_VERSION_STR, {}, true, mismatched_dev_tag)
+              == std::string(VER_FORK_VERSION_STR) + " · DEV local",
+          "a mismatched DEV tag cannot replace the compiled lineage");
   for (const auto invocation : {"github:windows", "github::windows", "github:0:1:windows", "github:1:0:windows",
                                 "github:1:1:windows\n", "ax-zig-20261111-local"})
     Require(FallbackVersion(base, invocation) == "1.1.9.5 · CI local", "unknown/malformed invocations stay local");

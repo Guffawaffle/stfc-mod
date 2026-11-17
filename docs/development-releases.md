@@ -1,0 +1,90 @@
+# Publish a DEV package
+
+The fork's `play-dev` branch builds the explicit AAI and Profiles development product. Every
+push runs the **Development package** workflow and retains a preview package.
+A tag such as `v1.1.9.5-guffa.6-dev.1` publishes the same product as a GitHub
+prerelease. DEV uses the blue waffle icon with a violet DEV badge and the complete tag in its display
+version. Core PR builds retain their CI identity and require no private source.
+
+## Configure source access once
+
+As an administrator of both fork repositories, review and run
+`scripts/setup-dev-source-access.ps1` in PowerShell 7. It creates a dedicated
+read-only deploy key on `Guffawaffle/stfc-aai`, and stores its private half as
+`AAI_SOURCE_READ_KEY` in the fork's `stfc-dev-source` Actions environment. That
+environment permits only the `play-dev` branch and `v*-dev.*` tags. The script
+deletes its temporary key files and refuses to overwrite an existing environment.
+Do not put a personal access token or private key in the source tree.
+
+The source pin in `zig/aai.zig` must be a full commit available from the private
+remote. Publish a signed AAI commit to a retained branch before changing the pin.
+The DEV pin is `cccba30383bf5cec5065244b9b4eb9f40447a097`, retained by
+`feat/client275-damage-channels`. It retains the portable-fixture baseline and
+adds client-275 Polaron/Infusion source capture and a combined Overview timeline
+with every recorded incoming/outgoing attack amount channel, observed health,
+explicit repairs and related event markers visible together. A shared amount
+axis and one reusable native texture preserve independent quantities and bounded
+redraw work. Shield-rule catalog context
+is separately qualified; effective shield mitigation/floor percentages and the
+energy/kinetic weapon join remain unresolved. The workflow checks out that exact commit outside the
+mod checkout. Builds explicitly select `aai-host`, `aai-ui-lab`, `profiles` and diagnostic
+patch toggles; dirty-source overrides and automatic local source discovery are
+not used. Neither private sources nor build caches are uploaded as artifacts.
+
+Profiles is pinned at `5515386d40bd543f74cc5e90b5c8dff19a77362d`. This revision binds Mac
+runtime APIs to the loaded game library, avoiding collisions with the mod's API pointer
+variables. The Mac launcher
+includes **Profiles…** and its matching browser helper. Each package records this pin
+alongside the AAI pin. Mac account/browser isolation still requires actual player testing.
+
+## Publish
+
+1. Merge reviewed changes into `play-dev`. Its **Build** run checks the core
+   product; **Development package** also offers an untagged AAI preview for testing.
+   Every tagged run repeats the full native builds and tests before publication,
+   including private source access, DEV metadata, icons, and packaging.
+2. Choose an unused `v<four-part-base>-guffa.<fork-revision>-dev.<sequence>` tag.
+   Its base and fork revision must match `src/mod/version.h`; the sequence must
+   be a positive canonical integer through 4294967295.
+3. Create and push a signed annotated tag on that exact `play-dev` tip:
+
+   ```sh
+   git tag -s v1.1.9.5-guffa.6-dev.1 -m "DEV package 1.1.9.5-guffa.6-dev.1" <commit>
+   git push origin refs/tags/v1.1.9.5-guffa.6-dev.1
+   ```
+
+4. Wait for the tag's **Development package** run. It builds from the tag,
+   assembles the universal Mac app, packages an explicit asset allowlist, and
+   checks SHA-256 digests before publishing. The release remains a prerelease
+   and never becomes Latest. Its `dev-release.json` records source, AAI pin,
+   build run, mode and payload hashes; `SHA256SUMS` also covers that manifest.
+
+The usual Mac DMG includes the complete DEV app, Profiles helper, notices and DEV icon.
+Packaging mounts it read-only and verifies the app's file hashes, executable modes,
+signature and Applications shortcut. Open the DMG and drag the app to Applications;
+keep your ordinary launcher available while testing. Use **Profiles…** to create and
+launch separate accounts. **Launch game** with **Ordinary game** selected is the
+ordinary launch path. The slim arrow chooses a named profile; choosing it does
+not launch until you press the main button.
+
+For the compact launcher preview, check the Dock icon, full version footer,
+ordinary launch, and profile picker. In the game, bind **Cycle mining node / ship /
+cargo** under **Shortcuts → Previews & Cargo**. On another player's occupied
+node, it cycles through the ship and cargo and returns to that node. **Mining
+node: cargo before ship** under **Mod Settings → Previews & Cargo** chooses their
+order independently of the ordinary player-cargo settings.
+
+The standalone Mac archive contains the dylib, adjacent executable `stfc-profiles`
+helper and notices. Install all of them together. The standard Windows ZIP and tar
+remain DLL-only for existing updater compatibility. For complete manual Profiles setup,
+use `stfc-community-mod-profiles-windows-x64.zip`, which includes `version.dll`, the
+matching CLI, setup instructions and notices. Do not feed that richer ZIP to an older
+updater expecting only a DLL. Windows
+DEV binaries are unsigned; Mac apps have only the ad hoc signature required for
+local execution and are not notarized. This workflow has no Apple or Azure
+release-signing environment or credentials.
+
+A failed publication can be rerun while its release is still a matching draft.
+Already published releases are never overwritten. Fix a published package by
+using a new DEV sequence. Keep the source branch at the selected commit until
+tag selection completes; a stale tag fails before private credentials are used.

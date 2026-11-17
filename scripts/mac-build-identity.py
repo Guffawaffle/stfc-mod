@@ -20,6 +20,7 @@ from pathlib import Path
 CHANNEL_LABELS = {"ci": "CI", "dev": "DEV", "pre": "Pre", "release": "Release"}
 BASE_PATTERN = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
 TAG_PATTERN = re.compile(r"v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))-guffa\.([1-9][0-9]*)")
+DEV_TAG_PATTERN = re.compile(TAG_PATTERN.pattern + r"-dev\.([1-9][0-9]*)")
 IDENTITY_KEYS = (
     "CFBundleShortVersionString", "CFBundleVersion", "CFBundleGetInfoString",
     "STFCBaseVersion", "STFCDisplayVersion", "STFCBuildChannel", "STFCReleaseTag",
@@ -52,7 +53,15 @@ def build_metadata(base_version, *, channel="ci", release_tag=None, source=None,
     fork_revision = 0 if fork_revision is None else numeric(fork_revision, "fork revision", 0)
     version = f"{base_version}-guffa.{fork_revision}" if fork_revision else base_version
     parts = base_version.split(".")
-    if channel in ("ci", "dev"):
+    if channel == "dev" and release_tag is not None:
+        match = DEV_TAG_PATTERN.fullmatch(release_tag)
+        if not match or match.group(1) != base_version or int(match.group(2)) != fork_revision:
+            raise ValueError("DEV tag must match the compiled base and fork revision")
+        sequence = numeric(match.group(3), "development sequence", 1)
+        version = release_tag[1:]
+        label = "DEV"
+        bundle_version = f"{parts[3]}.{fork_revision}.{sequence}"
+    elif channel in ("ci", "dev"):
         if release_tag is not None:
             raise ValueError(f"{CHANNEL_LABELS[channel]} builds must not supply a release tag")
         number = str(run_number) if run_number else run_id
