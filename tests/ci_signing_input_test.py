@@ -81,6 +81,16 @@ class SigningInput(unittest.TestCase):
         for args in [{"expected_attempt": "1"}, {"expected_sha": "c" * 40}, {"expected_artifact": "987"}]:
             with self.assertRaises(ValueError): self.pick(**args)
 
+    def test_profiles_selection_retains_exact_run_attempt_and_artifact_contract(self):
+        self.artifact["name"] = "stfc-community-mod-profiles-windows"
+        result = signing.select(self.run, {"artifacts": [self.artifact]}, "owner/mod", "123", "windows-profiles",
+                                expected_sha="a" * 40, expected_attempt="2", expected_artifact="456")
+        self.assertEqual(result["filename"], "manifest.json")
+        self.assertEqual(result["platform"], "windows-profiles")
+        self.artifact["workflow_run"]["id"] = 124
+        with self.assertRaises(ValueError):
+            signing.select(self.run, {"artifacts": [self.artifact]}, "owner/mod", "123", "windows-profiles")
+
     def test_run_repository_workflow_and_status_refused(self):
         for key, value in [("id", 999), ("head_sha", "bad"), ("path", "other.yaml"),
                            ("event", "pull_request_target"), ("status", "queued"),

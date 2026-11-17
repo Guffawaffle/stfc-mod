@@ -159,7 +159,7 @@ std::string_view DisplayVersion()
     SignatureState state;
     const auto     description = SignatureDescription(ModulePath(), state);
     return DescriptionVersion(VER_FILE_VERSION_STR, description, state, CompiledInvocation(), VER_FORK_VERSION_STR,
-                              build_identity_development_package);
+                              build_identity_development_package, CompiledDevelopmentTag());
 #elif __APPLE__
     return HandoffVersion(VER_FILE_VERSION_STR, EnvironmentValue("STFC_MOD_DISPLAY_VERSION", 160),
                           EnvironmentValue("STFC_MOD_DISPLAY_SOURCE", 40), VERSION_COMMIT_HASH,

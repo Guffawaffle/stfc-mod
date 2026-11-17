@@ -139,16 +139,16 @@ class MacReleaseContext(unittest.TestCase):
 
     def test_metadata_stamping_precedes_keys_and_covers_payload_provenance(self):
         script = (ROOT / "scripts/sign-macos-release.sh").read_text()
-        stamp = script.index('python3 "$scripts/mac-build-identity.py" stamp')
+        stamp = script.index('python3 "$scripts/mac-build-identity.py" "${stamp_args[@]}"')
         self.assertLess(script.index("unsigned_library_hash="), stamp)
         self.assertLess(stamp, script.index('security create-keychain'))
         self.assertLess(stamp, script.index('codesign --force'))
         for binary in ("library", "loader", "launcher"):
             self.assertIn(f'== "$unsigned_{binary}_hash"', script)
         self.assertIn('--icons-dir "$scripts/../assets/launcher-icons"', script)
-        self.assertIn('if [[ -n "${RELEASE_TAG:-}" ]]; then stamp_tag=(--release-tag "$RELEASE_TAG"); fi', script)
-        self.assertIn('"${stamp_tag[@]}" --source "$embedded_source"', script)
-        self.assertLess(script.index('verify-source --selection'), stamp)
+        self.assertIn('stamp_args=(stamp --app "$app" --channel "$BUILD_CHANNEL" --source "$embedded_source"', script)
+        self.assertIn('if [[ -n "${RELEASE_TAG:-}" ]]; then stamp_args+=(--release-tag "$RELEASE_TAG"); fi', script)
+        self.assertLess(script.index('python3 "$scripts/ci-signing-input.py" "${source_check[@]}"'), stamp)
         self.assertIn('sourceCommit:$producingSource,sourceRelationship:$relationship', script)
         self.assertNotIn('--release-tag "${RELEASE_TAG:-}"', script)
         self.assertEqual(script.count("launcherBuildIdentity:$identity[0]"), 2)

@@ -26,6 +26,7 @@ pub const Options = struct {
     test_optimize: ?OptimizeMode,
     msvc_sysroot: ?[]const u8,
     macos_sdk: ?[]const u8,
+    profiles: bool,
 
     /// Declare the shared options. Call once from `build`.
     pub fn parse(b: *Build) Options {
@@ -45,6 +46,7 @@ pub const Options = struct {
             ),
             .msvc_sysroot = b.option([]const u8, "msvc-sysroot", "Path to an extracted MSVC + Windows SDK toolchain"),
             .macos_sdk = b.option([]const u8, "macos-sdk", "Path to a MacOSX.sdk directory"),
+            .profiles = b.option(bool, "profiles", "Embed the pinned Profiles host adapter and matching CLI") orelse false,
         };
     }
 };
@@ -303,6 +305,7 @@ pub const Lib = struct {
     /// Make `step` build this library and its whole dependency closure.
     pub fn addBuildDependencies(lib: Lib, step: *Build.Step) void {
         if (lib.artifact) |artifact| step.dependOn(&artifact.step);
+        for (lib.static_files) |file| file.addStepDependencies(step);
         for (lib.dependencies) |dependency| dependency.addBuildDependencies(step);
     }
 

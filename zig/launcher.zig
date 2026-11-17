@@ -4,13 +4,15 @@ const std = @import("std");
 const builtin = @import("builtin");
 const compat = @import("compat.zig");
 const Ctx = @import("ctx.zig").Ctx;
+const Lib = @import("ctx.zig").Lib;
 const macos_min = @import("ctx.zig").macos_min;
 const globFiles = @import("ctx.zig").globFiles;
 const hostTool = @import("ctx.zig").hostTool;
 const deps = @import("deps.zig");
+const profiles = @import("profiles.zig");
 
 /// Register `launcher`, which installs zig-out/macOSLauncher.app.
-pub fn add(ctx: *const Ctx, development_package: bool) void {
+pub fn add(ctx: *const Ctx, development_package: bool, profiles_source: ?std.Build.LazyPath, json: Lib) void {
     const b = ctx.b;
     const step = b.step("launcher", "Build the Swift macOS launcher app (requires Xcode on macOS)");
     if (builtin.os.tag != .macos or !ctx.isMacos()) {
@@ -37,6 +39,10 @@ pub fn add(ctx: *const Ctx, development_package: bool) void {
     const src = b.path("src/launcher/macos");
     const swift = b.addSystemCommand(&.{ "xcrun", "swiftc", "-parse-as-library" });
     swift.addArgs(&.{ "-module-name", "macOSLauncher" });
+    if (profiles_source) |source| {
+        swift.addArgs(&.{ "-D", "PROFILES_PREVIEW", "-Xcc" });
+        swift.addPrefixedDirectoryArg("-I", source.path(b, "include"));
+    }
     swift.addArgs(&.{ "-sdk", sdk });
     swift.addArgs(&.{ "-target", swift_target });
     swift.addArgs(&.{ "-Xcc", "-fmodules", "-Xcc" });
@@ -52,6 +58,11 @@ pub fn add(ctx: *const Ctx, development_package: bool) void {
     link.addFileArg(object);
     link.addFileArg(appleArchive(b, extractor, "liblauncher-bridge.a", bridge));
     link.addFileArg(appleArchive(b, extractor, "librsync.a", rsync.artifact.?));
+    if (profiles_source) |source| {
+        const profile_core = profiles.launcherLibrary(ctx, source, json);
+        link.addFileArg(appleArchive(b, extractor, "liblauncher-profiles.a", profile_core.artifact.?));
+        link.addArgs(&.{ "-framework", "Security", "-framework", "CoreFoundation", "-lproc" });
+    }
     link.addArgs(&.{ "-lc++", "-o" });
     const exe = link.addOutputFileArg("macOSLauncher");
     step.dependOn(&b.addInstallFile(exe, "macOSLauncher.app/Contents/MacOS/macOSLauncher").step);

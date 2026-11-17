@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -41,7 +42,8 @@ def select(run, artifacts, repository, run_id, platform, mode="test", expected_s
                               or run["conclusion"] != "success"):
         raise ValueError("Release signing still requires a successful play push build")
     names = {"macos": ("stfc-community-mod-installer", "stfc-community-mod-installer.dmg"),
-             "windows": ("stfc-community-mod", "version.dll")}
+             "windows": ("stfc-community-mod", "version.dll"),
+             "windows-profiles": ("stfc-community-mod-profiles-windows", "manifest.json")}
     name, filename = names[platform]
     candidates = [a for a in artifacts["artifacts"] if a.get("name") == name and a.get("expired") is False]
     if len(candidates) != 1:
@@ -81,17 +83,28 @@ def extract(archive, selection, destination):
         raise ValueError("Downloaded artifact SHA256 differs from the selected GitHub artifact")
     with zipfile.ZipFile(archive) as package:
         entries = package.infolist()
-        if len(entries) != 1 or entries[0].filename != selection["filename"]:
+        expected = {selection["filename"]}
+        if selection.get("platform") == "windows-profiles":
+            spec = importlib.util.spec_from_file_location("profiles_package", Path(__file__).with_name("windows-profiles-package.py"))
+            profiles = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(profiles)
+            expected = profiles.ARCHIVE_FILES
+        if len(entries) != len(expected) or {entry.filename for entry in entries} != expected:
             raise ValueError("Expected only the exact installer/DLL; no paths or extra producer files")
-        entry = entries[0]
-        mode = entry.external_attr >> 16
-        if (entry.is_dir() or stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0, stat.S_IFREG))
-                or entry.flag_bits & 1 or not entry.file_size):
-            raise ValueError("Expected an unencrypted, nonempty regular installer/DLL")
-        destination.mkdir(parents=True, exist_ok=True)
-        target = destination / selection["filename"]
-        with package.open(entry) as source, target.open("xb") as output:
-            shutil.copyfileobj(source, output, 1024 * 1024)
+        for entry in entries:
+            mode = entry.external_attr >> 16
+            if (entry.is_dir() or stat.S_ISLNK(mode) or (stat.S_IFMT(mode) not in (0, stat.S_IFREG))
+                    or entry.flag_bits & 1 or not entry.file_size):
+                raise ValueError("Expected unencrypted, nonempty regular payload files")
+        # Every path is from the trusted finite allowlist; never extract arbitrary producer paths.
+        if destination.exists():
+            raise ValueError("Signing extraction requires a new directory")
+        destination.mkdir(parents=True)
+        for entry in entries:
+            target = destination / entry.filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with package.open(entry) as source, target.open("xb") as output:
+                shutil.copyfileobj(source, output, 1024 * 1024)
 
 
 def main():

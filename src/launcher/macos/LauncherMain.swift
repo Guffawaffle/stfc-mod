@@ -1,4 +1,4 @@
-// The launcher app: one fixed-size window, and quitting when it closes.
+// The launcher app: a resizable window, and quitting when it closes.
 
 import AppKit
 import SwiftUI
@@ -12,24 +12,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct STFC_Community_Patch_LauncherApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+  #if PROFILES_PREVIEW
+  @FocusedValue(\.profilesPresentation) private var profilesPresentation
+  #endif
 
   var body: some Scene {
-    WindowGroup {
+    WindowGroup("STFC Mod") {
       ContentView()
-        .frame(width: 600, height: 400)
-        .fixedSize()
+        .frame(minWidth: 360, minHeight: 360)
     }
-    .windowResizability(.contentSize)
+    .defaultSize(width: 560, height: 520)
+    .windowResizability(.contentMinSize)
     .commands {
       CommandGroup(replacing: .appInfo) {
         Button("About STFC Community Mod") {
-          NSApplication.shared.orderFrontStandardAboutPanel(options: [
-            .applicationVersion: LauncherBuildIdentity.displayVersion,
-            .version: "",
-          ])
+          LauncherBuildIdentity.showAbout()
         }
       }
       CommandGroup(after: .sidebar) {
+        #if PROFILES_PREVIEW
+        Button("Profiles…") { profilesPresentation?.wrappedValue = true }
+          .keyboardShortcut("p", modifiers: [.command, .shift])
+          .disabled(profilesPresentation == nil)
+        #endif
         Divider()
         Button("View Mod Folder") {
           openModFolder()
@@ -64,3 +69,16 @@ struct STFC_Community_Patch_LauncherApp: App {
     alert.runModal()
   }
 }
+
+#if PROFILES_PREVIEW
+private struct ProfilesPresentationKey: FocusedValueKey {
+  typealias Value = Binding<Bool>
+}
+
+extension FocusedValues {
+  var profilesPresentation: Binding<Bool>? {
+    get { self[ProfilesPresentationKey.self] }
+    set { self[ProfilesPresentationKey.self] = newValue }
+  }
+}
+#endif

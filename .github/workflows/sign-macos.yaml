@@ -145,6 +145,17 @@ jobs:
       - name: Retain CI input receipt
         run: cp "$RUNNER_TEMP/mac-input.json" signed-macos/ci-input.json
 
+      - name: Require the complete notarized package
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in stfc-community-mod-installer.dmg stfc-community-mod-macos-universal.tar.zst \
+            stfc-community-mod-macos-universal.tar.zst.sha256 macos-provenance.json ci-input.json \
+            mac-build-identity.json mac-source-identity.json; do
+            test -s "signed-macos/$file"
+          done
+          jq -e '.dmgNotarization.status == "Accepted"' signed-macos/macos-provenance.json >/dev/null
+
       - name: Upload signed macOS artifact
         uses: actions/upload-artifact@v7.0.1
         with:
