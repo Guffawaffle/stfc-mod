@@ -321,12 +321,14 @@ void LoadingArtworkConsumerCases(std::string_view mode)
             "disabled login calls original and acquires no artwork");
     config.loader_enabled = true;
     LoginSequence_Awake_Hook(login_original, login_view);
-    Require(originals == 2 && loading_created == 2,
-            "login creates both logos even when the build keeps the original background");
+    Require(originals == 2 && loading_created == 1,
+            "login creates one app badge even when the build keeps the original background");
+    Require(std::ranges::none_of(loading_nodes, [](const auto& node) { return node.name == "STFCModLogo"; }),
+            "login does not create the duplicate right-side mod emblem");
     const auto decodes = loading_decodes;
     LoginSequence_Awake_Hook(login_original, login_view);
-    Require(loading_decodes > decodes && loading_created == 4,
-            "new login generation releases the live asset cache and recreates both scene logos");
+    Require(loading_decodes > decodes && loading_created == 2,
+            "new login generation releases the live asset cache and recreates its app badge");
     const auto custom_path = std::filesystem::temp_directory_path()
                              / File::FromUtf8("stfc-loading-\xc3\xa9-"
                                  + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".img");
@@ -393,8 +395,10 @@ void LoadingArtworkConsumerCases(std::string_view mode)
     loading_fail_color = false;
     TransitionViewController_AboutToShow_Hook(transition_original, transition_view);
     Require(transition_screen.overlay && transition_screen.customized && !tvc->animator->enabled
-                && bg->image->color.a == 0 && loading_created == 6,
-            "AboutToShow retries failed construction and then applies background plus both logos");
+                && bg->image->color.a == 0 && loading_created == 5,
+            "AboutToShow retries failed construction and then applies the background and single app badge");
+    Require(std::ranges::none_of(loading_nodes, [](const auto& node) { return node.name == "STFCModLogo"; }),
+            "transition does not create the duplicate right-side mod emblem");
     const auto creates = loading_created;
     TransitionViewController_AboutToShow_Hook(transition_original, transition_view);
     Require(loading_created == creates, "successful transition customization is idempotent for its controller");
@@ -421,7 +425,7 @@ void LoadingArtworkConsumerCases(std::string_view mode)
             "reload forgets former scene ownership and resets the welcome tip before native reload");
   }
   loading_fail_decode = false;
-  auto* asset = screen_images.Logo();
+  auto* asset = screen_images.CommunityLogo();
   Require(asset && asset->Sprite(), "failure checks have a successfully decoded native logo");
   const auto roots = warp_roots.size(), destroys = static_cast<size_t>(loading_destroys);
   loading_fail_ctor = true;
