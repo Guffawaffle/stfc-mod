@@ -183,6 +183,7 @@ fr_scale = 2.0
 transition_time = 0.01
 
 # Interface scale override; 0.0 keeps the game's own scale.
+# Choose a positive override to enable the mod's interface-scale shortcuts.
 ui_scale = 0.0
 
 # This specifies the amount to scale the ship models in System View, 1.0 being default

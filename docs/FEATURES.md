@@ -11,14 +11,14 @@ Features depend on the game client. A client update can break a hook until the m
 
 | Area | Controls |
 | --- | --- |
-| UI scale | Adjust the main interface, object viewers, and system-view ship models separately. |
+| UI scale | The main interface uses the game's scale by default (`ui_scale = 0.0`). A positive override enables mod scaling and its shortcuts. Object viewers and system-view ship models have separate scales. |
 | System zoom | Set the maximum range, entry zoom, keyboard speed, and five presets. Save a preset or the current zoom as the default. |
 | Camera movement | Pan with configurable keys and set momentum falloff. Keyboard panning can be disabled. The camera can also stop following a selected target, so you can pan away from it. |
 | Station interior | Zoom further out inside the station. `graphics.interior_zoom_scale` multiplies the native distance; `1.0` keeps it. |
 | Haven | Extend camera range while keeping road surfaces above the ground. `graphics.haven_zoom = 0.0` uses the native range. |
 | Fleet labels | Choose native, expanded, compact, or zoom-threshold detail separately for player and non-player fleets. |
 | Window and cursor | Resize the game window freely on Windows and control whether the game replaces the system cursor. |
-| Anomaly timer | Show the remaining time in a Galactic Anomaly system. Disabled by default. |
+| Anomaly timer | Show the remaining time in a Galactic Anomaly system. Enabled by default. |
 
 `fr_scale` scales system-view backdrop renderables.
 The code reads `transition_time`, `system_pan_momentum`, and `borderless_fullscreen`, but does not currently apply them.
