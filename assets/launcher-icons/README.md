@@ -4,8 +4,13 @@ Release, Pre, DEV and CI use the approved blue waffle badge. The unlabelled
 artwork is preserved in `masterwaffle-badge.png`; the four `launcher-*.png` files
 are the approved channel masters, including their lower channel labels. Their
 palette stays cool: cyan for Release, icy blue for Pre, muted violet for DEV and
-silver-blue for CI, with no orange or gold accents. The separate loading-screen
-image at `assets/guffawaffle-build-badge.png` is unchanged.
+silver-blue for CI, with no orange or gold accents. In-game loading screens use
+the same unlabelled master directly as a single corner badge. The older grid
+plaque and silver MOD overlay are no longer embedded, and the default portal
+background has its old MOD watermark removed.
+
+Keep the loading badge unlabelled: signing promotes the same mod library bytes
+from CI to Pre or Release, so a channel printed into this image would become stale.
 
 CI already selects the matching committed icon automatically. Raw builds use CI;
 the explicit development package uses DEV; promotion selects Pre or Release.

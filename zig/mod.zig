@@ -210,8 +210,7 @@ pub fn embedImages(ctx: *const Ctx, module: *std.Build.Module) void {
     const Image = struct { []const u8, []const u8, std.Build.LazyPath };
     const table = [_]Image{
         .{ "embedded_loading_image.h", "g_embeddedLoadingImage", bg_image },
-        .{ "embedded_logo_image.h", "g_embeddedLogoImage", b.path("assets/stfc-mod-logo.png") },
-        .{ "embedded_cc_logo_image.h", "g_embeddedCCLogoImage", b.path("assets/guffawaffle-build-badge.png") },
+        .{ "embedded_cc_logo_image.h", "g_embeddedCCLogoImage", b.path("assets/launcher-icons/masterwaffle-badge.png") },
         .{ "embedded_starbase_icon.h", "g_embeddedStarbaseIcon", b.path("assets/icons/alliance-starbase.png") },
         .{ "embedded_station_housing.h", "g_embeddedStationHousing", b.path("assets/data/station_housing.json") },
         .{ "embedded_starbase_systems.h", "g_embeddedStarbaseSystems", b.path("assets/data/starbase_systems.json") },
