@@ -6,8 +6,12 @@ are the approved channel masters, including their lower channel labels. Their
 palette stays cool: cyan for Release, icy blue for Pre, muted violet for DEV and
 silver-blue for CI, with no orange or gold accents. In-game loading screens use
 the same unlabelled master directly as a single corner badge. The older grid
-plaque and silver MOD overlay are no longer embedded, and the default portal
+plaque and silver MOD overlay are no longer embedded, and the bundled portal
 background has its old MOD watermark removed.
+
+Normal builds retain the game's background (`use_original_bg=true`). Builds
+that select the bundled background use the cleaned portal scene; a configured
+`loader_image` still takes priority.
 
 Keep the loading badge unlabelled: signing promotes the same mod library bytes
 from CI to Pre or Release, so a channel printed into this image would become stale.
