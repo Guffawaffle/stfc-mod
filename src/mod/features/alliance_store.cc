@@ -484,7 +484,7 @@ void AllianceStoreFrame()
       notice_pass = std::ranges::any_of(alliance_store_tooltips, [](const auto& entry) {
         if (!entry->notice)
           return false;
-        auto* plain = entry->plain.Get<StoreTooltipTrigger>();
+        auto* plain = entry->plain.template Get<StoreTooltipTrigger>();
         return !plain
                || store_game::Members().description_override.Read(plain)
                       != reinterpret_cast<Il2CppString*>(entry->notice->published_text.Get());
