@@ -35,11 +35,13 @@ namespace
   using Clock = std::chrono::steady_clock;
   using namespace std::chrono_literals;
 
-  constexpr auto index_url   = "https://raw.githubusercontent.com/Guffawaffle/stfc-mod/play/releases/update-index.json";
-  constexpr auto release_url = "https://github.com/Guffawaffle/stfc-mod/releases/tag/";
+  // Local signed smoke build. Use the exact draft PR index and a known older Pre version for comparison.
+  constexpr auto index_url      = "https://raw.githubusercontent.com/Guffawaffle/stfc-mod/"
+                                  "c0fffc6a37f640209d3f46e1edbf9b7a5034bfa0/releases/update-index.json";
+  constexpr auto release_url    = "https://github.com/Guffawaffle/stfc-mod/releases/tag/";
   constexpr auto check_interval = 24h;
   constexpr auto startup_delay  = 30s;
-  constexpr auto state_key      = "mod_update_checks";
+  constexpr auto state_key      = "mod_update_smoke_checks";
 
   struct WorkResult {
     CheckResult          result;
@@ -49,7 +51,12 @@ namespace
 
   const auto& Installed()
   {
-    static const auto installed = IdentifyRelease(build_identity::DisplayVersion());
+    static const auto installed = [] {
+      const auto display = build_identity::DisplayVersion();
+      if (display.contains(" · Pre b"))
+        return IdentifyRelease("1.1.9.5-guffa.6 · Pre");
+      return IdentifyRelease(display);
+    }();
     return installed;
   }
 
@@ -239,7 +246,10 @@ void CheckNow()
 }
 
 std::string_view InstalledVersion()
-{ return build_identity::DisplayVersion(); }
+{
+  static const std::string label = std::string(build_identity::DisplayVersion()) + " · Update smoke";
+  return label;
+}
 
 std::string Status()
 {
