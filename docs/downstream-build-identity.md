@@ -69,9 +69,10 @@ the launcher layout need a native Mac check on the final signed app.
 1. Merge the launcher changes to play and obtain its successful CI artifacts.
 2. Promote the matching helper, icon assets and workflow changes to the trusted
    `ci/macos-signing-play` controller. It must not run helper code from a candidate.
-3. Use `sign-run` without a tag for an ordinary signed Pre test candidate. For a
-   named candidate, pass its planned tag and `prerelease=true`; a public Release
-   uses the planned tag and `prerelease=false` with release-eligible PLAY output.
+3. Use `sign-run` without a tag for a signed CI test download. Named Pre uses
+   its planned tag, `prerelease=true` and the exact successful `play` push
+   Build. Release uses its planned tag, `prerelease=false` and the exact
+   successful `main` push Build. [Downstream release procedure](DOWNSTREAM-RELEASES.md)
 4. Before publication, check that `macos-provenance.json` has the intended
    `releaseTag`, `prerelease` and `buildChannel`, and that the full launcher label
    and icon agree. Use those same values for the GitHub release.
@@ -88,16 +89,13 @@ core artifact as a test candidate gives Pre; full publication uses Release.
 Uploading unchanged bytes onto a GitHub pre-release page does not change their
 embedded label or icon.
 
-The standalone Mac archive contains only the dylib. It has no app icon or launcher
-metadata. Full channel presentation requires the matching launcher supplied by
-the installer; an older launcher can leave the channel unspecified.
+The downstream standalone Mac archive includes the dylib, matching Profiles
+helper and notices. The installer supplies the matching launcher with the
+channel icon and bundle version metadata.
 
-Tagged play-dev distribution is a separate next step. A tag alone currently
-neither builds nor publishes that package: the ordinary branch triggers omit
-play-dev, and the fork's generic tag-release job is disabled. Its dedicated path
-must select and verify the development sources/tools, retain the DEV identity,
-and publish as a development pre-release without sending it through the core
-Pre classifier. GitHub's pre-release flag and the package channel are separate.
+The dedicated DEV workflow on `play-dev` verifies the tagged development source
+and publishes DEV packages as GitHub pre-releases. Those packages retain the
+DEV label and icon. [Development release procedure](development-releases.md)
 
 ## Assets
 

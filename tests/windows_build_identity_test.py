@@ -114,6 +114,8 @@ class WindowsWorkflowWiring(unittest.TestCase):
         self.assertLess(workflow.index("python scripts/mac-release-context.py"), workflow.index("azure/login@"))
         self.assertLess(workflow.index("windows-build-identity.ps1"), workflow.index("azure/login@"))
         self.assertIn('--mode "$($context.selection_mode)"', workflow)
+        self.assertEqual(workflow.count('--expected-branch "$($context.source_branch)"'), 2)
+        self.assertIn('compare/$env:SOURCE_SHA...$($context.source_branch)', workflow)
         self.assertIn('-SourceSha $env:EMBEDDED_SOURCE_SHA', workflow)
         self.assertIn('description: ${{ steps.build_identity.outputs.signing_description }}', workflow)
         self.assertIn('buildIdentity = $buildIdentity', workflow)

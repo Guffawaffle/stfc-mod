@@ -76,22 +76,24 @@ jobs:
           python scripts/ci-signing-input.py select --run-json "$env:RUNNER_TEMP/run.json" `
             --artifacts-json "$env:RUNNER_TEMP/artifacts.json" --repository "$env:GITHUB_REPOSITORY" `
             --run-id "$env:BUILD_RUN_ID" --platform windows --mode "$($context.selection_mode)" --expected-sha "$env:SOURCE_SHA" `
+            --expected-branch "$($context.source_branch)" `
             --expected-attempt "$env:BUILD_ATTEMPT" --expected-artifact "$env:ARTIFACT_ID" `
             --output "$env:RUNNER_TEMP/windows-input.json"
           if ($context.selection_mode -ceq 'release') {
-            $relation = gh api "repos/$env:GITHUB_REPOSITORY/compare/$env:SOURCE_SHA...play" --jq '.status'
-            if ($relation -cnotin @('ahead', 'identical')) { throw 'Release source must remain in PLAY history' }
+            $relation = gh api "repos/$env:GITHUB_REPOSITORY/compare/$env:SOURCE_SHA...$($context.source_branch)" --jq '.status'
+            if ($relation -cnotin @('ahead', 'identical')) { throw "Named signing source must remain in $($context.source_branch) history" }
           }
           gh api "repos/$env:GITHUB_REPOSITORY/actions/artifacts/$env:ARTIFACT_ID/zip" > "$env:RUNNER_TEMP/windows.zip"
           python scripts/ci-signing-input.py extract --archive "$env:RUNNER_TEMP/windows.zip" `
             --selection "$env:RUNNER_TEMP/windows-input.json" --destination payload
-          if (($context.selection_mode -ceq 'release' -or $env:RELEASE_TAG) -and -not $env:PROFILES_ARTIFACT_ID) {
+          if ($context.selection_mode -ceq 'release' -and -not $env:PROFILES_ARTIFACT_ID) {
             throw 'Production Windows signing requires the matching Profiles artifact'
           }
           if ($env:PROFILES_ARTIFACT_ID) {
             python scripts/ci-signing-input.py select --run-json "$env:RUNNER_TEMP/run.json" `
               --artifacts-json "$env:RUNNER_TEMP/artifacts.json" --repository "$env:GITHUB_REPOSITORY" `
               --run-id "$env:BUILD_RUN_ID" --platform windows-profiles --mode "$($context.selection_mode)" `
+              --expected-branch "$($context.source_branch)" `
               --expected-sha "$env:SOURCE_SHA" --expected-attempt "$env:BUILD_ATTEMPT" `
               --expected-artifact "$env:PROFILES_ARTIFACT_ID" --output "$env:RUNNER_TEMP/profiles-input.json"
             gh api "repos/$env:GITHUB_REPOSITORY/actions/artifacts/$env:PROFILES_ARTIFACT_ID/zip" > "$env:RUNNER_TEMP/profiles.zip"
