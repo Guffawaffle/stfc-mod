@@ -591,6 +591,15 @@ void CameraNativeCases(std::string_view mode)
   camera_native_section_changing = false;
   camera_native_next_section     = SectionID::Navigation_System;
 
+  camera_native_rebind_scene = reinterpret_cast<unity::Camera*>(&rebound_scene);
+  NavigationZoom_Update_Hook([](auto*) {}, zoom);
+  Require(object.camera == camera_native_rebind_scene && ZoomEntries().entries.at(zoom).gate.pending,
+          "a scene rebound inside the native setter leaves the entry pending");
+  camera_native_rebind_scene = nullptr;
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 26.0f; }, zoom);
+  Require(object.distance == 802.0f && !ZoomEntries().entries.at(zoom).gate.pending,
+          "the next update applies the default to the replacement camera");
+
   const auto before_reload                    = camera_native_distance_sets;
   ZoomEntries().entries.at(zoom).gate.pending = true;
   NavigationZoom_Update_Hook(

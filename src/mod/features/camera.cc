@@ -422,18 +422,23 @@ bool SetEntryDistance(NavigationZoom* zoom, float target)
   const auto distance = gameplay_settings::QualifiedZoomDistance(target, minimum.value, maximum.value, range);
   if (!distance)
     return false;
-  const auto current       = zoom->TryDistance();
-  const auto scene         = zoom->TrySceneCamera();
-  const auto near          = zoom->TryMinimum();
-  const auto far           = zoom->TryMaximum();
-  const auto current_depth = zoom->TryDepth();
-  if (ModSessionSuspended() || generation != zoom_default_generation || !scene || scene.value != camera.value || !near
-      || near.value != minimum.value || !far || far.value != maximum.value || !current_depth
-      || current_depth.value != NodeDepth::SolarSystem || Config::Get().graphics.zoom != range
-      || Config::Get().graphics.default_system_zoom != target)
+  const auto same_inputs = [&] {
+    if (ModSessionSuspended() || generation != zoom_default_generation || Config::Get().graphics.zoom != range
+        || Config::Get().graphics.default_system_zoom != target)
+      return false;
+    const auto scene         = zoom->TrySceneCamera();
+    const auto near          = zoom->TryMinimum();
+    const auto far           = zoom->TryMaximum();
+    const auto current_depth = zoom->TryDepth();
+    return scene && scene.value == camera.value && near && near.value == minimum.value && far
+           && far.value == maximum.value && current_depth && current_depth.value == NodeDepth::SolarSystem;
+  };
+  const auto current = zoom->TryDistance();
+  if (!same_inputs())
     return false;
   // The native distance setter updates the camera immediately and leaves its focus at the native entry target.
-  return (current && current.value == *distance) || zoom->TrySetDistance(*distance).succeeded;
+  // Its callbacks can replace the camera or range, in which case the entry still needs to be applied.
+  return (current && current.value == *distance) || (zoom->TrySetDistance(*distance).succeeded && same_inputs());
 }
 
 void ApplyEntryDefault(NavigationZoom* zoom)
