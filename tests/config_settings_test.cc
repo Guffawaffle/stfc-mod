@@ -394,6 +394,19 @@ int main()
         "disabling Alliance Starbase markers requests live cleanup");
   starbase_available = false;
 
+  auto* queue_guard = Find<BooleanSetting>(catalog, "control.primary_protects_queue");
+  Check(queue_guard && registered.contains("control.primary_protects_queue")
+            && queue_guard->Observe().state.value == false,
+        "primary queue protection is discoverable and opt-in");
+  Check(queue_guard->SetFromUser(true, queue_guard->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().control.primary_protects_queue
+            && std::get<bool>(saved.at("control.primary_protects_queue")),
+        "primary queue protection applies live and persists its exact key");
+  Check(queue_guard->SetFromUser(false, queue_guard->Observe()).outcome == Outcome::AppliedVerified
+            && !Config::Get().control.primary_protects_queue
+            && !std::get<bool>(saved.at("control.primary_protects_queue")),
+        "primary queue protection can restore ordinary shortcut behavior live");
+
   auto* extended = Find<BooleanSetting>(catalog, "control.hotkeys_extended");
   Check(extended && extended->SetFromUser(false, extended->Observe()).outcome == Outcome::AppliedVerified
             && Config::Get().control.hotkeys_extended && extended->restart_pending(),

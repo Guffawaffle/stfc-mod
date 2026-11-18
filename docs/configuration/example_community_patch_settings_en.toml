@@ -118,6 +118,10 @@ kirshara_fixes = true
 # Only allow the primary action when the selected target is visible in the current view.
 primary_requires_visible_target = false
 
+# Ignore primary-action shortcuts while the selected ship has one or more queued Kir'Shara targets.
+# Queue action, Clear action queue, and other shortcuts stay available.
+primary_protects_queue = false
+
 # Double-tap window in ms for 1-8 ship select/locate. Lower = faster, higher = slower. Default 500
 select_timer = 500
 

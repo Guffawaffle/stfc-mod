@@ -444,6 +444,8 @@ void RegisterConfigSettings(PageCatalog& catalog)
           "Protect queued actions when targets or addresses change.", ResetQueueRecoveryTracking);
   BOOL("controls", control, primary_requires_visible_target, "Require visible primary target", hotkeys, Live,
        "Require a visible target for the primary action shortcut.");
+  BOOL("controls", control, primary_protects_queue, "Protect queue from primary action", hotkeys, Live,
+       "Block primary-action shortcuts while the selected ship has queued targets. Queueing and clearing still work.");
   INT("controls", control, select_timer, "Ship selection interval", hotkeys, Live,
       "Maximum interval between repeated ship-selection shortcuts.", "ms", 0, integer);
 

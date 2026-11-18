@@ -856,6 +856,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
                             "control.queue_address_guard", "advanced.queue.thin_queue_protection"})
       r.Retired(path, "control.kirshara_fixes switches all the queue fixes");
   r.Read("control", "primary_requires_visible_target", control.primary_requires_visible_target);
+  r.Read("control", "primary_protects_queue", control.primary_protects_queue);
   r.Read("control", "queue_enabled", control.queue_enabled);
   r.Read("control", "hotkeys_enabled", control.hotkeys_enabled);
   r.Read("control", "hotkeys_extended", control.hotkeys_extended);

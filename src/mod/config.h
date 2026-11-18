@@ -186,6 +186,7 @@ public:
 
   struct Control {
     bool        primary_requires_visible_target = false;
+    bool        primary_protects_queue          = false;
     bool        kirshara_fixes                  = true;
     bool        queue_enabled                   = true;
     bool        hotkeys_enabled                 = true;
