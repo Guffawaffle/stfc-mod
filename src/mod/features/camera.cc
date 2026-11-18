@@ -426,12 +426,13 @@ bool SetEntryDistance(NavigationZoom* zoom, float target)
     if (ModSessionSuspended() || generation != zoom_default_generation || Config::Get().graphics.zoom != range
         || Config::Get().graphics.default_system_zoom != target)
       return false;
-    const auto scene         = zoom->TrySceneCamera();
-    const auto near          = zoom->TryMinimum();
-    const auto far           = zoom->TryMaximum();
-    const auto current_depth = zoom->TryDepth();
-    return scene && scene.value == camera.value && near && near.value == minimum.value && far
-           && far.value == maximum.value && current_depth && current_depth.value == NodeDepth::SolarSystem;
+    const auto scene           = zoom->TrySceneCamera();
+    const auto current_minimum = zoom->TryMinimum();
+    const auto current_maximum = zoom->TryMaximum();
+    const auto current_depth   = zoom->TryDepth();
+    return scene && scene.value == camera.value && current_minimum && current_minimum.value == minimum.value
+           && current_maximum && current_maximum.value == maximum.value && current_depth
+           && current_depth.value == NodeDepth::SolarSystem;
   };
   const auto current = zoom->TryDistance();
   if (!same_inputs())
