@@ -89,9 +89,9 @@ core artifact as a test candidate gives Pre; full publication uses Release.
 Uploading unchanged bytes onto a GitHub pre-release page does not change their
 embedded label or icon.
 
-The standalone Mac archive contains only the dylib. It has no app icon or launcher
-metadata. Full channel presentation requires the matching launcher supplied by
-the installer; an older launcher can leave the channel unspecified.
+The downstream standalone Mac archive includes the dylib, matching Profiles
+helper and notices. The installer supplies the matching launcher with the
+channel icon and bundle version metadata.
 
 The dedicated DEV workflow on `play-dev` verifies the tagged development source
 and publishes DEV packages as GitHub pre-releases. Those packages retain the
