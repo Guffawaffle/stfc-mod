@@ -1,6 +1,6 @@
 # Install the mod
 
-Download a build from the [release list](https://github.com/netniV/stfc-mod/releases/).
+Download the [latest signed fork release](https://github.com/Guffawaffle/stfc-mod/releases/latest).
 Expand **Assets** to see the files. Versioned and unversioned ZIPs contain the same files.
 
 If a game update breaks the release, check **#info** in the
