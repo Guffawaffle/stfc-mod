@@ -1,5 +1,5 @@
 // Launches the game with the community mod dylib injected. The game's install path comes from the Xsolla
-// launcher's settings; the dylib sits next to this executable.
+// launcher's settings or an explicit --game-directory; the dylib sits next to this executable.
 
 #include <inicpp.h>
 
@@ -35,21 +35,32 @@ void Prepend(const char* variable, const std::string& value)
 }
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
-  const auto settings_path = LibraryDirectory() / "Preferences" / "Star Trek Fleet Command" / "launcher_settings.ini";
-  std::ifstream settings_stream(settings_path);
-  if (!settings_stream)
-    return Fail("cannot read " + settings_path.string() + "; install the game with the Xsolla launcher first");
-  ini::IniFile settings(settings_stream);
+  std::string game;
+  if (argc > 1 && std::strcmp(argv[1], "--game-directory") == 0) {
+    // A coordinating launcher has already admitted this installation. Do not select a different one from INI.
+    if (argc != 3)
+      return Fail("--game-directory requires one absolute directory");
+    const auto directory = std::filesystem::path(argv[2]);
+    if (!directory.is_absolute())
+      return Fail("--game-directory requires an absolute directory");
+    game = (directory / "Star Trek Fleet Command").string();
+  } else {
+    const auto settings_path = LibraryDirectory() / "Preferences" / "Star Trek Fleet Command" / "launcher_settings.ini";
+    std::ifstream settings_stream(settings_path);
+    if (!settings_stream)
+      return Fail("cannot read " + settings_path.string() + "; install the game with the Xsolla launcher first");
+    ini::IniFile settings(settings_stream);
 
-  auto install_dir = settings["General"]["152033..GAME_PATH"].as<std::string>();
-  // The Xsolla launcher sometimes writes the path with a doubled leading slash; the Swift launcher strips it too.
-  if (install_dir.starts_with("//"))
-    install_dir.erase(0, 1);
-  if (install_dir.empty())
-    return Fail("no game path (152033..GAME_PATH) in " + settings_path.string());
-  const auto game = (std::filesystem::path(install_dir) / kAppPath).string();
+    auto install_dir = settings["General"]["152033..GAME_PATH"].as<std::string>();
+    // Xsolla sometimes writes a doubled leading slash; the Swift launcher strips it too.
+    if (install_dir.starts_with("//"))
+      install_dir.erase(0, 1);
+    if (install_dir.empty())
+      return Fail("no game path (152033..GAME_PATH) in " + settings_path.string());
+    game = (std::filesystem::path(install_dir) / kAppPath).string();
+  }
 
   // Resolve symlinks so the dylib path is the real one next to this binary.
   char     executable[PATH_MAX];

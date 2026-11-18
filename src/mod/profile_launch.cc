@@ -30,14 +30,25 @@ namespace profile_launch
 {
 namespace
 {
-  profile_bootstrap::ProfileBootstrap lifecycle;
-  std::string                         selected_id;
-  std::filesystem::path               profile_directory;
+  struct LaunchState {
+    profile_bootstrap::ProfileBootstrap lifecycle;
+    std::string                         selected_id;
+    std::filesystem::path               profile_directory;
 #if STFC_PROFILES_HOST
-  std::filesystem::path                              catalog_root;
-  std::unique_ptr<stfc::profiles::SessionLease>      session;
-  std::unique_ptr<stfc::profiles::InstallationLease> installation;
+    std::filesystem::path                              catalog_root;
+    std::unique_ptr<stfc::profiles::SessionLease>      session;
+    std::unique_ptr<stfc::profiles::InstallationLease> installation;
+#endif
+  };
 
+  LaunchState& State()
+  {
+    // macOS calls Initialize from a dylib constructor, before other translation units' dynamic initialization.
+    static LaunchState state;
+    return state;
+  }
+
+#if STFC_PROFILES_HOST
   std::filesystem::path ProcessImage()
   {
 #if _WIN32
@@ -62,6 +73,7 @@ namespace
 [[noreturn]] void Abort(const char* reason) noexcept
 {
 #if STFC_PROFILES_HOST
+  auto& session = State().session;
   if (session) {
     try {
       session->MarkFailed(reason);
@@ -81,26 +93,27 @@ namespace
 }
 
 bool Requested() noexcept
-{ return !selected_id.empty(); }
+{ return !State().selected_id.empty(); }
 std::string_view Id() noexcept
-{ return selected_id; }
+{ return State().selected_id; }
 
 void Initialize() noexcept
 {
   try {
-    if (lifecycle.State() == profile_bootstrap::Phase::kNotStarted) {
+    auto& state = State();
+    if (state.lifecycle.State() == profile_bootstrap::Phase::kNotStarted) {
       const auto&                   owned = ProcessArguments();
       std::vector<std::string_view> views(owned.begin(), owned.end());
-      selected_id = profile_bootstrap::ParseProfileArguments(views).value_or("");
+      state.selected_id = profile_bootstrap::ParseProfileArguments(views).value_or("");
     }
-    lifecycle.Initialize(Requested(), [] {
+    state.lifecycle.Initialize(Requested(), [&] {
 #if STFC_PROFILES_HOST
-      catalog_root    = stfc::profiles::DefaultCatalogRoot();
-      const auto game = std::filesystem::canonical(ProcessImage()).parent_path();
-      installation    = std::make_unique<stfc::profiles::InstallationLease>(catalog_root, game, false);
-      stfc::profiles::CheckInstallationReady(catalog_root, installation->Directory());
+      state.catalog_root = stfc::profiles::DefaultCatalogRoot();
+      const auto game    = std::filesystem::canonical(ProcessImage()).parent_path();
+      state.installation = std::make_unique<stfc::profiles::InstallationLease>(state.catalog_root, game, false);
+      stfc::profiles::CheckInstallationReady(state.catalog_root, state.installation->Directory());
       if (Requested())
-        stfc::profiles::community_mod::InstallProcessAdmission(selected_id);
+        stfc::profiles::community_mod::InstallProcessAdmission(state.selected_id);
 #else
       if (Requested())
         throw std::runtime_error("This foundation build has no Profiles host; the explicit profile launch is refused.");
@@ -116,17 +129,18 @@ void Initialize() noexcept
 void Prepare() noexcept
 {
   try {
-    lifecycle.Prepare([] {
+    auto& state = State();
+    state.lifecycle.Prepare([&] {
 #if STFC_PROFILES_HOST
-      session                       = std::make_unique<stfc::profiles::SessionLease>(catalog_root, selected_id);
-      profile_directory             = session->Directory();
-      const bool initialized_marker = std::filesystem::exists(profile_directory / "player_prefs.bin.initialized");
-      const bool stored             = std::filesystem::exists(profile_directory / "player_prefs.bin");
-      const auto mode               = session->PreferencesInitialized() || initialized_marker
+      state.session           = std::make_unique<stfc::profiles::SessionLease>(state.catalog_root, state.selected_id);
+      state.profile_directory = state.session->Directory();
+      const bool initialized_marker = std::filesystem::exists(state.profile_directory / "player_prefs.bin.initialized");
+      const bool stored             = std::filesystem::exists(state.profile_directory / "player_prefs.bin");
+      const auto mode               = state.session->PreferencesInitialized() || initialized_marker
                                           ? stfc::profiles::ProfileOpenMode::Existing
                                       : stored ? stfc::profiles::ProfileOpenMode::Resume
                                                : stfc::profiles::ProfileOpenMode::New;
-      stfc::profiles::community_mod::PrepareProfile(catalog_root, selected_id, mode, *session);
+      stfc::profiles::community_mod::PrepareProfile(state.catalog_root, state.selected_id, mode, *state.session);
 #endif
     });
   } catch (const std::exception& error) {
@@ -139,7 +153,7 @@ void Prepare() noexcept
 bool RuntimeInitialized(bool success) noexcept
 {
   try {
-    return lifecycle.RuntimeInitialized(success);
+    return State().lifecycle.RuntimeInitialized(success);
   } catch (const std::exception& error) {
     Abort(error.what());
   } catch (...) {
@@ -150,7 +164,7 @@ bool RuntimeInitialized(bool success) noexcept
 void Install() noexcept
 {
   try {
-    lifecycle.Install([] {
+    State().lifecycle.Install([] {
 #if STFC_PROFILES_HOST
       stfc::profiles::community_mod::InstallProfileHooks();
 #endif
@@ -164,8 +178,9 @@ void Install() noexcept
 
 const std::filesystem::path& Directory()
 {
-  if (Requested() && (lifecycle.Failed() || profile_directory.empty()))
+  const auto& state = State();
+  if (Requested() && (state.lifecycle.Failed() || state.profile_directory.empty()))
     Abort("Profile storage was requested before successful session preparation.");
-  return profile_directory;
+  return state.profile_directory;
 }
 } // namespace profile_launch

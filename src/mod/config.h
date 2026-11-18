@@ -199,16 +199,16 @@ public:
   } control;
 
   struct Graphics {
-    float ui_scale        = 0.6f;
+    float ui_scale        = 0.0f;
     float ui_scale_step   = 0.05f;
     float ui_scale_ship   = 1.0f;
     float ui_scale_viewer = 1.2f;
     // Show the active mod ship shortcut on local-player fleet labels in system view.
     bool                         ship_hotkey_badges        = true;
-    bool                         galaxy_extended_selection = false;
-    bool                         galaxy_multi_select       = false;
-    bool                         galaxy_station_housing    = false;
-    bool                         galaxy_starbase_systems   = false;
+    bool                         galaxy_extended_selection = true;
+    bool                         galaxy_multi_select       = true;
+    bool                         galaxy_station_housing    = true;
+    bool                         galaxy_starbase_systems   = true;
     std::array<bool, 4>          galaxy_overlays{true, false, false, false}; // Default, Mining, Hostiles, Hazards.
     galaxy_controls::ZoomProfile galaxy_label_major{galaxy_controls::ZoomMode::Native, .5f};
     galaxy_controls::ZoomProfile galaxy_label_minor{galaxy_controls::ZoomMode::Native, .5f};
@@ -254,7 +254,7 @@ public:
     std::string loader_image;
     float       loader_logo_scale      = 1.0f;
     bool        loader_tip_enabled     = true;
-    bool        galactic_anomaly_timer = false;
+    bool        galactic_anomaly_timer = true;
   } graphics;
 
   struct Buffs {
@@ -298,7 +298,7 @@ public:
     bool show_player_title               = true;
     bool auto_open_chat                  = false;
     float default_chat_width             = 0.0f;
-    bool allow_officer_preset_reordering = false;
+    bool allow_officer_preset_reordering = true;
     // Only player ships received by this client for the viewed system are counted.
     bool system_player_ship_counter = true;
     bool hyperthermic_decay_tracker = true;
@@ -321,8 +321,8 @@ public:
     bool focus_search        = true;
     // Abbreviated cargo values use cargo_significant_decimals.
     bool format_cargo_values  = true;
-    bool highlight_opc_fleets = false;
-    bool fleet_hud_opc_eta    = false;
+    bool highlight_opc_fleets = true;
+    bool fleet_hud_opc_eta    = true;
     // Restores the Below Deck Ability officer sort option.
     bool officer_sort                         = true;
     bool show_ship_tech_indicators            = true;

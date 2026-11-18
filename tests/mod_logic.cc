@@ -422,7 +422,7 @@ void ExampleSettings()
       };
   compare(example, &effective, "");
 
-  Check(config->graphics.ui_scale > 0.0f, "example values are applied");
+  Check(config->graphics.ui_scale == 0.0f, "example selects the game's own interface scale");
   Check(config->ui.hud_q_trials == MissionHudVisibility::kAuto
             && config->ui.hud_field_training == MissionHudVisibility::kAuto
             && config->ui.hud_outposts == MissionHudVisibility::kAuto
@@ -518,10 +518,10 @@ void UpstreamSettings()
 {
   toml::table effective;
   const auto  defaults = Config::Parse(toml::table{}, effective, false);
-  Check(!defaults->graphics.galaxy_extended_selection && !defaults->graphics.galaxy_multi_select
-            && !defaults->graphics.galaxy_station_housing && !defaults->graphics.galaxy_starbase_systems
+  Check(defaults->graphics.galaxy_extended_selection && defaults->graphics.galaxy_multi_select
+            && defaults->graphics.galaxy_station_housing && defaults->graphics.galaxy_starbase_systems
             && defaults->graphics.galaxy_overlays[0],
-        "Galaxy optional behavior and Default layer retain PLAY defaults");
+        "Galaxy helpers default on while the Default layer remains selected");
   const auto galaxy = Config::Parse(toml::parse(R"(
     [graphics]
     galaxy_extended_selection = true
@@ -685,8 +685,26 @@ void UpstreamSettings()
 void FrozenSettingsDefaults()
 {
   // Both immutable default fixtures live beside one another. No game settings are opened.
-  const auto expected = toml::parse_file(
+  const auto legacy = toml::parse_file(
       (std::filesystem::path(STFC_SHORTCUT_DEFAULTS).parent_path() / "config_defaults_frozen.toml").string());
+  // Overlay the approved downstream defaults without rewriting the historical loader fixture.
+  const auto downstream = toml::parse(R"(
+    [graphics]
+    ui_scale = 0.0
+    galactic_anomaly_timer = true
+    galaxy_extended_selection = true
+    galaxy_station_housing = true
+    galaxy_starbase_systems = true
+    galaxy_multi_select = true
+    [ui]
+    highlight_opc_fleets = true
+    fleet_hud_opc_eta = true
+    allow_officer_preset_reordering = true
+  )");
+  auto       expected   = legacy;
+  for (const auto& [section, values] : downstream)
+    for (const auto& [key, value] : *values.as_table())
+      expected[section].as_table()->insert_or_assign(key.str(), value);
   const auto matches = [](const toml::node& wanted, const toml::node* actual) {
     if (!actual)
       return false;
@@ -714,11 +732,21 @@ void FrozenSettingsDefaults()
         const bool same = matches(wanted, effective[section][key].node());
         if (!same)
           std::cerr << "frozen settings default differs: " << section << '.' << key << '\n';
-        Check(same, "actual frozen loader defaults survive missing and mistyped settings");
+        Check(same, "historical defaults with approved downstream changes survive missing and mistyped settings");
       }
     Check(!candidate->graphics.galaxy_overlays[1] && candidate->graphics.galaxy_overlays[0]
               && candidate->patches.navigationorbithooks && candidate->graphics.system_camera_orbit,
           "source overlay fallback and default-enabled system rotation stay distinct");
+  }
+  {
+    auto saved = legacy;
+    saved["graphics"].as_table()->insert_or_assign("galaxy_starbase_systems", false);
+    toml::table effective;
+    (void)Config::Parse(saved, effective, false);
+    for (const auto& [section, values] : downstream)
+      for (const auto& [key, value] : *values.as_table())
+        Check(matches(*saved[section][key].node(), effective[section][key].node()),
+              "explicit saved scale and opt-outs take precedence over new downstream defaults");
   }
   {
     toml::table parsed;
