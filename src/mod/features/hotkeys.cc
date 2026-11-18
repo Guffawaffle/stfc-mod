@@ -26,7 +26,8 @@
 namespace
 {
 // The frame tick dispatches shortcuts whether or not this feature installed; this says whether it did.
-bool hotkeys_installed = false;
+bool                                                 hotkeys_installed = false;
+std::optional<std::chrono::steady_clock::time_point> escape_first_press;
 
 // A debug-only scalar sample helps distinguish text ownership, capture and stuck modifiers in intermittent
 // reports. Reuse the dispatcher's focus observation; do not move focus queries ahead of native callbacks.
@@ -125,16 +126,19 @@ bool SwallowEscape()
   if (config.ui.disable_escape_exit_timer <= 0 || !unity::Key::Down(unity::KeyCode::Escape))
     return true;
 
-  static std::optional<std::chrono::steady_clock::time_point> first_press;
-  const auto                                                  now = std::chrono::steady_clock::now();
-  if (!first_press || now - *first_press > std::chrono::milliseconds(config.ui.disable_escape_exit_timer)) {
-    first_press = now;
+  const auto now = std::chrono::steady_clock::now();
+  if (!escape_first_press
+      || now - *escape_first_press > std::chrono::milliseconds(config.ui.disable_escape_exit_timer)) {
+    escape_first_press = now;
     return true;
   }
   // Consume the pair so a quick third press starts a new one.
-  first_press.reset();
+  escape_first_press.reset();
   return false;
 }
+
+void ResetHotkeys()
+{ escape_first_press.reset(); }
 
 // --- Scopely hotkeys ---
 
@@ -143,6 +147,27 @@ void ShortcutsManager_InitializeActions_Hook(auto original, ShortcutsManager* _t
 {
   if (Config::Get().control.use_scopely_hotkeys)
     original(_this);
+}
+
+// Native popup confirmation is independent of the configurable shortcut dispatcher. In particular, Space and
+// Enter must stay with a focused text field instead of also activating a reward window's confirm button.
+void KeyboardConfirmHandler_OnConfirmPerformed_Hook(auto original, KeyboardConfirmHandler* _this,
+                                                    unity::InputActionCallbackContext context)
+{
+  unity::Key::Poll();
+  if (Shortcut::CaptureBlocksShortcuts() || unity::Key::IsInputFocused())
+    return;
+  original(_this, context);
+}
+
+bool InstallKeyboardConfirm()
+{
+  il2cpp::HookSet hooks("KeyboardConfirm");
+  IL2CPP_STAGE_AT(hooks,
+                  il2cpp::CheckedEntry(KeyboardConfirmHandler::Class::Method<void(unity::InputActionCallbackContext)>(
+                      "OnConfirmPerformed")),
+                  KeyboardConfirmHandler_OnConfirmPerformed_Hook);
+  return hooks.Commit();
 }
 
 bool InstallHotkeys()
@@ -256,4 +281,6 @@ bool HandleShortcuts()
   return FleetActionShortcuts() || SwallowEscape();
 }
 
-const Feature kHotkeys{"Hotkeys", &Config::Patches::hotkeyhooks, InstallHotkeys};
+const Feature kHotkeys{"Hotkeys", &Config::Patches::hotkeyhooks, InstallHotkeys,
+                       nullptr,   InstallRequirement::kOptional, ResetHotkeys};
+const Feature kKeyboardConfirm{"KeyboardConfirm", &Config::Patches::hotkeyhooks, InstallKeyboardConfirm};

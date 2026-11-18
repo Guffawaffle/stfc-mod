@@ -205,6 +205,57 @@ void HostPolicy()
   Shortcut::Set({});
 }
 
+void CaptureCancellation()
+{
+  using unity::KeyCode;
+  for (const auto modifier : {KeyCode::LeftControl, KeyCode::LeftCommand}) {
+    for (const bool release_before_cancel : {true, false}) {
+      const auto*        modified = modifier == KeyCode::LeftControl ? "CTRL-A" : "CMD-A";
+      Shortcut::Bindings bindings;
+      bindings[std::to_underlying(Action::kShowGalaxy)] = {KeyChord::Parse(modified)};
+      bindings[std::to_underlying(Action::kShowChat)]   = {KeyChord::Parse("A")};
+      Shortcut::Set(bindings);
+      const auto generation = Shortcut::Read(Action::kShowChat).generation;
+      SetKeys({modifier, KeyCode::A}, {KeyCode::A});
+      Check(Shortcut::IsDown(Action::kShowGalaxy) && Shortcut::Owns(KeyCode::A),
+            "a modified shortcut owns A before cancellation testing");
+      SetKeys({KeyCode::A});
+      Check(!Shortcut::IsPressed(Action::kShowChat), "dropping the modifier still suppresses held A");
+
+      const auto capture = Shortcut::ClaimCapture();
+      PollCapture();
+      Check(Shortcut::Owns(KeyCode::A) && !Shortcut::IsPressed(Action::kShowChat),
+            "opening capture preserves held-key suppression");
+      if (release_before_cancel) {
+        SetKeys({});
+        PollCapture();
+      }
+      Check(Shortcut::ReleaseCapture(capture), "cancellation releases the capture without rebinding");
+      if (!release_before_cancel) {
+        PollCapture();
+        Check(Shortcut::Owns(KeyCode::A) && !Shortcut::IsPressed(Action::kShowChat),
+              "cancellation keeps held A owned during drain");
+      }
+      SetKeys({});
+      PollCapture(false);
+      Check(Shortcut::CaptureBlocksShortcuts(), "unfocused release cannot finish cancellation drain");
+      PollCapture();
+      PollCapture();
+      Check(Shortcut::CaptureBlocksShortcuts(), "the final cancellation drain frame remains blocked");
+
+      // No extra idle dispatch or binding replacement may retire the old ownership for this regression.
+      SetKeys({KeyCode::A}, {KeyCode::A});
+      PollCapture();
+      Check(!Shortcut::CaptureBlocksShortcuts() && Shortcut::IsDown(Action::kShowChat),
+            "fresh A works on the first eligible frame after cancellation");
+      Check(Shortcut::Read(Action::kShowChat).generation == generation,
+            "cancellation did not replace the bindings to clear ownership");
+      SetKeys({});
+    }
+  }
+  Shortcut::Set({});
+}
+
 void DockInput()
 {
   using unity::KeyCode;
@@ -240,6 +291,7 @@ int main()
 {
   GuardPolicy();
   HostPolicy();
+  CaptureCancellation();
   DockInput();
   std::cout << "PASS shortcut capture policy and production matching/release integration\n";
 }

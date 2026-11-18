@@ -6,24 +6,30 @@ Preserve upstream licenses and notices when distributing source or binaries.
 
 ## Optional downstream build products
 
-The explicitly enabled build-only targets in `zig/aai.zig`,
-`zig/shared_toml.zig` and `zig/profiles.zig` do not enter the normal mod's
-link, install or feature graph. Their inputs and qualification limits are in
+The explicitly enabled products in `zig/aai.zig`,
+`zig/shared_toml.zig` and `zig/profiles.zig` do not enter the default mod's
+link, install or feature graph. The original foundation qualification limits are in
 [the M1 checkpoint](migration/M1-FOUNDATION.md).
 
-AAI source is GPL-3.0 at `4bece2e5f1afa7c7343f009e83398742a0f86114`.
+AAI source is GPL-3.0 at `e12d0a615b5e0f8fafb5d859dc6c2931858e806b`.
 Its native archive additionally uses lazy, content-pinned simdutf 8.2.0
 (Apache-2.0 or MIT; retain `LICENSE-APACHE` and `LICENSE-MIT`). No simdutf
 vendor source is modified. The standalone TOML producer retains the owning
 repository's license and its component third-party notices.
 
-Profiles source is GPL-3.0 at `c5c4ba911f16f3376e828761714d72a26ebe2a96`.
-Its separately provisioned static C prefix preserves libarchive 3.8.9,
-xz/liblzma 5.8.3 and zlib 1.3.2 from the existing Profiles recipe. The
-producer copies their upstream license files and records complete source,
-configuration, tool and installed-file hashes. Those development outputs are
-not a qualified release package; preserve all applicable notices when later
-distributing them.
+`-Dprofiles=true` enables GPL-3.0 Profiles source at
+`5515386d40bd543f74cc5e90b5c8dff19a77362d`, pinned by URL and Zig content hash.
+It links the downstream isolation adapter into the existing bootstrap and installs the matching CLI.
+The Mac launcher links a separate catalog/C API archive against the SDK's libc++ headers.
+The Profiles standalone bootstrap and vendored SPUD are not built.
+
+Windows also uses static libarchive 3.8.9, XZ/liblzma 5.8.3 and the mod's pinned zlib 1.3.2.
+The optional producer uses XMake 3.0.8 and Visual Studio, the Profiles-owned libarchive recipe,
+and XMake recipes pinned at `fc22e7373c18d9920f54c6b93c19c2dd91fa0b1f`.
+It retains the static MSVC runtime and disables OpenSSL and unused archive dependencies.
+The source-pinned libarchive and XZ notices are copied to `share/stfc-profiles/notices/windows`,
+including libarchive's BSD-2-Clause/component notices and XZ's 0BSD/component licenses.
+The Mac Profiles core does not compile the Windows archive updater.
 
 ## Fetched libraries
 

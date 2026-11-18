@@ -41,9 +41,8 @@ pub fn build(b: *std.Build) void {
     });
     const optimize = b.standardOptimizeOption(.{});
     const options = Options.parse(b);
-    const profiles_options = profiles.Options.parse(b);
     const aai_options = aai.Options.parse(b);
-    mod.addUniversal(b, optimize, options, profiles_options.host, aai_options);
+    mod.addUniversal(b, optimize, options, aai_options);
     const ctx = Ctx.init(b, target, optimize, options);
 
     // Libraries the native fixtures share with the shipped mod. None of them need networking or a platform SDK,
@@ -67,8 +66,7 @@ pub fn build(b: *std.Build) void {
     };
     const test_steps = tests.add(ctx, fixture_libs);
 
-    // Standalone producers stay outside the mod closure. Profiles enters that
-    // closure only through its explicit host option; defaults inspect no private roots.
+    // Optional AAI producers remain outside the ordinary mod closure.
     var unicode: ?@import("zig/ctx.zig").Lib = null;
     if (aai_options.enabled and aai_options.native) {
         const package = b.lazyDependency("simdutf", .{}) orelse return;
@@ -86,35 +84,30 @@ pub fn build(b: *std.Build) void {
         .toml = toml,
         .json = deps.nlohmannJson(ctx),
     });
-    const profiles_outputs = profiles.add(ctx, profiles_options, .{
-        .json = deps.nlohmannJson(ctx),
-        .spud = spud,
-        .spdlog = spdlog,
-        .il2cpp = il2cpp,
-    });
     if (!ctx.isWindows() and !ctx.isMacos()) return;
 
-    // Everything below ships in, or tests, a platform build.
-    const zlib = if (profiles_options.host) profiles_outputs.?.zlib else deps.zlib(ctx);
+    // Everything below ships in, or tests, a platform build. The explicit Profiles
+    // option uses one pinned core and the same zlib as the mod's HTTPS dependency.
+    const zlib = deps.zlib(ctx);
     const curl = deps.curl(ctx, zlib) orelse return;
     const cpr = deps.cpr(ctx, curl);
-    const profiles_verification = if (profiles_options.host) profiles_outputs.?.verification else null;
-    if (profiles_verification) |verify| {
-        if (curl.artifact) |artifact| artifact.step.dependOn(verify);
-        if (cpr.artifact) |artifact| artifact.step.dependOn(verify);
-    }
+    const json = deps.nlohmannJson(ctx);
+    const profile_component: ?profiles.Component = if (options.profiles)
+        profiles.add(ctx, json, spud, spdlog, il2cpp, zlib) orelse return
+    else
+        null;
     fixture_libs.cpr = cpr;
     fixture_libs.curl = curl;
     tests.addSyncUpload(ctx, fixture_libs, test_steps);
     const unity = mod.unity(ctx, il2cpp, spud);
     var mod_libs: std.ArrayList(@import("zig/ctx.zig").Lib) = .empty;
     mod_libs.appendSlice(b.allocator, &.{ il2cpp, unity, spdlog, spud, proto, proto_runtime, cpr, curl, toml, toml_editor, deps.nlohmannJson(ctx) }) catch @panic("OOM");
-    // The original optional adapter remains a separate producer/fixture. Only
-    // the reviewed host adapter may enter this product's source/link closure.
-    if (profiles_options.host) mod_libs.append(b.allocator, profiles_outputs.?.host.?) catch @panic("OOM");
+    if (profile_component) |component| mod_libs.append(b.allocator, component.runtime) catch @panic("OOM");
     if (aai_options.host) mod_libs.append(b.allocator, aai_outputs.?.native.?) catch @panic("OOM");
-    mod.add(ctx, mod_libs.items, profiles_verification);
-    launcher.add(ctx);
+    // Only the explicitly selected development payload earns DEV identity.
+    // A source branch or a label never turns optional products on.
+    mod.add(ctx, mod_libs.items, aai_options.host);
+    launcher.add(ctx, aai_options.host, if (profile_component) |component| component.source else null, json);
     tests.addDependencySmoke(ctx, &.{ proto, proto_runtime, cpr, curl, zlib });
 
     // Build one dependency in isolation, to check a pin bump or a cross-compile without the mod.

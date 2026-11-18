@@ -22,4 +22,6 @@ bool Available();
 bool ConsumeTileClick(ShipTileWidget* tile);
 void RefreshVisible();
 void Tick();
+// Teardown owns the widgets; discard gesture policy and weak custody without native UI calls.
+void ResetForReload();
 } // namespace ship_pin_input

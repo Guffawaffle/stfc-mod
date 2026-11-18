@@ -1,8 +1,11 @@
 // Settings parsing and shortcut matching, run against production code with Unity input replaced by a fake.
 #include "config.h"
+#include "features/hyperthermic_decay_state.h"
+#include "features/chat_startup.h"
 #include "features/notification_audio.h"
 #include "features/ship_shortcut_hint.h"
 #include "features/toast_text.h"
+#include "reload.h"
 #include "shortcuts.h"
 #include "text.h"
 
@@ -18,6 +21,7 @@
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <source_location>
 #include <utility>
@@ -88,6 +92,112 @@ void ShipHints()
   Shortcut::Set(std::move(custom));
   Check(Shortcut::Hint(ship_hint(Action::kSelectShip7)) == "^F8",
         "Gapped ship hint must use the actual custom binding, not a hardcoded number");
+}
+
+void HyperthermicDecay()
+{
+  using namespace hyperthermic_decay;
+  toml::table effective;
+  Check(Config::Parse({}, effective, false)->ui.hyperthermic_decay_tracker,
+        "The amplifier tracker is enabled when the setting is absent");
+  Check(!Config::Parse(toml::parse("[ui]\nhyperthermic_decay_tracker = false"), effective, false)
+             ->ui.hyperthermic_decay_tracker,
+        "An explicit tracker Off choice survives the enabled default");
+  const auto row_for = [](const Rows& rows, int32_t level) -> const Row* {
+    const auto found = std::find_if(rows.entries.begin(), rows.entries.end(),
+                                    [&](const auto& row) { return row && row->hostileLevel == level; });
+    return found == rows.entries.end() ? nullptr : &**found;
+  };
+  const auto near = [](double value, double expected) { return std::abs(value - expected) < 0.000001; };
+
+  // A zero-value amplifier is observed game state, not an absent or unreadable buff.
+  const std::array<Observation, 3> baseline{{
+      {203039085, 0.04, false, 90, 74, 900000000},
+      {3368332439, 0.04, false, 60, 74, 600000000},
+      {2663561780, 0.0, false, 40, 74, 400000000},
+  }};
+  const auto                       initial_rows = ActiveRows(baseline);
+  auto                             summary      = SummarizeRows(initial_rows);
+  Check(summary.active == 3 && summary.contributing == 2 && summary.valuesValid && near(summary.decayPercent, 8.0)
+            && summary.nextExpirySeconds == 40,
+        "Native fractions become percentages while zero-value amplifiers retain their own countdown");
+  const auto* zero = row_for(initial_rows, 53);
+  Check(zero && zero->observation.value == 0 && zero->observation.remainingSeconds == 40,
+        "A zero-value hostile-level row stays visible instead of being mistaken for missing data");
+
+  auto countdown = baseline;
+  for (auto& observation : countdown)
+    --*observation.remainingSeconds;
+  Check(SameNativeSnapshot(CanonicalRows(baseline), CanonicalRows(countdown)),
+        "Ordinary countdown ticks must not produce a new native-change diagnostic");
+  auto refreshed                = countdown;
+  refreshed[0].remainingSeconds = 600;
+  refreshed[0].expiryTicks      = 1500000000;
+  const auto  refreshed_rows    = ActiveRows(refreshed);
+  const auto* refreshed_first   = row_for(refreshed_rows, 51);
+  const auto* unchanged_second  = row_for(refreshed_rows, 52);
+  Check(!SameNativeSnapshot(CanonicalRows(countdown), CanonicalRows(refreshed)) && refreshed_first
+            && refreshed_first->observation.remainingSeconds == 600 && unchanged_second
+            && unchanged_second->observation.remainingSeconds == 59
+            && near(SummarizeRows(refreshed_rows).decayPercent, 8.0),
+        "Refreshing one hostile level changes its deadline without refreshing another level or adding damage");
+
+  const std::array duplicate_snapshot{countdown[0], countdown[1], countdown[2], refreshed[0]};
+  const auto       duplicate_rows = ActiveRows(duplicate_snapshot);
+  const auto*      repeated_level = row_for(duplicate_rows, 51);
+  summary                         = SummarizeRows(duplicate_rows);
+  Check(summary.active == 3 && summary.contributing == 2 && near(summary.decayPercent, 8.0)
+            && summary.duplicateEntries == 1 && summary.multiplicityUnverified && repeated_level
+            && repeated_level->occurrences == 2,
+        "Repeated native entries retain duplicate evidence without inventing another four-percent stack");
+  const std::array<Observation, 2> native_aggregate{{
+      {203039085, 0.16, false, 600, 4, 1500000000},
+      {3368332439, 0.04, false, 59, 74, 600000000},
+  }};
+  summary = Summarize(native_aggregate);
+  Check(summary.active == 2 && summary.contributing == 2 && summary.valuesValid && near(summary.decayPercent, 20.0)
+            && summary.multiplicityUnverified,
+        "Use the full native value, including values above four percent; native rank is not a stack multiplier");
+
+  auto expired                = refreshed;
+  expired[0].expired          = true;
+  expired[1].remainingSeconds = 0;
+  summary                     = Summarize(expired);
+  Check(summary.active == 1 && summary.contributing == 0 && summary.valuesValid && summary.decayPercent == 0
+            && summary.nextExpirySeconds == 39,
+        "Expired and elapsed amplifiers disappear independently while a zero-value amplifier remains active");
+  const auto empty = Summarize({});
+  Check(empty.active == 0 && empty.valuesValid && empty.decayPercent == 0 && !empty.nextExpirySeconds,
+        "A readable empty list is a known zero rather than an active zero-value amplifier");
+
+  const std::array<Observation, 3> partial_timing{{
+      {203039085, 0.04, false, {}},
+      {3368332439, 0.04, false, 59},
+      {123456, 8.0, false, 1},
+  }};
+  summary = Summarize(partial_timing);
+  Check(summary.active == 2 && summary.contributing == 2 && summary.valuesValid && near(summary.decayPercent, 8.0)
+            && summary.unknownExpiries == 1 && !summary.nextExpirySeconds,
+        "Unknown timing retains a known native value without promising a next expiry; unrelated buffs are ignored");
+
+  for (const auto invalid_value : {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(),
+                                   -0.04, std::numeric_limits<double>::max()}) {
+    const std::array<Observation, 2> invalid{{
+        {203039085, 0.04, false, 90},
+        {3368332439, invalid_value, false, 60},
+    }};
+    summary = Summarize(invalid);
+    Check(summary.active == 2 && !summary.valuesValid && std::isfinite(summary.decayPercent)
+              && summary.decayPercent == 0,
+          "An invalid or overflowing active value suppresses the total instead of displaying a plausible subtotal");
+  }
+  const std::array<Observation, 1> repeated_invalid{{
+      {203039085, std::numeric_limits<double>::quiet_NaN(), false, 90},
+  }};
+  Check(SameNativeSnapshot(CanonicalRows(repeated_invalid), CanonicalRows(repeated_invalid)),
+        "An unchanged unreadable numeric value must not flood diagnostics every second");
+  Check(!SameNativeSnapshot(CanonicalRows(baseline), CanonicalRows({})),
+        "Removing all observed amplifiers is a native-state change rather than another countdown tick");
 }
 
 void StringHelpers()
@@ -339,7 +449,7 @@ void ExampleSettings()
       };
   compare(example, &effective, "");
 
-  Check(config->graphics.ui_scale > 0.0f, "example values are applied");
+  Check(config->graphics.ui_scale == 0.0f, "example selects the game's own interface scale");
   Check(config->ui.hud_q_trials == MissionHudVisibility::kAuto
             && config->ui.hud_field_training == MissionHudVisibility::kAuto
             && config->ui.hud_outposts == MissionHudVisibility::kAuto
@@ -435,10 +545,10 @@ void UpstreamSettings()
 {
   toml::table effective;
   const auto  defaults = Config::Parse(toml::table{}, effective, false);
-  Check(!defaults->graphics.galaxy_extended_selection && !defaults->graphics.galaxy_multi_select
-            && !defaults->graphics.galaxy_station_housing && !defaults->graphics.galaxy_starbase_systems
+  Check(defaults->graphics.galaxy_extended_selection && defaults->graphics.galaxy_multi_select
+            && defaults->graphics.galaxy_station_housing && defaults->graphics.galaxy_starbase_systems
             && defaults->graphics.galaxy_overlays[0],
-        "Galaxy optional behavior and Default layer retain PLAY defaults");
+        "Galaxy helpers default on while the Default layer remains selected");
   const auto galaxy = Config::Parse(toml::parse(R"(
     [graphics]
     galaxy_extended_selection = true
@@ -602,8 +712,26 @@ void UpstreamSettings()
 void FrozenSettingsDefaults()
 {
   // Both immutable default fixtures live beside one another. No game settings are opened.
-  const auto expected = toml::parse_file(
+  const auto legacy = toml::parse_file(
       (std::filesystem::path(STFC_SHORTCUT_DEFAULTS).parent_path() / "config_defaults_frozen.toml").string());
+  // Overlay the approved downstream defaults without rewriting the historical loader fixture.
+  const auto downstream = toml::parse(R"(
+    [graphics]
+    ui_scale = 0.0
+    galactic_anomaly_timer = true
+    galaxy_extended_selection = true
+    galaxy_station_housing = true
+    galaxy_starbase_systems = true
+    galaxy_multi_select = true
+    [ui]
+    highlight_opc_fleets = true
+    fleet_hud_opc_eta = true
+    allow_officer_preset_reordering = true
+  )");
+  auto       expected   = legacy;
+  for (const auto& [section, values] : downstream)
+    for (const auto& [key, value] : *values.as_table())
+      expected[section].as_table()->insert_or_assign(key.str(), value);
   const auto matches = [](const toml::node& wanted, const toml::node* actual) {
     if (!actual)
       return false;
@@ -631,11 +759,21 @@ void FrozenSettingsDefaults()
         const bool same = matches(wanted, effective[section][key].node());
         if (!same)
           std::cerr << "frozen settings default differs: " << section << '.' << key << '\n';
-        Check(same, "actual frozen loader defaults survive missing and mistyped settings");
+        Check(same, "historical defaults with approved downstream changes survive missing and mistyped settings");
       }
     Check(!candidate->graphics.galaxy_overlays[1] && candidate->graphics.galaxy_overlays[0]
               && candidate->patches.navigationorbithooks && candidate->graphics.system_camera_orbit,
           "source overlay fallback and default-enabled system rotation stay distinct");
+  }
+  {
+    auto saved = legacy;
+    saved["graphics"].as_table()->insert_or_assign("galaxy_starbase_systems", false);
+    toml::table effective;
+    (void)Config::Parse(saved, effective, false);
+    for (const auto& [section, values] : downstream)
+      for (const auto& [key, value] : *values.as_table())
+        Check(matches(*saved[section][key].node(), effective[section][key].node()),
+              "explicit saved scale and opt-outs take precedence over new downstream defaults");
   }
   {
     toml::table parsed;
@@ -679,6 +817,45 @@ void FrozenSettingsDefaults()
   Check(experimental->graphics.system_pan_momentum == 0.4f
             && effective["graphics"]["system_pan_momentum"].value<double>() == double(0.4f),
         "conditional source momentum default appears only when its experimental read is enabled");
+}
+
+void PanGlideLimits()
+{
+  for (const auto* text : {"", "[graphics]\nsystem_pan_speed=0.5", "[graphics]\ngalaxy_pan_speed=2.5",
+                           "[graphics]\nsystem_pan_speed=0.5\ngalaxy_pan_speed=2.5"}) {
+    toml::table effective;
+    const auto  input  = toml::parse(text);
+    const auto  parsed = Config::Parse(input, effective, false);
+    Check(parsed->graphics.system_pan_speed == (input["graphics"]["system_pan_speed"] ? 0.5f : 1.0f),
+          "System pan speed keeps its own default and saved value");
+    Check(parsed->graphics.galaxy_pan_speed == (input["graphics"]["galaxy_pan_speed"] ? 2.5f : 1.0f),
+          "Galaxy pan speed keeps its own default and saved value");
+  }
+  struct Case {
+    const char* text;
+    float       expected;
+  };
+  for (const auto* key : {"system_pan_speed", "galaxy_pan_speed"})
+    for (const auto& item : std::array{Case{"0.1", .1f}, Case{"10", 10}, Case{"0", 1}, Case{"0.05", 1},
+                                       Case{"1e-40", 1}, Case{"nan", 1}}) {
+      toml::table effective;
+      const auto  parsed =
+          Config::Parse(toml::parse(std::string("[graphics]\n") + key + " = " + item.text), effective, false);
+      const auto value = std::string_view(key) == "system_pan_speed" ? parsed->graphics.system_pan_speed
+                                                                     : parsed->graphics.galaxy_pan_speed;
+      Check(value == item.expected, "both pan speed parsers enforce the practical range 0.1 to 10");
+    }
+  const Case cases[]{{"0", 0},      {"0.8", 0.8f}, {"0.99", 0.99f}, {"1", 0.99f},      {"1.5", 0.99f}, {"-0.1", 0},
+                     {"nan", 0.8f}, {"inf", 0.8f}, {"-inf", 0.8f},  {"\"bad\"", 0.8f}, {"[]", 0.8f}};
+  for (const auto& item : cases) {
+    toml::table effective;
+    const auto parsed = Config::Parse(
+        toml::parse(std::string("[graphics]\nsystem_pan_momentum_falloff = ") + item.text), effective, false);
+    Check(parsed->graphics.system_pan_momentum_falloff == item.expected,
+          "pan glide saturates finite values below one and keeps the default for unreadable or nonfinite values");
+    Check(effective["graphics"]["system_pan_momentum_falloff"].value<double>() == double(item.expected),
+          "runtime vars record the bounded pan glide actually used");
+  }
 }
 
 // Settings that were renamed still read their old names, and the new name wins when both are set.
@@ -863,7 +1040,8 @@ void Matching()
   Hold({unity::KeyCode::PageUp});
   Check(!Shortcut::IsPressed(Action::kUiScaleUp), "plain chord waits for the key's release");
   Hold({});
-  Check(!Shortcut::Owns(unity::KeyCode::PageUp), "releasing the key frees it");
+  // Ordinary matching in any view must retire released keys without camera ownership queries.
+  Check(!Shortcut::IsPressed(Action::kMoveDown), "unrelated matching while all keys are released");
   Hold({unity::KeyCode::PageUp});
   Check(Shortcut::IsPressed(Action::kUiScaleUp), "plain chord after a release");
 
@@ -872,6 +1050,7 @@ void Matching()
   Hold({unity::KeyCode::LeftControl, unity::KeyCode::DownArrow});
   Check(Shortcut::IsDown(Action::kMoveDown) && Shortcut::IsDown(Action::kMoveDown),
         "explicit movement chord keeps matching");
+  Check(!Shortcut::Owns(unity::KeyCode::DownArrow), "movement does not claim its modified key");
   held.fill(false);
 }
 } // namespace
@@ -893,9 +1072,52 @@ bool IsModified()
 }
 } // namespace unity::Key
 
+void ChatStartupOptions()
+{
+  toml::table effective;
+  const auto defaults = Config::Parse(toml::table{}, effective, false);
+  Check(!defaults->ui.auto_open_chat && defaults->ui.default_chat_width == 0.0f,
+        "side chat startup and sizing preserve native defaults");
+  const auto configured = Config::Parse(toml::parse("[ui]\nauto_open_chat=true\ndefault_chat_width=550"), effective, false);
+  Check(configured->ui.auto_open_chat && configured->ui.default_chat_width == 550.0f,
+        "side chat startup options parse without experimental mode");
+  for (const auto value : {"-1", "nan", "inf", "'bad'"}) {
+    const auto invalid = Config::Parse(toml::parse(std::string("[ui]\ndefault_chat_width=") + value), effective, false);
+    Check(invalid->ui.default_chat_width == 0.0f && effective["ui"]["default_chat_width"].value<float>() == 0.0f,
+          "invalid chat width keeps the native default and truthful effective value");
+  }
+  ChatStartup::Gate gate;
+  Check(!gate.Tick(false, false, 0) && !gate.Tick(true, false, 1) && !gate.Tick(true, false, 3.9),
+        "side chat waits for readiness to settle");
+  Check(!gate.Tick(false, false, 4) && !gate.Tick(true, false, 5) && !gate.Tick(true, false, 7.9)
+            && gate.Tick(true, false, 8),
+        "an interrupted readiness window starts the full delay again");
+  Check(!gate.Tick(true, false, 20), "manually closing side chat never reopens it in the same login");
+  gate = {};
+  Check(!gate.Tick(true, true, 21) && !gate.Tick(true, false, 30),
+        "already-open chat completes the once-per-login action");
+  gate = {};
+  Check(!gate.Tick(true, false, 40) && gate.Tick(true, false, 43), "a new login starts a fresh readiness window");
+
+  reload::Gate reload;
+  Check(!reload.Tick(true, 0), "ordinary frames never request a reload resume");
+  reload.Begin();
+  Check(reload.suspended && !reload.Tick(false, 10) && !reload.Tick(true, 11) && !reload.Tick(true, 13.9),
+        "reload keeps mod work paused until the native game is ready for three seconds");
+  Check(!reload.Tick(false, 14) && !reload.Tick(true, 15) && reload.Tick(true, 18) && !reload.suspended,
+        "readiness loss restarts reload settling and resumes once");
+  Check(!reload.Tick(true, 30), "an already-resumed reload never resumes twice");
+  reload.Begin();
+  Check(!reload.Tick(true, 40), "a second reload starts a fresh settling period");
+  reload.Begin();
+  Check(!reload.Tick(true, 42) && reload.Tick(true, 45), "a nested teardown restarts readiness sampling");
+}
+
 int main()
 {
   ShipHints();
+  HyperthermicDecay();
+  ChatStartupOptions();
   StringHelpers();
   Timestamps();
   ToastText();
@@ -912,6 +1134,7 @@ int main()
   DailyFactionSettings();
   UpstreamSettings();
   FrozenSettingsDefaults();
+  PanGlideLimits();
   RenamedSettings();
   ParseDoesNotActivateSettings();
   LegacySyncTargets();

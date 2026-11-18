@@ -11,6 +11,11 @@ if (($# < 1)); then
 fi
 APP="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 DMG="${2:-stfc-community-mod-installer.dmg}"
+ICON="$APP/Contents/Resources/launcher.icns"
+if [[ ! -f "$ICON" ]]; then
+  echo "Missing assembled launcher icon: $ICON" >&2
+  exit 1
+fi
 
 # create-dmg packs a whole folder, so the bundle gets one of its own.
 SOURCE="$(mktemp -d)"
@@ -19,7 +24,7 @@ ditto "$APP" "$SOURCE/STFC Community Mod.app"
 
 rm -f "$DMG"
 create-dmg --filesystem APFS --format ULFO --volname "STFC Community Mod Installer" \
-  --volicon "$ROOT/assets/launcher.icns" --no-internet-enable \
+  --volicon "$ICON" --no-internet-enable \
   --background "$ROOT/assets/mac_installer_background.png" \
   --window-pos 200 120 --window-size 800 400 --icon-size 100 \
   --icon "STFC Community Mod.app" 200 190 \

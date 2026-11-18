@@ -155,13 +155,13 @@ enable_experimental = false
 
 [graphics]
 # Select minor systems at far Galaxy zoom without enabling all their rendered entities.
-galaxy_extended_selection = false
+galaxy_extended_selection = true
 # Let the native Default / Mining / Hostiles / Hazards buttons select multiple layers.
-galaxy_multi_select = false
+galaxy_multi_select = true
 # Static, source-qualified station-housing indicator; not live docking-slot availability.
-galaxy_station_housing = false
+galaxy_station_housing = true
 # Mark known Plasma Storm systems from the community reference; does not show free anchoring slots.
-galaxy_starbase_systems = false
+galaxy_starbase_systems = true
 galaxy_overlay_default = true
 galaxy_overlay_mining = false
 galaxy_overlay_hostiles = false
@@ -182,8 +182,9 @@ fr_scale = 2.0
 # Amount of time to spend between transitions. Currently read but not applied
 transition_time = 0.01
 
-# This specifies the amount to scale the UI by, 1.0 being default
-ui_scale = 0.6
+# Interface scale override; 0.0 keeps the game's own scale.
+# Choose a positive override to enable the mod's interface-scale shortcuts.
+ui_scale = 0.0
 
 # This specifies the amount to scale the ship models in System View, 1.0 being default
 ui_scale_ship = 1.0
@@ -237,10 +238,21 @@ zoom_label_base_threshold = 0.5
 # This controls the zoom speed when using Q/E in System View, defaults to 350
 keyboard_zoom_speed = 350.0
 
-# Controls the system pan momentum speed. Defaults to 0.4. Read with enable_experimental, but not applied yet
+# Controls mouse/touch and keyboard panning speed in System view only.
+# 1.0 = normal, 0.5 = half speed, 1.5 = 50% faster. Valid range: 0.1 to 10.
+# Invalid values, including zero and values below 0.1, use normal speed (1.0).
+# The in-game slider covers 0.1 to 3; Edit accepts the full range.
+# Replaces system_pan_momentum, which was unused. Does not require experimental mode. Applies live.
+system_pan_speed = 1.0
+
+# Independent mouse/touch and keyboard panning speed in Galaxy view, with the same range.
+galaxy_pan_speed = 1.0
+
+# Retained compatibility key; has no runtime effect. Use system_pan_speed above.
 system_pan_momentum = 0.4
 
-# Controls how quickly the momentum falls off when letting go of the mouse. Lower = quicker stop. Defaults to 0.8
+# Momentum retained each frame after releasing the mouse, touch or movement keys, in both keyboard modes.
+# Lower = quicker stop; 0 = immediate stop; 0.99 = long glide. Clamped to 0 to 0.99. Defaults to 0.8. Applies live.
 system_pan_momentum_falloff = 0.8
 
 # Subgroup: Loader
@@ -277,7 +289,7 @@ borderless_fullscreen = true
 free_resize = true
 
 # Show the remaining Galactic Anomaly time below Help All, Engage, and Claim
-galactic_anomaly_timer = false
+galactic_anomaly_timer = true
 
 # After using a zoom preset it will be set as default zoom
 use_presets_as_default = true
@@ -377,6 +389,7 @@ havenhistoryhooks = true
 
 # Enable Haven zoom hooks.
 havenzoomhooks = true
+# Install hotkey hooks and protect native popup confirmation while typing or capturing a shortcut.
 hotkeyhooks = true
 
 # Persist registered runtime settings; drain the writer before normal quit.
@@ -804,11 +817,15 @@ notify_incoming_player_attack = false
 ## ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC
 notify_fleet_events = ""
 # Allow moving officer presets into occupied slots.
-allow_officer_preset_reordering = false
+allow_officer_preset_reordering = true
 
 # Show player ships known to this client in the viewed system.
 # Ships not received from the server are not counted. Applies live.
 system_player_ship_counter = true
+
+# Show native Beam Amplifier rings with hostile levels and contributions in System view.
+# Click an icon for the game's buff details.
+hyperthermic_decay_tracker = true
 
 # Native Battle Analysis when built with AAI; applies live, without changing the native Battle Log.
 battle_log_summary_preview = true
@@ -893,6 +910,12 @@ disable_veil_chat = false
 
 # Show player title rows in chat messages.
 show_player_title = true
+
+# Open alliance side chat once per login, after the station and chat are ready.
+auto_open_chat = false
+
+# Initial side-chat width in canvas units. Zero preserves the game's width; positive values fit the available space.
+default_chat_width = 0.0
 
 # Subgroup: Chest Purchases
 # -------------------------
@@ -980,8 +1003,8 @@ focus_search = true
 
 # Format abbreviated cargo values using Cargo Significant Decimals
 format_cargo_values = true
-highlight_opc_fleets = false
-fleet_hud_opc_eta = false
+highlight_opc_fleets = true
+fleet_hud_opc_eta = true
 
 # Restore the Below Deck Ability officer sort option
 officer_sort = true

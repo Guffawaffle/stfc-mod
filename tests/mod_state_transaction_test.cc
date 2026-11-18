@@ -4,7 +4,9 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <nlohmann/json.hpp>
+#include <source_location>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -16,15 +18,43 @@ std::filesystem::path fixture_path;
 #define MOD_STATE_FIXTURE_PATH fixture_path
 #include "../src/mod/mod_state.cc"
 
-void Check(bool value)
+void Check(bool value, std::source_location where = std::source_location::current())
 {
   if (!value)
-    throw std::runtime_error("state transaction fixture failed");
+    throw std::runtime_error("state transaction fixture failed at " + std::string(where.file_name()) + ":"
+                             + std::to_string(where.line()));
 }
 void Child(const std::string& key)
 {
-  for (int index = 0; index < 30; ++index)
-    Check(mod_state::Update([&](auto& state) { state[key] = state.value(key, 0) + 1; }));
+  bool reported_contention = false;
+  for (int index = 0; index < 30; ++index) {
+    // Update deliberately gives up after a short lock wait. A competing writer
+    // may still be busy; the fixture needs eventual commits, not immediate
+    // success from every bounded attempt. Keep failures bounded as well.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!mod_state::Update([&](auto& state) { state[key] = state.value(key, 0) + 1; })) {
+      if (!reported_contention) {
+        std::ofstream marker(fixture_path.parent_path() / (key + ".contended"));
+        marker.exceptions(std::ios::badbit | std::ios::failbit);
+        marker << "contended";
+        marker.close();
+        reported_contention = true;
+      }
+      Check(std::chrono::steady_clock::now() < deadline);
+      std::this_thread::yield();
+    }
+  }
+}
+bool AwaitContention()
+{
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (std::filesystem::exists(fixture_path.parent_path() / "writerA.contended")
+        && std::filesystem::exists(fixture_path.parent_path() / "writerB.contended"))
+      return true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return false;
 }
 std::string Bytes(const std::filesystem::path& path)
 {
@@ -194,10 +224,19 @@ void RunTransaction()
   }
 #if _WIN32
   const std::wstring wide_nonce(nonce.begin(), nonce.end());
-  auto               first  = Start(L"writerA", wide_nonce);
-  auto               second = Start(L"writerB", wide_nonce);
+#endif
+  // Both writers must first observe a real bounded lock refusal. Release only
+  // after their acknowledgements, rather than relying on scheduler timing.
+  auto held = std::make_unique<StateFileLock>(fixture_path, 1);
+  Check(held->acquired());
+#if _WIN32
+  auto       first     = Start(L"writerA", wide_nonce);
+  auto       second    = Start(L"writerB", wide_nonce);
+  const auto contended = AwaitContention();
+  held.reset();
   Finish(first);
   Finish(second);
+  Check(contended);
 #else
   const auto first = fork();
   Check(first >= 0);
@@ -224,8 +263,11 @@ void RunTransaction()
     }
   }
   int        first_status = 0, second_status = 0;
+  const auto contended = AwaitContention();
+  held.reset();
   const auto first_wait  = waitpid(first, &first_status, 0);
   const auto second_wait = waitpid(second, &second_status, 0);
+  Check(contended);
   Check(first_wait == first && first_status == 0 && second_wait == second && second_status == 0);
 #endif
   const auto state = mod_state::Read();
@@ -258,8 +300,8 @@ void RunTransaction()
   std::ifstream read(fixture_path);
   const auto    future = nlohmann::json::parse(read);
   Check(future.at("version") == 999 && future.at("unrelated") == "future" && !future.contains("new"));
-  std::cout
-      << "State transaction: actual OS lock, two-process latest RMW, unrelated fields and version refusal passed\n";
+  std::cout << "State transaction: bounded lock refusals, two-process latest RMW, unrelated fields and version refusal "
+               "passed\n";
 }
 
 #if _WIN32

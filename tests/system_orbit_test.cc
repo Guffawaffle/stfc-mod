@@ -175,6 +175,9 @@ namespace Shortcut
 bool HasBinding(Action)
 { return orbit_fixture::binding_present; }
 } // namespace Shortcut
+// The isolated orbit fixture has no installed Pan descriptor; shared movement must retain orbit behavior.
+std::span<const FeatureInstallation> FeatureInstallations()
+{ return {}; }
 #define navigation_orbit_binding orbit_fixture_binding
 #include "../src/mod/features/navigation_orbit.cc"
 #undef navigation_orbit_binding

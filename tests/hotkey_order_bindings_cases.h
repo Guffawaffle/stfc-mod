@@ -15,6 +15,61 @@
 namespace
 {
 int  hotkey_order_scale = 0;
+void KeyboardConfirmFocusNativeCases()
+{
+  has_event_system = has_input_field = true;
+  selected                           = &selected_object;
+  event_system_lookup_throws = selected_lookup_throws = component_lookup_throws = input_focus_throws = false;
+  fleet_native_capture                                                                               = false;
+  auto*                                   receiver = reinterpret_cast<KeyboardConfirmHandler*>(&event_system);
+  const unity::InputActionCallbackContext context{&selected_object, 17};
+  int                                     calls = 0;
+  const auto original = [&](KeyboardConfirmHandler* owner, unity::InputActionCallbackContext received) {
+    Require(owner == receiver && received.state == context.state && received.action_index == context.action_index,
+            "native keyboard confirmation keeps its exact receiver and callback context");
+    ++calls;
+  };
+  const auto sample = [] {
+    ++input_frame;
+    unity::Key::Poll();
+  };
+
+  input_field_focused = true;
+  for (const auto key : {unity::KeyCode::Space, unity::KeyCode::Return, unity::KeyCode::KeypadEnter}) {
+    held_keys.fill(false);
+    down_keys.fill(false);
+    held_keys[std::to_underlying(key)] = down_keys[std::to_underlying(key)] = true;
+    any_held = any_down = true;
+    sample();
+    KeyboardConfirmHandler_OnConfirmPerformed_Hook(original, receiver, context);
+    Require(calls == 0, "typing a native confirm key must not activate a popup behind chat");
+  }
+  // Chat submission may blur the field before the confirm callback arrives in this same frame.
+  input_field_focused = false;
+  KeyboardConfirmHandler_OnConfirmPerformed_Hook(original, receiver, context);
+  Require(calls == 0, "the Enter that submitted chat cannot also confirm after native submission clears focus");
+  sample();
+  KeyboardConfirmHandler_OnConfirmPerformed_Hook(original, receiver, context);
+  Require(calls == 1, "a later unfocused frame restores exactly one native popup confirmation");
+
+  fleet_native_capture = true;
+  sample();
+  KeyboardConfirmHandler_OnConfirmPerformed_Hook(original, receiver, context);
+  Require(calls == 1, "shortcut capture also owns the native popup confirm action");
+  fleet_native_capture    = false;
+  component_lookup_throws = true;
+  sample();
+  KeyboardConfirmHandler_OnConfirmPerformed_Hook(original, receiver, context);
+  Require(calls == 1, "unavailable text focus reserves the native confirm key");
+  component_lookup_throws = false;
+  selected                = nullptr;
+  sample();
+  KeyboardConfirmHandler_OnConfirmPerformed_Hook(original, receiver, context);
+  Require(calls == 2, "ordinary native confirmation remains available with no selected text field");
+  std::cout
+      << "Native popup keyboard confirmation: text focus, submit ordering, capture and unavailable focus passed\n";
+}
+
 void HotkeyFocusNativeCases()
 {
   ScreenActionsNativeCases("screen-actions-dispatch", [] {

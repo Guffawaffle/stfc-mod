@@ -29,6 +29,8 @@ struct Feature {
   // Required bootstrap phases fail closed. Existing gameplay features are optional; Profiles' three-phase
   // bootstrap remains outside this table and must use the same required-failure policy when integrated.
   InstallRequirement requirement = InstallRequirement::kOptional;
+  // Forget session-owned state before the game tears down managers. Must not invoke game objects.
+  void (*reset)() = nullptr;
 };
 
 struct FeatureInstallation {
@@ -92,6 +94,9 @@ extern const Feature kAnomalyTimer;
 // system_ship_counter.cc: client-known player ships, independent of AAI.
 extern const Feature kSystemShipCounter;
 
+// hyperthermic_decay.cc: player-wide Beam Amplifier buffs and their native values.
+extern const Feature kHyperthermicDecay;
+
 // audio.cc
 extern const Feature kAudio;
 
@@ -107,6 +112,11 @@ extern const Feature kZoom;
 extern const Feature kScrollZoomGuard;
 extern const Feature kPan;
 extern const Feature kInteriorZoom;
+// Station interior and Haven share one native blend callback, with independent installation flags.
+bool EnsureCameraBlendZoom();
+bool InteriorZoomInstalled();
+// Fresh pan speed for this camera's own depth; unrelated or unknown depths retain native speed.
+float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed);
 
 // cargo.cc. The instant counter is Windows only.
 extern const Feature kCargoFormat;
@@ -147,6 +157,8 @@ void InstallFleetActions();
 bool TargetViewerShown();
 // The number keys. True when the key was used.
 bool SelectShipShortcuts();
+// Discard deferred actions and double-tap selection state before an in-process game reload.
+void ResetFleetShortcuts();
 // Select current and the queue switch. True when the key was used.
 bool FleetShortcuts();
 // The actions on the selected fleet and the open viewer. True when the key must not reach the game.
@@ -195,6 +207,7 @@ bool                 EnsureOrbitConstraints();
 
 // hotkeys.cc
 extern const Feature kHotkeys;
+extern const Feature kKeyboardConfirm;
 // The shortcut dispatch for one frame, run by the frame tick. True when the game's own ScreenManager.Update must
 // not run, so it does not handle the key as well. False until kHotkeys is installed.
 bool HandleShortcuts();
@@ -245,6 +258,7 @@ extern const Feature kNativeSettingsSearch;
 bool PressAwaitedButton();
 // Input capture retires deferred screen requests without pressing a native button.
 void CancelAwaitedButton();
+void ResetScreenShortcuts();
 // The shortcuts that open, step through, or search game screens. True when the key must not reach the game.
 bool ScreenShortcuts();
 void LateScreenShortcut();

@@ -256,6 +256,13 @@ struct OwnedLabel {
   TextLocalizer* Get() const
   { return handle.Get<TextLocalizer>(); }
 
+  // A reload owns the UI teardown; only discard our custody and text comparison.
+  void Forget()
+  {
+    handle.Reset();
+    text.clear();
+  }
+
   void Clear()
   {
     auto       source   = Get() ? il2cpp::GcHandle::Strong(Get()) : il2cpp::GcHandle{};
@@ -305,6 +312,12 @@ struct OwnedLabel {
 };
 // Never destroyed: freeing a GC handle in a static destructor can run after the runtime has shut down.
 auto& action_label = *new OwnedLabel;
+
+void ResetInstantWarp()
+{
+  warp_click_intent = {};
+  action_label.Forget();
+}
 
 void InstantWarpFrame()
 {
@@ -402,4 +415,5 @@ void CycleInstantWarpConfirmation()
 }
 
 // Always installed: its only hook answers a prompt the player asked the mod to answer.
-const Feature kInstantWarp{"InstantWarp", nullptr, InstallInstantWarp, InstantWarpFrame};
+const Feature kInstantWarp{
+    "InstantWarp", nullptr, InstallInstantWarp, InstantWarpFrame, InstallRequirement::kOptional, ResetInstantWarp};

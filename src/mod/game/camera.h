@@ -60,19 +60,14 @@ struct FrameProvider : unity::Behaviour {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.CameraController", "FrameProvider">;
 };
 
+// The exact active provider keeps station zoom away from transitions and other rendered views.
+struct CameraController : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.CameraController", "CameraController">;
+};
+
 // An orbit around a pivot, at a radius its constraint bounds.
 struct AbstractOrbitFrameProvider : FrameProvider {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.CameraController", "AbstractOrbitFrameProvider">;
-
-  // Interior zoom must not capture missing-as-zero fields as a native radius.
-  static bool ConstraintRadiusFieldsAvailable()
-  {
-    static const bool available = Class::HasField<"_constraint", OrbitConstraint*>()
-                                  && OrbitConstraint::Class::HasField<"_radius", FloatConstraint*>()
-                                  && FloatConstraint::Class::HasField<"_min", float>()
-                                  && FloatConstraint::Class::HasField<"_max", float>();
-    return available;
-  }
 
   OrbitConstraint* constraint()
   { return Field<"_constraint", OrbitConstraint*>(); }

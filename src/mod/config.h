@@ -198,16 +198,16 @@ public:
   } control;
 
   struct Graphics {
-    float ui_scale        = 0.6f;
+    float ui_scale        = 0.0f;
     float ui_scale_step   = 0.05f;
     float ui_scale_ship   = 1.0f;
     float ui_scale_viewer = 1.2f;
     // Show the active mod ship shortcut on local-player fleet labels in system view.
     bool                         ship_hotkey_badges        = true;
-    bool                         galaxy_extended_selection = false;
-    bool                         galaxy_multi_select       = false;
-    bool                         galaxy_station_housing    = false;
-    bool                         galaxy_starbase_systems   = false;
+    bool                         galaxy_extended_selection = true;
+    bool                         galaxy_multi_select       = true;
+    bool                         galaxy_station_housing    = true;
+    bool                         galaxy_starbase_systems   = true;
     std::array<bool, 4>          galaxy_overlays{true, false, false, false}; // Default, Mining, Hostiles, Hazards.
     galaxy_controls::ZoomProfile galaxy_label_major{galaxy_controls::ZoomMode::Native, .5f};
     galaxy_controls::ZoomProfile galaxy_label_minor{galaxy_controls::ZoomMode::Native, .5f};
@@ -226,7 +226,9 @@ public:
     bool              free_resize         = true;
     bool              allow_cursor        = true;
     float             keyboard_zoom_speed = 350.0f;
-    // TODO(tashcan): read (with enable_experimental) but nothing applies it.
+    float             system_pan_speed    = 1.0f;
+    float             galaxy_pan_speed    = 1.0f;
+    // Retained for frozen configuration compatibility; this legacy setting has no runtime effect.
     float system_pan_momentum = 0.4f;
     // How much of the pan speed is kept each frame after a drag or key is released.
     float system_pan_momentum_falloff = 0.8f;
@@ -251,7 +253,7 @@ public:
     std::string loader_image;
     float       loader_logo_scale      = 1.0f;
     bool        loader_tip_enabled     = true;
-    bool        galactic_anomaly_timer = false;
+    bool        galactic_anomaly_timer = true;
   } graphics;
 
   struct Buffs {
@@ -294,9 +296,12 @@ public:
     bool disable_galaxy_chat             = false;
     bool disable_veil_chat               = false;
     bool show_player_title               = true;
-    bool allow_officer_preset_reordering = false;
+    bool auto_open_chat                  = false;
+    float default_chat_width             = 0.0f;
+    bool allow_officer_preset_reordering = true;
     // Only player ships received by this client for the viewed system are counted.
     bool system_player_ship_counter = true;
+    bool hyperthermic_decay_tracker = true;
     // The optional private native product reads this live, including teardown.
     bool battle_log_summary_preview = true;
 
@@ -316,8 +321,8 @@ public:
     bool focus_search        = true;
     // Abbreviated cargo values use cargo_significant_decimals.
     bool format_cargo_values  = true;
-    bool highlight_opc_fleets = false;
-    bool fleet_hud_opc_eta    = false;
+    bool highlight_opc_fleets = true;
+    bool fleet_hud_opc_eta    = true;
     // Restores the Below Deck Ability officer sort option.
     bool officer_sort                         = true;
     bool show_ship_tech_indicators            = true;
