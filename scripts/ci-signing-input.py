@@ -20,9 +20,13 @@ def positive(value):
 
 
 def select(run, artifacts, repository, run_id, platform, mode="test", expected_sha=None,
-           expected_attempt=None, expected_artifact=None):
+           expected_attempt=None, expected_artifact=None, expected_branch=""):
     if mode not in {"test", "release"}:
         raise ValueError("Unknown signing mode")
+    if mode == "release" and expected_branch not in {"main", "play"}:
+        raise ValueError("Named signing requires the source branch from the release context")
+    if mode == "test" and expected_branch:
+        raise ValueError("Test signing does not use a release source branch")
     run_id = positive(run_id)
     sha = run.get("head_sha", "")
     if (str(run.get("id")) != run_id or run.get("repository", {}).get("full_name") != repository
@@ -38,9 +42,9 @@ def select(run, artifacts, repository, run_id, platform, mode="test", expected_s
         raise ValueError("Selected run HEAD changed or differs from the requested SHA")
     if expected_attempt and positive(expected_attempt) != attempt:
         raise ValueError("Selected run was rerun after selection; select the new attempt explicitly")
-    if mode == "release" and (run.get("status") != "completed" or run["event"] != "push" or run.get("head_branch") != "play"
-                              or run["conclusion"] != "success"):
-        raise ValueError("Release signing still requires a successful play push build")
+    if mode == "release" and (run["status"] != "completed" or run["event"] != "push"
+                              or run.get("head_branch") != expected_branch or run["conclusion"] != "success"):
+        raise ValueError(f"Named signing requires a successful {expected_branch} push build")
     names = {"macos": ("stfc-community-mod-installer", "stfc-community-mod-installer.dmg"),
              "windows": ("stfc-community-mod", "version.dll"),
              "windows-profiles": ("stfc-community-mod-profiles-windows", "manifest.json")}
@@ -114,6 +118,7 @@ def main():
     for field in ["run-json", "artifacts-json", "repository", "run-id", "platform", "output"]:
         pick.add_argument("--" + field, required=True)
     pick.add_argument("--mode", choices=["test", "release"], default="test")
+    pick.add_argument("--expected-branch", choices=["", "main", "play"], default="")
     for field in ["expected-sha", "expected-attempt", "expected-artifact", "github-output"]:
         pick.add_argument("--" + field)
     unpack = sub.add_parser("extract")
@@ -134,7 +139,7 @@ def main():
         return
     result = select(json.loads(Path(args.run_json).read_text()), json.loads(Path(args.artifacts_json).read_text()),
                     args.repository, args.run_id, args.platform, args.mode, args.expected_sha,
-                    args.expected_attempt, args.expected_artifact)
+                    args.expected_attempt, args.expected_artifact, args.expected_branch)
     Path(args.output).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     if args.github_output:
         with Path(args.github_output).open("a", encoding="utf-8") as output:

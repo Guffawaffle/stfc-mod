@@ -61,21 +61,29 @@ class SigningInput(unittest.TestCase):
     def test_test_signing_does_not_claim_failed_ci_passed(self):
         self.run["conclusion"] = "failure"
         self.assertEqual(self.pick()["build_conclusion"], "failure")
-        with self.assertRaises(ValueError): self.pick(mode="release")
+        self.run["head_branch"] = "play"
+        with self.assertRaises(ValueError): self.pick(mode="release", expected_branch="play")
 
     def test_existing_artifact_does_not_wait_for_unrelated_jobs(self):
         self.run.update(status="in_progress", conclusion=None, head_branch="play")
         result = self.pick()
         self.assertEqual(result["build_status"], "in_progress")
         self.assertIsNone(result["build_conclusion"])
-        with self.assertRaises(ValueError): self.pick(mode="release")
+        with self.assertRaises(ValueError): self.pick(mode="release", expected_branch="play")
 
-    def test_release_stays_play_success_push_only(self):
-        with self.assertRaises(ValueError): self.pick(mode="release")
-        self.run["head_branch"] = "play"
-        self.assertEqual(self.pick(mode="release")["mode"], "release")
-        self.run["event"] = "pull_request"
-        with self.assertRaises(ValueError): self.pick(mode="release")
+    def test_named_signing_requires_the_exact_successful_source_branch_push(self):
+        for branch, other in (("main", "play"), ("play", "main")):
+            self.run.update(head_branch=branch, event="push")
+            self.assertEqual(self.pick(mode="release", expected_branch=branch)["branch"], branch)
+            for wrong in ("", other, "play-dev"):
+                with self.subTest(branch=branch, wrong=wrong), self.assertRaises(ValueError):
+                    self.pick(mode="release", expected_branch=wrong)
+            for event in ("pull_request", "workflow_dispatch"):
+                self.run["event"] = event
+                with self.assertRaises(ValueError):
+                    self.pick(mode="release", expected_branch=branch)
+        with self.assertRaises(ValueError):
+            self.pick(mode="test", expected_branch="play")
 
     def test_changed_attempt_sha_artifact_refused(self):
         for args in [{"expected_attempt": "1"}, {"expected_sha": "c" * 40}, {"expected_artifact": "987"}]:

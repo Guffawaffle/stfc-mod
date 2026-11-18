@@ -1,10 +1,19 @@
 # Downstream releases
 
-`play` is the fork's integration and release source. Before merging its pull
-request, have the assigned player smoke the exact candidate core CI payload.
-Then promote the reviewed typed snapshot and use the successful **push** Build
-for that exact merged commit. A pull-request build or an older branch build does
-not qualify the merged source. Normal core CI excludes optional AAI/UI Lab.
+| Channel | Source | Package |
+| --- | --- | --- |
+| Release | `main` | Signed full release marked Latest |
+| Pre | `play` | Signed pre-release |
+| DEV | `play-dev` | Development package with optional AAI/UI Lab |
+
+Integrate changes through `play`. Before merging a pull request, have the
+assigned player smoke the exact candidate core CI payload. For a named Pre,
+select the successful **push** Build for the intended `play` commit. For a
+full Release, fast-forward `main` to the reviewed `play` commit and select the
+successful **push** Build from `main` for that exact commit. Build eligibility
+includes the producing branch, even when both branches point to the same SHA.
+Normal core CI excludes optional AAI/UI Lab. Follow the separate package
+workflow for [DEV builds](development-releases.md).
 The downstream Windows and Mac jobs enable the pinned Profiles host and matching
 helper. Upstream builds retain their ordinary defaults. Profiles does not change
 ordinary launch: account isolation starts only when a named profile is selected.
@@ -21,7 +30,7 @@ Signing stays on the existing trusted `ci/macos-signing-play` controller. The
 generic upstream tag publisher is disabled for `Guffawaffle/stfc-mod`; pushing
 a version tag must not publish the ordinary unsigned/ad-hoc CI payloads.
 
-1. Verify the intended `play` commit, successful platform jobs, run attempt and
+1. Verify the intended `main` or `play` push commit, successful platform jobs, run attempt and
    retained Windows and universal Mac installer artifacts.
    Retain the `stfc-community-mod-profiles-windows` artifact from that same run
    and attempt. Named Pre and Release signing require it; the controller verifies
@@ -30,8 +39,10 @@ a version tag must not publish the ordinary unsigned/ad-hoc CI payloads.
    `operation=sign-run`, `platform=both`, the exact `build_run_id`, and
    `expected_head_sha`. Verify the signing run's controller commit before
    approving the existing `windows-release` and `macos-release` environments.
-   Keep their reviewers and deployment policies intact. The commissioning
-   controller at this change is `735c6149d2b59cbc8b216e623de4c3f246096bd8`.
+   Keep their reviewers and deployment policies intact. The controller checks the
+   named channel's source branch again before signing. Use a planned tag with
+   `prerelease=false` for Release and `prerelease=true` for Pre. An untagged
+   `sign-run` remains available for signed CI test downloads.
 3. The controller produces signed test-download artifacts without publishing.
    Keep those original input/signature receipts, including their purpose labels.
    Promotion to a release is a separate explicit operation after the remaining
@@ -51,7 +62,8 @@ a version tag must not publish the ordinary unsigned/ad-hoc CI payloads.
    Include the controller's additional signed Profiles ZIP as a separate download;
    its refreshed manifest records signed hashes and retains the unsigned input
    manifest and signing provenance. Do not reconstruct it from another build.
-6. Create a new immutable `vX.Y.Z[.W]-guffa.N` tag on the tested `play` commit.
+6. Create a new immutable `vX.Y.Z.W-guffa.N` tag on the tested source commit
+   from the matching channel's push Build.
    Upload the complete signed assets to a draft release, verify the asset set,
    then publish with `prerelease=false` and explicitly mark it Latest. For a
    pre-release, use a fresh tag in the same format with `prerelease=true` and

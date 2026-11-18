@@ -28,17 +28,22 @@ class MacReleaseContext(unittest.TestCase):
         result = self.resolve()
         self.assertEqual(result["channel"], "pre")
         self.assertEqual(result["selection_mode"], "test")
+        self.assertEqual(result["source_branch"], "")
         self.assertTrue(result["prerelease"])
         with self.assertRaisesRegex(ValueError, "full Release requires"):
             self.resolve(prerelease=False)
 
     def test_explicit_pre_flag_not_tag_spelling_selects_named_channel(self):
         pre = self.resolve(tag=self.tag)
+        self.run["head_branch"] = "main"
         release = self.resolve(tag=self.tag, prerelease=False)
         self.assertEqual(pre["release_tag"], release["release_tag"])
         self.assertEqual(pre["channel"], "pre")
         self.assertEqual(release["channel"], "release")
+        self.assertEqual(pre["selection_mode"], "release")
         self.assertEqual(release["selection_mode"], "release")
+        self.assertEqual(pre["source_branch"], "play")
+        self.assertEqual(release["source_branch"], "main")
 
     def test_optional_pre_download_keeps_partial_and_failed_ci_policy(self):
         for status, conclusion in (("in_progress", None), ("completed", "failure")):
@@ -48,25 +53,26 @@ class MacReleaseContext(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.resolve(tag=self.tag, prerelease=prerelease)
 
-    def test_successful_named_pre_can_use_existing_same_repo_test_sources(self):
+    def test_untagged_pre_keeps_existing_same_repo_test_sources(self):
         self.run.update(head_branch="feature/icons", event="pull_request")
-        self.assertEqual(self.resolve(tag=self.tag)["channel"], "pre")
-        self.assertEqual(self.resolve(tag=self.tag)["selection_mode"], "test")
+        self.assertEqual(self.resolve()["channel"], "pre")
+        self.assertEqual(self.resolve()["selection_mode"], "test")
         # Repository/workflow/artifact trust remains ci-signing-input.py's job.
         with self.assertRaises(ValueError):
-            self.resolve(tag=self.tag, prerelease=False)
+            self.resolve(tag=self.tag)
 
-    def test_release_and_automatic_sign_keep_successful_play_push_policy(self):
+    def test_named_channels_and_automatic_sign_require_their_source_push(self):
         for operation in ("sign", "sign-run"):
-            for key, value in (("head_branch", "feature/icons"), ("event", "pull_request")):
-                original = copy.deepcopy(self.run)
-                self.run[key] = value
-                with self.assertRaises(ValueError):
-                    self.resolve(operation=operation, tag=self.tag, prerelease=False)
-                self.run = original
-        self.run.update(head_branch="feature/icons")
-        with self.assertRaises(ValueError):
-            self.resolve(operation="sign", tag=self.tag, prerelease=True)
+            for prerelease, branch, other in ((True, "play", "main"), (False, "main", "play")):
+                self.run.update(head_branch=branch, event="push")
+                result = self.resolve(operation=operation, tag=self.tag, prerelease=prerelease)
+                self.assertEqual(result["source_branch"], branch)
+                for wrong, event in ((other, "push"), ("play-dev", "push"),
+                                     (branch, "pull_request"), (branch, "workflow_dispatch")):
+                    self.run.update(head_branch=wrong, event=event)
+                    with self.subTest(operation=operation, prerelease=prerelease, branch=wrong, event=event):
+                        with self.assertRaises(ValueError):
+                            self.resolve(operation=operation, tag=self.tag, prerelease=prerelease)
 
     def test_automatic_sign_requires_an_exact_planned_tag(self):
         for prerelease in (True, False):
@@ -92,6 +98,7 @@ class MacReleaseContext(unittest.TestCase):
             context.resolve("sign-run", "", True, [])
 
     def test_cli_records_the_same_context_and_safe_workflow_outputs(self):
+        self.run["head_branch"] = "main"
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             run_file, result_file, outputs_file = root / "run.json", root / "context.json", root / "outputs"
@@ -130,12 +137,17 @@ class MacReleaseContext(unittest.TestCase):
         sign = (ROOT / ".github/workflows/sign-macos.yaml").read_text()
         self.assertIn("python3 scripts/mac-release-context.py", dispatch)
         self.assertIn("--mode \"$mode\"", dispatch)
+        self.assertEqual(dispatch.count('--expected-branch "$source_branch"'), 2)
+        self.assertIn('branch=$source_branch&event=push&status=success', dispatch)
         self.assertIn("release_tag: ${{ needs.resolve.outputs.release_tag }}", dispatch)
         self.assertIn("prerelease: ${{ fromJSON(needs.resolve.outputs.prerelease) }}", dispatch)
         self.assertIn("--expected-attempt \"$EXPECTED_ATTEMPT\" --expected-artifact \"$EXPECTED_ARTIFACT\"", sign)
         self.assertLess(sign.index("python3 scripts/mac-release-context.py"), sign.index("MACOS_CERTIFICATE_P12_BASE64:"))
         self.assertIn('if [[ "$mode" == release ]]; then', sign)
-        self.assertIn('compare/$SOURCE_SHA...play', sign)
+        self.assertIn('--expected-branch "$source_branch"', sign)
+        self.assertIn('compare/$SOURCE_SHA...$source_branch', sign)
+        for workflow in (dispatch, sign):
+            self.assertIn("github.ref == 'refs/heads/ci/macos-signing-play' && github.event_name == 'workflow_dispatch'", workflow)
 
     def test_metadata_stamping_precedes_keys_and_covers_payload_provenance(self):
         script = (ROOT / "scripts/sign-macos-release.sh").read_text()
