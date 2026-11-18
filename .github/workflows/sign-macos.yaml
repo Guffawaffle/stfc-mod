@@ -35,7 +35,7 @@ permissions: {}
 
 jobs:
   sign:
-    if: github.repository == 'Guffawaffle/stfc-mod' && (!inputs.ci_test_build || (github.ref == 'refs/heads/ci/macos-signing-play' && github.event_name == 'workflow_dispatch'))
+    if: github.repository == 'Guffawaffle/stfc-mod' && github.ref == 'refs/heads/ci/macos-signing-play' && github.event_name == 'workflow_dispatch'
     runs-on: macos-26
     timeout-minutes: 60
     environment: macos-release
@@ -76,13 +76,15 @@ jobs:
             --run-json "$RUNNER_TEMP/mac-build.json" --output "$RUNNER_TEMP/mac-release-context.json" \
             --github-output "$GITHUB_OUTPUT"
           mode=$(jq -r .selection_mode "$RUNNER_TEMP/mac-release-context.json")
+          source_branch=$(jq -r .source_branch "$RUNNER_TEMP/mac-release-context.json")
           python3 scripts/ci-signing-input.py select --run-json "$RUNNER_TEMP/mac-build.json" \
             --artifacts-json "$RUNNER_TEMP/artifacts.json" --repository "$GITHUB_REPOSITORY" \
             --run-id "$BUILD_RUN_ID" --platform macos --mode "$mode" --expected-sha "$SOURCE_SHA" \
+            --expected-branch "$source_branch" \
             --expected-attempt "$EXPECTED_ATTEMPT" --expected-artifact "$EXPECTED_ARTIFACT" \
             --output "$RUNNER_TEMP/mac-input.json"
           if [[ "$mode" == release ]]; then
-            relation=$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...play" --jq '.status')
+            relation=$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_SHA...$source_branch" --jq '.status')
             [[ "$relation" == ahead || "$relation" == identical ]]
           fi
 
