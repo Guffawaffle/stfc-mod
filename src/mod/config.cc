@@ -979,6 +979,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
 
   // [ui]
   auto& u = ui;
+  r.Read("ui", "check_for_mod_updates", u.check_for_mod_updates);
   r.Read("ui", "disable_escape_exit", u.disable_escape_exit);
   r.Read("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);
   r.Read("ui", "disable_preview_locate", u.disable_preview_locate);

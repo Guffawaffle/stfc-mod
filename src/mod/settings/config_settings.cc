@@ -13,6 +13,7 @@
 #include "game/notifications.h"
 #include "image_file_setting.h"
 #include "image_path_entry.h"
+#include "mod_updates.h"
 #include "native_controls.h"
 #include "runtime_config.h"
 #include "text_entry.h"
@@ -402,6 +403,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
                                                                   {"labels", "System Labels"},
                                                                   {"loading", "Loading Screens"},
                                                                   {"advanced", "Advanced & Configuration"},
+                                                                  {"updates", "Updates"},
                                                                   {"galaxy", "Galaxy Labels"},
                                                                   {"audio", "Audio Alerts"}})
     catalog.AddPage(std::string("community_mod.") + id, label, root);
@@ -674,6 +676,33 @@ void RegisterConfigSettings(PageCatalog& catalog)
     }
   };
   catalog.AddAction("community_mod.loading", *image_action);
+  auto update_version      = Keep<ActionSetting>();
+  update_version->identity = "community_mod.updates.version";
+  update_version->label    = "Installed mod";
+  update_version->read     = [](size_t) {
+    return ActionSetting::Presentation{"Installed mod", "", std::string(mod_updates::InstalledVersion()), false};
+  };
+  catalog.AddAction("community_mod.updates", *update_version);
+  auto update_check      = Keep<ActionSetting>();
+  update_check->identity = "community_mod.updates.check";
+  update_check->label    = "Check for updates";
+  update_check->read     = [](size_t) {
+    return ActionSetting::Presentation{"Check for updates", "Check now", mod_updates::Status(),
+                                       mod_updates::Available() && !mod_updates::Checking()};
+  };
+  update_check->invoke = [](size_t) { mod_updates::CheckNow(); };
+  catalog.AddAction("community_mod.updates", *update_check);
+  auto update_release      = Keep<ActionSetting>();
+  update_release->identity = "community_mod.updates.release";
+  update_release->label    = "View release";
+  update_release->read     = [](size_t) {
+    const bool available = mod_updates::HasRelease();
+    return ActionSetting::Presentation{"Available update", "View release", "", available, available};
+  };
+  update_release->invoke = [](size_t) { mod_updates::ViewRelease(); };
+  catalog.AddAction("community_mod.updates", *update_release);
+  BOOL("updates", ui, check_for_mod_updates, "Check automatically", mod_updates::Available, Live,
+       "Check GitHub for a new Community Mod release on this channel once a day.");
   BOOL("galaxy", graphics, galaxy_extended_selection, "Extended system selection", galaxy_controls::SelectionAvailable,
        Live, "Extend supported Far-tier Galaxy selection.");
   Boolean(catalog, "community_mod.galaxy", "graphics", "galaxy_station_housing", "Station housing",

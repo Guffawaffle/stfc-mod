@@ -79,3 +79,24 @@ payloads when needed rather than weakening that check.
 Apple pending submissions retain their existing evidence/recovery path. Inspect
 the saved submission before any new upload; do not automatically resubmit.
 Mac gameplay testing remains separate from signing and notarization.
+
+## Advance the in-game update index
+
+Once the release is public and its Windows ZIP and Mac DMG are uploaded, run this
+from a checkout based on the current `play` branch:
+
+```sh
+python3 scripts/update-release-index.py release v1.1.9.5-guffa.9
+```
+
+Use `pre` for a signed Pre release and `dev` for a tagged DEV release. The script
+checks the public GitHub release and manifest, including both asset digests,
+then updates the corresponding entry in `releases/update-index.json`. Merge that
+index change into `play` to publish it. Advance the DEV entry from `play` after
+the DEV workflow publishes the exact `-dev.N` tag.
+
+Players can check from **Settings → Mod Settings → Updates**. Manual and
+optional daily checks use the installed package's channel. **View release**
+opens the release notes in the browser. On macOS the app supplies the installed
+package identity when launching the game. A standalone dylib without that
+identity has no published update channel.

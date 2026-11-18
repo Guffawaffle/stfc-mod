@@ -840,6 +840,10 @@ auto_confirm_discovery = true
 # Open the bulk gift claim flyout automatically
 auto_open_bulk_claim_flyout = false
 
+# Check for Community Mod updates in the background on published downstream builds.
+# Settings → Mod Settings → Updates can also check on demand.
+check_for_mod_updates = false
+
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
 

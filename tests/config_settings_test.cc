@@ -8,6 +8,7 @@
 #include "features/notifications.h"
 #include "file.h"
 #include "frame.h"
+#include "mod_updates.h"
 #include "runtime_config.h"
 #include "settings/config_settings.h"
 #include "settings/confirmation_settings.h"
@@ -113,6 +114,22 @@ mod_settings::ActionSetting& ShortcutRow(Action action, std::string_view suffix)
   std::abort();
 }
 } // namespace
+
+namespace mod_updates
+{
+bool Available()
+{ return false; }
+bool Checking()
+{ return false; }
+void             CheckNow() {}
+std::string_view InstalledVersion()
+{ return "1.1.9.5-guffa.9 · Release"; }
+std::string Status()
+{ return "Update checks unavailable"; }
+bool HasRelease()
+{ return false; }
+void ViewRelease() {}
+} // namespace mod_updates
 
 bool FrameDeliveryAvailable() noexcept
 {
@@ -302,6 +319,9 @@ int main()
         "catalog registration is stable and never loads, mutates or saves live configuration");
   Check(frame_queries == 0 && frame_registrations == 0 && picker_opens == 0,
         "loading image catalog registration does not acquire native or worker services");
+  auto* auto_update = Find<BooleanSetting>(catalog, "ui.check_for_mod_updates");
+  Check(auto_update && auto_update->default_value() == false && !auto_update->Observe().state.known(),
+        "automatic update checks default off and require an eligible package");
   Check(registered.contains("control.hotkeys_extended") && registered.contains("audio.alert_fleet_miner_opc")
             && registered.contains("graphics.galaxy_label_minor_threshold"),
         "original control keys register with the existing writer");
