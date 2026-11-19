@@ -46,6 +46,7 @@ namespace
   constexpr auto check_interval = 24h;
   constexpr auto startup_delay  = 30s;
   constexpr auto state_key      = "mod_update_checks";
+  constexpr auto settings_page  = "community_mod.settings";
   constexpr auto updates_page   = "community_mod.updates";
   constexpr auto available_key  = "last_available_tag";
 
@@ -80,6 +81,12 @@ namespace
     return state;
   }
 
+  bool UpdatePending()
+  {
+    const auto& state = State();
+    return state.result.status == CheckStatus::Available && !IsIgnoredUpdate(state.result, state.ignored_tag);
+  }
+
   void OpenRelease(std::string_view tag)
   {
     const std::string url = release_url + std::string(tag);
@@ -93,11 +100,11 @@ namespace
 #endif
   }
 
-  void OpenUpdates(Il2CppObject*, const MethodInfo*) noexcept
+  void OpenProfileModSettings(Il2CppObject*, const MethodInfo*) noexcept
   {
     try {
       if (Hub::CurrentSection() == SectionID::PlayerProfile)
-        mod_settings::native::OpenSettingsPage(updates_page);
+        mod_settings::native::OpenSettingsPage(UpdatePending() ? updates_page : settings_page);
     } catch (...) {
     }
   }
@@ -107,7 +114,7 @@ namespace
     static auto* callback = [] {
       auto* result = new mod_settings::NativeCallback<void>;
       result->Initialize(PlayerProfileViewController::Class::Method<void()>("AvatarEditButtonOnClickHandler").Info(),
-                         OpenUpdates);
+                         OpenProfileModSettings);
       return result;
     }();
     auto* button = object->AddComponent<unity::Button>();
@@ -198,7 +205,7 @@ namespace
       if (!sprite)
         return;
       il2cpp::GcHandle root;
-      auto* layout = unity::CreateUiObject("Community Mod Updates", parent, root);
+      auto* layout = unity::CreateUiObject(owner ? "Mod Settings" : "Community Mod update available", parent, root);
       auto* object = root.Get<unity::GameObject>();
       auto* image  = layout && object ? object->AddComponent<unity::Image>() : nullptr;
       if (!image) {
@@ -247,7 +254,7 @@ namespace
     if (now < next)
       return;
     next = now + 300ms;
-    const bool can_open = mod_settings::native::CanOpenSettingsPage(updates_page);
+    const bool can_open = mod_settings::native::CanOpenSettingsPage(settings_page);
     const bool profile_section = can_open && Hub::CurrentSection() == SectionID::PlayerProfile;
     const bool hud_visible = can_open && pending && Hub::IsInSystemOrGalaxyOrStarbase();
     if (hud_visible && !hud->HasActiveAnchor()) {
@@ -443,23 +450,21 @@ namespace
         mod_settings::native::RequestPageRefresh();
       }
     }
-    if (enabled && Clock::now() >= state.next_check)
+    if (enabled && Installed() && Clock::now() >= state.next_check)
       Start(true);
-    RefreshUpdateBadges(enabled && state.result.status == CheckStatus::Available
-                        && !IsIgnoredUpdate(state.result, state.ignored_tag));
+    RefreshUpdateBadges(UpdatePending());
   }
 } // namespace
 
 void Prepare()
 {
-  if (Installed()) {
+  if (Installed())
     State().writer_ready = mod_state::PrepareAsync();
-    State().registered = RegisterFrameCallback(UpdateCheckFrame, "ModUpdates");
-  }
+  State().registered = RegisterFrameCallback(UpdateCheckFrame, "ModUpdates");
 }
 
 bool Available()
-{ return State().registered && FrameDeliveryAvailable(); }
+{ return Installed() && State().registered && FrameDeliveryAvailable(); }
 
 bool Checking()
 { return State().pending.valid(); }

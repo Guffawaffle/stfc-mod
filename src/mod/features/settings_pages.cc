@@ -948,8 +948,9 @@ void ProcessSettingsPageOpening()
       if (!observed || observed->tree != tree)
         return;
       pages.opening.reset();
-      controller.Get<SettingsPageController>()->TryCall<"OnCategorySelected", void(SettingsContainerContext*)>(
-          target.Get<SettingsContainerContext>());
+      if (selected.value != target.Get<SettingsContainerContext>())
+        controller.Get<SettingsPageController>()->TryCall<"OnCategorySelected", void(SettingsContainerContext*)>(
+            target.Get<SettingsContainerContext>());
       return;
     }
   }
