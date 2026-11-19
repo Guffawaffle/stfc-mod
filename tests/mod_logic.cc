@@ -88,7 +88,7 @@ void ShipHints()
   Check(Shortcut::Hint(ship_hint(Action::kSelectShip7)).empty(),
         "Unbound ship selection must not advertise a working shortcut");
   Shortcut::Bindings custom{};
-  custom[std::to_underlying(Action::kSelectShip6)].push_back(KeyChord::Parse("CTRL-F8"));
+  custom.actions[std::to_underlying(Action::kSelectShip6)].push_back(KeyChord::Parse("CTRL-F8"));
   Shortcut::Set(std::move(custom));
   Check(Shortcut::Hint(ship_hint(Action::kSelectShip7)) == "^F8",
         "Gapped ship hint must use the actual custom binding, not a hardcoded number");
@@ -396,6 +396,23 @@ void MiningPreviewControls()
   Check(Shortcut::Describe(Action::kCycleMiningPreview) == "F7" && Shortcut::Describe(Action::kActionView) == "CMD-F8"
             && Value(inherited, "shortcuts_source", "cycle_mining_preview") == "config",
         "an explicit mining shortcut overrides inheritance without changing the legacy action");
+
+  Load("");
+  const std::array first_view{std::string("F7")};
+  Check(Shortcut::Replace(Action::kActionView, first_view, Shortcut::Read(Action::kActionView).generation)
+            && Shortcut::Describe(Action::kCycleMiningPreview) == "F7",
+        "an inherited mining shortcut follows a live target-details edit before any explicit binding exists");
+  Load("[shortcuts]\naction_view='F7'\n");
+  Check(Shortcut::Describe(Action::kCycleMiningPreview) == "F7",
+        "the first target-details edit resolves identically after reload");
+  const std::array mining_only{std::string("F8")};
+  Check(Shortcut::Replace(Action::kCycleMiningPreview, mining_only,
+                          Shortcut::Read(Action::kCycleMiningPreview).generation),
+        "editing the inherited mining action creates an independent binding");
+  const std::array next_view{std::string("F9")};
+  Check(Shortcut::Replace(Action::kActionView, next_view, Shortcut::Read(Action::kActionView).generation)
+            && Shortcut::Describe(Action::kCycleMiningPreview) == "F8",
+        "later target-details edits leave an explicit mining binding alone");
 }
 
 void LoadingArtworkPolicy()

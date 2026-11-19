@@ -133,10 +133,10 @@ void HostPolicy()
 {
   using unity::KeyCode;
   Shortcut::Bindings bindings;
-  bindings[std::to_underlying(Action::kShowGalaxy)]     = {KeyChord::Parse("RETURN")};
-  bindings[std::to_underlying(Action::kShowChat)]       = {KeyChord::Parse("A")};
-  bindings[std::to_underlying(Action::kMoveRight)]      = {KeyChord::Parse("RIGHT")};
-  bindings[std::to_underlying(Action::kDisableHotKeys)] = {KeyChord::Parse("CTRL-A")};
+  bindings.actions[std::to_underlying(Action::kShowGalaxy)]     = {KeyChord::Parse("RETURN")};
+  bindings.actions[std::to_underlying(Action::kShowChat)]       = {KeyChord::Parse("A")};
+  bindings.actions[std::to_underlying(Action::kMoveRight)]      = {KeyChord::Parse("RIGHT")};
+  bindings.actions[std::to_underlying(Action::kDisableHotKeys)] = {KeyChord::Parse("CTRL-A")};
   Shortcut::Set(bindings);
   Check(!Shortcut::CaptureBlocksShortcuts() && !Shortcut::ReleaseCapture(0), "production capture starts inactive");
   SetKeys({KeyCode::LeftControl, KeyCode::A}, {KeyCode::A});
@@ -212,8 +212,8 @@ void CaptureCancellation()
     for (const bool release_before_cancel : {true, false}) {
       const auto*        modified = modifier == KeyCode::LeftControl ? "CTRL-A" : "CMD-A";
       Shortcut::Bindings bindings;
-      bindings[std::to_underlying(Action::kShowGalaxy)] = {KeyChord::Parse(modified)};
-      bindings[std::to_underlying(Action::kShowChat)]   = {KeyChord::Parse("A")};
+      bindings.actions[std::to_underlying(Action::kShowGalaxy)] = {KeyChord::Parse(modified)};
+      bindings.actions[std::to_underlying(Action::kShowChat)]   = {KeyChord::Parse("A")};
       Shortcut::Set(bindings);
       const auto generation = Shortcut::Read(Action::kShowChat).generation;
       SetKeys({modifier, KeyCode::A}, {KeyCode::A});

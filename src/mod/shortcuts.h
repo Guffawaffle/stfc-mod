@@ -52,7 +52,10 @@ private:
 
 namespace Shortcut
 {
-using Bindings = std::array<std::vector<KeyChord>, std::to_underlying(Action::kCount)>;
+struct Bindings {
+  std::array<std::vector<KeyChord>, std::to_underlying(Action::kCount)> actions;
+  bool mining_preview_inherits_view = false;
+};
 struct ActionInfo {
   Action           action;
   std::string_view key, defaults;
