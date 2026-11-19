@@ -60,6 +60,17 @@ class BuildRetryTests(unittest.TestCase):
         self.assertEqual(output, FETCH + b"tests passed\n")
         self.assertIn("attempt 2/3 in 10s", notes)
 
+    def test_closed_dependency_connection_is_retryable_but_compiler_errors_are_not(self):
+        closed = (b"/Users/runner/work/stfc-mod/mod/build.zig.zon:71:20: error: "
+                  b"invalid HTTP response: HttpConnectionClosing\n")
+        status, calls, delays, _, _ = self.invoke([(closed, 1), (b"tests passed\n", 0)])
+        self.assertEqual((status, len(calls), delays), (0, 2, [10]))
+        status, calls, delays, _, _ = self.invoke([(closed + b"native.cc:4: error: invalid type\n", 1)])
+        self.assertEqual((status, len(calls), delays), (1, 1, []))
+        diagnostic = API["Diagnostics"]()
+        diagnostic.feed(b"native.cc:71:20: error: invalid HTTP response: HttpConnectionClosing\n")
+        self.assertFalse(diagnostic.retryable())
+
     def test_transient_fetch_exhaustion_preserves_last_failure(self):
         status, calls, delays, output, notes = self.invoke([(FETCH, 1), (FETCH, 2), (FETCH, 7)])
         self.assertEqual(status, 7)
