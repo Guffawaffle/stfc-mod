@@ -9,16 +9,19 @@ FleetState                                         fleet_native_state          =
 bool                                               fleet_native_default_result = true;
 std::vector<ActionBehaviour>                       fleet_native_requests;
 std::vector<Action>                                fleet_native_keys;
-bool fleet_native_primary_mouse = false;
+bool                                               fleet_native_primary_mouse = false;
 std::map<Il2CppClass*, std::vector<Il2CppObject*>> fleet_native_widgets;
 std::string                                        fleet_native_saved_section, fleet_native_saved_key;
 bool                                               fleet_native_saved_value = true;
 config_edit::Value                                 fleet_native_saved_any{true}, fleet_native_session_any{true};
 int                                                fleet_native_save_calls = 0, fleet_native_session_calls = 0;
 std::string                                        fleet_native_session_section, fleet_native_session_key;
-bool                                               fleet_native_capture = false;
-int64_t                                            fleet_native_target  = 100;
-int                                                fleet_native_mines   = 0;
+bool                                               fleet_native_capture       = false;
+int64_t                                            fleet_native_target        = 100;
+int                                                fleet_native_mines         = 0;
+bool                                               fleet_native_mining_cycle  = false;
+int                                                fleet_native_mining_cycles = 0;
+std::optional<bool>                                fleet_native_mining_cargo;
 struct FleetNativeVisibility {
   Il2CppObject    header;
   VisibilityState state = VisibilityState::Visible;
@@ -525,9 +528,12 @@ Il2CppObject* Newest(Il2CppClass* type)
 namespace mining_preview
 {
 bool Cycle()
-{ return false; }
-bool SuppressAutomaticCargo(RewardsButtonWidget*)
-{ return false; }
+{
+  ++fleet_native_mining_cycles;
+  return fleet_native_mining_cycle;
+}
+std::optional<bool> AutomaticCargo(RewardsButtonWidget*)
+{ return fleet_native_mining_cargo; }
 } // namespace mining_preview
 
 namespace runtime_config

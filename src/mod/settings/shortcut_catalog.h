@@ -76,6 +76,10 @@ constexpr std::string_view ShortcutExplanation(Action action)
       return "Hold and drag on the system map: sideways rotates, up/down adjusts tilt (5 to 90 degrees).";
     case Action::kNavigationOrbitReset:
       return "Restore the system map's native rotation and tilt.";
+    case Action::kCycleMiningPreview:
+      return "On another player's occupied mining node, cycle the node, occupant ship and cargo. The first card "
+             "follows Mining node: cargo before ship in Previews & Cargo. Empty nodes and your own miners retain "
+             "native controls.";
     default:
       return {};
   }
@@ -161,6 +165,7 @@ inline constexpr auto ShortcutCatalog = std::to_array<ShortcutInfo>({
     {Action::kActionQueue, ShortcutGroup::Fleet, "Queue action"},
     {Action::kActionQueueClear, ShortcutGroup::Fleet, "Clear action queue"},
     {Action::kActionView, ShortcutGroup::Fleet, "View target details"},
+    {Action::kCycleMiningPreview, ShortcutGroup::Previews, "Cycle mining node / ship / cargo"},
     {Action::kActionRecall, ShortcutGroup::Fleet, "Recall selected ship"},
     {Action::kActionRecallCancel, ShortcutGroup::Fleet, "Cancel recall"},
     {Action::kActionRepair, ShortcutGroup::Fleet, "Repair selected ship"},
