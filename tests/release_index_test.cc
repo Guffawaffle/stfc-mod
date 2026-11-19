@@ -17,6 +17,14 @@ int main()
   assert(CheckIndex(index, *release).tag == "v1.1.9.5-guffa.10");
   assert(CheckIndex(index, *pre).status == CheckStatus::Current);
   assert(CheckIndex(index, *dev).tag == "v1.1.9.5-guffa.7-dev.12");
+  assert(IsIgnoredUpdate(CheckIndex(index, *dev), "v1.1.9.5-guffa.7-dev.12"));
+  assert(!IsIgnoredUpdate(CheckIndex(index, *dev), "v1.1.9.5-guffa.7-dev.11"));
+  assert(!IsIgnoredUpdate(CheckIndex(index, *release), "v1.1.9.5-guffa.7-dev.12"));
+  assert(!IsIgnoredUpdate(CheckIndex(index, *pre), ""));
+  assert(IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.12", "", Channel::Dev));
+  assert(IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.12", "v1.1.9.5-guffa.7-dev.9", Channel::Dev));
+  assert(!IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.12", "v1.1.9.5-guffa.7-dev.12", Channel::Dev));
+  assert(!IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.9", "v1.1.9.5-guffa.7-dev.12", Channel::Dev));
 
   const auto newer = IdentifyRelease("1.1.10.0-guffa.1 · Release");
   assert(newer && CheckIndex(index, *newer).status == CheckStatus::Current);

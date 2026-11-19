@@ -701,6 +701,19 @@ void RegisterConfigSettings(PageCatalog& catalog)
   };
   update_release->invoke = [](size_t) { mod_updates::ViewRelease(); };
   catalog.AddAction("community_mod.updates", *update_release);
+  Definition ignore_update{"community_mod.updates.ignore", "Ignore this version",
+                           [] {
+                             return mod_updates::IgnoreAvailable()
+                                        ? ReadResult::Known(mod_updates::Ignored(), mod_updates::ReleaseGeneration())
+                                        : ReadResult{};
+                           },
+                           [](bool value, uint64_t generation) {
+                             return mod_updates::SetIgnored(value, generation) ? ApplyResult::Applied
+                                                                               : ApplyResult::Rejected;
+                           }};
+  ignore_update.save_status = [](bool) { return mod_updates::IgnoreSaveStatus(); };
+  catalog.AddBoolean("community_mod.updates", *Keep<BooleanSetting>(std::move(ignore_update)),
+                     mod_updates::IgnoreAvailable);
   BOOL("updates", ui, check_for_mod_updates, "Check automatically", mod_updates::Available, Live,
        "Check GitHub for a new Community Mod release on this channel once a day.");
   BOOL("galaxy", graphics, galaxy_extended_selection, "Extended system selection", galaxy_controls::SelectionAvailable,

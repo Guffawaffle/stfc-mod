@@ -82,6 +82,16 @@ struct CheckResult {
   std::string tag;
 };
 
+inline bool IsIgnoredUpdate(const CheckResult& result, std::string_view ignored_tag)
+{ return result.status == CheckStatus::Available && !ignored_tag.empty() && result.tag == ignored_tag; }
+
+inline bool IsNewerReleaseTag(std::string_view tag, std::string_view previous, Channel channel)
+{
+  const auto available = ParseReleaseTag(tag, channel);
+  const auto offered   = ParseReleaseTag(previous, channel);
+  return available && (!offered || *available > *offered);
+}
+
 inline constexpr size_t max_index_bytes = 4096;
 
 inline CheckResult CheckIndex(std::string_view body, const InstalledRelease& installed)

@@ -129,6 +129,16 @@ std::string Status()
 bool HasRelease()
 { return false; }
 void ViewRelease() {}
+bool Ignored()
+{ return false; }
+bool IgnoreAvailable()
+{ return false; }
+uint64_t ReleaseGeneration()
+{ return 0; }
+bool SetIgnored(bool, uint64_t)
+{ return false; }
+mod_settings::SaveStatus IgnoreSaveStatus()
+{ return {}; }
 } // namespace mod_updates
 
 bool FrameDeliveryAvailable() noexcept

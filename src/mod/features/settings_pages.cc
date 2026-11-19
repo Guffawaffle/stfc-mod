@@ -13,6 +13,7 @@
 #include "settings/page_sections.h"
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <il2cpp/hook.h>
 #include <map>
 #include <memory>
@@ -62,6 +63,12 @@ struct SettingsPageNavigation {
   PageVisitToken                   token             = 0;
   bool                             return_to_current = false;
 };
+struct SettingsPageOpening {
+  std::string                           page;
+  SectionID                             origin;
+  std::chrono::steady_clock::time_point deadline, next_probe{};
+  bool                                  started = false;
+};
 enum class SettingsPageLabelKind { Category, Text, Title };
 struct SettingsPageLabel {
   il2cpp::GcHandle      widget, context, label;
@@ -86,6 +93,7 @@ struct NativePagesState {
   std::map<il2cpp::Object*, std::shared_ptr<SettingsHeadingTint>>                    heading_tints;
   std::shared_ptr<SettingsPageVisit>                                                 visit;
   std::optional<SettingsPageNavigation>                                              pending;
+  std::optional<SettingsPageOpening>                                                 opening;
   PageVisitObserver                                                                  observer = nullptr;
   NativeCallback<int>                                                                query;
   NativeCallback<Il2CppString*>                                                      text;
@@ -881,6 +889,71 @@ void ProcessSettingsPageNavigation()
     RepairCompletePageList(visit);
   state.refresh = true;
 }
+void ProcessSettingsPageOpening()
+{
+  auto& pages = NativePages();
+  if (!pages.opening)
+    return;
+  auto&      opening = *pages.opening;
+  const auto now     = std::chrono::steady_clock::now();
+  if (now >= opening.deadline) {
+    pages.opening.reset();
+    return;
+  }
+  if (now < opening.next_probe)
+    return;
+  opening.next_probe = now + std::chrono::milliseconds(125);
+  auto* sections     = Hub::Sections();
+  if (!sections || sections->IsSectionChangeInProgress())
+    return;
+  const auto section = sections->CurrentSection();
+  if (section != SectionID::GameSettings && section != opening.origin) {
+    pages.opening.reset();
+    return;
+  }
+  if (section != SectionID::GameSettings) {
+    if (!opening.started && !GameMessageBox::Get<"IsMessageBoxVisible", bool>()) {
+      opening.started = true;
+      if (!sections->TriggerSectionChange(SectionID::GameSettings, nullptr, false, false, true))
+        pages.opening.reset();
+    }
+    return;
+  }
+  opening.origin = SectionID::GameSettings;
+  if (GameMessageBox::Get<"IsMessageBoxVisible", bool>())
+    return;
+  auto controller =
+      il2cpp::GcHandle::Strong(ScreenManager::RegisteredController<SettingsPageController, SettingsPageContext>());
+  if (!controller)
+    return;
+  const auto settings = controller.Get<SettingsPageController>()->TrySettings();
+  const auto selected =
+      settings && settings.value ? settings.value->TrySelected() : il2cpp::CallResult<SettingsContainerContext*>{};
+  if (!selected)
+    return;
+  for (const auto& tree : pages.trees) {
+    if (tree->settings.Get() != settings.value || tree->revoked
+        || tree->publication.state() != CategoryPublicationState::Published)
+      continue;
+    // Leave a page the player has already chosen alone.
+    if (selected.value && selected.value != tree->parent.Get() && selected.value != tree->root.Get()) {
+      pages.opening.reset();
+      return;
+    }
+    for (const auto& binding : tree->bindings) {
+      if (!binding.category || binding.heading || !binding.page || binding.page->id != opening.page)
+        continue;
+      auto target   = il2cpp::GcHandle::Strong(binding.context.Get());
+      auto observed = target ? PageBinding(target.Get<SettingsOptionContext>()) : std::nullopt;
+      if (!observed || observed->tree != tree)
+        return;
+      pages.opening.reset();
+      controller.Get<SettingsPageController>()->TryCall<"OnCategorySelected", void(SettingsContainerContext*)>(
+          target.Get<SettingsContainerContext>());
+      return;
+    }
+  }
+}
 void FocusPageItem(const std::shared_ptr<SettingsPageVisit>& visit)
 {
   if (!CurrentVisit(visit) || visit->focus_item.empty() || visit->refreshing || !visit->has_shown)
@@ -917,7 +990,10 @@ void FocusPageItem(const std::shared_ptr<SettingsPageVisit>& visit)
 void NativeSettingsPagesFrame()
 {
   auto& state = NativePages();
-  if (!PagesThread() || (state.trees.empty() && state.labels.empty() && !state.visit))
+  if (!PagesThread())
+    return;
+  ProcessSettingsPageOpening();
+  if (state.trees.empty() && state.labels.empty() && !state.visit)
     return;
   ProcessSettingsPageNavigation();
   static Throttle lifecycle(std::chrono::milliseconds(250));
@@ -1117,6 +1193,21 @@ bool mod_settings::native::QueueSettingsPage(std::string_view page, std::string_
     return true;
   }
   return false;
+}
+bool mod_settings::native::CanOpenSettingsPage(std::string_view page)
+{
+  return PagesThread() && std::ranges::any_of(NativePages().pages, [page](const auto& candidate) {
+    return candidate.id == page;
+  });
+}
+bool mod_settings::native::OpenSettingsPage(std::string_view page)
+{
+  auto& state = NativePages();
+  if (!CanOpenSettingsPage(page))
+    return false;
+  const auto now = std::chrono::steady_clock::now();
+  state.opening  = SettingsPageOpening{std::string(page), Hub::CurrentSection(), now + std::chrono::seconds(10)};
+  return true;
 }
 mod_settings::native::PageBindResult mod_settings::native::BindPageRows(SettingsPageController*   controller,
                                                                         SettingsContainerContext* expected,
