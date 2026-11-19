@@ -1,7 +1,7 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
-#include <cstdint>
 #include <il2cpp-class-internals.h>
 #include <il2cpp-object-internals.h>
 #include <il2cpp-tabledefs.h>
@@ -20,7 +20,7 @@ public:
   NativeCallback()                                 = default;
   NativeCallback(const NativeCallback&)            = delete;
   NativeCallback& operator=(const NativeCallback&) = delete;
-  bool Initialize(const MethodInfo* schema, Function callback, bool (*matches_enum)(const Il2CppType*) = nullptr)
+  bool            Initialize(const MethodInfo* schema, Function callback)
   {
     if (initialized_ || !schema || !callback || schema->is_generic || schema->is_inflated
         || schema->has_full_generic_sharing_signature || (schema->flags & METHOD_ATTRIBUTE_STATIC)
@@ -46,10 +46,15 @@ public:
       if (schema->return_type->type != IL2CPP_TYPE_VALUETYPE && schema->return_type->type != IL2CPP_TYPE_I4)
         return false;
     }
-    if constexpr (sizeof...(Args) != 0) {
-      if (!schema->parameters || !MatchesArguments(schema, matches_enum, std::index_sequence_for<Args...>{}))
+    static_assert(((std::is_same_v<Args, bool> || std::is_same_v<Args, int> || std::is_same_v<Args, float>) && ...),
+                  "Only boolean, Single and Int32 callback arguments are supported");
+    constexpr std::array<int, sizeof...(Args)> types{(std::is_same_v<Args, bool>    ? IL2CPP_TYPE_BOOLEAN
+                                                      : std::is_same_v<Args, float> ? IL2CPP_TYPE_R4
+                                                                                    : IL2CPP_TYPE_I4)...};
+    for (std::size_t i = 0; i < sizeof...(Args); ++i)
+      if (!schema->parameters || !schema->parameters[i] || schema->parameters[i]->byref
+          || schema->parameters[i]->type != types[i])
         return false;
-    }
     method_                      = *schema;
     method_.methodPointer        = reinterpret_cast<Il2CppMethodPointer>(callback);
     method_.virtualMethodPointer = method_.methodPointer;
@@ -68,26 +73,6 @@ public:
   }
 
 private:
-  template <typename Arg> static bool MatchesArgument(const Il2CppType* type, bool (*matches_enum)(const Il2CppType*))
-  {
-    if (!type || type->byref)
-      return false;
-    if constexpr (std::is_enum_v<Arg>) {
-      static_assert(std::is_same_v<std::underlying_type_t<Arg>, int32_t>);
-      return type->type == IL2CPP_TYPE_VALUETYPE && matches_enum && matches_enum(type);
-    } else {
-      static_assert(std::is_same_v<Arg, bool> || std::is_same_v<Arg, float> || std::is_same_v<Arg, int32_t>);
-      constexpr auto kind = std::is_same_v<Arg, bool>    ? IL2CPP_TYPE_BOOLEAN
-                            : std::is_same_v<Arg, float> ? IL2CPP_TYPE_R4
-                                                         : IL2CPP_TYPE_I4;
-      return type->type == kind;
-    }
-  }
-  template <std::size_t... I>
-  static bool MatchesArguments(const MethodInfo* schema, bool (*matches_enum)(const Il2CppType*),
-                               std::index_sequence<I...>)
-  { return (MatchesArgument<Args>(schema->parameters[I], matches_enum) && ...); }
-
   template <std::size_t... I>
   static void Call(const MethodInfo* method, void* object, void** args, void* result, std::index_sequence<I...>)
   {

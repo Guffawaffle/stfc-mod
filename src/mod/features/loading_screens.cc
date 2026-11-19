@@ -1,6 +1,7 @@
 // The mod's loading screens, from [graphics] loader_*: the login background and logos, the transition screen between
 // sections, and the loading tips. They share the embedded images and reset together when the game reloads.
 
+#include "community_badge.h"
 #include "config.h"
 #include "features/features.h"
 #include "file.h"
@@ -478,6 +479,12 @@ bool InstallLoadingTips()
   return hooks.Commit();
 }
 } // namespace
+
+unity::Sprite* CommunityBadgeSprite()
+{
+  auto* badge = screen_images.CommunityLogo();
+  return badge ? badge->Sprite() : nullptr;
+}
 
 const Feature kLoginScreen{"LoginScreen", &Config::Patches::loadingscreenhooks, InstallLoginScreen,
                            nullptr,       InstallRequirement::kOptional,        ResetLoadingScreens};

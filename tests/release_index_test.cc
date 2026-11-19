@@ -21,13 +21,15 @@ int main()
   assert(!IsIgnoredUpdate(CheckIndex(index, *dev), "v1.1.9.5-guffa.7-dev.11"));
   assert(!IsIgnoredUpdate(CheckIndex(index, *release), "v1.1.9.5-guffa.7-dev.12"));
   assert(!IsIgnoredUpdate(CheckIndex(index, *pre), ""));
-  assert(IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.12", "", Channel::Dev));
-  assert(IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.12", "v1.1.9.5-guffa.7-dev.9", Channel::Dev));
-  assert(!IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.12", "v1.1.9.5-guffa.7-dev.12", Channel::Dev));
-  assert(!IsNewerReleaseTag("v1.1.9.5-guffa.7-dev.9", "v1.1.9.5-guffa.7-dev.12", Channel::Dev));
+  assert(RestoreCheck("v1.1.9.5-guffa.7-dev.12", *dev).tag == "v1.1.9.5-guffa.7-dev.12");
+  assert(RestoreCheck("v1.1.9.5-guffa.7-dev.9", *dev).status == CheckStatus::Current);
+  assert(RestoreCheck("v1.1.9.5-guffa.7-dev.8", *dev).status == CheckStatus::Current);
+  assert(RestoreCheck("", *dev).status == CheckStatus::Idle);
+  assert(RestoreCheck("v1.1.9.5-guffa.10", *dev).status == CheckStatus::Idle);
 
   const auto newer = IdentifyRelease("1.1.10.0-guffa.1 · Release");
   assert(newer && CheckIndex(index, *newer).status == CheckStatus::Current);
+  assert(RestoreCheck(CheckIndex(index, *newer).tag, *release).status == CheckStatus::Available);
   assert(!IdentifyRelease("1.1.9.5-guffa.9"));
   assert(!IdentifyRelease("1.1.9.5 · Pre b123.1"));
   assert(!IdentifyRelease("1.1.9.5 · DEV local"));

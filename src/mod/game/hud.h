@@ -10,6 +10,18 @@
 
 #include <cstdint>
 
+// The persistent HUD drawer owns the current player's portrait.
+struct HudDrawerContext : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.HUD", "HUDDrawerUIContext">;
+};
+
+struct HudDrawerViewController : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.HUD", "HUDDrawerViewController">;
+
+  unity::Component* profileFrameAndAvatar()
+  { return Field<"_profileFrameAndAvatar", unity::Component*>(); }
+};
+
 // The Q-Trials, field training, outposts and missions buttons.
 struct MissionsHudViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.HUD", "MissionsHudViewController">;

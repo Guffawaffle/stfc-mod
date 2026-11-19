@@ -479,8 +479,6 @@ using GameMessageBox = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "Mess
 enum class MessageBoxResult : int32_t {
   Confirm = 1,
   Yes     = 3,
-  Left    = 5,
-  Right   = 6,
 };
 
 struct MessageBoxContext : il2cpp::Object {

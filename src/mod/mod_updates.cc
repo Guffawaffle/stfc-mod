@@ -1,28 +1,29 @@
 // Downstream package discovery and [ui] check_for_mod_updates.
 #include "mod_updates.h"
 #include "build_identity.h"
+#include "community_badge.h"
 #include "config.h"
-#include "features/notifications.h"
 #include "frame.h"
-#include "game/update_notice.h"
+#include "game/hud.h"
+#include "game/player_profile.h"
 #include "mod_state.h"
 #include "release_index.h"
 #include "settings/native_boolean_callback.h"
 #include "settings/native_controls.h"
-#include "shortcuts.h"
 
 #include <cpr/cpr.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <future>
 #include <optional>
 #include <stop_token>
 #include <string_view>
 #include <system_error>
 #include <thread>
-#include <unity/application.h>
 #include <utility>
 
 #if _WIN32
@@ -46,13 +47,13 @@ namespace
   constexpr auto startup_delay  = 30s;
   constexpr auto state_key      = "mod_update_checks";
   constexpr auto updates_page   = "community_mod.updates";
-  constexpr auto notice_title   = "STFC Community Mod update available";
+  constexpr auto available_key  = "last_available_tag";
 
   struct WorkResult {
     CheckResult          result;
     std::chrono::seconds retry_after{};
-    bool                 notify = false;
     std::string          ignored_tag{};
+    CheckResult          cached{CheckStatus::Idle, {}};
   };
 
   const auto& Installed()
@@ -68,11 +69,7 @@ namespace
     CheckResult             result{CheckStatus::Idle, {}};
     bool                    registered = false;
     bool                    writer_ready = false;
-    std::string             queued_notice;
-    std::string             shown_notice;
-    std::string             dispatched_notice;
-    Clock::time_point       next_notice_attempt{};
-    il2cpp::GcHandle        notice_target;
+    bool                    check_failed = false;
     std::string             ignored_tag, ignore_edit_tag;
     uint64_t                ignore_revision = 0, release_generation = 1;
   };
@@ -96,80 +93,177 @@ namespace
 #endif
   }
 
-  void SelectNotice(Il2CppObject* target, MessageBoxResult choice, const MethodInfo*) noexcept
+  void OpenUpdates(Il2CppObject*, const MethodInfo*) noexcept
   {
-    auto& state = State();
-    if (target != state.notice_target.Get())
-      return;
-    state.notice_target = {};
-    auto tag            = std::exchange(state.shown_notice, {});
-    if (!Config::Get().ui.check_for_mod_updates)
-      return;
     try {
-      if (choice == MessageBoxResult::Left)
-        OpenRelease(tag);
-      else if (choice == MessageBoxResult::Right && !mod_settings::native::OpenSettingsPage(updates_page))
-        EmitDesktopNotification(notice_title, tag + " is available on the project's GitHub Releases page.");
+      if (Hub::CurrentSection() == SectionID::PlayerProfile)
+        mod_settings::native::OpenSettingsPage(updates_page);
     } catch (...) {
     }
   }
 
-  void MarkNoticeDispatched(UpdateCheckState& state, std::string tag)
+  bool ConnectProfileButton(unity::GameObject* object, unity::Image* image, PlayerProfileViewController* owner)
   {
-    mod_state::QueueUpdateOffer(state_key, Installed()->channel, tag);
-    state.dispatched_notice = std::move(tag);
-  }
-
-  void DispatchDesktopNotice(UpdateCheckState& state, std::string tag, bool has_updates_page)
-  {
-    EmitDesktopNotification(notice_title, tag + (has_updates_page ? " is available in Mod Settings → Updates."
-                                                                 : " is available on the project's GitHub Releases page."));
-    MarkNoticeDispatched(state, std::move(tag));
-  }
-
-  void ShowQueuedNotice()
-  {
-    auto& state = State();
-    if (state.queued_notice.empty() || Clock::now() < state.next_notice_attempt)
-      return;
-    state.next_notice_attempt = Clock::now() + 1s;
-    const bool has_updates_page = mod_settings::native::CanOpenSettingsPage(updates_page);
-    if (!has_updates_page) {
-      DispatchDesktopNotice(state, std::exchange(state.queued_notice, {}), false);
-      return;
-    }
-    auto* sections            = Hub::Sections();
-    if (!sections || sections->IsSectionChangeInProgress() || !Hub::IsInSystemOrGalaxyOrStarbase()
-        || !unity::Application::isFocused() || Shortcut::CaptureBlocksShortcuts()
-        || !ShortcutsManager::CanUseShortcuts())
-      return;
-    const auto ready = update_notice::Ready();
-    if (!ready) {
-      DispatchDesktopNotice(state, std::exchange(state.queued_notice, {}), true);
-      return;
-    }
-    if (!*ready)
-      return;
-
     static auto* callback = [] {
-      auto*      owned = new mod_settings::NativeCallback<void, MessageBoxResult>;
-      const auto donor = update_notice::CallbackTarget::Class::Method<void(MessageBoxResult)>("OnDialogCloseButton");
-      owned->Initialize(donor.Info(), SelectNotice, update_notice::IsSelectionType);
-      return owned;
+      auto* result = new mod_settings::NativeCallback<void>;
+      result->Initialize(PlayerProfileViewController::Class::Method<void()>("AvatarEditButtonOnClickHandler").Info(),
+                         OpenUpdates);
+      return result;
     }();
-    auto target         = il2cpp::GcHandle::Strong(il2cpp::New<update_notice::CallbackTarget>());
-    auto tag            = std::exchange(state.queued_notice, {});
-    state.shown_notice  = tag;
-    state.notice_target = std::move(target);
-    if (update_notice::Show(notice_title, "Version " + tag.substr(1) + " is available.",
-                            "View release", "Options", state.notice_target.Get<update_notice::CallbackTarget>(),
-                            callback->method())) {
-      MarkNoticeDispatched(state, std::move(tag));
-      return;
+    auto* button = object->AddComponent<unity::Button>();
+    auto* event  = button ? button->onClick() : nullptr;
+    if (!event || !callback->method() || !button->TryCall<"set_targetGraphic">(image))
+      return false;
+    auto listener = il2cpp::GcHandle::Strong(il2cpp::NewClosedDelegate(
+        unity::UnityAction::Class::Raw(), owner, il2cpp::Method(callback->method())));
+    return listener && event->AddListener(listener.Get<unity::UnityAction>());
+  }
+
+  // A four-image glyph avoids font lookups on the HUD and matches the small cyan pip on both surfaces.
+  unity::GameObject* AddUpdatePip(unity::RectTransform* badge, float size)
+  {
+    il2cpp::GcHandle pip;
+    auto* rect   = unity::CreateUiObject("Community Mod update available", badge, pip);
+    auto* object = pip.Get<unity::GameObject>();
+    auto* image  = rect && object ? object->AddComponent<unity::Image>() : nullptr;
+    if (!image) {
+      if (object)
+        unity::Destroy(object);
+      return nullptr;
     }
-    state.notice_target = {};
-    state.shown_notice.clear();
-    DispatchDesktopNotice(state, std::move(tag), true);
+    rect->Place({1, 1}, {1, 1}, {.7f, .7f}, {size, size}, {0, 0});
+    image->SetColor({.08f, .32f, .43f, 1});
+    image->SetRaycastTarget(false);
+    for (const auto& [angle, x, y, extent] :
+         std::array{std::array{0.f, 0.f, -.08f, .53f}, std::array{-45.f, -.15f, .05f, .40f},
+                    std::array{45.f, .15f, .05f, .40f}}) {
+      il2cpp::GcHandle stroke;
+      auto* stroke_rect  = unity::CreateUiObject("Arrow", rect, stroke);
+      auto* stroke_child = stroke.Get<unity::GameObject>();
+      auto* stroke_image = stroke_rect && stroke_child ? stroke_child->AddComponent<unity::Image>() : nullptr;
+      if (!stroke_image) {
+        if (stroke_child)
+          unity::Destroy(stroke_child);
+        return nullptr;
+      }
+      stroke_rect->Place({.5f, .5f}, {.5f, .5f}, {.5f, .5f}, {size * .13f, size * extent}, {size * x, size * y});
+      stroke_rect->Set<"localEulerAngles">(unity::Vector3{0, 0, angle});
+      stroke_image->SetColor({.89f, .98f, 1, 1});
+      stroke_image->SetRaycastTarget(false);
+      stroke_child->SetActive(true);
+    }
+    return object;
+  }
+
+  class UpdateBadge {
+  public:
+    bool HasActiveAnchor() const
+    {
+      auto* object    = object_.Get<unity::GameObject>();
+      auto* transform = unity::Alive(object) ? object->transform() : nullptr;
+      auto* anchor    = transform ? transform->parent() : nullptr;
+      auto* parent    = anchor ? anchor->gameObject() : nullptr;
+      return unity::Alive(parent) && parent->activeInHierarchy();
+    }
+
+    void Clear()
+    {
+      auto* object = object_.Get<unity::GameObject>();
+      if (unity::Alive(object)) {
+        object->SetActive(false);
+        unity::Destroy(object);
+      }
+      object_.Reset();
+      pip_.Reset();
+    }
+
+    void Show(bool visible, bool pending)
+    {
+      SetActive(object_, visible);
+      SetActive(pip_, pending);
+    }
+
+    void Create(unity::Component* anchor, PlayerProfileViewController* owner)
+    {
+      auto* anchor_object = unity::Alive(anchor) ? anchor->gameObject() : nullptr;
+      if (!unity::Alive(anchor_object) || !anchor_object->activeInHierarchy())
+        return;
+      auto* parent = anchor->transform();
+      auto* bounds = parent ? parent->As<unity::RectTransform>() : nullptr;
+      const auto rect = bounds ? bounds->TryCall<"get_rect", unity::Rect>() : il2cpp::CallResult<unity::Rect>{};
+      const auto size = rect ? std::min(rect.value.width, rect.value.height) : 0;
+      if (!std::isfinite(size) || size <= 0)
+        return;
+      auto* sprite = CommunityBadgeSprite();
+      if (!sprite)
+        return;
+      il2cpp::GcHandle root;
+      auto* layout = unity::CreateUiObject("Community Mod Updates", parent, root);
+      auto* object = root.Get<unity::GameObject>();
+      auto* image  = layout && object ? object->AddComponent<unity::Image>() : nullptr;
+      if (!image) {
+        if (object)
+          unity::Destroy(object);
+        return;
+      }
+      const float side = owner ? size : size * .27f;
+      const auto corner = owner ? unity::Vector2{1, .5f} : unity::Vector2{1, 0};
+      layout->Place(corner, corner, owner ? unity::Vector2{0, .5f} : unity::Vector2{1, 0}, {side, side},
+                    owner ? unity::Vector2{size * .48f, 0} : unity::Vector2{-size * .055f, size * .055f});
+      image->SetSprite(sprite);
+      image->SetPreserveAspect(true);
+      image->SetRaycastTarget(owner != nullptr);
+      auto* pip = AddUpdatePip(layout, side * .40f);
+      if (!pip || (owner && !ConnectProfileButton(object, image, owner))) {
+        unity::Destroy(object);
+        return;
+      }
+      object_ = il2cpp::GcHandle::Weak(object);
+      pip_    = il2cpp::GcHandle::Weak(pip);
+      if (!object_ || !pip_) {
+        unity::Destroy(object);
+        object_.Reset();
+        pip_.Reset();
+      }
+    }
+
+  private:
+    static void SetActive(const il2cpp::GcHandle& handle, bool visible)
+    {
+      auto* object = handle.Get<unity::GameObject>();
+      if (unity::Alive(object) && object->Get<"activeSelf", bool>() != visible)
+        object->SetActive(visible);
+    }
+
+    il2cpp::GcHandle object_, pip_;
+  };
+
+  void RefreshUpdateBadges(bool pending)
+  {
+    static auto* hud     = new UpdateBadge;
+    static auto* profile = new UpdateBadge;
+    static auto next     = Clock::time_point{};
+    const auto now       = Clock::now();
+    if (now < next)
+      return;
+    next = now + 300ms;
+    const bool can_open = mod_settings::native::CanOpenSettingsPage(updates_page);
+    const bool profile_section = can_open && Hub::CurrentSection() == SectionID::PlayerProfile;
+    const bool hud_visible = can_open && pending && Hub::IsInSystemOrGalaxyOrStarbase();
+    if (hud_visible && !hud->HasActiveAnchor()) {
+      hud->Clear();
+      auto* drawer = ScreenManager::RegisteredController<HudDrawerViewController, HudDrawerContext>();
+      if (drawer)
+        hud->Create(drawer->profileFrameAndAvatar(), nullptr);
+    }
+    if (profile_section && !profile->HasActiveAnchor()) {
+      profile->Clear();
+      auto* owner = ScreenManager::RegisteredController<PlayerProfileViewController, PlayerProfileDataContext>();
+      if (owner)
+        profile->Create(owner->avatarEditButton(), owner);
+    }
+    hud->Show(hud_visible, hud_visible);
+    profile->Show(profile_section, pending);
   }
 
   CheckResult FetchIndex(const InstalledRelease& installed)
@@ -234,47 +328,63 @@ namespace
     return entry != channel.end() && entry->is_string() ? entry->get<std::string>() : std::string{};
   }
 
+  WorkResult ReadCheckState(const InstalledRelease& installed, const std::optional<std::string>& session_ignore)
+  {
+    WorkResult work{{}, 0s, session_ignore.value_or("")};
+    if (const auto snapshot = mod_state::Read()) {
+      if (const auto* channel = FindChannelState(*snapshot, ChannelKey(installed.channel))) {
+        if (!session_ignore)
+          work.ignored_tag = StoredTag(*channel, "ignored_tag");
+        const auto entry = channel->find(available_key);
+        if (entry != channel->end() && entry->is_string())
+          work.cached = RestoreCheck(entry->get_ref<const std::string&>(), installed);
+      }
+    }
+    return work;
+  }
+
   WorkResult Check(const InstalledRelease& installed, bool automatic, std::stop_token stop,
                    const std::optional<std::string>& session_ignore)
   {
     const auto channel = ChannelKey(installed.channel);
-    bool claimed = false;
     if (automatic) {
       const auto now =
           std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+      std::chrono::seconds remaining{};
       if (const auto saved = mod_state::Read()) {
-        const auto remaining = UntilDue(*saved, channel, now);
-        if (remaining > 0s)
-          return {{}, remaining};
+        remaining = UntilDue(*saved, channel, now);
       }
 
       // Claim the daily attempt before issuing the GET across processes for this profile.
-      std::chrono::seconds remaining{};
-      claimed = mod_state::Update([&](nlohmann::json& state) {
-        remaining = UntilDue(state, channel, now);
-        if (remaining == 0s)
-          ChannelState(state, channel)["last_attempt"] = now;
-      });
-      if (remaining > 0s)
-        return {{}, remaining};
+      if (remaining == 0s) {
+        mod_state::Update([&](nlohmann::json& state) {
+          remaining = UntilDue(state, channel, now);
+          if (remaining == 0s)
+            ChannelState(state, channel)["last_attempt"] = now;
+        });
+      }
+      if (remaining > 0s) {
+        auto work       = ReadCheckState(installed, session_ignore);
+        work.retry_after = remaining;
+        work.result      = work.cached;
+        return work;
+      }
     }
     if (stop.stop_requested())
       return {};
 
-    auto        result  = FetchIndex(installed);
-    bool        notify  = false;
-    std::string ignored = session_ignore.value_or("");
-    if (!stop.stop_requested()) {
-      const auto  saved = mod_state::Read();
-      const auto* entry = saved ? FindChannelState(*saved, channel) : nullptr;
-      if (entry) {
-        if (!session_ignore)
-          ignored = StoredTag(*entry, "ignored_tag");
-        notify = claimed && result.status == CheckStatus::Available && !IsIgnoredUpdate(result, ignored)
-                 && IsNewerReleaseTag(result.tag, StoredTag(*entry, "last_offered_tag"), installed.channel);
-      }
-    }
-    return {std::move(result), 0s, notify, std::move(ignored)};
+    auto result = FetchIndex(installed);
+    if (stop.stop_requested())
+      return {};
+    // Keep the most recent successful result so the badge can return after a restart without another GET.
+    if (result.status != CheckStatus::Failed)
+      mod_state::Update([&](nlohmann::json& state) {
+        if (!stop.stop_requested())
+          ChannelState(state, channel)[available_key] = result.tag;
+      });
+    auto work   = ReadCheckState(installed, session_ignore);
+    work.result = std::move(result);
+    return work;
   }
 
   void Start(bool automatic)
@@ -298,7 +408,7 @@ namespace
       std::thread(std::move(task)).detach();
       state.pending = std::move(pending);
     } catch (const std::system_error& error) {
-      state.result = {};
+      state.check_failed = true;
       spdlog::warn("[ModUpdates] Could not start the update check: {}", error.what());
     }
     mod_settings::native::RequestPageRefresh();
@@ -311,40 +421,32 @@ namespace
     if (state.pending.valid()) {
       if (!enabled)
         state.stop.request_stop();
-      if (state.pending.wait_for(0s) != std::future_status::ready)
-        return;
-      try {
-        auto completed = state.pending.get();
-        if (completed.retry_after > 0s)
-          state.next_check = Clock::now() + completed.retry_after;
-        else if (!state.stop.stop_requested()) {
-          state.result      = std::move(completed.result);
-          state.ignored_tag = std::move(completed.ignored_tag);
-          ++state.release_generation;
-          if (completed.notify && IsNewerReleaseTag(state.result.tag, state.dispatched_notice, Installed()->channel))
-            state.queued_notice = state.result.tag;
-          else if (state.result.status != CheckStatus::Failed
-                   && (state.queued_notice != state.result.tag || IsIgnoredUpdate(state.result, state.ignored_tag)))
-            state.queued_notice.clear();
+      if (state.pending.wait_for(0s) == std::future_status::ready) {
+        try {
+          auto completed = state.pending.get();
+          if (!state.stop.stop_requested()) {
+            if (completed.retry_after > 0s)
+              state.next_check = Clock::now() + completed.retry_after;
+            state.check_failed = completed.result.status == CheckStatus::Failed;
+            if (completed.result.status == CheckStatus::Available || completed.result.status == CheckStatus::Current)
+              state.result = std::move(completed.result);
+            else if (state.result.status == CheckStatus::Idle)
+              state.result = std::move(completed.cached);
+            state.ignored_tag = std::move(completed.ignored_tag);
+            ++state.release_generation;
+          }
+        } catch (const std::exception& error) {
+          if (!state.stop.stop_requested())
+            state.check_failed = true;
+          spdlog::warn("[ModUpdates] Update check failed: {}", error.what());
         }
-      } catch (const std::exception& error) {
-        if (!state.stop.stop_requested())
-          state.result = {};
-        spdlog::warn("[ModUpdates] Update check failed: {}", error.what());
+        mod_settings::native::RequestPageRefresh();
       }
-      mod_settings::native::RequestPageRefresh();
     }
-    if (enabled && Clock::now() >= state.next_check) {
-      InitializeDesktopNotifications();
+    if (enabled && Clock::now() >= state.next_check)
       Start(true);
-    }
-    if (enabled)
-      ShowQueuedNotice();
-    else {
-      state.queued_notice.clear();
-      state.notice_target = {};
-      state.shown_notice.clear();
-    }
+    RefreshUpdateBadges(enabled && state.result.status == CheckStatus::Available
+                        && !IsIgnoredUpdate(state.result, state.ignored_tag));
   }
 } // namespace
 
@@ -379,6 +481,10 @@ std::string Status()
     return "Update checks unavailable";
   if (Checking())
     return "Checking…";
+  if (State().check_failed)
+    return State().result.status == CheckStatus::Available
+               ? "Couldn’t check · last seen " + State().result.tag.substr(1)
+               : "Couldn’t check";
   switch (State().result.status) {
     case CheckStatus::Current:
       return "Up to date";
@@ -420,8 +526,6 @@ bool SetIgnored(bool value, uint64_t generation)
   state.ignore_revision = revision;
   state.ignore_edit_tag = state.result.tag;
   state.ignored_tag     = std::move(tag);
-  if (value && state.queued_notice == state.result.tag)
-    state.queued_notice.clear();
   mod_settings::native::RequestPageRefresh();
   return true;
 }

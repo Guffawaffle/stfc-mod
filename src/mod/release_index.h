@@ -85,11 +85,12 @@ struct CheckResult {
 inline bool IsIgnoredUpdate(const CheckResult& result, std::string_view ignored_tag)
 { return result.status == CheckStatus::Available && !ignored_tag.empty() && result.tag == ignored_tag; }
 
-inline bool IsNewerReleaseTag(std::string_view tag, std::string_view previous, Channel channel)
+inline CheckResult RestoreCheck(std::string_view tag, const InstalledRelease& installed)
 {
-  const auto available = ParseReleaseTag(tag, channel);
-  const auto offered   = ParseReleaseTag(previous, channel);
-  return available && (!offered || *available > *offered);
+  const auto available = ParseReleaseTag(tag, installed.channel);
+  if (!available)
+    return {CheckStatus::Idle, {}};
+  return {*available > installed.version ? CheckStatus::Available : CheckStatus::Current, std::string(tag)};
 }
 
 inline constexpr size_t max_index_bytes = 4096;
@@ -106,12 +107,7 @@ inline CheckResult CheckIndex(std::string_view body, const InstalledRelease& ins
   const auto  entry    = channels.find(ChannelKey(installed.channel));
   if (entry == channels.end() || !entry->is_string())
     return {};
-  const auto& tag     = entry->get_ref<const std::string&>();
-  const auto  version = ParseReleaseTag(tag, installed.channel);
-  if (!version)
-    return {};
-  if (*version > installed.version)
-    return {CheckStatus::Available, tag};
-  return {CheckStatus::Current, {}};
+  auto result = RestoreCheck(entry->get_ref<const std::string&>(), installed);
+  return result.status == CheckStatus::Idle ? CheckResult{} : std::move(result);
 }
 } // namespace mod_updates

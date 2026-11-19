@@ -310,13 +310,7 @@ bool PrepareAsync()
               auto& channel = scopes[mod_updates::ChannelKey(update.channel)];
               if (!channel.is_object())
                 channel = nlohmann::json::object();
-              if (edit.group == Group::UpdateOffer) {
-                const auto last = channel.find("last_offered_tag");
-                const auto previous =
-                    last != channel.end() && last->is_string() ? last->get_ref<const std::string&>() : std::string_view{};
-                if (mod_updates::IsNewerReleaseTag(update.tag, previous, update.channel))
-                  channel["last_offered_tag"] = update.tag;
-              } else if (update.tag.empty())
+              if (update.tag.empty())
                 channel.erase("ignored_tag");
               else
                 channel["ignored_tag"] = update.tag;
@@ -334,7 +328,6 @@ bool PrepareAsync()
                      edit.group == Group::OfficerOrder   ? "Officer preset order"
                      : edit.group == Group::ShipPins     ? "Ship pin order"
                      : edit.group == Group::UpdateIgnore ? "Ignored mod update"
-                     : edit.group == Group::UpdateOffer  ? "Mod update notice"
                                                          : "Debug console opacity");
       return saved;
     });
@@ -387,26 +380,18 @@ uint64_t QueueConsoleOpacity(int percent)
     return 0;
   }
 }
-namespace
-{
-uint64_t QueueUpdateTag(Group group, std::string_view scope, mod_updates::Channel channel, std::string_view tag)
+uint64_t QueueUpdateIgnore(std::string_view scope, mod_updates::Channel channel, std::string_view tag)
 {
   auto* writer = async_writer.load(std::memory_order_acquire);
   if (!writer || !scope.starts_with("mod_update_") || scope.size() > 64 || tag.size() > 96
       || mod_updates::ChannelKey(channel).empty() || (!tag.empty() && !mod_updates::ParseReleaseTag(tag, channel)))
     return 0;
   try {
-    return writer->Submit({group, {}, {}, 0, UpdateTag{std::string(scope), std::string(tag), channel}});
+    return writer->Submit({Group::UpdateIgnore, {}, {}, 0, UpdateTag{std::string(scope), std::string(tag), channel}});
   } catch (...) {
     return 0;
   }
 }
-} // namespace
-uint64_t QueueUpdateIgnore(std::string_view scope, mod_updates::Channel channel, std::string_view tag)
-{ return QueueUpdateTag(Group::UpdateIgnore, scope, channel, tag); }
-
-uint64_t QueueUpdateOffer(std::string_view scope, mod_updates::Channel channel, std::string_view tag)
-{ return tag.empty() ? 0 : QueueUpdateTag(Group::UpdateOffer, scope, channel, tag); }
 } // namespace mod_state
 
 #ifndef MOD_STATE_FIXTURE_PATH

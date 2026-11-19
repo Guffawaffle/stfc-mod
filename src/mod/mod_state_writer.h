@@ -20,7 +20,7 @@ enum class Channel;
 
 namespace mod_state
 {
-enum class Group : size_t { OfficerOrder, ShipPins, ConsoleOpacity, UpdateIgnore, UpdateOffer, Count };
+enum class Group : size_t { OfficerOrder, ShipPins, ConsoleOpacity, UpdateIgnore, Count };
 enum class SaveOutcome { None, Pending, Saved, Failed };
 struct SaveStatus {
   uint64_t    revision = 0;

@@ -97,11 +97,11 @@ the DEV workflow publishes the exact `-dev.N` tag.
 
 Players can check from **Settings → Mod Settings → Updates**. Manual and
 optional daily checks use the installed package's channel. **View release**
-opens the release notes in the browser. An automatic check can show an in-game
-notice once per newer version. **Options** opens the Updates page, where players
-can turn automatic checks off or set **Ignore this version**. The ignore toggle
-applies to the current available version on that channel. It starts off for a
-newer version. Manual checks and **View release** remain available.
+opens the release notes in the browser. When automatic checks find an update,
+the mod badge appears across from the level on the HUD portrait. Open your
+**Player Profile** and select its mod icon to go to **Updates**. **Ignore this
+version** hides the indicator for the available release on that channel. A
+newer release brings it back. Manual checks and **View release** remain available.
 On macOS the app supplies the installed
 package identity when launching the game. A standalone dylib without that
 identity has no published update channel.
