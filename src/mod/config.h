@@ -362,6 +362,8 @@ public:
     std::vector<int>      notify_banner_types;
     bool                  notify_incoming_player_attack = false;
     FleetNotificationMask notify_fleet_events           = 0;
+
+    bool check_for_mod_updates = false;
   } ui;
 
   struct Sync {

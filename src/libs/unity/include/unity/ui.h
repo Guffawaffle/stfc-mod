@@ -57,11 +57,24 @@ struct Image : Behaviour {
   { Call<"SetVerticesDirty">(); }
 };
 
+struct UnityAction : il2cpp::Object {
+  using Class = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine.Events", "UnityAction">;
+};
+
+struct ButtonClickedEvent : il2cpp::Object {
+  using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "Button/ButtonClickedEvent">;
+
+  bool AddListener(UnityAction* callback)
+  { return static_cast<bool>(TryCall<"AddListener", void(UnityAction*)>(callback)); }
+};
+
 struct Button : Behaviour {
   using Class = il2cpp::Class<"UnityEngine.UI", "UnityEngine.UI", "Button">;
 
   void Press()
   { Call<"Press">(); }
+  ButtonClickedEvent* onClick()
+  { return Get<"onClick", ButtonClickedEvent*>(); }
 };
 
 // An independently owned CanvasGroup can suppress a control without changing the game's active state or its

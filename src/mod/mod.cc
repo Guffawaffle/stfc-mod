@@ -9,6 +9,7 @@
 #include "frame.h"
 #include "frame_callbacks.h"
 #include "installation.h"
+#include "mod_updates.h"
 #include "profile_launch.h"
 #include "reload.h"
 #include "runtime_config.h"
@@ -495,6 +496,7 @@ bool InstallFeatures(const Config& config)
           spdlog::warn("[{}] hooks installed but frame callback registration failed", feature.name);
       }
     }
+    RunGuarded("ModUpdates", mod_updates::Prepare);
     // Last, so a feature never sees a frame before it is installed. Without the tick nothing polls, and the settings
     // file is only read at startup.
     const auto frame = EnsureFrameTick();

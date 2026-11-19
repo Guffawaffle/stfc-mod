@@ -51,6 +51,9 @@ bool CurrentSettingsPage(SettingsPageController*& controller, SettingsContainerC
                          std::string_view& page);
 // Deferred until the native row callback has returned; targets remain within the same published tree.
 bool QueueSettingsPage(std::string_view page, std::string_view item, bool return_to_current = false);
+// Open the native Settings screen and select a published Mod Settings page once its controller is ready.
+bool CanOpenSettingsPage(std::string_view page);
+bool OpenSettingsPage(std::string_view page);
 bool SettingsSearchAvailable();
 bool FocusSettingsSearch();
 bool AllowsSettingsSearchAction(std::string_view id);

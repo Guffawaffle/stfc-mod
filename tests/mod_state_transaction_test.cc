@@ -279,10 +279,18 @@ void RunTransaction()
   Check(mod_state::QueueShipPins({7, 8}, {"unresolved"}));
   Check(mod_state::QueueOfficerOrder({2, 1}));
   Check(mod_state::QueueConsoleOpacity(70));
+  Check(mod_state::Update([](auto& data) {
+    data["mod_update_checks"]["pre"]["last_attempt"]    = 17;
+    data["mod_update_checks"]["pre"]["last_available_tag"] = "v1.1.9.5-guffa.8";
+    data["mod_update_checks"]["release"]["ignored_tag"] = "v1.1.9.5-guffa.9";
+  }));
+  const auto pre = mod_updates::Channel::Pre;
+  Check(mod_state::QueueUpdateIgnore("mod_update_checks", pre, "v1.1.9.5-guffa.7"));
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
   while ((mod_state::Status(mod_state::Group::ShipPins).outcome == mod_state::SaveOutcome::Pending
           || mod_state::Status(mod_state::Group::OfficerOrder).outcome == mod_state::SaveOutcome::Pending
-          || mod_state::Status(mod_state::Group::ConsoleOpacity).outcome == mod_state::SaveOutcome::Pending)
+          || mod_state::Status(mod_state::Group::ConsoleOpacity).outcome == mod_state::SaveOutcome::Pending
+          || mod_state::Status(mod_state::Group::UpdateIgnore).outcome == mod_state::SaveOutcome::Pending)
          && std::chrono::steady_clock::now() < deadline)
     std::this_thread::yield();
   Check(mod_state::Status(mod_state::Group::ConsoleOpacity).outcome == mod_state::SaveOutcome::Saved);
@@ -293,6 +301,20 @@ void RunTransaction()
   Check(!saved->at("dev_console").contains("background_opacity"));
   Check(saved->at("officer_preset_order") == nlohmann::json::array({"2", "1"}));
   Check(saved->at("pinned_ship_ids") == nlohmann::json::array({"7", "8"}));
+  Check(mod_state::Status(mod_state::Group::UpdateIgnore).outcome == mod_state::SaveOutcome::Saved);
+  Check(saved->at("mod_update_checks").at("pre").at("last_attempt") == 17);
+  Check(saved->at("mod_update_checks").at("pre").at("ignored_tag") == "v1.1.9.5-guffa.7");
+  Check(saved->at("mod_update_checks").at("release").at("ignored_tag") == "v1.1.9.5-guffa.9");
+  Check(saved->at("mod_update_checks").at("pre").at("last_available_tag") == "v1.1.9.5-guffa.8");
+  Check(mod_state::QueueUpdateIgnore("mod_update_checks", pre, ""));
+  const auto clear_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (mod_state::Status(mod_state::Group::UpdateIgnore).outcome == mod_state::SaveOutcome::Pending
+         && std::chrono::steady_clock::now() < clear_deadline)
+    std::this_thread::yield();
+  const auto cleared = mod_state::Read();
+  Check(cleared && cleared->at("mod_update_checks").at("pre").at("last_attempt") == 17);
+  Check(!cleared->at("mod_update_checks").at("pre").contains("ignored_tag"));
+  Check(cleared->at("mod_update_checks").at("pre").at("last_available_tag") == "v1.1.9.5-guffa.8");
   QuitDrainTransactions();
   Check(!mod_state::Update([](auto& data) { data["version"] = 999; }));
   std::ofstream(fixture_path) << R"({"version":999,"unrelated":"future"})";
