@@ -1,6 +1,7 @@
 // State owner ported from downstream 45d1deaffddc3706e5c8232cf746ca46ef67be91.
 // Schema, group transactions and worker admission remain unchanged; only the native File adapter is updated.
 #include "mod_state.h"
+#include "release_index.h"
 
 #ifndef MOD_STATE_FIXTURE_PATH
 #include "features/features.h"
@@ -301,7 +302,19 @@ bool PrepareAsync()
             } else if (edit.group == Group::ShipPins) {
               pinned_ship_state::WriteOrder(state, edit.ids);
               pinned_ship_state::WriteLegacyNames(state, edit.legacy_names);
-            } else {
+            } else if (edit.update_tag) {
+              const auto& update = *edit.update_tag;
+              auto&       scopes = state[update.scope];
+              if (!scopes.is_object())
+                scopes = nlohmann::json::object();
+              auto& channel = scopes[mod_updates::ChannelKey(update.channel)];
+              if (!channel.is_object())
+                channel = nlohmann::json::object();
+              if (update.tag.empty())
+                channel.erase("ignored_tag");
+              else
+                channel["ignored_tag"] = update.tag;
+            } else if (edit.group == Group::ConsoleOpacity) {
               auto& console = state["dev_console"];
               if (!console.is_object())
                 console = nlohmann::json::object();
@@ -312,9 +325,10 @@ bool PrepareAsync()
           50);
       if (!saved)
         spdlog::warn("[ModState] {} could not be saved; the failed receipt remains visible",
-                     edit.group == Group::OfficerOrder ? "Officer preset order"
-                     : edit.group == Group::ShipPins   ? "Ship pin order"
-                                                       : "Debug console opacity");
+                     edit.group == Group::OfficerOrder   ? "Officer preset order"
+                     : edit.group == Group::ShipPins     ? "Ship pin order"
+                     : edit.group == Group::UpdateIgnore ? "Ignored mod update"
+                                                         : "Debug console opacity");
       return saved;
     });
     async_writer.store(writer, std::memory_order_release);
@@ -362,6 +376,18 @@ uint64_t QueueConsoleOpacity(int percent)
     return 0;
   try {
     return writer->Submit({Group::ConsoleOpacity, {}, {}, percent});
+  } catch (...) {
+    return 0;
+  }
+}
+uint64_t QueueUpdateIgnore(std::string_view scope, mod_updates::Channel channel, std::string_view tag)
+{
+  auto* writer = async_writer.load(std::memory_order_acquire);
+  if (!writer || !scope.starts_with("mod_update_") || scope.size() > 64 || tag.size() > 96
+      || mod_updates::ChannelKey(channel).empty() || (!tag.empty() && !mod_updates::ParseReleaseTag(tag, channel)))
+    return 0;
+  try {
+    return writer->Submit({Group::UpdateIgnore, {}, {}, 0, UpdateTag{std::string(scope), std::string(tag), channel}});
   } catch (...) {
     return 0;
   }

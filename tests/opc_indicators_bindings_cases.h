@@ -303,8 +303,10 @@ void OpcIndicatorsConsumerCases(std::string_view mode)
   auto* state_pointer   = reinterpret_cast<fleet_opc_binding::StateWidget*>(&native_state);
   auto* flag_pointer    = reinterpret_cast<fleet_opc_binding::FlagWidget*>(&native_flag);
   auto& ui              = Config::Get().ui;
-  Require(!ui.highlight_opc_fleets && !ui.fleet_hud_opc_eta, "both independent OPC settings default off");
-  Opc().installed = true;
+  Require(ui.highlight_opc_fleets && ui.fleet_hud_opc_eta, "both independent OPC settings default on");
+  // The lifecycle cases start disabled before exercising each consumer independently.
+  ui.highlight_opc_fleets = ui.fleet_hud_opc_eta = false;
+  Opc().installed                                = true;
 
   if (mode == "opc-consumer-sample") {
     const auto roots = warp_roots.size();

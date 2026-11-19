@@ -31,6 +31,10 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+      - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
+        if: github.repository == 'Guffawaffle/stfc-mod'
+        with:
+          xmake-version: "3.0.8"
       - name: Stamp commit hash
         run: python scripts/stamp-version-hash.py "${{ github.sha }}"
       - name: Provision pinned sysroot when configured
@@ -49,16 +53,29 @@ jobs:
             "-Dstfc_source_state_id=git:${{ github.sha }}" `
             "-Dstfc_base_commit=${{ github.sha }}" `
             "-Dstfc_build_invocation_id=github:${{ github.run_id }}:${{ github.run_attempt }}:windows" `
-            -Dstfc_build_channel=ci
+            -Dstfc_build_channel=ci -Dprofiles=${{ github.repository == 'Guffawaffle/stfc-mod' }}
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify proxy binary contract
         run: >-
-          python scripts/verify-windows-binary.py --identity
+          python scripts/verify-windows-binary.py ${{ github.repository == 'Guffawaffle/stfc-mod' && '--profiles-host' || '' }} --identity
           "stfc-identity-v1;distribution=netniv.stfc-community-mod;source=git:${{ github.sha }};base=${{ github.sha }};build=github:${{ github.run_id }}:${{ github.run_attempt }}:windows;mode=release;channel=ci"
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: stfc-community-mod
           path: zig-out/bin/version.dll
+          if-no-files-found: error
+      - name: Stage matching Profiles helper and notices
+        if: github.repository == 'Guffawaffle/stfc-mod'
+        shell: pwsh
+        run: |
+          python scripts/windows-profiles-package.py stage --prefix zig-out --output profiles-windows `
+            --source "${{ github.sha }}" --base "${{ github.sha }}" --run "${{ github.run_id }}:${{ github.run_attempt }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7.0.1
+        if: github.repository == 'Guffawaffle/stfc-mod'
+        with:
+          name: stfc-community-mod-profiles-windows
+          path: profiles-windows
           if-no-files-found: error
 
   cross-win:
@@ -123,6 +140,7 @@ jobs:
         run: |
           python3 scripts/ci-build-retry.py -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
             -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all \
+            -Dprofiles=${{ github.repository == 'Guffawaffle/stfc-mod' }} \
             -Dlauncher_channel=ci \
             -Dlauncher_source=${{ github.sha }} \
             -Dlauncher_run_id=${{ github.run_id }} \
@@ -132,6 +150,9 @@ jobs:
         run: |
           scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \
             zig-out/bin/stfc-community-mod-loader zig-out/lib/libstfc-community-mod.dylib
+          if [[ "$GITHUB_REPOSITORY" == Guffawaffle/stfc-mod ]]; then
+            scripts/check-mac-linkage.sh zig-out/bin/stfc-profiles
+          fi
       - name: Retain native-detour fixture for architecture qualification
         if: ${{ always() }}
         uses: actions/upload-artifact@v7.0.1
@@ -146,8 +167,11 @@ jobs:
       # The install prefix as scripts/assemble-mac-app.sh expects it.
       - name: Package intermediate build
         run: |
-          tar -cf macos-${{ matrix.arch }}-build.tar -C zig-out \
-            macOSLauncher.app bin/stfc-community-mod-loader lib/libstfc-community-mod.dylib
+          payload=(macOSLauncher.app bin/stfc-community-mod-loader lib/libstfc-community-mod.dylib)
+          if [[ "$GITHUB_REPOSITORY" == Guffawaffle/stfc-mod ]]; then
+            payload+=(bin/stfc-profiles share/stfc-profiles)
+          fi
+          tar -cf macos-${{ matrix.arch }}-build.tar -C zig-out "${payload[@]}"
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: ${{ matrix.artifact }}
@@ -260,6 +284,10 @@ jobs:
             echo "$binary: $archs"
             [[ " $archs " == *" arm64 "* && " $archs " == *" x86_64 "* ]]
           done
+          if [[ "$GITHUB_REPOSITORY" == Guffawaffle/stfc-mod ]]; then
+            lipo "$APP/Contents/stfc-profiles" -verify_arch arm64 x86_64
+            test -s "$APP/Contents/Resources/notices/profiles/source.txt"
+          fi
 
       - name: Install packaging tools
         shell: bash
@@ -278,7 +306,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p stfc-community-mod-macos-universal
-          tar -cf - -C "zig-out/staging/STFC Community Mod.app/Contents" libstfc-community-mod.dylib \
+          mkdir -p zig-out/standalone
+          cp "zig-out/staging/STFC Community Mod.app/Contents/libstfc-community-mod.dylib" zig-out/standalone/
+          archive_members=(libstfc-community-mod.dylib)
+          if [[ "$GITHUB_REPOSITORY" == Guffawaffle/stfc-mod ]]; then
+            cp "zig-out/staging/STFC Community Mod.app/Contents/stfc-profiles" zig-out/standalone/
+            cp -R "zig-out/staging/STFC Community Mod.app/Contents/Resources/notices" zig-out/standalone/notices
+            archive_members+=(stfc-profiles notices)
+          fi
+          tar -cf - -C zig-out/standalone "${archive_members[@]}" \
             | zstd -15 -T0 -o stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst
           shasum -a 256 stfc-community-mod-macos-universal/stfc-community-mod-macos-universal.tar.zst \
             | awk '{print $1}' \

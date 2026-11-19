@@ -5,6 +5,7 @@
 #include "mod_state_writer.h"
 #include <functional>
 #include <optional>
+#include <string_view>
 
 namespace mod_state
 {
@@ -31,5 +32,6 @@ void ResumeAfterQuitVeto();
 uint64_t   QueueOfficerOrder(const std::vector<int64_t>& order);
 uint64_t   QueueShipPins(const std::vector<int64_t>& ids, const std::vector<std::string>& legacy_names);
 uint64_t   QueueConsoleOpacity(int percent);
+uint64_t   QueueUpdateIgnore(std::string_view scope, mod_updates::Channel channel, std::string_view tag);
 SaveStatus Status(Group group);
 } // namespace mod_state

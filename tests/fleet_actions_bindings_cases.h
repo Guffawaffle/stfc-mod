@@ -77,6 +77,103 @@ void FleetMissionPress(FleetMissionButton* button, const MethodInfo*)
 void FleetNormalPress(Il2CppObject*, const MethodInfo*)
 { ++fleet_normal_presses; }
 
+struct FleetGuardList {
+  Il2CppObject header{};
+  int32_t      count = 0, reads = 0;
+  bool         throws = false;
+};
+struct FleetGuardQueue {
+  Il2CppObject    header{};
+  int64_t         fleet   = 999;
+  FleetGuardList* actions = nullptr;
+};
+struct FleetGuardVector {
+  Il2CppObject                    header{};
+  Il2CppArrayBounds*              bounds = nullptr;
+  il2cpp_array_size_t             size   = 2;
+  std::array<FleetGuardQueue*, 2> items{};
+};
+struct FleetGuardManager {
+  Il2CppObject      header{};
+  FleetGuardVector* queues = nullptr;
+};
+struct FleetGuardPanel {
+  Il2CppObject     header{};
+  FleetPlayerData* fleet = nullptr;
+};
+struct FleetGuardBar {
+  Il2CppObject     header{};
+  FleetGuardPanel* panel = nullptr;
+};
+struct FleetGuardTarget {
+  Il2CppObject  header{};
+  Il2CppObject* deployed = nullptr;
+};
+struct FleetGuardPreScan {
+  Il2CppObject           header{};
+  FleetNativeVisibility* visibility   = nullptr;
+  Il2CppObject*          buttons      = nullptr;
+  Il2CppObject*          queue_button = nullptr;
+};
+struct FleetGuardQueueButton {
+  Il2CppObject          header{};
+  FleetMissionListener* listener = nullptr;
+};
+struct FleetGuardCourse {
+  Il2CppObject           header{};
+  FleetNativeVisibility* visibility = nullptr;
+  FleetMissionListener*  join       = nullptr;
+};
+FleetGuardManager* fleet_guard_manager      = nullptr;
+FleetGuardList*    fleet_guard_actions      = nullptr;
+FleetGuardTarget*  fleet_guard_target       = nullptr;
+Il2CppObject*      fleet_guard_hull         = nullptr;
+int32_t            fleet_guard_index        = 0;
+bool               fleet_guard_index_throws = false;
+int                fleet_guard_enqueues = 0, fleet_guard_clears = 0, fleet_guard_scans = 0;
+
+int32_t FleetGuardCount(FleetGuardList* list, const MethodInfo*)
+{
+  ++list->reads;
+  if (list->throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return list->count;
+}
+int32_t FleetGuardIndex(FleetPlayerData*, const MethodInfo*)
+{
+  if (fleet_guard_index_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return fleet_guard_index;
+}
+FleetPlayerData* FleetGuardSelected(FleetGuardPanel* panel, const MethodInfo*)
+{ return panel->fleet; }
+ActionQueueManager* FleetGuardInstance(const MethodInfo*)
+{ return reinterpret_cast<ActionQueueManager*>(fleet_guard_manager); }
+bool FleetGuardUnlocked(ActionQueueManager*, const MethodInfo*)
+{ return true; }
+bool FleetGuardFull(ActionQueueManager*, FleetPlayerData*, const MethodInfo*)
+{ return false; }
+void FleetGuardClear(ActionQueueManager*, FleetPlayerData*, const MethodInfo*)
+{
+  ++fleet_guard_clears;
+  fleet_guard_actions->count = 0;
+}
+void FleetGuardEnqueue(FleetMissionButton* button, const MethodInfo*)
+{
+  if (button->interactable) {
+    ++fleet_guard_enqueues;
+    ++fleet_guard_actions->count;
+  }
+}
+BattleTargetData* FleetGuardContext(Il2CppObject*, const MethodInfo*)
+{ return reinterpret_cast<BattleTargetData*>(fleet_guard_target); }
+HullSpec* FleetGuardHull(FleetDeployedData*, const MethodInfo*)
+{ return reinterpret_cast<HullSpec*>(fleet_guard_hull); }
+HullType FleetGuardHullType(HullSpec*, const MethodInfo*)
+{ return HullType::Destroyer; }
+void FleetGuardScan(ScanEngageButtonsWidget*, const MethodInfo*)
+{ ++fleet_guard_scans; }
+
 void FleetMissionCases()
 {
   auto&       behaviour = Define("UnityEngine", "Behaviour", IL2CPP_TYPE_CLASS, &component_class);
@@ -197,16 +294,25 @@ void FleetNativeCases()
   auto& visibility  = Define("Digit.Client.UI", "VisibilityController", IL2CPP_TYPE_CLASS, &object_class);
   auto& viewer      = Define("Digit.Prime.Combat", "PreScanTargetWidget", IL2CPP_TYPE_CLASS, &viewer_base);
   auto& mine        = Define("Digit.Prime.ObjectViewer", "MiningObjectViewerWidget", IL2CPP_TYPE_CLASS, &viewer_base);
+  auto& native_behaviour = Define("UnityEngine", "Behaviour", IL2CPP_TYPE_CLASS, &component_class);
+  AddMethod(native_behaviour, "get_isActiveAndEnabled", reinterpret_cast<void*>(&FleetMissionActive), T(bool_class),
+            {});
+  AddProperty(native_behaviour, "isActiveAndEnabled", native_behaviour.methods.back());
+  auto& generic_button = Define("Digit.Client.UI", "GenericButtonWidget", IL2CPP_TYPE_CLASS, &native_behaviour);
+  auto& scan_buttons   = Define("Digit.Prime.Combat", "ScanEngageButtonsWidget", IL2CPP_TYPE_CLASS, &native_behaviour);
+  AddField(viewer, "_scanEngageButtonsWidget", scan_buttons, offsetof(FleetGuardPreScan, buttons));
+  AddField(viewer, "_addToQueueButtonWidget", generic_button, offsetof(FleetGuardPreScan, queue_button));
   AddField(viewer_base, "_visibilityController", visibility, offsetof(FleetNativeViewer, visibility));
   AddField(visibility, "_state", int_class, offsetof(FleetNativeVisibility, state));
   AddMethod(mine, "MineClicked", reinterpret_cast<void*>(&FleetNativeMine), T(void_class), {});
   AddMethod(viewer_base, "HideAllViewers", reinterpret_cast<void*>(&FleetNativeHide), T(void_class), {});
   AddMethod(target, "get_TargetID", reinterpret_cast<void*>(&FleetNativeTarget), T(long_class), {});
-  Il2CppObject target_object{&target.klass}, viewer_object{&viewer.klass};
-  auto*        context     = reinterpret_cast<BattleTargetData*>(&target_object);
-  auto*        card        = reinterpret_cast<PreScanTargetWidget*>(&viewer_object);
-  input_frame              = 100;
-  const auto before_replay = warp_roots.size();
+  Il2CppObject      target_object{&target.klass};
+  FleetGuardPreScan viewer_object{{&viewer.klass}};
+  auto*             context = reinterpret_cast<BattleTargetData*>(&target_object);
+  auto*             card    = reinterpret_cast<PreScanTargetWidget*>(&viewer_object);
+  input_frame               = 100;
+  const auto before_replay  = warp_roots.size();
   DeferFleetPress({.queue = true}, fleet, card, context);
   Require(pending_replay && pending_replay->press.queue && !pending_replay->press.primary
               && warp_roots.size() == before_replay + 3,
@@ -241,6 +347,148 @@ void FleetNativeCases()
           "first Escape dismissal preserves source viewer-type precedence");
   Require(TargetViewers::HideFirst() && scan_visibility.state == VisibilityState::Hidden,
           "next dismissal reaches the underlying pre-scan instead of closing both layers");
+  fleet_native_widgets.clear();
+
+  // Exercise the production dispatcher against selected-slot queue storage and native controls.
+  auto& bar          = Define("Digit.Prime.HUD", "FleetBarViewController", IL2CPP_TYPE_CLASS, &object_class);
+  auto& manager      = Define("Prime.ActionQueue", "ActionQueueManager", IL2CPP_TYPE_CLASS, &object_class);
+  auto& queue_type   = Define("Prime.ActionQueue", "ActionQueueInstance", IL2CPP_TYPE_CLASS, &object_class);
+  auto& queue_list   = Define("Fixture", "PrimaryQueueList", IL2CPP_TYPE_CLASS, &object_class);
+  auto& queue_vector = Define("Fixture", "PrimaryQueueVector", IL2CPP_TYPE_SZARRAY, &array_class);
+  queue_vector.klass.byval_arg.data.type = T(queue_type);
+  AddField(bar, "_fleetPanelController", panel, offsetof(FleetGuardBar, panel));
+  AddMethod(panel, "get_fleet", reinterpret_cast<void*>(&FleetGuardSelected), T(fleet_data_class), {});
+  AddProperty(panel, "fleet", panel.methods.back());
+  AddMethod(fleet_data_class, "get_Index", reinterpret_cast<void*>(&FleetGuardIndex), T(int_class), {});
+  AddProperty(fleet_data_class, "Index", fleet_data_class.methods.back());
+  AddField(queue_type, "<PlayerFleetId>k__BackingField", long_class, offsetof(FleetGuardQueue, fleet));
+  AddField(queue_type, "_actionQueue", queue_list, offsetof(FleetGuardQueue, actions));
+  AddField(manager, "_battleQueue", queue_vector, offsetof(FleetGuardManager, queues));
+  manager.fields.back().type = T(queue_vector);
+  AddMethod(queue_list, "get_Count", reinterpret_cast<void*>(&FleetGuardCount), T(int_class), {});
+  AddMethod(manager, "get_Instance", reinterpret_cast<void*>(&FleetGuardInstance), T(manager), {},
+            METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(manager, "Instance", manager.methods.back());
+  AddMethod(manager, "ClearQueue", reinterpret_cast<void*>(&FleetGuardClear), T(void_class), {T(fleet_data_class)});
+  AddMethod(manager, "IsQueueUnlocked", reinterpret_cast<void*>(&FleetGuardUnlocked), T(bool_class), {});
+  AddMethod(manager, "IsQueueFull", reinterpret_cast<void*>(&FleetGuardFull), T(bool_class), {T(fleet_data_class)});
+
+  auto& button = Define("UnityEngine.UI", "Button", IL2CPP_TYPE_CLASS, &native_behaviour);
+  AddMethod(button, "Press", reinterpret_cast<void*>(&FleetGuardEnqueue), T(void_class), {});
+  auto& listener = Define("Digit.Client.UI", "SemaphoreButtonListener", IL2CPP_TYPE_CLASS, &component_class);
+  AddField(listener, "_button", button, offsetof(FleetMissionListener, button));
+  auto& course = Define("Digit.Prime.Navigation", "SetCourseWidget", IL2CPP_TYPE_CLASS, &native_behaviour);
+  AddField(course, "_visibilityController", visibility, offsetof(FleetGuardCourse, visibility));
+  AddField(course, "_joinWaveDefenseButton", listener, offsetof(FleetGuardCourse, join));
+  auto& mission = Define("Digit.Prime.Navigation", "MissionLocationWidget", IL2CPP_TYPE_CLASS, &native_behaviour);
+  auto& navigation =
+      Define("Digit.Prime.Navigation", "NavigationInteractionUIViewController", IL2CPP_TYPE_CLASS, &component_class);
+  AddField(navigation, "_setCourseWidget", course, offsetof(FleetMissionNavigation, course));
+  AddField(navigation, "_missionLocationWidget", mission, offsetof(FleetMissionNavigation, mission));
+  AddMethod(navigation, "OnSetCourseButtonClick", reinterpret_cast<void*>(&FleetNormalPress), T(void_class), {});
+
+  FleetGuardList  own_actions{{&queue_list.klass}, 16}, other_actions{{&queue_list.klass}, 16};
+  FleetGuardQueue own_queue{{&queue_type.klass}, 999, &own_actions},
+      other_queue{{&queue_type.klass}, 1000, &other_actions};
+  FleetGuardVector       native_queues{{&queue_vector.klass}, nullptr, 2, {&own_queue, &other_queue}};
+  FleetGuardManager      native_manager{{&manager.klass}, &native_queues};
+  FleetGuardPanel        native_panel{{&panel.klass}, fleet};
+  FleetGuardBar          native_bar{{&bar.klass}, &native_panel};
+  FleetNativeVisibility  course_visibility{{&visibility.klass}, VisibilityState::Visible};
+  FleetGuardCourse       native_course{{&course.klass}, &course_visibility};
+  FleetMissionNavigation native_navigation{
+      {&navigation.klass}, nullptr, reinterpret_cast<FleetNativeViewer*>(&native_course)};
+  fleet_guard_manager                     = &native_manager;
+  fleet_guard_actions                     = &own_actions;
+  fleet_native_widgets[&bar.klass]        = {&native_bar.header};
+  fleet_native_widgets[&navigation.klass] = {&native_navigation.header};
+  fleet_native_state                      = FleetState::IdleInSpace;
+  auto& protect_queue                     = Config::Get().control.primary_protects_queue;
+  Require(!protect_queue, "primary queue protection remains opt-in by default");
+  const auto moves_before = fleet_normal_presses;
+  ActOnSelectedFleet({.primary = true});
+  Require(fleet_normal_presses == moves_before + 1 && own_actions.reads == 0 && other_actions.reads == 0,
+          "disabled protection preserves primary movement without inspecting queues");
+  protect_queue = true;
+  for (const int32_t count : {1, 16}) {
+    own_actions.count = count;
+    const auto reads  = own_actions.reads;
+    ActOnSelectedFleet({.primary = true});
+    Require(fleet_normal_presses == moves_before + 1 && own_actions.reads == reads + 1 && other_actions.reads == 0,
+            "one or many selected-fleet targets suppress primary with one count read and no other-slot scan");
+  }
+  ActOnSelectedFleet({.secondary = true});
+  Require(own_actions.reads == 2, "non-primary input performs no queue observation");
+  own_actions.count = 0;
+  ActOnSelectedFleet({.primary = true});
+  Require(fleet_normal_presses == moves_before + 2 && other_actions.reads == 0,
+          "another fleet's nonempty queue does not block the empty selected queue");
+  own_actions.count           = 16;
+  own_queue.fleet             = 1000;
+  const auto mismatched_reads = own_actions.reads;
+  ActOnSelectedFleet({.primary = true});
+  Require(fleet_normal_presses == moves_before + 3 && own_actions.reads == mismatched_reads,
+          "a rebound slot with a different owner cannot block the selected fleet");
+  own_queue.fleet = 999;
+  for (const int32_t count : {-1, 0}) {
+    own_actions.count = count;
+    ActOnSelectedFleet({.primary = true});
+  }
+  own_actions.throws = true;
+  ActOnSelectedFleet({.primary = true});
+  own_actions.throws = false;
+  Require(fleet_normal_presses == moves_before + 6, "negative, empty and unavailable counts preserve native primary");
+  own_actions.count = 16;
+  fleet_guard_index = 2;
+  ActOnSelectedFleet({.primary = true});
+  fleet_guard_index        = 0;
+  fleet_guard_index_throws = true;
+  ActOnSelectedFleet({.primary = true});
+  fleet_guard_index_throws = false;
+  Require(fleet_normal_presses == moves_before + 8, "out-of-range and unavailable selected slots preserve primary");
+  const auto clear_reads = own_actions.reads;
+  ActOnSelectedFleet({.queue_clear = true});
+  Require(fleet_guard_clears == 1 && own_actions.count == 0 && own_actions.reads == clear_reads,
+          "explicit queue clearing remains available and does not inspect the queue as primary input");
+
+  // The shared primary/queue chord must still press the native add-to-queue control.
+  AddField(generic_button, "_semaphoreButtonListener", listener, offsetof(FleetGuardQueueButton, listener));
+  AddMethod(scan_buttons, "get_Context", reinterpret_cast<void*>(&FleetGuardContext), T(target), {});
+  AddProperty(scan_buttons, "Context", scan_buttons.methods.back());
+  AddMethod(scan_buttons, "OnScanButtonClicked", reinterpret_cast<void*>(&FleetGuardScan), T(void_class), {});
+  auto& deployed    = Define("Digit.PrimeServer.Models", "FleetDeployedData", IL2CPP_TYPE_CLASS, &object_class);
+  auto& hull        = Define("Digit.PrimeServer.Models", "HullSpec", IL2CPP_TYPE_CLASS, &object_class);
+  auto& hull_type   = Define("Digit.PrimeServer.Models", "HullType", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  hull_type.is_enum = true;
+  AddField(target, "TargetFleetDeployedData", deployed, offsetof(FleetGuardTarget, deployed));
+  AddMethod(deployed, "get_Hull", reinterpret_cast<void*>(&FleetGuardHull), T(hull), {});
+  AddProperty(deployed, "Hull", deployed.methods.back());
+  AddMethod(hull, "get_Type", reinterpret_cast<void*>(&FleetGuardHullType), T(hull_type), {});
+  AddProperty(hull, "Type", hull.methods.back());
+  Il2CppObject          native_deployed{&deployed.klass}, native_hull{&hull.klass}, native_buttons{&scan_buttons.klass};
+  FleetGuardTarget      native_target{{&target.klass}, &native_deployed};
+  FleetMissionButton    native_button{{&button.klass}};
+  FleetMissionListener  native_listener{{&listener.klass}, &native_button};
+  FleetGuardQueueButton native_queue_button{{&generic_button.klass}, &native_listener};
+  FleetNativeVisibility target_visibility{{&visibility.klass}, VisibilityState::Visible};
+  FleetGuardPreScan     native_scan{{&viewer.klass}, &target_visibility, &native_buttons, &native_queue_button.header};
+  fleet_guard_target                  = &native_target;
+  fleet_guard_hull                    = &native_hull;
+  fleet_native_widgets[&viewer.klass] = {&native_scan.header};
+  own_actions.count                   = 16;
+  ActOnSelectedFleet({.primary = true, .queue = true, .recall_cancel = true});
+  Require(fleet_guard_enqueues == 1 && own_actions.count == 17 && fleet_normal_presses == moves_before + 8,
+          "shared primary/queue binding still adds a target without moving or cancelling an idle fleet");
+  target_visibility.state = VisibilityState::Visible;
+  const auto scan_reads   = own_actions.reads;
+  ActOnSelectedFleet({.secondary = true});
+  Require(fleet_guard_scans == 1 && own_actions.reads == scan_reads,
+          "secondary target scanning remains independent of queue protection");
+  protect_queue       = false;
+  fleet_guard_manager = nullptr;
+  fleet_guard_actions = nullptr;
+  fleet_guard_target  = nullptr;
+  fleet_guard_hull    = nullptr;
   fleet_native_widgets.clear();
   std::cout << "Fleet production repair/helper request order and native rejection passed\n";
 }

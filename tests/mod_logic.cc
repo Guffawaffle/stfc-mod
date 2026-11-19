@@ -88,7 +88,7 @@ void ShipHints()
   Check(Shortcut::Hint(ship_hint(Action::kSelectShip7)).empty(),
         "Unbound ship selection must not advertise a working shortcut");
   Shortcut::Bindings custom{};
-  custom[std::to_underlying(Action::kSelectShip6)].push_back(KeyChord::Parse("CTRL-F8"));
+  custom.actions[std::to_underlying(Action::kSelectShip6)].push_back(KeyChord::Parse("CTRL-F8"));
   Shortcut::Set(std::move(custom));
   Check(Shortcut::Hint(ship_hint(Action::kSelectShip7)) == "^F8",
         "Gapped ship hint must use the actual custom binding, not a hardcoded number");
@@ -325,6 +325,33 @@ void AbilityRecoveryPatch()
     }
 }
 
+void AllianceGamesResearchSetting()
+{
+  toml::table effective;
+  const auto  defaults = Config::Parse({}, effective, false);
+  Check(defaults->ui.show_alliance_games_research && defaults->patches.alliancegamesstorehooks
+            && effective["ui"]["show_alliance_games_research"].value<bool>() == true,
+        "missing Alliance Games research preference preserves the released enabled behavior and hook default");
+  for (const auto invalid : {"[]", "'false'"}) {
+    const auto parsed =
+        Config::Parse(toml::parse(std::string("[ui]\nshow_alliance_games_research=") + invalid), effective, false);
+    Check(parsed->ui.show_alliance_games_research && parsed->patches.alliancegamesstorehooks
+              && effective["ui"]["show_alliance_games_research"].value<bool>() == true,
+          "mistyped research preferences retain the enabled default and truthful effective setting");
+  }
+  for (bool hooks : {false, true})
+    for (bool research : {false, true}) {
+      toml::table input{{"patches", toml::table{{"alliancegamesstorehooks", hooks}}},
+                        {"ui", toml::table{{"show_alliance_games_research", research}}}};
+      const auto  parsed = Config::Parse(input, effective, false);
+      Check(parsed->ui.show_alliance_games_research == research && parsed->patches.alliancegamesstorehooks == hooks,
+            "research visibility and Alliance Games hook installation parse independently");
+      Check(effective["ui"]["show_alliance_games_research"].value<bool>() == research
+                && effective["patches"]["alliancegamesstorehooks"].value<bool>() == hooks,
+            "effective configuration preserves explicit research opt-out and the independent emergency switch");
+    }
+}
+
 void MiningPreviewControls()
 {
   toml::table effective;
@@ -369,6 +396,23 @@ void MiningPreviewControls()
   Check(Shortcut::Describe(Action::kCycleMiningPreview) == "F7" && Shortcut::Describe(Action::kActionView) == "CMD-F8"
             && Value(inherited, "shortcuts_source", "cycle_mining_preview") == "config",
         "an explicit mining shortcut overrides inheritance without changing the legacy action");
+
+  Load("");
+  const std::array first_view{std::string("F7")};
+  Check(Shortcut::Replace(Action::kActionView, first_view, Shortcut::Read(Action::kActionView).generation)
+            && Shortcut::Describe(Action::kCycleMiningPreview) == "F7",
+        "an inherited mining shortcut follows a live target-details edit before any explicit binding exists");
+  Load("[shortcuts]\naction_view='F7'\n");
+  Check(Shortcut::Describe(Action::kCycleMiningPreview) == "F7",
+        "the first target-details edit resolves identically after reload");
+  const std::array mining_only{std::string("F8")};
+  Check(Shortcut::Replace(Action::kCycleMiningPreview, mining_only,
+                          Shortcut::Read(Action::kCycleMiningPreview).generation),
+        "editing the inherited mining action creates an independent binding");
+  const std::array next_view{std::string("F9")};
+  Check(Shortcut::Replace(Action::kActionView, next_view, Shortcut::Read(Action::kActionView).generation)
+            && Shortcut::Describe(Action::kCycleMiningPreview) == "F8",
+        "later target-details edits leave an explicit mining binding alone");
 }
 
 void LoadingArtworkPolicy()
@@ -468,7 +512,7 @@ void ExampleSettings()
       };
   compare(example, &effective, "");
 
-  Check(config->graphics.ui_scale > 0.0f, "example values are applied");
+  Check(config->graphics.ui_scale == 0.0f, "example selects the game's own interface scale");
   Check(config->ui.hud_q_trials == MissionHudVisibility::kAuto
             && config->ui.hud_field_training == MissionHudVisibility::kAuto
             && config->ui.hud_outposts == MissionHudVisibility::kAuto
@@ -564,10 +608,10 @@ void UpstreamSettings()
 {
   toml::table effective;
   const auto  defaults = Config::Parse(toml::table{}, effective, false);
-  Check(!defaults->graphics.galaxy_extended_selection && !defaults->graphics.galaxy_multi_select
-            && !defaults->graphics.galaxy_station_housing && !defaults->graphics.galaxy_starbase_systems
+  Check(defaults->graphics.galaxy_extended_selection && defaults->graphics.galaxy_multi_select
+            && defaults->graphics.galaxy_station_housing && defaults->graphics.galaxy_starbase_systems
             && defaults->graphics.galaxy_overlays[0],
-        "Galaxy optional behavior and Default layer retain PLAY defaults");
+        "Galaxy helpers default on while the Default layer remains selected");
   const auto galaxy = Config::Parse(toml::parse(R"(
     [graphics]
     galaxy_extended_selection = true
@@ -731,8 +775,26 @@ void UpstreamSettings()
 void FrozenSettingsDefaults()
 {
   // Both immutable default fixtures live beside one another. No game settings are opened.
-  const auto expected = toml::parse_file(
+  const auto legacy = toml::parse_file(
       (std::filesystem::path(STFC_SHORTCUT_DEFAULTS).parent_path() / "config_defaults_frozen.toml").string());
+  // Overlay the approved downstream defaults without rewriting the historical loader fixture.
+  const auto downstream = toml::parse(R"(
+    [graphics]
+    ui_scale = 0.0
+    galactic_anomaly_timer = true
+    galaxy_extended_selection = true
+    galaxy_station_housing = true
+    galaxy_starbase_systems = true
+    galaxy_multi_select = true
+    [ui]
+    highlight_opc_fleets = true
+    fleet_hud_opc_eta = true
+    allow_officer_preset_reordering = true
+  )");
+  auto       expected   = legacy;
+  for (const auto& [section, values] : downstream)
+    for (const auto& [key, value] : *values.as_table())
+      expected[section].as_table()->insert_or_assign(key.str(), value);
   const auto matches = [](const toml::node& wanted, const toml::node* actual) {
     if (!actual)
       return false;
@@ -760,11 +822,21 @@ void FrozenSettingsDefaults()
         const bool same = matches(wanted, effective[section][key].node());
         if (!same)
           std::cerr << "frozen settings default differs: " << section << '.' << key << '\n';
-        Check(same, "actual frozen loader defaults survive missing and mistyped settings");
+        Check(same, "historical defaults with approved downstream changes survive missing and mistyped settings");
       }
     Check(!candidate->graphics.galaxy_overlays[1] && candidate->graphics.galaxy_overlays[0]
               && candidate->patches.navigationorbithooks && candidate->graphics.system_camera_orbit,
           "source overlay fallback and default-enabled system rotation stay distinct");
+  }
+  {
+    auto saved = legacy;
+    saved["graphics"].as_table()->insert_or_assign("galaxy_starbase_systems", false);
+    toml::table effective;
+    (void)Config::Parse(saved, effective, false);
+    for (const auto& [section, values] : downstream)
+      for (const auto& [key, value] : *values.as_table())
+        Check(matches(*saved[section][key].node(), effective[section][key].node()),
+              "explicit saved scale and opt-outs take precedence over new downstream defaults");
   }
   {
     toml::table parsed;
@@ -1118,6 +1190,7 @@ int main()
   DefaultBindings();
   Loading();
   AbilityRecoveryPatch();
+  AllianceGamesResearchSetting();
   MiningPreviewControls();
   LoadingArtworkPolicy();
   ExampleSettings();

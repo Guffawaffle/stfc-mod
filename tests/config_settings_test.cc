@@ -8,6 +8,7 @@
 #include "features/notifications.h"
 #include "file.h"
 #include "frame.h"
+#include "mod_updates.h"
 #include "runtime_config.h"
 #include "settings/config_settings.h"
 #include "settings/confirmation_settings.h"
@@ -113,6 +114,32 @@ mod_settings::ActionSetting& ShortcutRow(Action action, std::string_view suffix)
   std::abort();
 }
 } // namespace
+
+namespace mod_updates
+{
+bool Available()
+{ return false; }
+bool Checking()
+{ return false; }
+void             CheckNow() {}
+std::string_view InstalledVersion()
+{ return "1.1.9.5-guffa.9 · Release"; }
+std::string Status()
+{ return "Update checks unavailable"; }
+bool HasRelease()
+{ return false; }
+void ViewRelease() {}
+bool Ignored()
+{ return false; }
+bool IgnoreAvailable()
+{ return false; }
+uint64_t ReleaseGeneration()
+{ return 0; }
+bool SetIgnored(bool, uint64_t)
+{ return false; }
+mod_settings::SaveStatus IgnoreSaveStatus()
+{ return {}; }
+} // namespace mod_updates
 
 bool FrameDeliveryAvailable() noexcept
 {
@@ -302,12 +329,26 @@ int main()
         "catalog registration is stable and never loads, mutates or saves live configuration");
   Check(frame_queries == 0 && frame_registrations == 0 && picker_opens == 0,
         "loading image catalog registration does not acquire native or worker services");
+  auto* auto_update = Find<BooleanSetting>(catalog, "ui.check_for_mod_updates");
+  Check(auto_update && auto_update->default_value() == false && !auto_update->Observe().state.known(),
+        "automatic update checks default off and require an eligible package");
   Check(registered.contains("control.hotkeys_extended") && registered.contains("audio.alert_fleet_miner_opc")
             && registered.contains("graphics.galaxy_label_minor_threshold"),
         "original control keys register with the existing writer");
   auto* cargo = Find<BooleanSetting>(catalog, "ui.show_player_cargo");
   Check(cargo && !cargo->Observe().state.known() && path_reads == 0,
         "unavailable owners stay unavailable without initializing Config");
+  auto* research           = Find<BooleanSetting>(catalog, "ui.show_alliance_games_research");
+  bool  research_on_claims = false;
+  for (const auto& page : catalog.RegisteredPages())
+    if (page.id == "community_mod.claims" && page.label == "Claims & Confirmations")
+      for (auto* setting : page.Controls<BooleanSetting>())
+        research_on_claims |= setting == research;
+  Check(research && research_on_claims && research->label() == "Show View Research in Alliance Games Store"
+            && research->metadata().timing == ApplyTiming::Live && research->default_value() == true
+            && registered.contains("ui.show_alliance_games_research") && !research->Observe().state.known()
+            && path_reads == 0,
+        "research visibility registers its default-on live Claims control without initializing an unavailable owner");
   Enable("Hotkeys");
   Enable("UiScale");
   Enable("Zoom");
@@ -372,12 +413,40 @@ int main()
         "writer conflicts remain visible through the model");
   conflict = false;
 
+  Check(!research->Observe().state.known(), "unrelated ready features cannot expose the Alliance Games control");
+  Enable("AllianceGamesStore");
+  Check(research->Observe().state.value == true && Config::Get().patches.alliancegamesstorehooks,
+        "installed Alliance Games owner exposes the enabled research preference");
+  const auto research_save_calls = save_calls;
+  const auto research_saved_keys = saved.size();
+  Check(research->SetFromUser(false, research->Observe()).outcome == Outcome::AppliedVerified
+            && !Config::Get().ui.show_alliance_games_research && Config::Get().patches.alliancegamesstorehooks
+            && std::get<bool>(saved.at("ui.show_alliance_games_research")) == false
+            && !saved.contains("patches.alliancegamesstorehooks") && saved.size() == research_saved_keys + 1
+            && save_calls == research_save_calls + 1,
+        "live research opt-out persists only its UI key without changing the installed hook switch");
+  features.back().state = InstallState::kNotAttempted;
+  Check(!research->Observe().state.known()
+            && research->SetFromUser(true, research->Observe()).outcome == Outcome::Rejected
+            && !Config::Get().ui.show_alliance_games_research && save_calls == research_save_calls + 1,
+        "lost Alliance Games ownership rejects changes without rewriting the preference or persistence");
+  features.back().state = InstallState::kInstalled;
+  Check(research->Reset(research->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().ui.show_alliance_games_research && Config::Get().patches.alliancegamesstorehooks
+            && std::get<bool>(saved.at("ui.show_alliance_games_research")) == true
+            && !saved.contains("patches.alliancegamesstorehooks") && saved.size() == research_saved_keys + 1
+            && save_calls == research_save_calls + 2,
+        "research reset restores and saves its enabled default without altering emergency hook installation");
+
   auto* starbase = Find<BooleanSetting>(catalog, "graphics.galaxy_starbase_systems");
   Check(starbase && registered.contains("graphics.galaxy_starbase_systems") && !starbase->Observe().state.known(),
         "Alliance Starbase setting is registered but unavailable without its own catalog");
   starbase_available = true;
-  Check(starbase->Observe().state.value == false, "Alliance Starbase marker defaults to disabled");
-  const auto galaxy_before = galaxy_refreshes;
+  Check(starbase->Observe().state.value == true, "Alliance Starbase marker defaults to enabled");
+  // Exercise live enabling and cleanup from explicit off preferences.
+  Config::Get().graphics.galaxy_starbase_systems = false;
+  Config::Get().graphics.galaxy_station_housing  = false;
+  const auto galaxy_before                       = galaxy_refreshes;
   Check(starbase->SetFromUser(true, starbase->Observe()).outcome == Outcome::AppliedVerified
             && Config::Get().graphics.galaxy_starbase_systems && !Config::Get().graphics.galaxy_station_housing
             && std::get<bool>(saved.at("graphics.galaxy_starbase_systems")) && galaxy_refreshes == galaxy_before + 1,
@@ -390,6 +459,19 @@ int main()
             && galaxy_refreshes == galaxy_before + 2,
         "disabling Alliance Starbase markers requests live cleanup");
   starbase_available = false;
+
+  auto* queue_guard = Find<BooleanSetting>(catalog, "control.primary_protects_queue");
+  Check(queue_guard && registered.contains("control.primary_protects_queue")
+            && queue_guard->Observe().state.value == false,
+        "primary queue protection is discoverable and opt-in");
+  Check(queue_guard->SetFromUser(true, queue_guard->Observe()).outcome == Outcome::AppliedVerified
+            && Config::Get().control.primary_protects_queue
+            && std::get<bool>(saved.at("control.primary_protects_queue")),
+        "primary queue protection applies live and persists its exact key");
+  Check(queue_guard->SetFromUser(false, queue_guard->Observe()).outcome == Outcome::AppliedVerified
+            && !Config::Get().control.primary_protects_queue
+            && !std::get<bool>(saved.at("control.primary_protects_queue")),
+        "primary queue protection can restore ordinary shortcut behavior live");
 
   auto* extended = Find<BooleanSetting>(catalog, "control.hotkeys_extended");
   Check(extended && extended->SetFromUser(false, extended->Observe()).outcome == Outcome::AppliedVerified
@@ -864,13 +946,12 @@ int main()
   Check(!orbit->Observe().state.known()
             && !ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
         "unavailable system rotation frame delivery disables setting and shortcuts");
-  features.back().frame_ready           = true;
-  orbit_available                      = false;
-  Check(!orbit->Observe().state.known()
-            && !ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known()
+  features.back().frame_ready = true;
+  orbit_available             = false;
+  Check(!orbit->Observe().state.known() && !ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known()
             && !ShortcutEditorSetting(Action::kNavigationOrbitReset)->Observe().state.known(),
         "runtime orbit failure disables setting and shortcuts despite a successful startup record");
-  orbit_available                      = true;
+  orbit_available                       = true;
   Config::Get().control.hotkeys_enabled = false;
   Check(!ShortcutEditorSetting(Action::kNavigationOrbitDrag)->Observe().state.known(),
         "system rotation shortcut availability follows mod shortcut enablement");

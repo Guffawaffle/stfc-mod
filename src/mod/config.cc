@@ -857,6 +857,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
                             "control.queue_address_guard", "advanced.queue.thin_queue_protection"})
       r.Retired(path, "control.kirshara_fixes switches all the queue fixes");
   r.Read("control", "primary_requires_visible_target", control.primary_requires_visible_target);
+  r.Read("control", "primary_protects_queue", control.primary_protects_queue);
   r.Read("control", "queue_enabled", control.queue_enabled);
   r.Read("control", "hotkeys_enabled", control.hotkeys_enabled);
   r.Read("control", "hotkeys_extended", control.hotkeys_extended);
@@ -979,6 +980,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
 
   // [ui]
   auto& u = ui;
+  r.Read("ui", "check_for_mod_updates", u.check_for_mod_updates);
   r.Read("ui", "disable_escape_exit", u.disable_escape_exit);
   r.Read("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);
   r.Read("ui", "disable_preview_locate", u.disable_preview_locate);
@@ -986,6 +988,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "keep_base_card_open", u.keep_base_card_open);
   r.Read("ui", "keep_player_ship_card_open", u.keep_player_ship_card_open);
   r.Read("ui", "only_show_first_popup", u.only_show_first_popup);
+  r.Read("ui", "show_alliance_games_research", u.show_alliance_games_research);
   r.Read("ui", "reverse_haven_history", u.reverse_haven_history);
   r.Read("ui", "disable_move_keys", u.disable_move_keys);
   r.Read("ui", "disable_toast_banners", u.disable_toast_banners);

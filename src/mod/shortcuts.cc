@@ -173,7 +173,7 @@ mod_settings::ShortcutCaptureGuard capture_guard;
 uint64_t                           binding_generation = 0;
 
 const std::vector<KeyChord>& ChordsOf(Action action)
-{ return bindings[std::to_underlying(action)]; }
+{ return bindings.actions[std::to_underlying(action)]; }
 
 // Keys that completed a binding with modifiers, until released. A plain binding on the same key waits for the
 // release, so letting go of CTRL before PGUP does not turn a held CTRL-PGUP into PGUP. At most one entry per key.
@@ -410,7 +410,7 @@ std::string KeyToken(unity::KeyCode key)
 
 BindingSnapshot Read(Action action)
 {
-  if (std::to_underlying(action) >= bindings.size())
+  if (std::to_underlying(action) >= bindings.actions.size())
     return {};
   BindingSnapshot result{{}, binding_generation};
   result.alternatives.reserve(ChordsOf(action).size());
@@ -422,7 +422,7 @@ BindingSnapshot Read(Action action)
 static bool ReplaceAlternatives(Action action, std::span<const std::string> alternatives, uint64_t expected_generation,
                                 bool preserve_duplicates)
 {
-  if (std::to_underlying(action) >= bindings.size() || expected_generation == 0
+  if (std::to_underlying(action) >= bindings.actions.size() || expected_generation == 0
       || expected_generation != binding_generation)
     return false;
   std::vector<KeyChord> parsed;
@@ -436,8 +436,12 @@ static bool ReplaceAlternatives(Action action, std::span<const std::string> alte
     parsed.push_back(std::move(*chord));
   }
   // Validation is complete before any live state or input ownership is changed.
-  auto next                        = bindings;
-  next[std::to_underlying(action)] = std::move(parsed);
+  auto next = bindings;
+  next.actions[std::to_underlying(action)] = std::move(parsed);
+  if (action == Action::kCycleMiningPreview)
+    next.mining_preview_inherits_view = false;
+  else if (action == Action::kActionView && next.mining_preview_inherits_view)
+    next.actions[std::to_underlying(Action::kCycleMiningPreview)] = next.actions[std::to_underlying(action)];
   Set(std::move(next));
   return true;
 }
@@ -487,14 +491,18 @@ Bindings Parse(const toml::table& config, toml::table& parsed, bool extended, bo
       continue;
     if (setting.tier == Tier::kExperimental && !(extended && experimental))
       continue;
-    BindSetting(shortcuts, effective, sources, setting, result[std::to_underlying(setting.action)]);
+    BindSetting(shortcuts, effective, sources, setting, result.actions[std::to_underlying(setting.action)]);
   }
   // Mining cycling previously shared action_view. Keep an existing custom (or disabled) binding until the
   // player explicitly sets the new independent action; key presence, including an empty string, wins.
-  if (shortcuts && !shortcuts->contains("cycle_mining_preview") && shortcuts->contains("action_view")) {
-    result[std::to_underlying(Action::kCycleMiningPreview)] = result[std::to_underlying(Action::kActionView)];
-    effective.insert_or_assign("cycle_mining_preview", effective["action_view"].value_or(std::string("NONE")));
-    sources.insert_or_assign("cycle_mining_preview", "inherited:action_view");
+  result.mining_preview_inherits_view = !shortcuts || !shortcuts->contains("cycle_mining_preview");
+  if (result.mining_preview_inherits_view) {
+    result.actions[std::to_underlying(Action::kCycleMiningPreview)] =
+        result.actions[std::to_underlying(Action::kActionView)];
+    if (shortcuts && shortcuts->contains("action_view")) {
+      effective.insert_or_assign("cycle_mining_preview", effective["action_view"].value_or(std::string("NONE")));
+      sources.insert_or_assign("cycle_mining_preview", "inherited:action_view");
+    }
   }
   return result;
 }
@@ -505,7 +513,7 @@ void Set(Bindings next) noexcept
   if (++binding_generation == 0)
     ++binding_generation;
   used_keys.clear();
-  for (const auto& chords : bindings)
+  for (const auto& chords : bindings.actions)
     for (const auto& chord : chords)
       keyboard_layout::RegisterShortcut(chord.key);
 }

@@ -118,6 +118,10 @@ kirshara_fixes = true
 # Only allow the primary action when the selected target is visible in the current view.
 primary_requires_visible_target = false
 
+# Ignore primary-action shortcuts while the selected ship has one or more queued Kir'Shara targets.
+# Queue action, Clear action queue, and other shortcuts stay available.
+primary_protects_queue = false
+
 # Double-tap window in ms for 1-8 ship select/locate. Lower = faster, higher = slower. Default 500
 select_timer = 500
 
@@ -155,13 +159,13 @@ enable_experimental = false
 
 [graphics]
 # Select minor systems at far Galaxy zoom without enabling all their rendered entities.
-galaxy_extended_selection = false
+galaxy_extended_selection = true
 # Let the native Default / Mining / Hostiles / Hazards buttons select multiple layers.
-galaxy_multi_select = false
+galaxy_multi_select = true
 # Static, source-qualified station-housing indicator; not live docking-slot availability.
-galaxy_station_housing = false
+galaxy_station_housing = true
 # Mark known Plasma Storm systems from the community reference; does not show free anchoring slots.
-galaxy_starbase_systems = false
+galaxy_starbase_systems = true
 galaxy_overlay_default = true
 galaxy_overlay_mining = false
 galaxy_overlay_hostiles = false
@@ -182,8 +186,9 @@ fr_scale = 2.0
 # Amount of time to spend between transitions. Currently read but not applied
 transition_time = 0.01
 
-# This specifies the amount to scale the UI by, 1.0 being default
-ui_scale = 0.6
+# Interface scale override; 0.0 keeps the game's own scale.
+# Choose a positive override to enable the mod's interface-scale shortcuts.
+ui_scale = 0.0
 
 # This specifies the amount to scale the ship models in System View, 1.0 being default
 ui_scale_ship = 1.0
@@ -288,7 +293,7 @@ borderless_fullscreen = true
 free_resize = true
 
 # Show the remaining Galactic Anomaly time below Help All, Engage, and Claim
-galactic_anomaly_timer = false
+galactic_anomaly_timer = true
 
 # After using a zoom preset it will be set as default zoom
 use_presets_as_default = true
@@ -353,7 +358,7 @@ nativesettingshooks = true
 abilitybuttonrecoveryhooks = true
 
 # Native Research Lookup tooltips and data-ready currency refresh in Alliance Games Store.
-# Restart required; preserves the game's eligibility, currency IDs and purchase behavior.
+# Emergency hook switch; restart required. Use ui.show_alliance_games_research for the live button setting.
 alliancegamesstorehooks = true
 
 # Enable recovery of interrupted action queues.
@@ -821,7 +826,7 @@ notify_incoming_player_attack = false
 ## ArrivedInSystem, ArrivedAtDestination, StartedMining, NodeDepleted, Docked, RepairComplete, MinerOPC
 notify_fleet_events = ""
 # Allow moving officer presets into occupied slots.
-allow_officer_preset_reordering = false
+allow_officer_preset_reordering = true
 
 # Show player ships known to this client in the viewed system.
 # Ships not received from the server are not counted. Applies live.
@@ -844,6 +849,10 @@ auto_confirm_discovery = true
 # Open the bulk gift claim flyout automatically
 auto_open_bulk_claim_flyout = false
 
+# Check for Community Mod updates in the background on published downstream builds.
+# Settings → Mod Settings → Updates can also check on demand.
+check_for_mod_updates = false
+
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
 
@@ -859,6 +868,11 @@ disable_toast_banners = false
 
 # Show only the first popup advert and suppress subsequent popup adverts.
 only_show_first_popup = false
+
+# Show native View Research actions for eligible Alliance Games Store materials. Applies live.
+# Materials with no matching visible research show "No Available Research" in their tooltip.
+# Mod Settings -> Claims & Confirmations; store currency and refresh fixes remain active when off.
+show_alliance_games_research = true
 
 # Show the newest Haven help-history entries first.
 reverse_haven_history = true
@@ -1006,8 +1020,8 @@ focus_search = true
 
 # Format abbreviated cargo values using Cargo Significant Decimals
 format_cargo_values = true
-highlight_opc_fleets = false
-fleet_hud_opc_eta = false
+highlight_opc_fleets = true
+fleet_hud_opc_eta = true
 
 # Restore the Below Deck Ability officer sort option
 officer_sort = true

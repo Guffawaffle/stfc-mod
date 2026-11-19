@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve signed Mac Pre/Release identity without weakening CI artifact eligibility."""
+"""Resolve signed Pre/Release identity and CI source eligibility."""
 
 import argparse
 import json
@@ -22,14 +22,14 @@ def resolve(operation: str, release_tag: str, prerelease: bool, run: dict) -> di
     if not release_tag and not prerelease:
         raise ValueError("A full Release requires the planned release_tag")
 
-    # DEV belongs to ordinary unsigned builds. Every optional signing output is
-    # Pre, including an untagged CI test whose other jobs have not passed yet.
+    # Untagged signed CI tests retain their Pre label and test-only eligibility.
     channel = "pre" if prerelease else "release"
-    release_selection = operation == "sign" or channel == "release"
-    if release_tag and (run.get("status") != "completed" or run.get("conclusion") != "success"):
-        raise ValueError("A named Pre or Release build requires completed successful CI")
-    if release_selection and (run.get("head_branch") != "play" or run.get("event") != "push"):
-        raise ValueError("Release signing requires a successful PLAY push")
+    source_branch = ("play" if prerelease else "main") if release_tag else ""
+    if source_branch:
+        if run.get("status") != "completed" or run.get("conclusion") != "success":
+            raise ValueError("A named Pre or Release build requires completed successful CI")
+        if run.get("head_branch") != source_branch or run.get("event") != "push":
+            raise ValueError(f"{channel.capitalize()} signing requires a successful {source_branch} push")
     run_number = str(run.get("run_number", ""))
     if not re.fullmatch(r"[1-9][0-9]*", run_number):
         raise ValueError("Producing CI run_number must be a positive integer")
@@ -41,7 +41,8 @@ def resolve(operation: str, release_tag: str, prerelease: bool, run: dict) -> di
         "channel": channel,
         "release_tag": release_tag,
         "prerelease": prerelease,
-        "selection_mode": "release" if release_selection else "test",
+        "selection_mode": "release" if source_branch else "test",
+        "source_branch": source_branch,
         "run_number": run_number,
         "run_attempt": run_attempt,
     }

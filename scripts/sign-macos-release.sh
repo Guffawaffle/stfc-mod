@@ -15,18 +15,25 @@ scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 work=$(mktemp -d "$RUNNER_TEMP/stfc-macos.XXXXXX")
 keychain="$RUNNER_TEMP/stfc-signing.keychain-db"
-original_keychains=()
 keychain_created=false
+signing_complete=false
+restore_keychains=(security list-keychains -d user -s)
+signing_keychains=(security list-keychains -d user -s "$keychain")
 mount="$work/mount"
 mkdir -p "$mount" signed-macos macos-notarization-evidence macos-notarization-payloads
 cleanup() {
+  local exit_status=$?
+  # Bash 3 can enter EXIT after an expansion error with status zero.
+  # A signed package is successful only after the final provenance is written.
+  [[ "$signing_complete" == true ]] || exit_status=1
   hdiutil detach "$mount" -quiet 2>/dev/null || true
   if [[ "$keychain_created" == true ]]; then
-    security list-keychains -d user -s "${original_keychains[@]}" || true
-    security delete-keychain "$keychain" 2>/dev/null || true
+    "${restore_keychains[@]}" || exit_status=1
+    security delete-keychain "$keychain" 2>/dev/null || exit_status=1
   fi
   # mktemp above owns this directory; it contains no user files.
-  rm -rf "$work"
+  rm -rf "$work" || exit_status=1
+  exit "$exit_status"
 }
 trap cleanup EXIT
 
@@ -40,7 +47,36 @@ app="$work/dmg-root/STFC Community Mod.app"
 loader="$app/Contents/stfc-community-mod-loader"
 library="$app/Contents/libstfc-community-mod.dylib"
 launcher="$app/Contents/MacOS/macOSLauncher"
-for binary in "$library" "$loader" "$launcher"; do
+helper="$app/Contents/stfc-profiles"
+profiles_notices="$app/Contents/Resources/notices/profiles"
+profiles_enabled=false
+profiles_revision=""
+unsigned_helper_hash=""
+input_binaries=("$library" "$loader" "$launcher")
+if [[ -n "${RELEASE_TAG:-}" ]]; then
+  # Named Pre/Release packages are the complete downstream product. Historical
+  # ordinary-only artifacts remain available for untagged signing tests.
+  [[ -f "$helper" && -x "$helper" ]]
+fi
+if [[ -e "$helper" || -L "$helper" || -e "$profiles_notices" || -L "$profiles_notices" ]]; then
+  # A partial Profiles package cannot provide isolated browser sign-in. Inspect
+  # metadata only: producer executables never run in the credentialed signer.
+  [[ -f "$helper" && -x "$helper" && ! -L "$helper" ]]
+  [[ -d "$profiles_notices" && ! -L "$profiles_notices" ]]
+  for notice in "$profiles_notices/source.txt" "$profiles_notices/LICENSE" \
+    "$app/Contents/Resources/notices/mod-LICENSE" "$app/Contents/Resources/notices/THIRD_PARTY.md"; do
+    [[ -s "$notice" && -f "$notice" && ! -L "$notice" ]]
+  done
+  [[ "$(sed -n '1p' "$profiles_notices/source.txt")" == Guffawaffle/stfc-profiles ]]
+  profiles_revision=$(sed -n '2p' "$profiles_notices/source.txt")
+  [[ "$profiles_revision" =~ ^[0-9a-f]{40}$ && "$(wc -l < "$profiles_notices/source.txt" | tr -d ' ')" == 2 ]]
+  expected_profiles_revision=$(sed -n 's/^pub const revision = "\([0-9a-f]\{40\}\)";$/\1/p' "$scripts/../zig/profiles.zig")
+  [[ "$profiles_revision" == "$expected_profiles_revision" ]]
+  profiles_enabled=true
+  input_binaries+=("$helper")
+  unsigned_helper_hash=$(shasum -a 256 "$helper" | awk '{print $1}')
+fi
+for binary in "${input_binaries[@]}"; do
   test -f "$binary"
   lipo "$binary" -verify_arch arm64 x86_64
 done
@@ -53,40 +89,47 @@ unsigned_launcher_hash=$(shasum -a 256 "$launcher" | awk '{print $1}')
 # its relationship to the selected run before replacing any bundle metadata.
 embedded_source=$(/usr/libexec/PlistBuddy -c 'Print :STFCSourceCommit' "$app/Contents/Info.plist")
 [[ "$embedded_source" =~ ^[0-9a-f]{40}$ ]]
-source_commit=()
+source_check=(verify-source --selection "$RUNNER_TEMP/mac-input.json" --source "$embedded_source"
+  --output signed-macos/mac-source-identity.json)
 if [[ "$embedded_source" != "$SOURCE_SHA" ]]; then
   [[ "${SOURCE_KIND:-}" == pull-request-run-head ]]
   gh api "repos/$GITHUB_REPOSITORY/commits/$embedded_source" > "$work/producer-commit.json"
-  source_commit=(--commit-json "$work/producer-commit.json")
+  source_check+=(--commit-json "$work/producer-commit.json")
 fi
-python3 "$scripts/ci-signing-input.py" verify-source --selection "$RUNNER_TEMP/mac-input.json" \
-  --source "$embedded_source" "${source_commit[@]}" --output signed-macos/mac-source-identity.json
+python3 "$scripts/ci-signing-input.py" "${source_check[@]}"
 source_relationship=$(jq -r .source_relationship signed-macos/mac-source-identity.json)
 
 # Only trusted controller code chooses the player-facing identity. CI artifacts
 # remain the exact selected input; stamping changes bundle metadata and artwork,
 # never the library, loader or launcher. Reject bad tags before opening a keychain.
-stamp_tag=()
-if [[ -n "${RELEASE_TAG:-}" ]]; then stamp_tag=(--release-tag "$RELEASE_TAG"); fi
-python3 "$scripts/mac-build-identity.py" stamp --app "$app" --channel "$BUILD_CHANNEL" \
-  "${stamp_tag[@]}" --source "$embedded_source" --run-id "$BUILD_RUN_ID" \
-  --run-number "$BUILD_RUN_NUMBER" --run-attempt "$BUILD_RUN_ATTEMPT" \
-  --icons-dir "$scripts/../assets/launcher-icons" --receipt signed-macos/mac-build-identity.json
+stamp_args=(stamp --app "$app" --channel "$BUILD_CHANNEL" --source "$embedded_source" --run-id "$BUILD_RUN_ID"
+  --run-number "$BUILD_RUN_NUMBER" --run-attempt "$BUILD_RUN_ATTEMPT"
+  --icons-dir "$scripts/../assets/launcher-icons" --receipt signed-macos/mac-build-identity.json)
+if [[ -n "${RELEASE_TAG:-}" ]]; then stamp_args+=(--release-tag "$RELEASE_TAG"); fi
+python3 "$scripts/mac-build-identity.py" "${stamp_args[@]}"
 [[ "$(shasum -a 256 "$library" | awk '{print $1}')" == "$unsigned_library_hash" ]]
 [[ "$(shasum -a 256 "$loader" | awk '{print $1}')" == "$unsigned_loader_hash" ]]
 [[ "$(shasum -a 256 "$launcher" | awk '{print $1}')" == "$unsigned_launcher_hash" ]]
+if [[ "$profiles_enabled" == true ]]; then
+  [[ "$(shasum -a 256 "$helper" | awk '{print $1}')" == "$unsigned_helper_hash" ]]
+fi
 selected_icon_hash=$(shasum -a 256 "$app/Contents/Resources/launcher.icns" | awk '{print $1}')
 
+# Observe the old search list successfully before creating/replacing a keychain.
+keychain_list=$(security list-keychains -d user | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
 while IFS= read -r entry; do
-  original_keychains+=("$entry")
-done < <(security list-keychains -d user | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//')
+  if [[ -n "$entry" ]]; then
+    restore_keychains+=("$entry")
+    signing_keychains+=("$entry")
+  fi
+done <<< "$keychain_list"
 printf '%s' "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$work/identity.p12"
 keychain_password=$(openssl rand -hex 32)
 security create-keychain -p "$keychain_password" "$keychain"
 keychain_created=true
 security set-keychain-settings -lut 3600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
-security list-keychains -d user -s "$keychain" "${original_keychains[@]}"
+"${signing_keychains[@]}"
 security import "$work/identity.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
 security find-identity -v -p codesigning "$keychain" \
@@ -101,9 +144,14 @@ unset MACOS_CERTIFICATE_P12_BASE64 MACOS_CERTIFICATE_PASSWORD APPLE_APP_SPECIFIC
 # inside the game's process and uses the host's entitlements, not the launcher's.
 codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$library"
 codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$loader"
+if [[ "$profiles_enabled" == true ]]; then
+  codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" "$helper"
+fi
 codesign --force --timestamp --options runtime --keychain "$keychain" --sign "$MACOS_SIGNING_IDENTITY" \
   --entitlements src/launcher/macos/Launcher.entitlements "$app"
-for binary in "$library" "$loader" "$app"; do
+signed_binaries=("$library" "$loader" "$app")
+if [[ "$profiles_enabled" == true ]]; then signed_binaries+=("$helper"); fi
+for binary in "${signed_binaries[@]}"; do
   codesign --verify --strict --all-architectures --verbose=2 "$binary"
   for arch in arm64 x86_64; do
     details=$(codesign --display --verbose=4 --arch "$arch" "$binary" 2>&1)
@@ -163,6 +211,10 @@ notarize() {
 # Submit only the outermost container; Apple's ticket covers its nested code.
 # Do not repack or re-sign it after acceptance. Stapling preserves its signature.
 signed_library_hash=$(shasum -a 256 "$library" | awk '{print $1}')
+signed_helper_hash=""
+if [[ "$profiles_enabled" == true ]]; then
+  signed_helper_hash=$(shasum -a 256 "$helper" | awk '{print $1}')
+fi
 output=signed-macos/stfc-community-mod-installer.dmg
 # Apply the same selected icon to the installer volume before signing its image.
 # A read/write staging image lets Finder's custom-icon flag live on the volume.
@@ -196,7 +248,7 @@ verify_ticket() {
   echo "Apple ticket covers $path ${arch:-container}: $cdhash"
 }
 verify_ticket "$output" "$(basename "$output")"
-for binary in "$app" "$loader" "$library"; do
+for binary in "${signed_binaries[@]}"; do
   ticket_path="$(basename "$output")/${binary#"$work/dmg-root/"}"
   for arch in arm64 x86_64; do
     verify_ticket "$binary" "$ticket_path" "$arch"
@@ -217,17 +269,28 @@ hdiutil detach "$mount" -quiet
 codesign --verify --deep --strict --all-architectures "$installed_app"
 spctl --assess --type execute --verbose=2 "$installed_app"
 [[ "$(shasum -a 256 "$installed_app/Contents/libstfc-community-mod.dylib" | awk '{print $1}')" == "$signed_library_hash" ]]
+if [[ "$profiles_enabled" == true ]]; then
+  [[ "$(shasum -a 256 "$installed_app/Contents/stfc-profiles" | awk '{print $1}')" == "$signed_helper_hash" ]]
+  [[ -x "$installed_app/Contents/stfc-profiles" ]]
+  diff -rq "$app/Contents/Resources/notices" "$installed_app/Contents/Resources/notices"
+fi
 
 # The standalone archive contains the exact library accepted in the DMG.
 # Dylibs cannot carry a stapled ticket; separate downloads use online lookup.
 archive=signed-macos/stfc-community-mod-macos-universal.tar.zst
-tar -cf - -C "$installed_app/Contents" libstfc-community-mod.dylib | zstd -15 -T0 -o "$archive"
+archive_members=(libstfc-community-mod.dylib)
+if [[ "$profiles_enabled" == true ]]; then
+  archive_members+=(stfc-profiles -C "$installed_app/Contents/Resources" notices)
+fi
+tar -cf - -C "$installed_app/Contents" "${archive_members[@]}" | zstd -15 -T0 -o "$archive"
 shasum -a 256 "$archive" | awk '{print $1}' > "$archive.sha256"
 dmg_hash=$(shasum -a 256 "$output" | awk '{print $1}')
 jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}" --arg build "$BUILD_RUN_ID" --arg team "$APPLE_TEAM_ID" \
   --arg producingSource "$embedded_source" --arg relationship "$source_relationship" \
   --arg signer "$MACOS_SIGNING_IDENTITY" --arg input "$input_hash" \
   --arg unsigned "$unsigned_library_hash" --arg signed "$signed_library_hash" --arg dmg "$dmg_hash" \
+  --argjson profilesEnabled "$profiles_enabled" --arg profilesRevision "$profiles_revision" \
+  --arg unsignedHelper "$unsigned_helper_hash" --arg signedHelper "$signed_helper_hash" \
   --arg submittedDmg "$submitted_dmg_hash" \
   --arg workflow "$GITHUB_SHA" --arg url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
   --arg icon "$selected_icon_hash" --arg channel "$BUILD_CHANNEL" --arg tag "${RELEASE_TAG:-}" \
@@ -236,8 +299,12 @@ jq -n --arg source "$SOURCE_SHA" --arg sourceKind "${SOURCE_KIND:-push-run-head}
   '{sourceCommit:$producingSource,sourceRelationship:$relationship,
     buildRunHeadSha:$source,sourceEvidenceKind:$sourceKind,buildRunId:$build,teamId:$team,signingIdentity:$signer,
     inputDmgSha256:$input,unsignedLibrarySha256:$unsigned,signedLibrarySha256:$signed,
+    profiles:{enabled:$profilesEnabled,revision:(if $profilesEnabled then $profilesRevision else null end),
+      unsignedHelperSha256:(if $profilesEnabled then $unsignedHelper else null end),
+      signedHelperSha256:(if $profilesEnabled then $signedHelper else null end)},
     dmgSha256:$dmg,signingWorkflowCommit:$workflow,signingRunUrl:$url,
     buildChannel:$channel,releaseTag:(if $tag == "" then null else $tag end),prerelease:($channel == "pre"),
     launcherBuildIdentity:$identity[0],installerVolumeIconSha256:$icon,
     notarizationContainer:"dmg",submittedDmgSha256:$submittedDmg,
     dmgNotarization:$dmgTicket[0]}' > signed-macos/macos-provenance.json
+signing_complete=true

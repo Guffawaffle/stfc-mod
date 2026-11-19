@@ -24,10 +24,10 @@ on:
         options: [both, macos, windows]
         default: both
       release_tag:
-        description: Planned Mac release tag (v1.1.9.5-guffa.N); leave empty for a signed Pre CI test
+        description: Planned release tag (v1.1.9.5-guffa.N); leave empty for a signed CI test
         type: string
       prerelease:
-        description: Use Pre for signed tests; turn off only for a full Release with a planned tag
+        description: Named Pre uses play; turn off for full Release from main
         type: boolean
         default: true
       submission_id:
@@ -89,7 +89,7 @@ jobs:
           retention-days: 30
 
   resolve:
-    if: github.repository == 'Guffawaffle/stfc-mod' && github.event_name == 'workflow_dispatch' && (inputs.operation == 'sign' || inputs.operation == 'sign-run')
+    if: github.repository == 'Guffawaffle/stfc-mod' && github.ref == 'refs/heads/ci/macos-signing-play' && github.event_name == 'workflow_dispatch' && (inputs.operation == 'sign' || inputs.operation == 'sign-run')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     outputs:
@@ -98,6 +98,7 @@ jobs:
       run_attempt: ${{ steps.build.outputs.run_attempt }}
       macos_artifact_id: ${{ steps.build.outputs.macos_artifact_id }}
       windows_artifact_id: ${{ steps.build.outputs.windows_artifact_id }}
+      profiles_artifact_id: ${{ steps.build.outputs.windows-profiles_artifact_id }}
       release_tag: ${{ steps.build.outputs.release_tag }}
       prerelease: ${{ steps.build.outputs.prerelease }}
     steps:
@@ -120,8 +121,10 @@ jobs:
           set -euo pipefail
           platforms="$PLATFORM"
           if [[ "$OPERATION" == sign ]]; then
-            EXPECTED_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/play" --jq '.object.sha')
-            SELECTED_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yaml/runs?head_sha=$EXPECTED_SHA&branch=play&event=push&status=success" --jq '.workflow_runs[0].id')
+            source_branch=main
+            if [[ "$PRERELEASE" == true ]]; then source_branch=play; fi
+            EXPECTED_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$source_branch" --jq '.object.sha')
+            SELECTED_RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yaml/runs?head_sha=$EXPECTED_SHA&branch=$source_branch&event=push&status=success" --jq '.workflow_runs[0].id')
             platforms=macos
           fi
           [[ "$SELECTED_RUN" =~ ^[1-9][0-9]*$ ]]
@@ -135,6 +138,7 @@ jobs:
             --run-json "$RUNNER_TEMP/build.json" --output "$RUNNER_TEMP/release-context.json" \
             --github-output "$GITHUB_OUTPUT"
           mode=$(jq -r .selection_mode "$RUNNER_TEMP/release-context.json")
+          source_branch=$(jq -r .source_branch "$RUNNER_TEMP/release-context.json")
           gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$SELECTED_RUN/artifacts?per_page=100" \
             | jq '{artifacts:[.[].artifacts[]]}' > "$RUNNER_TEMP/artifacts.json"
           for platform in macos windows; do
@@ -142,8 +146,18 @@ jobs:
             python3 scripts/ci-signing-input.py select --run-json "$RUNNER_TEMP/build.json" \
               --artifacts-json "$RUNNER_TEMP/artifacts.json" --repository "$GITHUB_REPOSITORY" \
               --run-id "$SELECTED_RUN" --platform "$platform" --mode "$mode" \
-              --expected-sha "$EXPECTED_SHA" --output "$RUNNER_TEMP/$platform-input.json" \
+              --expected-sha "$EXPECTED_SHA" --expected-branch "$source_branch" --output "$RUNNER_TEMP/$platform-input.json" \
               --github-output "$GITHUB_OUTPUT"
+            if [[ "$platform" == windows ]]; then
+              profiles_count=$(jq '[.artifacts[] | select(.name == "stfc-community-mod-profiles-windows" and .expired == false)] | length' "$RUNNER_TEMP/artifacts.json")
+              if [[ "$mode" == release || "$profiles_count" != 0 ]]; then
+                python3 scripts/ci-signing-input.py select --run-json "$RUNNER_TEMP/build.json" \
+                  --artifacts-json "$RUNNER_TEMP/artifacts.json" --repository "$GITHUB_REPOSITORY" \
+                  --run-id "$SELECTED_RUN" --platform windows-profiles --mode "$mode" \
+                  --expected-sha "$EXPECTED_SHA" --expected-branch "$source_branch" --output "$RUNNER_TEMP/windows-profiles-input.json" \
+                  --github-output "$GITHUB_OUTPUT"
+              fi
+            fi
           done
           sha=$(jq -r .head_sha "$RUNNER_TEMP/build.json")
           attempt=$(jq -r .run_attempt "$RUNNER_TEMP/build.json")
@@ -182,5 +196,6 @@ jobs:
       source_sha: ${{ needs.resolve.outputs.source_sha }}
       run_attempt: ${{ needs.resolve.outputs.run_attempt }}
       artifact_id: ${{ needs.resolve.outputs.windows_artifact_id }}
+      profiles_artifact_id: ${{ needs.resolve.outputs.profiles_artifact_id }}
       release_tag: ${{ needs.resolve.outputs.release_tag }}
       prerelease: ${{ fromJSON(needs.resolve.outputs.prerelease) }}

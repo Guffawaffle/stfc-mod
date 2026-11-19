@@ -1,7 +1,8 @@
 # Alliance Starbase system indicator
 
-Enable **Alliance Starbase systems** in the mod's Galaxy settings, or set
-`graphics.galaxy_starbase_systems = true`. The default is off.
+Alliance Starbase system indicators are enabled by default. Turn off
+**Alliance Starbase systems** in the mod's Galaxy settings, or set
+`graphics.galaxy_starbase_systems = false`, to hide them.
 
 A yellow orbital station marks known Plasma Storm systems at the same native detail/name
 visibility used by the cyan Housing indicator. The two settings are independent;

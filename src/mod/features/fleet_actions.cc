@@ -993,17 +993,36 @@ bool ActOnViewer(const FleetPress& pressed, FleetPlayerData* fleet)
   return false;
 }
 
-void ActOnSelectedFleet(const FleetPress& pressed, const DeferredFleetPress* replay = nullptr)
+bool FleetHasQueuedActions(ActionQueueManager* manager, FleetPlayerData* fleet)
 {
+  if (!manager || !fleet)
+    return false;
+  const auto index = fleet->TryCall<"get_Index", int32_t>();
+  const auto id    = fleet->TryCall<"get_Id", int64_t>();
+  if (!index || !id || id.value <= 0)
+    return false;
+  // The native queue is indexed by dock slot. Never let another ship's queue block this ship's controls.
+  auto* queue   = il2cpp::At(manager->battleQueue(), index.value);
+  auto* actions = queue && queue->PlayerFleetId() == id.value ? queue->actionQueue() : nullptr;
+  if (!actions)
+    return false;
+  const auto count = actions->TryCall<"get_Count", int32_t>();
+  return count && count.value > 0;
+}
+
+void ActOnSelectedFleet(FleetPress pressed, const DeferredFleetPress* replay = nullptr)
+{
+  auto* panel = FleetBarViewController::NewestPanel();
+  auto* fleet = panel ? panel->fleet() : nullptr;
+  auto* queue = fleet ? ActionQueueManager::Instance() : nullptr;
+  // Queue and primary can share a binding. Suppress only primary so another target can still be queued.
+  // This check runs on a primary press, never as a per-frame queue scan, and also covers deferred presses.
+  if (pressed.primary && Config::Get().control.primary_protects_queue && FleetHasQueuedActions(queue, fleet))
+    pressed.primary = false;
   // A deferred target action must retain its exact source; only a fresh primary press may join a wave.
   if (!replay && pressed.primary && JoinWaveDefense())
     return;
-  auto* panel = FleetBarViewController::NewestPanel();
-  auto* fleet = panel ? panel->fleet() : nullptr;
-  if (!fleet)
-    return;
-  auto* queue = ActionQueueManager::Instance();
-  if (!queue)
+  if (!fleet || !queue || !pressed.Any())
     return;
 
   if (replay) {

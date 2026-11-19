@@ -46,6 +46,14 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     {
         const module = ctx.createModule(true);
         module.addIncludePath(b.path("src/mod"));
+        deps.nlohmannJson(ctx).includeInto(module);
+        module.addCSourceFile(.{ .file = b.path("tests/release_index_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
+        addFixture(ctx, build_tests, test_mod, "release-index-tests", module);
+    }
+
+    {
+        const module = ctx.createModule(true);
+        module.addIncludePath(b.path("src/mod"));
         module.addCSourceFile(.{ .file = b.path("tests/warp_click_intent_test.cc"), .flags = ctx.cxxFlags("c++23", &.{"-UNDEBUG"}) });
         addFixture(ctx, build_tests, test_mod, "warp-click-intent-tests", module);
     }

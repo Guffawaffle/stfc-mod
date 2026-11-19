@@ -51,12 +51,18 @@ struct CameraNativeScene {
 };
 int     camera_native_distance_sets = 0, camera_native_zoom_calls = 0;
 Il2CppObject  camera_native_sections{};
+Il2CppObject  camera_native_activation{};
 SectionID     camera_native_section          = SectionID::Navigation_System;
+SectionID     camera_native_next_section     = SectionID::Navigation_System;
 bool          camera_native_section_changing = false;
 Il2CppObject* CameraNativeSections(const MethodInfo*)
 { return &camera_native_sections; }
 SectionID CameraNativeSection(Il2CppObject*, const MethodInfo*)
 { return camera_native_section; }
+Il2CppObject* CameraNativeActivation(Il2CppObject*, const MethodInfo*)
+{ return &camera_native_activation; }
+SectionID CameraNativeNextSection(Il2CppObject*, const MethodInfo*)
+{ return camera_native_next_section; }
 bool CameraNativeSectionChanging(Il2CppObject*, const MethodInfo*)
 { return camera_native_section_changing; }
 int     camera_native_clip_gets = 0, camera_native_clip_sets = 0, camera_native_flags_sets = 0,
@@ -164,6 +170,12 @@ void CameraNativeCases(std::string_view mode)
   auto& get_section =
       AddMethod(sections, "get_CurrentSection", reinterpret_cast<void*>(&CameraNativeSection), T(int_class), {});
   AddProperty(sections, "CurrentSection", &get_section);
+  auto& activation = Define("Digit.Client.Sections", "SectionStatus", IL2CPP_TYPE_CLASS, &object_class);
+  auto& get_activation =
+      AddMethod(sections, "get_Activation", reinterpret_cast<void*>(&CameraNativeActivation), T(activation), {});
+  AddProperty(sections, "Activation", &get_activation);
+  AddMethod(activation, "get_NextSection", reinterpret_cast<void*>(&CameraNativeNextSection), T(int_class), {});
+  camera_native_activation.klass = &activation.klass;
   auto& changing = AddMethod(sections, "get_IsSectionChangeInProgress",
                              reinterpret_cast<void*>(&CameraNativeSectionChanging), T(bool_class), {});
   AddProperty(sections, "IsSectionChangeInProgress", &changing);
@@ -521,9 +533,9 @@ void CameraNativeCases(std::string_view mode)
       },
       zoom);
   Require(!ZoomEntries().entries.at(zoom).gate.pending && object.distance == 802.0f
-              && camera_native_zoom_calls == before_focus + 1 && camera_native_distance_sets == before_entry_sets + 1
+              && camera_native_zoom_calls == before_focus && camera_native_distance_sets == before_entry_sets + 1
               && originals == 5,
-          "positive entry default follows native distance/range resets once, even with text focus");
+          "positive entry default follows native distance/range resets once, without moving the focus to the pointer");
 
   const auto after_first_default = camera_native_distance_sets;
   NavigationZoom_Update_Hook([&](auto*) { object.distance = 22.0f; }, zoom);
@@ -553,6 +565,40 @@ void CameraNativeCases(std::string_view mode)
   NavigationZoom_Update_Hook([&](auto*) { object.distance = 31.0f; }, zoom);
   Require(object.distance == 802.0f && !ZoomEntries().entries.at(zoom).gate.pending,
           "entry retries when its native scene camera becomes ready");
+
+  camera_native_section          = SectionID::Navigation_Galaxy;
+  camera_native_section_changing = true;
+  const auto before_setup        = camera_native_distance_sets;
+  NavigationZoom_SetViewParameters_Hook(
+      [&](auto*, float, NodeDepth) {
+        object.distance = 20.0f;
+        object.maximum  = 110.0f;
+      },
+      zoom, 500.0f, NodeDepth::SolarSystem);
+  Require(object.maximum == 1000.0f && object.distance == 802.0f && camera_native_distance_sets == before_setup + 1,
+          "incoming System setup repairs the native range and applies the default before the first camera update");
+  camera_native_section          = SectionID::Navigation_System;
+  camera_native_section_changing = false;
+  NavigationZoom_Update_Hook([](auto*) {}, zoom);
+  Require(!ZoomEntries().entries.at(zoom).gate.pending && camera_native_distance_sets == before_setup + 1,
+          "the first update consumes an unchanged distance without writing it again");
+  camera_native_section_changing = true;
+  camera_native_next_section     = SectionID::Navigation_Galaxy;
+  NavigationZoom_SetViewParameters_Hook([&](auto*, float, NodeDepth) { object.distance = 24.0f; }, zoom, 500.0f,
+                                        NodeDepth::SolarSystem);
+  Require(object.distance == 24.0f && camera_native_distance_sets == before_setup + 1,
+          "a departing System camera keeps the game's distance during setup");
+  camera_native_section_changing = false;
+  camera_native_next_section     = SectionID::Navigation_System;
+
+  camera_native_rebind_scene = reinterpret_cast<unity::Camera*>(&rebound_scene);
+  NavigationZoom_Update_Hook([](auto*) {}, zoom);
+  Require(object.camera == camera_native_rebind_scene && ZoomEntries().entries.at(zoom).gate.pending,
+          "a scene rebound inside the native setter leaves the entry pending");
+  camera_native_rebind_scene = nullptr;
+  NavigationZoom_Update_Hook([&](auto*) { object.distance = 26.0f; }, zoom);
+  Require(object.distance == 802.0f && !ZoomEntries().entries.at(zoom).gate.pending,
+          "the next update applies the default to the replacement camera");
 
   const auto before_reload                    = camera_native_distance_sets;
   ZoomEntries().entries.at(zoom).gate.pending = true;

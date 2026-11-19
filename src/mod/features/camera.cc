@@ -68,6 +68,23 @@ bool SystemZoomViewReady()
   return changing && !changing.value;
 }
 
+bool SystemZoomSetupAllowed()
+{
+  auto* sections = Hub::Sections();
+  if (!sections)
+    return false;
+  const auto changing = sections->TryIsSectionChangeInProgress();
+  if (!changing)
+    return false;
+  if (!changing.value) {
+    const auto current = sections->TryCall<"get_CurrentSection", SectionID>();
+    return current && current.value == SectionID::Navigation_System;
+  }
+  auto*      activation = sections->Activation();
+  const auto next       = activation ? activation->TryNextSection() : il2cpp::CallResult<SectionID>{};
+  return next && next.value == SectionID::Navigation_System;
+}
+
 void ObserveZoomVisibility(bool visible)
 {
   auto& cache = ZoomEntries();
@@ -390,6 +407,41 @@ bool ZoomAtMouse(NavigationZoom* zoom, float value, bool absolute)
   return zoom->TryCall<"ZoomCameraAtWorldPoint", void>().succeeded;
 }
 
+bool SetEntryDistance(NavigationZoom* zoom, float target)
+{
+  if (!(target > 0.0f) || !std::isfinite(target))
+    return false;
+  const auto generation = zoom_default_generation;
+  const auto maximum    = zoom->TryMaximum();
+  const auto minimum    = zoom->TryMinimum();
+  const auto camera     = zoom->TrySceneCamera();
+  const auto depth      = zoom->TryDepth();
+  const auto range      = Config::Get().graphics.zoom;
+  if (!depth || depth.value != NodeDepth::SolarSystem || !camera || !camera.value || !minimum || !maximum)
+    return false;
+  const auto distance = gameplay_settings::QualifiedZoomDistance(target, minimum.value, maximum.value, range);
+  if (!distance)
+    return false;
+  const auto same_inputs = [&] {
+    if (ModSessionSuspended() || generation != zoom_default_generation || Config::Get().graphics.zoom != range
+        || Config::Get().graphics.default_system_zoom != target)
+      return false;
+    const auto scene           = zoom->TrySceneCamera();
+    const auto current_minimum = zoom->TryMinimum();
+    const auto current_maximum = zoom->TryMaximum();
+    const auto current_depth   = zoom->TryDepth();
+    return scene && scene.value == camera.value && current_minimum && current_minimum.value == minimum.value
+           && current_maximum && current_maximum.value == maximum.value && current_depth
+           && current_depth.value == NodeDepth::SolarSystem;
+  };
+  const auto current = zoom->TryDistance();
+  if (!same_inputs())
+    return false;
+  // The native distance setter updates the camera immediately and leaves its focus at the native entry target.
+  // Its callbacks can replace the camera or range, in which case the entry still needs to be applied.
+  return (current && current.value == *distance) || (zoom->TrySetDistance(*distance).succeeded && same_inputs());
+}
+
 void ApplyEntryDefault(NavigationZoom* zoom)
 {
   const auto* entry = ObserveZoomDepth(zoom);
@@ -399,8 +451,8 @@ void ApplyEntryDefault(NavigationZoom* zoom)
   const auto generation = zoom_default_generation;
   const auto reset      = zoom_reset_generation;
   // Zero is the fork's explicit native/remembered-zoom choice. It consumes this entry without a camera write.
-  // Positive defaults remain pending until the native camera, range and pointer inputs can actually apply them.
-  const bool applied = target == 0.0f || (target > 0.0f && std::isfinite(target) && ZoomAtMouse(zoom, target, true));
+  // If setup already applied the distance, consume the entry without another write. Otherwise correct a native reset.
+  const bool applied = target == 0.0f || SetEntryDistance(zoom, target);
   if (!applied || generation != zoom_default_generation || reset != zoom_reset_generation
       || Config::Get().graphics.default_system_zoom != target)
     return;
@@ -515,8 +567,8 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
   if (ModSessionSuspended() || reset_generation != zoom_reset_generation)
     return;
   KeepZoomRange(_this);
-  // Native entry work can replace the distance/range in Update. Apply afterward, using the same qualified
-  // geometry as presets. A reload inside the native callback invalidates the old entry rather than recreating it.
+  // Native entry work can replace the distance/range in Update. A reload inside the native callback invalidates
+  // the old entry rather than recreating it.
   if (reset_generation == zoom_reset_generation)
     ApplyEntryDefault(_this);
   camera_update.Complete();
@@ -524,7 +576,7 @@ void NavigationZoom_Update_Hook(auto original, NavigationZoom* _this)
   galaxy_controls::AfterZoom(_this);
 }
 
-// Entering a system: widen the range before and after the game sets it up, and zoom to the default next update.
+// Entering a system: use the configured distance as soon as native setup has provided the new camera and range.
 template <typename Original, typename... Args>
 void EnterDepth(Original original, NavigationZoom* zoom, NodeDepth depth, float radius, Args... args)
 {
@@ -543,11 +595,21 @@ void EnterDepth(Original original, NavigationZoom* zoom, NodeDepth depth, float 
   navigation_orbit::ZoomUpdateScope camera_update(zoom);
   ApplyZoomRange(zoom, radius);
   original(zoom, args...);
+  if (ModSessionSuspended())
+    return;
   ApplyZoomRange(zoom, 0.0f);
-  camera_update.Complete();
   if (generation == zoom_default_generation)
-    if (auto* entry = ObserveZoomDepth(zoom))
+    if (auto* entry = ObserveZoomDepth(zoom)) {
       entry->gate.pending = true;
+      const auto target   = Config::Get().graphics.default_system_zoom;
+      if (target > 0.0f && std::isfinite(target) && SystemZoomSetupAllowed() && generation == zoom_default_generation) {
+        // Native setup can select the shorter range. Use the same range as the following Update.
+        KeepZoomRange(zoom);
+        if (generation == zoom_default_generation)
+          SetEntryDistance(zoom, target);
+      }
+    }
+  camera_update.Complete();
 }
 
 void NavigationZoom_SetViewParameters_Hook(auto original, NavigationZoom* _this, float radius, NodeDepth depth)

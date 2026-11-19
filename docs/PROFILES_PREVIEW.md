@@ -1,4 +1,10 @@
-# Profiles test preview
+# Profiles
+
+Normal downstream Pre and Release installers include Profiles and its matching
+helper. On Mac, install the DMG app in Applications and use **Profiles** or the
+slim arrow beside **Launch game**. Ordinary launch keeps your existing login and
+settings. The Windows Profiles ZIP includes the CLI; the standard DLL-only ZIP
+remains available for ordinary installs and existing updaters.
 
 For a normal downstream DEV release, use its **stfc-community-mod-installer.dmg** on Mac.
 Open it and drag the app to Applications, keeping your ordinary launcher available.
@@ -50,9 +56,10 @@ and isolation rules but do not give a launcher the helper's structured readiness
 
 ## Mac
 
-Use the complete preview app, which supports Intel and Apple Silicon on macOS 14.6 or newer. It is signed
-ad hoc and is not notarized. macOS may require explicit approval to open a downloaded test app. Keep your
-ordinary launcher available so you can return to it afterward.
+Use the complete app, which supports Intel and Apple Silicon on macOS 14.6 or newer.
+Normal Pre and Release installers use Developer ID signing and notarization. Raw CI and DEV previews
+are signed ad hoc and are not notarized; macOS may require explicit approval to open those test apps.
+Keep your ordinary launcher available so you can return to it afterward.
 
 Open the preview launcher and choose **Profiles** below the launch button or in the View menu (Command–Shift–P). Choose
 the exact `Star Trek Fleet Command.app` to test, create `Net test A` and `Net test B`, then use **Launch

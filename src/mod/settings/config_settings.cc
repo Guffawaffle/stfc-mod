@@ -13,6 +13,7 @@
 #include "game/notifications.h"
 #include "image_file_setting.h"
 #include "image_path_entry.h"
+#include "mod_updates.h"
 #include "native_controls.h"
 #include "runtime_config.h"
 #include "text_entry.h"
@@ -402,6 +403,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
                                                                   {"labels", "System Labels"},
                                                                   {"loading", "Loading Screens"},
                                                                   {"advanced", "Advanced & Configuration"},
+                                                                  {"updates", "Updates"},
                                                                   {"galaxy", "Galaxy Labels"},
                                                                   {"audio", "Audio Alerts"}})
     catalog.AddPage(std::string("community_mod.") + id, label, root);
@@ -444,6 +446,8 @@ void RegisterConfigSettings(PageCatalog& catalog)
           "Protect queued actions when targets or addresses change.", ResetQueueRecoveryTracking);
   BOOL("controls", control, primary_requires_visible_target, "Require visible primary target", hotkeys, Live,
        "Require a visible target for the primary action shortcut.");
+  BOOL("controls", control, primary_protects_queue, "Protect queue from primary action", hotkeys, Live,
+       "Block primary-action shortcuts while the selected ship has queued targets. Queueing and clearing still work.");
   INT("controls", control, select_timer, "Ship selection interval", hotkeys, Live,
       "Maximum interval between repeated ship-selection shortcuts.", "ms", 0, integer);
 
@@ -577,6 +581,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
 
   BOOL("claims", ui, auto_open_bulk_claim_flyout, "Automatically open bulk claims", Owner("GiftsAutoOpen"), Live,
        "Open the bulk-claim drawer on supported screens.");
+  BOOL("claims", ui, show_alliance_games_research, "Show View Research in Alliance Games Store",
+       Owner("AllianceGamesStore"), Live,
+       "Show View Research for eligible materials, or No Available Research when none is available. "
+       "Store currency and refresh fixes stay active.");
   BOOL("claims", ui, daily_bulk_claim_toggle_default_on, "Daily bulk claims on by default", Owner("DailyClaimFilter"),
        Restart, "Initial state of the session's faction Claim All toggle.");
   BOOL("claims", ui, always_skip_reveal_sequence, "Skip reward reveal sequences", Owner("SkipRevealSequence"), Live,
@@ -676,6 +684,46 @@ void RegisterConfigSettings(PageCatalog& catalog)
     }
   };
   catalog.AddAction("community_mod.loading", *image_action);
+  auto update_version      = Keep<ActionSetting>();
+  update_version->identity = "community_mod.updates.version";
+  update_version->label    = "Installed mod";
+  update_version->read     = [](size_t) {
+    return ActionSetting::Presentation{"Installed mod", "", std::string(mod_updates::InstalledVersion()), false};
+  };
+  catalog.AddAction("community_mod.updates", *update_version);
+  auto update_check      = Keep<ActionSetting>();
+  update_check->identity = "community_mod.updates.check";
+  update_check->label    = "Check for updates";
+  update_check->read     = [](size_t) {
+    return ActionSetting::Presentation{"Check for updates", "Check now", mod_updates::Status(),
+                                       mod_updates::Available() && !mod_updates::Checking()};
+  };
+  update_check->invoke = [](size_t) { mod_updates::CheckNow(); };
+  catalog.AddAction("community_mod.updates", *update_check);
+  auto update_release      = Keep<ActionSetting>();
+  update_release->identity = "community_mod.updates.release";
+  update_release->label    = "View release";
+  update_release->read     = [](size_t) {
+    const bool available = mod_updates::HasRelease();
+    return ActionSetting::Presentation{"Available update", "View release", "", available, available};
+  };
+  update_release->invoke = [](size_t) { mod_updates::ViewRelease(); };
+  catalog.AddAction("community_mod.updates", *update_release);
+  Definition ignore_update{"community_mod.updates.ignore", "Ignore this version",
+                           [] {
+                             return mod_updates::IgnoreAvailable()
+                                        ? ReadResult::Known(mod_updates::Ignored(), mod_updates::ReleaseGeneration())
+                                        : ReadResult{};
+                           },
+                           [](bool value, uint64_t generation) {
+                             return mod_updates::SetIgnored(value, generation) ? ApplyResult::Applied
+                                                                               : ApplyResult::Rejected;
+                           }};
+  ignore_update.save_status = [](bool) { return mod_updates::IgnoreSaveStatus(); };
+  catalog.AddBoolean("community_mod.updates", *Keep<BooleanSetting>(std::move(ignore_update)),
+                     mod_updates::IgnoreAvailable);
+  BOOL("updates", ui, check_for_mod_updates, "Check automatically", mod_updates::Available, Live,
+       "Check GitHub for a new Community Mod release on this channel once a day.");
   BOOL("galaxy", graphics, galaxy_extended_selection, "Extended system selection", galaxy_controls::SelectionAvailable,
        Live, "Extend supported Far-tier Galaxy selection.");
   Boolean(catalog, "community_mod.galaxy", "graphics", "galaxy_station_housing", "Station housing",

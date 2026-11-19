@@ -204,6 +204,33 @@ inline il2cpp::CallResult<bool> Eligible(InventoryItem* item)
                  : il2cpp::CallResult<bool>{};
 }
 
+// Match TooltipWidget's displayed body, including native material/timer extras.
+// A successful null Description means no native body; unavailable localization
+// must not be mistaken for a confirmed empty description.
+inline il2cpp::CallResult<Il2CppString*> Description(StoreTooltipTrigger* trigger, Roots& roots)
+{
+  auto& f = Members();
+  if (!trigger || !f.override_locale.field || !f.description_override.field)
+    return {};
+  auto* text = roots.Keep(f.description_override.Read(trigger));
+  if (!roots.healthy)
+    return {};
+  if (f.override_locale.Read(trigger) && text && !il2cpp::ToUtf8(text).empty())
+    return {true, text};
+  const auto observed = trigger->TryCall<"get_Description", LocaleTextContext*>();
+  if (!observed)
+    return {};
+  if (!observed.value)
+    return {true, nullptr};
+  auto* context = roots.Keep(observed.value);
+  if (!context)
+    return {};
+  const auto localized =
+      LocaleUtilities::Class::TryCall<"Localize", Il2CppString*(LocaleTextContext*, bool, bool)>(context, false, false);
+  auto* body = localized ? roots.Keep(localized.value) : nullptr;
+  return body ? il2cpp::CallResult<Il2CppString*>{true, body} : il2cpp::CallResult<Il2CppString*>{};
+}
+
 inline bool Enabled(StoreTooltipTrigger* trigger, bool value)
 {
   // Match the qualified study's base setter. TooltipTrigger hides this member

@@ -157,6 +157,13 @@ struct SectionStorage : il2cpp::Object {
   { return Call<"GetState", void*>(section); }
 };
 
+struct SectionStatus : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Sections", "SectionStatus">;
+
+  il2cpp::CallResult<SectionID> TryNextSection()
+  { return TryCall<"get_NextSection", SectionID>(); }
+};
+
 struct SectionManager : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Sections", "SectionManager">;
 
@@ -166,6 +173,8 @@ struct SectionManager : il2cpp::Object {
   { return Get<"IsSectionChangeInProgress", bool>(); }
   il2cpp::CallResult<bool> TryIsSectionChangeInProgress()
   { return TryCall<"get_IsSectionChangeInProgress", bool>(); }
+  SectionStatus* Activation()
+  { return Get<"Activation", SectionStatus*>(); }
   SectionStorage* sectionStorage()
   { return Field<"_sectionStorage", SectionStorage*>(); }
 

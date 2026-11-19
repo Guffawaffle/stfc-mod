@@ -13,19 +13,29 @@
 #include <utility>
 #include <vector>
 
+namespace mod_updates
+{
+enum class Channel;
+}
+
 namespace mod_state
 {
-enum class Group : size_t { OfficerOrder, ShipPins, ConsoleOpacity, Count };
+enum class Group : size_t { OfficerOrder, ShipPins, ConsoleOpacity, UpdateIgnore, Count };
 enum class SaveOutcome { None, Pending, Saved, Failed };
 struct SaveStatus {
   uint64_t    revision = 0;
   SaveOutcome outcome  = SaveOutcome::None;
 };
+struct UpdateTag {
+  std::string          scope, tag;
+  mod_updates::Channel channel;
+};
 struct StateEdit {
-  Group                    group;
-  std::vector<int64_t>     ids;
-  std::vector<std::string> legacy_names;
-  int                      opacity_percent = 0;
+  Group                       group;
+  std::vector<int64_t>        ids;
+  std::vector<std::string>    legacy_names;
+  int                         opacity_percent = 0;
+  std::optional<UpdateTag>    update_tag{};
 };
 
 // Whole desired values may replace an older pending value in the SAME group.
@@ -110,7 +120,16 @@ public:
   static constexpr size_t MaximumEditBytes     = 1024 * 1024;
   static constexpr size_t MaximumRetainedBytes = 4 * MaximumEditBytes;
   static size_t           Charge(const StateEdit& edit)
-  { return Charge(edit.ids, edit.legacy_names); }
+  {
+    const auto base = Charge(edit.ids, edit.legacy_names);
+    if (!edit.update_tag)
+      return base;
+    const auto& update = *edit.update_tag;
+    if (!base || update.scope.capacity() > 128 || update.tag.capacity() > 128)
+      return 0;
+    const auto charge = base + update.scope.capacity() + update.tag.capacity() + 2;
+    return charge <= MaximumEditBytes ? charge : 0;
+  }
   static size_t Charge(const std::vector<int64_t>& ids, const std::vector<std::string>& names = {})
   {
     if (ids.size() > MaximumEntries || names.size() > MaximumEntries)

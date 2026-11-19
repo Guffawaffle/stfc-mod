@@ -1,6 +1,7 @@
 // The mod's loading screens, from [graphics] loader_*: the login background and logos, the transition screen between
 // sections, and the loading tips. They share the embedded images and reset together when the game reloads.
 
+#include "community_badge.h"
 #include "config.h"
 #include "features/features.h"
 #include "file.h"
@@ -27,7 +28,6 @@
 // Generated into the Zig build cache from assets/ (or -Dbg_image).
 #include "embedded_cc_logo_image.h"
 #include "embedded_loading_image.h"
-#include "embedded_logo_image.h"
 
 namespace
 {
@@ -54,7 +54,7 @@ unity::ImageAsset* LoadScreenImage(unity::ImageAsset& asset, const uint8_t* data
 }
 
 struct ScreenImages {
-  unity::ImageAsset background, logo, community_logo;
+  unity::ImageAsset background, community_logo;
 
   // The configured loader_image, or the embedded one when it is unset or unreadable. Called from hooks, so it
   // never throws.
@@ -78,9 +78,6 @@ struct ScreenImages {
     return nullptr;
 #endif
   }
-
-  unity::ImageAsset* Logo()
-  { return LoadScreenImage(logo, g_embeddedLogoImage, g_embeddedLogoImage_SIZE, "mod logo"); }
 
   unity::ImageAsset* CommunityLogo()
   { return LoadScreenImage(community_logo, g_embeddedCCLogoImage, g_embeddedCCLogoImage_SIZE, "community logo"); }
@@ -139,11 +136,9 @@ unity::GameObject* CreateOverlay(const char* name, unity::ImageAsset& asset, uni
   return object;
 }
 
-enum class LogoCorner { kBottomLeft, kBottomRight };
-
-// A logo in a bottom corner, laid out in pixels for a 1920-wide screen, then scaled to the real width and by
+// The bottom-left badge is laid out in pixels for a 1920-wide screen, then scaled to the real width and by
 // loader_logo_scale. The overlay is placed purely by anchors, so the pixel box becomes fractions of the screen.
-bool CreateLogo(const char* name, unity::ImageAsset* asset, unity::Transform* parent, LogoCorner corner)
+bool CreateLogo(const char* name, unity::ImageAsset* asset, unity::Transform* parent)
 {
   if (!asset || !parent)
     return false;
@@ -158,24 +153,18 @@ bool CreateLogo(const char* name, unity::ImageAsset* asset, unity::Transform* pa
   const float logo_height = logo_width * asset->AspectRatio();
   const float pad_x       = 30.0f * scale;
   const float pad_y       = 185.0f * scale;
-  const float left        = corner == LogoCorner::kBottomLeft ? pad_x : width - pad_x - logo_width;
 
-  return CreateOverlay(name, *asset, parent, {left / width, pad_y / height},
-                       {(left + logo_width) / width, (pad_y + logo_height) / height}, true, false);
+  return CreateOverlay(name, *asset, parent, {pad_x / width, pad_y / height},
+                       {(pad_x + logo_width) / width, (pad_y + logo_height) / height}, true, false);
 }
 
-// The mod logo on the right, the community logo on the left.
+// One app badge, shared with the launcher, without a duplicate mod emblem on the right.
 struct ScreenLogos {
-  bool logo           = false;
   bool community_logo = false;
 
-  // Creates whichever is still missing.
+  // Creates the badge once for this scene.
   void Create(unity::Transform* parent)
-  {
-    logo = logo || CreateLogo("STFCModLogo", screen_images.Logo(), parent, LogoCorner::kBottomRight);
-    community_logo =
-        community_logo || CreateLogo("STFCCCLogo", screen_images.CommunityLogo(), parent, LogoCorner::kBottomLeft);
-  }
+  { community_logo = community_logo || CreateLogo("STFCCCLogo", screen_images.CommunityLogo(), parent); }
 };
 
 // --- Login sequence ---
@@ -490,6 +479,12 @@ bool InstallLoadingTips()
   return hooks.Commit();
 }
 } // namespace
+
+unity::Sprite* CommunityBadgeSprite()
+{
+  auto* badge = screen_images.CommunityLogo();
+  return badge ? badge->Sprite() : nullptr;
+}
 
 const Feature kLoginScreen{"LoginScreen", &Config::Patches::loadingscreenhooks, InstallLoginScreen,
                            nullptr,       InstallRequirement::kOptional,        ResetLoadingScreens};
