@@ -1,10 +1,9 @@
 #pragma once
 
-#include "system_ship_counter_state.h"
+#include "features/navigation_hud.h"
+#include "features/system_ship_counter_state.h"
 
 #include "game/app.h"
-#include "game/hud.h"
-#include "game/ui.h"
 
 #include <il2cpp/il2cpp.h>
 #include <unity/ui.h>
@@ -34,10 +33,9 @@ public:
 
     if (Hub::CurrentSection() != SectionID::Navigation_System)
       return Unavailable();
-    auto navigation = il2cpp::GcHandle::Strong(
-        ScreenManager::RegisteredController<HudNavigationViewController, NavigationViewData>());
-    auto* nav = navigation.Get<HudNavigationViewController>();
-    if (!unity::Alive(nav) || !nav->isActiveAndEnabled())
+    auto  navigation = navigation_hud::FindNavigation();
+    auto* nav        = navigation.Get<HudNavigationViewController>();
+    if (!nav)
       return Unavailable();
 
     auto  context = il2cpp::GcHandle::Strong(nav->CanvasContext());
@@ -53,10 +51,8 @@ public:
       return Unavailable();
     const Scope scope{galaxy.value, system.value, instance.value};
 
-    auto  helper      = il2cpp::GcHandle::Strong(nav->factionInformationHelper());
-    auto* information = helper.Get<FactionInformation>();
-    auto  names       = il2cpp::GcHandle::Strong(information ? information->systemName() : nullptr);
-    auto* labels      = names.Get<il2cpp::List<unity::Component*>>();
+    auto  names  = navigation_hud::FindSystemNames(nav);
+    auto* labels = names.Get<il2cpp::List<unity::Component*>>();
     if (!labels)
       return Unavailable();
     const auto count = labels->TryCall<"get_Count", int32_t>();
@@ -66,12 +62,8 @@ public:
     // Native HUD variants have separate localized system-name labels. Follow
     // the active one; an inactive variant is not a usable counter parent.
     for (int32_t index = 0; index < count.value; ++index) {
-      const auto item      = labels->TryCall<"get_Item", unity::Component*>(index);
-      auto       name      = il2cpp::GcHandle::Strong(item ? item.value : nullptr);
-      auto*      component = name.Get<unity::Component>();
-      if (!unity::Alive(component))
-        continue;
-      auto       object      = il2cpp::GcHandle::Strong(component->gameObject());
+      const auto item        = labels->TryCall<"get_Item", unity::Component*>(index);
+      auto       object      = navigation_hud::SystemNameObject(item ? item.value : nullptr);
       auto*      game_object = object.Get<unity::GameObject>();
       const auto active      = game_object ? game_object->TryActiveInHierarchy() : il2cpp::CallResult<bool>{};
       if (!active || !active.value)

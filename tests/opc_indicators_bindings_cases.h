@@ -32,6 +32,9 @@ bool                             opc_native_text_failure = false, opc_native_car
 bool                             opc_native_color_failure = false;
 int                              opc_native_style_failure = 0, opc_native_destroys = 0;
 int                              opc_native_cargo_reads = 0, opc_native_text_writes = 0, opc_native_fleet_reads = 0;
+int                              opc_native_mining_reads = 0, opc_native_layout_writes = 0;
+int                              opc_native_color_writes = 0, opc_native_active_writes = 0;
+bool                             opc_native_cargo_change_during_mining = false;
 
 FakeClass& OpcNativeClass(const char* ns, const char* name, FakeClass* parent = &object_class)
 {
@@ -78,15 +81,24 @@ Il2CppObject* OpcNativeComponent(Il2CppObject* object, Il2CppReflectionType* typ
   return nullptr;
 }
 void OpcNativeActive(Il2CppObject* object, bool value, const MethodInfo*)
-{ OpcNative(object)->active = value; }
+{
+  ++opc_native_active_writes;
+  OpcNative(object)->active = value;
+}
 bool OpcNativeEnabled(Il2CppObject* object, const MethodInfo*)
 { return OpcNative(object)->active; }
 void OpcNativePosition(Il2CppObject* object, unity::Vector2 value, const MethodInfo*)
-{ OpcNative(object)->position = value; }
-void OpcNativeVector(Il2CppObject*, unity::Vector2, const MethodInfo*) {}
-void OpcNativeSibling(Il2CppObject*, const MethodInfo*) {}
+{
+  ++opc_native_layout_writes;
+  OpcNative(object)->position = value;
+}
+void OpcNativeVector(Il2CppObject*, unity::Vector2, const MethodInfo*)
+{ ++opc_native_layout_writes; }
+void OpcNativeSibling(Il2CppObject*, const MethodInfo*)
+{ ++opc_native_layout_writes; }
 void OpcNativeColor(Il2CppObject* object, unity::Color value, const MethodInfo*)
 {
+  ++opc_native_color_writes;
   if (opc_native_color_failure)
     throw Il2CppExceptionWrapper(&thrown);
   OpcNative(object)->color = value;
@@ -155,7 +167,15 @@ double OpcNativeCurrent(Il2CppObject* object, const MethodInfo*)
 double OpcNativeProtection(Il2CppObject* object, const MethodInfo*)
 { return OpcNative(object)->protection; }
 fleet_opc_binding::Mining* OpcNativeMining(Il2CppObject* object, const MethodInfo*)
-{ return reinterpret_cast<fleet_opc_binding::Mining*>(OpcNative(object)->mining); }
+{
+  ++opc_native_mining_reads;
+  if (opc_native_cargo_change_during_mining) {
+    opc_native_cargo_change_during_mining       = false;
+    OpcNative(object)->cargo->progress->current = 99;
+    fleet_opc::Invalidate(OpcNative(object)->slot);
+  }
+  return reinterpret_cast<fleet_opc_binding::Mining*>(OpcNative(object)->mining);
+}
 float OpcNativeRate(Il2CppObject* object, const MethodInfo*)
 { return OpcNative(object)->rate; }
 double OpcNativeMined(Il2CppObject* object, const MethodInfo*)
@@ -200,6 +220,7 @@ void OpcIndicatorsConsumerCases(std::string_view mode)
            bool_class);
   AddMethod(transform, "Find", reinterpret_cast<void*>(&OpcNativeFind), T(transform), {T(string_class)});
   AddMethod(game_object_class, "SetActive", reinterpret_cast<void*>(&OpcNativeActive), T(void_class), {T(bool_class)});
+  AddMethod(game_object_class, "get_activeSelf", reinterpret_cast<void*>(&OpcNativeEnabled), T(bool_class), {});
   AddMethod(unity_object_class, "Destroy", reinterpret_cast<void*>(&OpcNativeDestroy), T(void_class),
             {T(unity_object_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
   for (auto* method : game_object_class.methods)
@@ -299,7 +320,7 @@ void OpcIndicatorsConsumerCases(std::string_view mode)
   auto& card_label      = visual("CommunityOpcCardEtaLabel", &timer_transform);
   auto& card_text       = component(label, card_label);
   auto* body_pointer    = reinterpret_cast<unity::Transform*>(&body);
-  auto* panel_pointer   = reinterpret_cast<FleetLocalViewController*>(&native_panel);
+  auto* timer_pointer   = reinterpret_cast<unity::Transform*>(&timer_transform);
   auto* state_pointer   = reinterpret_cast<fleet_opc_binding::StateWidget*>(&native_state);
   auto* flag_pointer    = reinterpret_cast<fleet_opc_binding::FlagWidget*>(&native_flag);
   auto& ui              = Config::Get().ui;
@@ -356,13 +377,13 @@ void OpcIndicatorsConsumerCases(std::string_view mode)
     Require(OpcRenderEta(body_pointer, false, fleet_opc::Evaluate(true, {true, true, 101, 100}, true, 1, true, 0, 1))
                 && il2cpp::Equals(native_text.text, "<b>OPC</b>") && eta_label.position.y == 14,
             "production ordinary tile renders OPC and changes selected layout without rebuilding the model");
-    Require(OpcRenderCard(panel_pointer, "OPC: Now") && il2cpp::Equals(card_text.text, "OPC: Now")
+    Require(OpcRenderCard(timer_pointer, "OPC: Now") && il2cpp::Equals(card_text.text, "OPC: Now")
                 && card_label.position.x == 7.6f && card_label.position.y == -39,
             "actual selected card consumer uses its native timer anchor and source placement");
     opc_native_text_failure = true;
     Require(!OpcRenderEta(body_pointer, false, status) && !eta_label.object->active && !backing.object->active,
             "contained native text failure leaves both ETA surfaces hidden and reports setup failure");
-    Require(!OpcRenderCard(panel_pointer, "OPC: 1m") && !card_label.object->active,
+    Require(!OpcRenderCard(timer_pointer, "OPC: 1m") && !card_label.object->active,
             "failed selected card text cannot publish a successful stale card");
     opc_native_text_failure = false;
     Require(OpcRenderEta(body_pointer, false, {}) && !eta_label.object->active && !backing.object->active,
@@ -374,6 +395,28 @@ void OpcIndicatorsConsumerCases(std::string_view mode)
     Require(highlight.object->active && eta_label.object->active && card_label.object->active
                 && il2cpp::Equals(native_text.text, "<b>OPC</b>") && il2cpp::Equals(card_text.text, "OPC: Now"),
             "actual view refresh connects rooted producer to highlight, ETA and selected-card consumers");
+    OpcBind(flag_pointer, OpcOwner::Flag);
+    const auto batch_mining  = opc_native_mining_reads;
+    const auto batch_cargo   = opc_native_cargo_reads;
+    const auto layout_writes = opc_native_layout_writes;
+    const auto color_writes  = opc_native_color_writes;
+    const auto active_writes = opc_native_active_writes;
+    const auto text_writes   = opc_native_text_writes;
+    OpcFrame();
+    Require(opc_native_mining_reads == batch_mining + 1 && opc_native_cargo_reads == batch_cargo + 1,
+            "a refresh batch reads cargo and mining status once for the fleet shared by two visible widgets");
+    Require(opc_native_layout_writes == layout_writes && opc_native_color_writes == color_writes
+                && opc_native_active_writes == active_writes && opc_native_text_writes == text_writes,
+            "stable widget, placement and status cause no redundant Unity writes across both views");
+    const auto before_invalidation        = opc_native_mining_reads;
+    opc_native_cargo_change_during_mining = true;
+    Opc().next                            = 0;
+    OpcFrame();
+    Require(
+        opc_native_mining_reads == before_invalidation + 2 && !highlight.object->active
+            && il2cpp::Equals(native_text.text, "<b><1m</b>") && il2cpp::Equals(card_text.text, "OPC: <1m"),
+        "a cargo update inside the first read invalidates the current batch and the next view renders fresh status");
+    OpcRelease(flag_pointer);
     Opc().views.at(state_pointer).retry = OpcNow() + 30000;
     fleet.id                            = 1002;
     fleet.cargo->progress->current      = 99;

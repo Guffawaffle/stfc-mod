@@ -566,7 +566,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("previews", ui, keep_player_ship_card_open, "Keep player ship card open after attack", Owner("BaseCard"), Live,
        "Keep the player ship card open after attacks. For miners, switch to the ship card.");
   BOOL("previews", ui, highlight_opc_fleets, "Highlight unprotected cargo", Owner("OpcIndicators"), Live,
-       "Highlight fleets over protected cargo.");
+       "Highlight your fleet tiles and selected player mining cards when the game confirms unprotected cargo.");
   BOOL("previews", ui, fleet_hud_opc_eta, "Time until unprotected cargo", Owner("OpcIndicators"), Live,
        "Estimate time until cargo exceeds protection.");
   BOOL("previews", ui, show_ship_tech_indicators, "Ship technology indicators", Owner("ShipTechIndicators"), Live,

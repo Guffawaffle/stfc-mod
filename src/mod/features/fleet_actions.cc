@@ -1082,9 +1082,6 @@ struct PendingTargetCargo {
 auto&    pending_target_cargo     = *new std::vector<PendingTargetCargo>;
 uint64_t cargo_request_generation = 0;
 
-bool CargoStateShown(VisibilityState state)
-{ return state == VisibilityState::Show || state == VisibilityState::Visible; }
-
 void CancelTargetCargo()
 {
   pending_target_cargo.clear();
@@ -1103,12 +1100,7 @@ std::optional<PendingTargetCargo> ObserveTargetCargo(PreScanTargetWidget* pre_sc
   auto*      viewer = result.viewer.Get<PreScanTargetWidget>();
   const auto alive  = viewer ? unity::TryAlive(viewer) : il2cpp::CallResult<bool>{};
   const auto active = viewer ? viewer->TryCall<"get_isActiveAndEnabled", bool>() : il2cpp::CallResult<bool>{};
-  if (!alive || !alive.value || !active || !active.value)
-    return {};
-  auto       visibility = WarpRoot(viewer->TryVisibilityController());
-  const auto shown =
-      visibility ? visibility.Get<VisibilityController>()->TryState() : il2cpp::CallResult<VisibilityState>{};
-  if (!shown || !CargoStateShown(shown.value))
+  if (!alive || !alive.value || !active || !active.value || !viewer->IsCardShown())
     return {};
   result.rewards = WarpRoot(viewer->TryRewardsButton());
   if (!result.rewards)
@@ -1169,7 +1161,7 @@ void ToggleTargetCargo()
     const auto state = current->controller.Get<VisibilityController>()->TryState();
     if (!state)
       continue;
-    if (CargoStateShown(state.value))
+    if (VisibilityController::IsShown(state.value))
       current->controller.Get<VisibilityController>()->Hide();
     else
       ScheduleTargetCargo(std::move(*current), false, 5);
@@ -1242,7 +1234,7 @@ void ShowPendingTargetCargo()
     auto confirmed = ObserveTargetCargo(request.viewer.Get<PreScanTargetWidget>());
     if (!confirmed || !SameCargoSource(*current, *confirmed) || generation != cargo_request_generation)
       continue;
-    if (!CargoStateShown(state.value))
+    if (!VisibilityController::IsShown(state.value))
       confirmed->controller.Get<VisibilityController>()->Show(true);
     --request.remaining_passes;
     if (generation == cargo_request_generation && request.remaining_passes > 0 && frame < request.last_frame)

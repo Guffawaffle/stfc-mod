@@ -133,8 +133,10 @@ struct VisibilityController : il2cpp::Object {
   { return Get<"VisibilityState", VisibilityState>(); }
 
   // Shown or on its way in.
+  static bool IsShown(VisibilityState value)
+  { return value == VisibilityState::Visible || value == VisibilityState::Show; }
   bool IsShown()
-  { return std::ranges::contains(std::array{VisibilityState::Visible, VisibilityState::Show}, state()); }
+  { return IsShown(state()); }
 };
 
 struct CanvasController : unity::Behaviour {

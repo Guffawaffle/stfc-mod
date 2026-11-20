@@ -13,6 +13,9 @@ namespace fleet_opc
 void Invalidate(int32_t slot)
 { opc_sample_cache.Invalidate(slot); }
 
+uint64_t CargoRevision(int32_t slot)
+{ return opc_sample_cache.Revision(slot); }
+
 Cargo Read(FleetPlayerData* fleet, int32_t slot, int64_t fleet_id, int32_t state)
 {
   if (!fleet)
