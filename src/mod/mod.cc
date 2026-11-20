@@ -170,6 +170,7 @@ constexpr const Feature* kFeatures[] = {
     &kFleetNodeDepletion,
     // mining_preview.cc
     &kMiningPreview,
+    &kMiningTargetOpc,
     &kNavigationOrbit,
     // fleet_labels.cc
     &kFleetLabels,

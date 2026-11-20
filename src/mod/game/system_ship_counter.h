@@ -25,9 +25,7 @@ struct ServerContext : il2cpp::Object {
 struct Set : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "DeployedFleetSet">;
 };
-struct Model : il2cpp::Object {
-  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IDeployedFleet">;
-};
+using Model = DeployedFleetInterface;
 struct WorldService : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Services", "GameWorldService">;
 };

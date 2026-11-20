@@ -356,6 +356,18 @@ int main()
   Enable("Toasts");
   Enable("DailyClaimFilter");
   Enable("FleetLabels");
+  auto* highlight = Find<BooleanSetting>(catalog, "ui.highlight_opc_fleets");
+  auto* eta       = Find<BooleanSetting>(catalog, "ui.fleet_hud_opc_eta");
+  Check(highlight && eta && !highlight->Observe().state.known() && !eta->Observe().state.known(),
+        "without either feature the cargo indicators are unavailable");
+  Enable("MiningTargetOpc");
+  Check(highlight->Observe().state.known() && !eta->Observe().state.known(),
+        "the selected mining card alone exposes the highlight toggle, not fleet ETA");
+  features.pop_back();
+  Enable("OpcIndicators");
+  Check(highlight->Observe().state.known() && eta->Observe().state.known(),
+        "the fleet bar alone exposes both cargo controls");
+  features.pop_back();
   auto* image = Exact("graphics.loader_image");
   Check(image && !image->Read(0).actionable(), "loading image remains unavailable without a renderer owner");
   Enable("LoginScreen");
