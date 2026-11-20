@@ -395,6 +395,12 @@ void OpcIndicatorsConsumerCases(std::string_view mode)
     Require(highlight.object->active && eta_label.object->active && card_label.object->active
                 && il2cpp::Equals(native_text.text, "<b>OPC</b>") && il2cpp::Equals(card_text.text, "OPC: Now"),
             "actual view refresh connects rooted producer to highlight, ETA and selected-card consumers");
+    ui.fleet_hud_opc_eta = false;
+    OpcRefresh(state_pointer);
+    Require(highlight.object->active && !eta_label.object->active && !card_label.object->active,
+            "turning ETA off hides a selected card even when only its state widget was bound");
+    ui.fleet_hud_opc_eta = true;
+    OpcRefresh(state_pointer);
     OpcBind(flag_pointer, OpcOwner::Flag);
     const auto batch_mining  = opc_native_mining_reads;
     const auto batch_cargo   = opc_native_cargo_reads;

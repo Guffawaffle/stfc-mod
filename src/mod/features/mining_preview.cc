@@ -173,7 +173,7 @@ il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
   auto*            container = root.Get<unity::GameObject>();
   auto layout = il2cpp::GcHandle::Strong(container ? container->AddComponent<unity::LayoutElement>() : nullptr);
   if (!rect || !layout || !container->TryCall<"set_layer", void(int32_t)>(layer.value)
-      || !layout.Get<unity::LayoutElement>()->TryCall<"set_ignoreLayout", void(bool)>(true)
+      || !layout.Get<unity::LayoutElement>()->ExcludeFromLayout()
       || !SetMiningOutlineRect(rect, {0, 0}, {1, 1}, {0, 0}, {0, 0})) {
     if (container)
       unity::Destroy(container);
@@ -291,6 +291,10 @@ void MiningTargetOpcFrame()
 
 bool InstallMiningTargetOpc()
 {
+  if (!Config::Get().patches.objecttracker) {
+    spdlog::warn("[MiningTargetOpc] object tracking is disabled");
+    return false;
+  }
   if (binding::TargetOpcAvailable())
     return true;
   spdlog::warn("[MiningTargetOpc] native mining target cargo contract unavailable");

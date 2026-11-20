@@ -420,12 +420,6 @@ void OpcRefresh(il2cpp::Object* key, OpcMiningSamples* samples = nullptr)
   }
   if (!highlight_enabled)
     OpcShow(body, kOpcHighlight, false);
-  if (!eta) {
-    OpcShow(body, kOpcLabel, false);
-    OpcShow(body, kOpcBacking, false);
-    if (panel_component)
-      OpcShow(fleet_opc_binding::TimerAnchor(panel), kOpcCardLabel, false);
-  }
   // Setup backoff must not keep artwork visible after its data ceases to apply.
   // These observations retain the shared cargo cache and frame cadence; only
   // allocation/configuration work below waits for the retry deadline.
@@ -440,7 +434,7 @@ void OpcRefresh(il2cpp::Object* key, OpcMiningSamples* samples = nullptr)
       can_highlight
       && (can_observe_mining ? status.cargo.opc : fleet_opc::Read(fleet, slot.value, id.value, native_state).opc);
   const auto display    = fleet_opc::Display(status);
-  auto*      timer      = eta && selected_view ? fleet_opc_binding::TimerAnchor(panel) : nullptr;
+  auto*      timer      = selected_view ? fleet_opc_binding::TimerAnchor(panel) : nullptr;
   auto       timer_root = il2cpp::GcHandle::Strong(timer);
   if (!show)
     OpcShow(body, kOpcHighlight, false);
