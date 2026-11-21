@@ -2,7 +2,6 @@
 #include "features.h"
 
 #if defined(STFC_AAI_ENABLED)
-#include "features/streamer_mode.h"
 #include <il2cpp/hook.h>
 #include <spdlog/spdlog.h>
 #include <stfc_aai/overlay.h>
@@ -12,10 +11,7 @@ namespace
 const stfc_aai::hooks::InstallReport& AaiHooks()
 {
   static const auto result = [] {
-    stfc_aai::Configure([] {
-      return Config::Get().ui.battle_log_summary_preview && !streamer_mode::HideReports()
-             && !streamer_mode::HideIdentity() && !streamer_mode::HideLocations();
-    });
+    stfc_aai::Configure([] { return Config::Get().ui.battle_log_summary_preview; });
     const auto report = stfc_aai::InstallHooks();
     // AAI's compatibility Attempt deliberately contains installer exceptions.
     // The host's monotonic latch must survive that boundary and stop startup.

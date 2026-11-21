@@ -1,22 +1,16 @@
 # Streamer Mode
 
-Open **Mod Settings → Streamer Mode** to choose the privacy protections you want. The master switch applies the selected protections and starts off. **Hide account IDs** starts selected so existing Streamer Mode configurations keep their Player ID mask. The other protections start clear. Turning the master switch off restores native presentation and keeps your choices for next time.
+Open **Mod Settings → Streamer Mode** to cover account identifiers and optionally hide chat sender names. The master switch starts off. **Hide account IDs** starts selected. **Hide chat sender names** is opt-in. Turning the master switch off restores native presentation and keeps your choices for next time.
 
 ## Coverage
 
 | Control | Protected presentation | Additional exposure to check |
 | --- | --- | --- |
 | Hide account IDs | General Settings shows **Hidden** for the Player ID and covers the identifier next to **Signed into Scopely as**. Player ID **Copy** puts the real ID on the clipboard in either state. **Switch Account** stays available. The separate native Player ID label is covered when its display hook is available. | Account details in sign-in pages and support codes opened through other apps. |
-| Hide commander identity | Commander and alliance profile details, player and alliance fleet labels, station labels, and Galaxy fleet names. | Other profile popups and identifying art outside the covered fields. |
-| Hide locations | Galaxy and System names, regional labels, the HUD home pointer, location links, and bookmark names and coordinates. | Map geometry, fleet destinations, and tooltip text can still identify a location. |
 | Hide chat sender names | Sender names in HUD previews, full and side chat, direct chat and channel lists, and blocked-user rows. Messages stay readable. Use the game's chat controls to close or open the panel. | Message text, titles, avatars, attachments, and other popups can still identify a sender. |
-| Hide report and alert details | Combat and destruction report rows, participant and location fields in report details, participant headers in detailed battle logs, supported native banners, and the bodies of mod-delivered desktop notifications. Round and outcome information remains readable. | Other native banner types, individual ship and log entries, and notifications delivered before the switch was enabled. |
-| Hide balances | Resource amounts in the standard HUD, the shared currency and resource groups and their dropdown, and the shop showcase’s resource panel when its hook is available. | Tooltips, purchase history, and separately rendered commerce panels can still display account or transaction information. |
 
 The menu shows **Protection unavailable** when the required hooks or frame delivery are missing. **On · Check protections** means a selected protection is unavailable or an active mask could not be verified. You can still turn an installed protection off. The masks act on game presentation. The game still has the original values for account features, navigation, and messaging.
 
 ## Validation
 
-Check new presentation coverage on every supported client build. Confirm the first visible frame with Streamer Mode saved on, toggle it with surfaces already open, and reopen or recycle the masked rows. Verify that native navigation and conversation input still work. Use synthetic identifiers where possible and record pass/fail results without capturing IDs, chat, or financial details.
-
-The initial Player ID implementation was live-tested on Windows client 275. The expanded masks need separate rendered checks on the exact build being tested. A compile check establishes build coverage for a target architecture.
+Check General Settings and chat with Streamer Mode saved on, then turn it off and close or reopen those screens. Verify the Player ID Copy action, the Scopely value label, and readable chat. Use synthetic identifiers where possible and record pass/fail results without capturing IDs or chat contents. Record rendered checks against the exact client and mod build tested.

@@ -504,22 +504,14 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
        "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");
 
-  const Available streamer = [] {
-    return StreamerModeAvailable() || streamer_mode::IdentityAvailable() || streamer_mode::LocationsAvailable()
-           || streamer_mode::ChatNamesAvailable() || streamer_mode::ReportsAvailable()
-           || streamer_mode::BalancesAvailable();
-  };
+  const Available streamer = [] { return StreamerModeAvailable() || streamer_mode::ChatNamesAvailable(); };
   catalog.SetSummary("community_mod.streamer", [] {
     const auto& ui = Config::Get().ui;
     if (!ui.streamer_mode)
       return "Off";
-    const bool incomplete =
-        (ui.streamer_hide_account && !StreamerModeAvailable())
-        || (ui.streamer_hide_identity && (!streamer_mode::IdentityAvailable() || streamer_mode::IdentityDegraded()))
-        || (ui.streamer_hide_locations && (!streamer_mode::LocationsAvailable() || streamer_mode::LocationsDegraded()))
-        || (ui.streamer_hide_chat_names && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()))
-        || (ui.streamer_hide_reports && (!streamer_mode::ReportsAvailable() || streamer_mode::ReportsDegraded()))
-        || (ui.streamer_hide_balances && (!streamer_mode::BalancesAvailable() || streamer_mode::BalancesDegraded()));
+    const bool incomplete = (ui.streamer_hide_account && !StreamerModeAvailable())
+                            || (ui.streamer_hide_chat_names
+                                && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()));
     return incomplete ? "On · Check protections" : "On";
   });
   const auto privacy = [&catalog](const char* key, const char* label, auto access, Available available,
@@ -528,20 +520,12 @@ void RegisterConfigSettings(PageCatalog& catalog)
             std::move(changed), UnavailableReason::ProtectionUnavailable);
   };
   privacy("streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode), streamer,
-          "Apply the selected privacy protections.", RefreshStreamerMode);
+          "Apply the selected account ID and chat sender-name protections.", RefreshStreamerMode);
   privacy("streamer_hide_account", "Hide account IDs", ACCESS(ui, streamer_hide_account), StreamerModeAvailable,
           "Hide the Player ID and signed-in Scopely ID in General Settings. Player ID Copy still uses the real ID.",
           RefreshStreamerMode);
-  privacy("streamer_hide_identity", "Hide commander identity", ACCESS(ui, streamer_hide_identity),
-          streamer_mode::IdentityAvailable, "Cover commander and alliance details on supported game screens.");
-  privacy("streamer_hide_locations", "Hide locations", ACCESS(ui, streamer_hide_locations),
-          streamer_mode::LocationsAvailable, "Cover location labels on supported game screens.");
   privacy("streamer_hide_chat_names", "Hide chat sender names", ACCESS(ui, streamer_hide_chat_names),
           streamer_mode::ChatNamesAvailable, "Hide sender names in supported chat views. Chat remains readable.");
-  privacy("streamer_hide_reports", "Hide report and alert details", ACCESS(ui, streamer_hide_reports),
-          streamer_mode::ReportsAvailable, "Cover identifying details in supported reports and notifications.");
-  privacy("streamer_hide_balances", "Hide balances", ACCESS(ui, streamer_hide_balances),
-          streamer_mode::BalancesAvailable, "Cover personal resource balances in supported HUD and store panels.");
   FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
         "multiplier", 0, largest, 2, .05f);
   FLOAT("interface", graphics, ui_scale_step, "Scale shortcut step", scale, Live,

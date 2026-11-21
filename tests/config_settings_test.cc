@@ -207,25 +207,9 @@ bool StreamerModeAvailable()
 { return streamer_available; }
 namespace streamer_mode
 {
-bool IdentityAvailable()
-{ return false; }
-bool IdentityDegraded()
-{ return false; }
-bool LocationsAvailable()
-{ return false; }
-bool LocationsDegraded()
-{ return false; }
 bool ChatNamesAvailable()
 { return false; }
 bool ChatNamesDegraded()
-{ return false; }
-bool ReportsAvailable()
-{ return false; }
-bool ReportsDegraded()
-{ return false; }
-bool BalancesAvailable()
-{ return false; }
-bool BalancesDegraded()
 { return false; }
 } // namespace streamer_mode
 void RefreshStreamerMode()
@@ -379,8 +363,8 @@ int main()
         "Streamer Mode defaults off and requires an available native adapter");
   const auto& pages        = catalog.RegisteredPages();
   const auto  privacy_page = std::ranges::find(pages, "community_mod.streamer", &PageCatalog::Page::id);
-  Check(privacy_page != pages.end() && privacy_page->ControlRows() == 7,
-        "Streamer Mode has one master switch and six protections");
+  Check(privacy_page != pages.end() && privacy_page->ControlRows() == 3,
+        "Streamer Mode has one master switch plus account IDs and chat sender names");
   auto* streamer_account = Find<BooleanSetting>(catalog, "ui.streamer_hide_account");
   Check(streamer_account && streamer_account->default_value() && registered.contains("ui.streamer_hide_account"),
         "existing enabled configurations retain the original Player ID protection");
@@ -464,13 +448,21 @@ int main()
   Check(streamer_mode->SetFromUser(true, streamer_mode->Observe()).outcome == Outcome::AppliedVerified
             && streamer_refreshes == 1 && streamer_at_refresh && std::get<bool>(saved.at("ui.streamer_mode")),
         "enabling Streamer Mode refreshes the native row synchronously with masking active and persists the setting");
-  Check(::streamer_mode::HideAccount() && !::streamer_mode::HideIdentity() && !::streamer_mode::HideLocations()
-            && !::streamer_mode::HideChatNames() && !::streamer_mode::HideReports() && !::streamer_mode::HideBalances(),
-        "additional protections are opt-in while Player ID remains selected");
+  Check(::streamer_mode::HideAccount() && !::streamer_mode::HideChatNames(),
+        "chat sender names are opt-in while account ID protection stays selected");
   toml::table       startup_output;
-  const toml::table startup_input{{"ui", toml::table{{"streamer_mode", std::get<bool>(saved.at("ui.streamer_mode"))}}}};
+  const toml::table startup_input{{"ui", toml::table{{"streamer_mode", std::get<bool>(saved.at("ui.streamer_mode"))},
+                                                     {"streamer_hide_identity", true},
+                                                     {"streamer_hide_locations", true},
+                                                     {"streamer_hide_reports", true},
+                                                     {"streamer_hide_balances", true}}}};
   Check(Config::Parse(startup_input, startup_output, false)->ui.streamer_mode,
-        "the persisted enabled preference applies during startup parsing");
+        "the persisted enabled preference applies with old settings files");
+  const auto* effective_ui = startup_output["ui"].as_table();
+  Check(effective_ui && !effective_ui->contains("streamer_hide_identity")
+            && !effective_ui->contains("streamer_hide_locations") && !effective_ui->contains("streamer_hide_reports")
+            && !effective_ui->contains("streamer_hide_balances"),
+        "retired gameplay masks are omitted from effective settings");
   Check(streamer_mode->Reset(streamer_mode->Observe()).outcome == Outcome::AppliedVerified && streamer_refreshes == 2
             && !streamer_at_refresh && !std::get<bool>(saved.at("ui.streamer_mode")),
         "turning Streamer Mode off refreshes the native row and persists the default");

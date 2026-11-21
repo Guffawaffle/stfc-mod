@@ -57,8 +57,7 @@ void NotificationDesktopMacEmit(std::string_view title, std::string_view body)
                   && settings.authorizationStatus != UNAuthorizationStatusProvisional) return;
               UNMutableNotificationContent* content = [[UNMutableNotificationContent alloc] init];
               content.title = ownedTitle;
-              content.body = DesktopNotificationDetailsHidden()
-                  ? @"Details hidden in Streamer Mode." : ownedBody;
+              content.body = ownedBody;
               UNNotificationRequest* request = [UNNotificationRequest requestWithIdentifier:[NSUUID UUID].UUIDString
                                                                                   content:content trigger:nil];
               [center addNotificationRequest:request withCompletionHandler:^(NSError* error) {
