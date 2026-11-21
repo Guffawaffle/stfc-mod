@@ -218,6 +218,7 @@ constexpr const Feature* kFeatures[] = {
     &kNativeSettingsPages,
     &kNativeSettingsSearch,
     &kStreamerAccountPrivacy,
+    &kStreamerSelfProfile,
     &kStreamerChatPrivacy,
     // shop.cc
     &kGiftsAutoOpen,

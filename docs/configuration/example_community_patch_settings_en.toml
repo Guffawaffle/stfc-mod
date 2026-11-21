@@ -822,7 +822,7 @@ zoom_reset = "="
 [ui]
 # Apply the selected Streamer Mode privacy protections. Applies live.
 streamer_mode = false
-# Hide the Player ID and signed-in Scopely ID. General Settings Player ID Copy still uses the real ID.
+# Hide account IDs and the name and alliance on your own Player Profile. Player ID Copy uses the real ID.
 streamer_hide_account = true
 # Hide sender names in supported chat views. Chat remains readable.
 streamer_hide_chat_names = false

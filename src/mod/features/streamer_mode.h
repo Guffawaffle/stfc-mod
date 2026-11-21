@@ -16,6 +16,8 @@ inline bool HideChatNames()
   return ui.streamer_mode && ui.streamer_hide_chat_names;
 }
 
+bool SelfProfileAvailable();
+bool SelfProfileDegraded();
 bool ChatNamesAvailable();
 bool ChatNamesDegraded();
 } // namespace streamer_mode

@@ -207,6 +207,10 @@ bool StreamerModeAvailable()
 { return streamer_available; }
 namespace streamer_mode
 {
+bool SelfProfileAvailable()
+{ return false; }
+bool SelfProfileDegraded()
+{ return false; }
 bool ChatNamesAvailable()
 { return false; }
 bool ChatNamesDegraded()
@@ -366,7 +370,9 @@ int main()
   Check(privacy_page != pages.end() && privacy_page->ControlRows() == 3,
         "Streamer Mode has one master switch plus account IDs and chat sender names");
   auto* streamer_account = Find<BooleanSetting>(catalog, "ui.streamer_hide_account");
-  Check(streamer_account && streamer_account->default_value() && registered.contains("ui.streamer_hide_account"),
+  Check(streamer_account && streamer_account->default_value()
+            && streamer_account->label() == "Hide my IDs, name, and alliance"
+            && registered.contains("ui.streamer_hide_account"),
         "existing enabled configurations retain the original Player ID protection");
   auto* research           = Find<BooleanSetting>(catalog, "ui.show_alliance_games_research");
   bool  research_on_claims = false;

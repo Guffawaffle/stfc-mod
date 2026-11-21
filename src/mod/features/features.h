@@ -260,6 +260,8 @@ extern const Feature kNativeSettingsSearch;
 
 // streamer_account.cc
 extern const Feature kStreamerAccountPrivacy;
+// streamer_self_profile.cc
+extern const Feature kStreamerSelfProfile;
 
 // screens.cc: shortcut helpers only, so no descriptor.
 // Presses a button a screen shortcut opened a screen for, once the screen is up. True when one was pressed.

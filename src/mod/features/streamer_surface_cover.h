@@ -7,9 +7,15 @@ namespace streamer_mode
 // Own a render-only group on one qualified presentation object. Restore before releasing a live pooled view.
 class SurfaceCover
 {
-  il2cpp::GcHandle target_, group_;
-
 public:
+  enum class GroupRetention { kWeak, kStrong };
+
+  SurfaceCover() = default;
+  explicit SurfaceCover(GroupRetention retention)
+      : retention_(retention)
+  {
+  }
+
   bool Restore()
   {
     if (auto* existing = group_.Get()) {
@@ -50,7 +56,9 @@ public:
       if (!unity::Alive(group.Get()))
         return false;
       target_ = il2cpp::GcHandle::Weak(target_root.Get());
-      group_  = il2cpp::GcHandle::Weak(group.Get());
+      // A pooled target can outlive its added component's managed wrapper. Keep that wrapper until restoration.
+      group_ = retention_ == GroupRetention::kStrong ? il2cpp::GcHandle::Strong(group.Get())
+                                                     : il2cpp::GcHandle::Weak(group.Get());
       if (!target_ || !group_) {
         unity::Destroy(group.Get());
         return false;
@@ -58,5 +66,9 @@ public:
     }
     return group.Get<unity::CanvasGroup>()->TryCall<"set_alpha", void(float)>(0.0f).succeeded;
   }
+
+private:
+  il2cpp::GcHandle target_, group_;
+  GroupRetention   retention_ = GroupRetention::kWeak;
 };
 } // namespace streamer_mode

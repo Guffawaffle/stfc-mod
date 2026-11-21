@@ -3,6 +3,7 @@
 // Exercise the actual post-bind command callback; publication and Unity rendering
 // are controlled boundaries, not a native game reproduction.
 #include "../src/mod/features/settings_actions.cc"
+#include "game/player_profile.h"
 
 namespace
 {
@@ -20,6 +21,45 @@ bool AllowsSettingsSearchAction(std::string_view)
 
 namespace
 {
+struct StreamerProfileFixtureUser {
+  Il2CppObject header;
+  bool         local, fails;
+};
+
+struct StreamerProfileFixtureView {
+  Il2CppObject header;
+  UserProfile* user;
+};
+
+bool StreamerProfileFixtureIsLocal(StreamerProfileFixtureUser* user, const MethodInfo*)
+{
+  if (user->fails)
+    throw Il2CppExceptionWrapper(&thrown);
+  return user->local;
+}
+
+void StreamerModeSelfProfileCases()
+{
+  auto& user_class = ValuesClass("Digit.PrimeServer.Models", "UserProfile");
+  auto& view_class = ValuesClass("Digit.Prime.PlayerProfile", "PlayerProfileViewController", &unity_object_class);
+  ValuesField(view_class, "_userProfile", user_class, offsetof(StreamerProfileFixtureView, user));
+  AddMethod(user_class, "get_IsLocalPlayer", reinterpret_cast<void*>(&StreamerProfileFixtureIsLocal), T(bool_class),
+            {});
+  StreamerProfileFixtureUser local{{&user_class.klass}, true, false}, other{{&user_class.klass}, false, false};
+  StreamerProfileFixtureView view{{&view_class.klass}, reinterpret_cast<UserProfile*>(&local)};
+  auto*                      native_view = reinterpret_cast<PlayerProfileViewController*>(&view);
+  const auto                 self        = native_view->TryIsLocalProfile();
+  Require(self && self.value, "only positive native local ownership admits the self-profile mask");
+  view.user          = reinterpret_cast<UserProfile*>(&other);
+  const auto foreign = native_view->TryIsLocalProfile();
+  Require(foreign && !foreign.value, "an inspected player keeps native profile presentation");
+  other.fails = true;
+  Require(!native_view->TryIsLocalProfile(), "an unreadable ownership check cannot qualify a profile");
+  view.user = nullptr;
+  Require(!native_view->TryIsLocalProfile(), "a pooled profile without its bound player cannot qualify");
+  std::cout << "Streamer Mode: native self-profile ownership fixtures passed\n";
+}
+
 void StreamerModePlayerIdCases()
 {
   auto&      state         = Actions();
@@ -223,5 +263,6 @@ void SettingsActionConsumerCases()
   Require(warp_roots.size() == roots_before, "action consumer releases every admitted managed root");
   std::cout << "Settings action consumer: invocation, token/page/context/presentation guards and reentry passed\n";
   StreamerModePlayerIdCases();
+  StreamerModeSelfProfileCases();
 }
 } // namespace

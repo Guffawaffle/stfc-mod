@@ -509,7 +509,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
     const auto& ui = Config::Get().ui;
     if (!ui.streamer_mode)
       return "Off";
-    const bool incomplete = (ui.streamer_hide_account && !StreamerModeAvailable())
+    const bool incomplete = (ui.streamer_hide_account
+                             && (!StreamerModeAvailable() || !streamer_mode::SelfProfileAvailable()
+                                 || streamer_mode::SelfProfileDegraded()))
                             || (ui.streamer_hide_chat_names
                                 && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()));
     return incomplete ? "On · Check protections" : "On";
@@ -520,9 +522,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
             std::move(changed), UnavailableReason::ProtectionUnavailable);
   };
   privacy("streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode), streamer,
-          "Apply the selected account ID and chat sender-name protections.", RefreshStreamerMode);
-  privacy("streamer_hide_account", "Hide account IDs", ACCESS(ui, streamer_hide_account), StreamerModeAvailable,
-          "Hide the Player ID and signed-in Scopely ID in General Settings. Player ID Copy still uses the real ID.",
+          "Apply the selected personal-info protections.", RefreshStreamerMode);
+  privacy("streamer_hide_account", "Hide my IDs, name, and alliance", ACCESS(ui, streamer_hide_account),
+          StreamerModeAvailable,
+          "Hide account IDs and the name and alliance on your own Player Profile. Player ID Copy uses the real ID.",
           RefreshStreamerMode);
   privacy("streamer_hide_chat_names", "Hide chat sender names", ACCESS(ui, streamer_hide_chat_names),
           streamer_mode::ChatNamesAvailable, "Hide sender names in supported chat views. Chat remains readable.");
