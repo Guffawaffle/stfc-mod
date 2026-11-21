@@ -36,9 +36,15 @@ struct ReportMaskTargets {
   {
     if (!component)
       return; // Some report variants omit serialized fields.
-    auto       root        = il2cpp::GcHandle::Strong(component);
-    const auto game_object = root ? root.Get<unity::Component>()->TryCall<"get_gameObject", unity::GameObject*>()
-                                  : il2cpp::CallResult<unity::GameObject*>{};
+    auto       root  = il2cpp::GcHandle::Strong(component);
+    const auto alive = root ? unity::TryAlive(root.Get()) : il2cpp::CallResult<bool>{};
+    if (!alive) {
+      verified = false;
+      return;
+    }
+    if (!alive.value)
+      return;
+    const auto game_object = root.Get<unity::Component>()->TryCall<"get_gameObject", unity::GameObject*>();
     if (!game_object || !game_object.value) {
       verified = false;
       return;
@@ -61,13 +67,14 @@ struct ReportMaskView {
   VisitReportTargets                                        visit{};
   std::map<unity::GameObject*, streamer_mode::SurfaceCover> covers;
   bool                                                      applying = false;
+  bool                                                      verified = true;
 };
 
 struct StreamerReportState {
   std::map<il2cpp::Object*, ReportMaskView> views;
   ReportMaskPolicy                          last{};
-  bool                                      installed = false;
-  bool                                      verified  = true;
+  bool                                      installed        = false;
+  bool                                      admission_failed = false;
 };
 
 StreamerReportState& ReportState()
@@ -78,28 +85,41 @@ StreamerReportState& ReportState()
 
 void ApplyReportMask(ReportMaskView& view, const ReportMaskPolicy& policy)
 {
-  if ((policy == ReportMaskPolicy{} && view.covers.empty()) || std::exchange(view.applying, true))
+  if (view.applying)
     return;
+  if (policy == ReportMaskPolicy{} && view.covers.empty()) {
+    view.verified = true;
+    return;
+  }
+  view.applying = true;
   struct ReportMaskCompletion {
     bool& applying;
     ~ReportMaskCompletion()
     { applying = false; }
   } completion{view.applying};
-  auto              owner = il2cpp::GcHandle::Strong(view.owner.Get());
+  auto*             observed = view.owner.Get();
+  auto              owner    = il2cpp::GcHandle::Strong(observed);
   ReportMaskTargets selected;
-  if (owner && unity::Alive(owner.Get()))
-    view.visit(owner.Get<il2cpp::Object>(), policy, selected);
-  auto& verified = ReportState().verified;
-  verified &= selected.verified;
+  if (policy != ReportMaskPolicy{} && observed) {
+    const auto alive = owner ? unity::TryAlive(owner.Get()) : il2cpp::CallResult<bool>{};
+    if (!alive) {
+      view.verified = false;
+      return;
+    }
+    if (alive.value)
+      view.visit(owner.Get<il2cpp::Object>(), policy, selected);
+  }
+  bool verified = selected.verified;
   for (const auto& [game_object, root] : selected.objects)
     verified &= view.covers[game_object].Set(root.Get<unity::GameObject>(), true);
   std::erase_if(view.covers, [&](auto& entry) {
-    if (selected.objects.contains(entry.first))
+    if (!selected.verified || selected.objects.contains(entry.first))
       return false;
     const auto restored = entry.second.Restore();
     verified &= restored;
     return restored;
   });
+  view.verified = verified;
 }
 
 void PruneReportMasks()
@@ -110,13 +130,19 @@ void PruneReportMasks()
       ++entry;
       continue;
     }
-    auto root = il2cpp::GcHandle::Strong(entry->second.owner.Get());
-    if (root && unity::Alive(root.Get())) {
-      ++entry;
-      continue;
+    if (auto* observed = entry->second.owner.Get()) {
+      auto       root  = il2cpp::GcHandle::Strong(observed);
+      const auto alive = root ? unity::TryAlive(root.Get()) : il2cpp::CallResult<bool>{};
+      if (!alive || alive.value) {
+        ++entry;
+        continue;
+      }
     }
     ApplyReportMask(entry->second, {});
-    entry = views.erase(entry);
+    if (entry->second.covers.empty())
+      entry = views.erase(entry);
+    else
+      ++entry;
   }
 }
 
@@ -128,10 +154,12 @@ void ObserveReportView(il2cpp::Object* owner, VisitReportTargets visitor)
     PruneReportMasks();
     auto weak = il2cpp::GcHandle::Weak(owner);
     if (!weak) {
-      ReportState().verified = false;
+      ReportState().admission_failed = true;
       return;
     }
-    found = views.try_emplace(owner, ReportMaskView{.owner = std::move(weak), .visit = visitor}).first;
+    found               = views.try_emplace(owner).first;
+    found->second.owner = std::move(weak);
+    found->second.visit = visitor;
   }
   ApplyReportMask(found->second, CurrentReportMask());
 }
@@ -145,6 +173,8 @@ void RestoreReportView(il2cpp::Object* owner)
   ApplyReportMask(found->second, {});
   if (found->second.covers.empty())
     views.erase(found);
+  else
+    found->second.owner.Reset();
 }
 
 template <typename Owner, typename Fields, bool ReportMaskPolicy::* Facet>
@@ -227,7 +257,7 @@ void BattleReportViewController_UpdateComponentsContext_Hook(auto original, Stre
   ObserveReportView(_this, VisitBattleReportTargets);
 }
 
-void BattleLogGenericEntryDetailWidget_ProcessBattleEntry_Hook(auto original, StreamerBattleLogEntry* _this)
+void BattleLogGenericEntryDetailWidget_OnDidBindContext_Hook(auto original, StreamerBattleLogEntry* _this)
 {
   original(_this);
   ObserveReportView(
@@ -277,13 +307,16 @@ void StandardToastWidget_OnDidBindContext_Hook(auto original, StreamerStandardTo
 void StreamerReportsFrame()
 {
   PublishDesktopNotificationPrivacy();
-  auto&      state  = ReportState();
-  const auto policy = CurrentReportMask();
-  if (std::exchange(state.last, policy) == policy)
+  auto&           state   = ReportState();
+  const auto      policy  = CurrentReportMask();
+  const bool      changed = std::exchange(state.last, policy) != policy;
+  static Throttle retry(std::chrono::milliseconds(250));
+  if (!changed && (!retry.Due() || !streamer_mode::ReportsDegraded()))
     return;
   PruneReportMasks();
   for (auto& [unused, view] : state.views)
-    ApplyReportMask(view, policy);
+    if (changed || !view.verified)
+      ApplyReportMask(view, policy);
 }
 
 template <typename Binding> void* ReportEntry(const char* method_name)
@@ -309,7 +342,7 @@ bool InstallStreamerReports()
   const auto show           = ReportEntry<StreamerBattleReport>("AboutToShow");
   const auto hide           = ReportEntry<StreamerBattleReport>("AboutToHide");
   const auto update         = ReportEntry<StreamerBattleReport>("UpdateComponentsContext");
-  const auto entry          = ReportEntry<StreamerBattleLogEntry>("ProcessBattleEntry");
+  const auto entry          = ReportEntry<StreamerBattleLogEntry>("OnDidBindContext");
   const auto participant    = ReportEntry<StreamerReportTargetRow>("OnDidBindContext");
   const auto battle_toast   = ReportEntry<StreamerBattleToast>("OnDidBindContext");
   const auto incoming_toast = ReportEntry<StreamerIncomingToast>("OnDidBindContext");
@@ -327,7 +360,7 @@ bool InstallStreamerReports()
   IL2CPP_STAGE_AT(hooks, show, BattleReportViewController_AboutToShow_Hook);
   IL2CPP_STAGE_AT(hooks, hide, BattleReportViewController_AboutToHide_Hook);
   IL2CPP_STAGE_AT(hooks, update, BattleReportViewController_UpdateComponentsContext_Hook);
-  IL2CPP_STAGE_AT(hooks, entry, BattleLogGenericEntryDetailWidget_ProcessBattleEntry_Hook);
+  IL2CPP_STAGE_AT(hooks, entry, BattleLogGenericEntryDetailWidget_OnDidBindContext_Hook);
   IL2CPP_STAGE_AT(hooks, participant, TargetRowWidget_OnDidBindContext_Hook);
   IL2CPP_STAGE_AT(hooks, battle_toast, BattleResultToastWidget_OnDidBindContext_Hook);
   IL2CPP_STAGE_AT(hooks, incoming_toast, IncomingAttackToastWidget_OnDidBindContext_Hook);
@@ -338,7 +371,14 @@ bool InstallStreamerReports()
 } // namespace
 
 bool streamer_mode::ReportsAvailable()
-{ return ReportState().installed && ReportState().verified && FrameDeliveryAvailable(); }
+{ return ReportState().installed && FrameDeliveryAvailable(); }
+
+bool streamer_mode::ReportsDegraded()
+{
+  const auto& state = ReportState();
+  return state.admission_failed
+         || std::ranges::any_of(state.views, [](const auto& entry) { return !entry.second.verified; });
+}
 
 const Feature kStreamerReports{"StreamerReports", &Config::Patches::streamermodehooks, InstallStreamerReports,
                                StreamerReportsFrame};

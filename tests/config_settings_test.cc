@@ -209,13 +209,23 @@ namespace streamer_mode
 {
 bool IdentityAvailable()
 { return false; }
+bool IdentityDegraded()
+{ return false; }
 bool LocationsAvailable()
 { return false; }
-bool ChatAvailable()
+bool LocationsDegraded()
+{ return false; }
+bool ChatNamesAvailable()
+{ return false; }
+bool ChatNamesDegraded()
 { return false; }
 bool ReportsAvailable()
 { return false; }
+bool ReportsDegraded()
+{ return false; }
 bool BalancesAvailable()
+{ return false; }
+bool BalancesDegraded()
 { return false; }
 } // namespace streamer_mode
 void RefreshStreamerMode()
@@ -365,7 +375,7 @@ int main()
   auto* streamer_mode = Find<BooleanSetting>(catalog, "ui.streamer_mode");
   Check(streamer_mode && streamer_mode->default_value() == false
             && streamer_mode->metadata().timing == ApplyTiming::Live && registered.contains("ui.streamer_mode")
-            && !streamer_mode->Observe().state.known() && path_reads == 0,
+            && streamer_mode->Observe().state.reason == UnavailableReason::ProtectionUnavailable && path_reads == 0,
         "Streamer Mode defaults off and requires an available native adapter");
   const auto& pages        = catalog.RegisteredPages();
   const auto  privacy_page = std::ranges::find(pages, "community_mod.streamer", &PageCatalog::Page::id);
@@ -455,7 +465,7 @@ int main()
             && streamer_refreshes == 1 && streamer_at_refresh && std::get<bool>(saved.at("ui.streamer_mode")),
         "enabling Streamer Mode refreshes the native row synchronously with masking active and persists the setting");
   Check(::streamer_mode::HideAccount() && !::streamer_mode::HideIdentity() && !::streamer_mode::HideLocations()
-            && !::streamer_mode::HideChat() && !::streamer_mode::HideReports() && !::streamer_mode::HideBalances(),
+            && !::streamer_mode::HideChatNames() && !::streamer_mode::HideReports() && !::streamer_mode::HideBalances(),
         "additional protections are opt-in while Player ID remains selected");
   toml::table       startup_output;
   const toml::table startup_input{{"ui", toml::table{{"streamer_mode", std::get<bool>(saved.at("ui.streamer_mode"))}}}};
@@ -464,10 +474,16 @@ int main()
   Check(streamer_mode->Reset(streamer_mode->Observe()).outcome == Outcome::AppliedVerified && streamer_refreshes == 2
             && !streamer_at_refresh && !std::get<bool>(saved.at("ui.streamer_mode")),
         "turning Streamer Mode off refreshes the native row and persists the default");
-  Config::Get().ui.streamer_hide_chat = true;
-  Check(!::streamer_mode::HideChat() && !::streamer_mode::HideAccount(),
+  const toml::table legacy_chat{{"ui", toml::table{{"streamer_hide_chat", true}}}};
+  const toml::table explicit_chat{
+      {"ui", toml::table{{"streamer_hide_chat", true}, {"streamer_hide_chat_names", false}}}};
+  Check(Config::Parse(legacy_chat, startup_output, false)->ui.streamer_hide_chat_names
+            && !Config::Parse(explicit_chat, startup_output, false)->ui.streamer_hide_chat_names,
+        "the chat name preference migrates the legacy toggle and honors an explicit new value");
+  Config::Get().ui.streamer_hide_chat_names = true;
+  Check(!::streamer_mode::HideChatNames() && !::streamer_mode::HideAccount(),
         "the master switch suspends selected protections without changing preferences");
-  Config::Get().ui.streamer_hide_chat = false;
+  Config::Get().ui.streamer_hide_chat_names = false;
 
   Check(!research->Observe().state.known(), "unrelated ready features cannot expose the Alliance Games control");
   Enable("AllianceGamesStore");

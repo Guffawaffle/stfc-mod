@@ -140,7 +140,8 @@ namespace
 
   template <class Access>
   void Boolean(PageCatalog& catalog, const char* page, const char* section, const char* key, const char* label,
-               Access access, Available available, Timing timing, const char* help, std::function<void()> changed = {})
+               Access access, Available available, Timing timing, const char* help, std::function<void()> changed = {},
+               UnavailableReason unavailable = UnavailableReason::Retry)
   {
     auto definition = MakeConfigDefinition<bool>(
         section, key, label, access(Defaults()), [access] { return access(Config::Get()); },
@@ -152,6 +153,14 @@ namespace
           return true;
         },
         available, timing, help);
+    if (unavailable != UnavailableReason::Retry) {
+      definition.read = [read = std::move(definition.read), unavailable] {
+        auto result = read();
+        if (!result.known())
+          result.reason = unavailable;
+        return result;
+      };
+    }
     catalog.AddBoolean(page, *Keep<BooleanSetting>(std::move(definition)));
   }
 
@@ -497,25 +506,42 @@ void RegisterConfigSettings(PageCatalog& catalog)
 
   const Available streamer = [] {
     return StreamerModeAvailable() || streamer_mode::IdentityAvailable() || streamer_mode::LocationsAvailable()
-           || streamer_mode::ChatAvailable() || streamer_mode::ReportsAvailable() || streamer_mode::BalancesAvailable();
+           || streamer_mode::ChatNamesAvailable() || streamer_mode::ReportsAvailable()
+           || streamer_mode::BalancesAvailable();
   };
-  catalog.SetSummary("community_mod.streamer", [] { return Config::Get().ui.streamer_mode ? "On" : "Off"; });
-  Boolean(catalog, "community_mod.streamer", "ui", "streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode),
-          streamer, Timing::Live, "Apply the selected privacy protections.", RefreshStreamerMode);
-  Boolean(catalog, "community_mod.streamer", "ui", "streamer_hide_account", "Hide Player ID",
-          ACCESS(ui, streamer_hide_account), StreamerModeAvailable, Timing::Live,
+  catalog.SetSummary("community_mod.streamer", [] {
+    const auto& ui = Config::Get().ui;
+    if (!ui.streamer_mode)
+      return "Off";
+    const bool incomplete =
+        (ui.streamer_hide_account && !StreamerModeAvailable())
+        || (ui.streamer_hide_identity && (!streamer_mode::IdentityAvailable() || streamer_mode::IdentityDegraded()))
+        || (ui.streamer_hide_locations && (!streamer_mode::LocationsAvailable() || streamer_mode::LocationsDegraded()))
+        || (ui.streamer_hide_chat_names && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()))
+        || (ui.streamer_hide_reports && (!streamer_mode::ReportsAvailable() || streamer_mode::ReportsDegraded()))
+        || (ui.streamer_hide_balances && (!streamer_mode::BalancesAvailable() || streamer_mode::BalancesDegraded()));
+    return incomplete ? "On · Check protections" : "On";
+  });
+  const auto privacy = [&catalog](const char* key, const char* label, auto access, Available available,
+                                  const char* help, std::function<void()> changed = {}) {
+    Boolean(catalog, "community_mod.streamer", "ui", key, label, access, std::move(available), Timing::Live, help,
+            std::move(changed), UnavailableReason::ProtectionUnavailable);
+  };
+  privacy("streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode), streamer,
+          "Apply the selected privacy protections.", RefreshStreamerMode);
+  privacy("streamer_hide_account", "Hide Player ID", ACCESS(ui, streamer_hide_account), StreamerModeAvailable,
           "Hide the Player ID in General Settings. Copy still puts the real ID on your clipboard.",
           RefreshStreamerMode);
-  BOOL("streamer", ui, streamer_hide_identity, "Hide commander identity", streamer_mode::IdentityAvailable, Live,
-       "Cover commander and alliance details on supported game screens.");
-  BOOL("streamer", ui, streamer_hide_locations, "Hide locations", streamer_mode::LocationsAvailable, Live,
-       "Cover location labels on supported game screens.");
-  BOOL("streamer", ui, streamer_hide_chat, "Hide chat and messages", streamer_mode::ChatAvailable, Live,
-       "Cover chat content and identifying details on supported chat screens.");
-  BOOL("streamer", ui, streamer_hide_reports, "Hide report and alert details", streamer_mode::ReportsAvailable, Live,
-       "Cover identifying details in supported reports and notifications.");
-  BOOL("streamer", ui, streamer_hide_balances, "Hide balances", streamer_mode::BalancesAvailable, Live,
-       "Cover personal resource balances in supported HUD and store panels.");
+  privacy("streamer_hide_identity", "Hide commander identity", ACCESS(ui, streamer_hide_identity),
+          streamer_mode::IdentityAvailable, "Cover commander and alliance details on supported game screens.");
+  privacy("streamer_hide_locations", "Hide locations", ACCESS(ui, streamer_hide_locations),
+          streamer_mode::LocationsAvailable, "Cover location labels on supported game screens.");
+  privacy("streamer_hide_chat_names", "Hide chat sender names", ACCESS(ui, streamer_hide_chat_names),
+          streamer_mode::ChatNamesAvailable, "Hide sender names in supported chat views. Chat remains readable.");
+  privacy("streamer_hide_reports", "Hide report and alert details", ACCESS(ui, streamer_hide_reports),
+          streamer_mode::ReportsAvailable, "Cover identifying details in supported reports and notifications.");
+  privacy("streamer_hide_balances", "Hide balances", ACCESS(ui, streamer_hide_balances),
+          streamer_mode::BalancesAvailable, "Cover personal resource balances in supported HUD and store panels.");
   FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
         "multiplier", 0, largest, 2, .05f);
   FLOAT("interface", graphics, ui_scale_step, "Scale shortcut step", scale, Live,

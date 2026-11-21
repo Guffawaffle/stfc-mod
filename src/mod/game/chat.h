@@ -64,13 +64,6 @@ struct SwipeScroller : il2cpp::Object {
   { Call<"FocusOnInstantly">(index); }
 };
 
-struct DynamicListContainer : unity::Component {
-  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "DynamicListContainer">;
-
-  unity::RectTransform* content()
-  { return Field<"m_container", unity::RectTransform*>(); }
-};
-
 struct ChatPreviewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatPreviewController">;
 
@@ -95,8 +88,6 @@ struct ChatMessageListLocalViewController : il2cpp::Object {
 
   unity::TMP_InputField* inputField()
   { return Field<"_inputField", unity::TMP_InputField*>(); }
-  DynamicListContainer* visualMessageList()
-  { return Field<"_visualMessageList", DynamicListContainer*>(); }
 
   // Native chat submission uses these two flags independently of TMP's focus. A missing/drifted field is
   // unavailable, rather than a confirmed false gate; the diagnostic never changes either flag.
@@ -113,6 +104,16 @@ struct ChatMessageListLocalViewController : il2cpp::Object {
   }
 };
 
+struct ChatSectionContext : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatSectionContext">;
+
+  bool HasPrivateHeader()
+  {
+    auto* channel = Field<"ChannelID", Il2CppString*>();
+    return channel && !il2cpp::Equals(channel, "") && Field<"ChatUserProfile", il2cpp::Object*>();
+  }
+};
+
 struct FullScreenChatViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "FullScreenChatViewController">;
 
@@ -122,6 +123,8 @@ struct FullScreenChatViewController : il2cpp::Object {
   { return Field<"_categoriesTabBarViewController", TabBarViewController*>(); }
   TextLocalizer* headerTitle()
   { return Field<"_headerTitle", TextLocalizer*>(); }
+  il2cpp::CallResult<ChatSectionContext*> TryChatContext()
+  { return TryCall<"get_CanvasContext", ChatSectionContext*>(); }
 };
 
 namespace chat_submit_binding
@@ -279,6 +282,8 @@ struct FrameAndAvatarWidget : unity::Component {
 struct UserProfileWidget : unity::Component {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.PlayerProfile", "UserProfileWidget">;
 
+  TextLocalizer* nameLabel()
+  { return Field<"_name", TextLocalizer*>(); }
   PlayerTitleWidget* playerTitleWidget()
   { return Field<"_playerTitleWidget", PlayerTitleWidget*>(); }
 };
@@ -288,8 +293,6 @@ struct ChatChannelItemWidget : unity::Component {
 
   UserProfileWidget* profile()
   { return Field<"_userProfileWidget", UserProfileWidget*>(); }
-  TextLocalizer* detail()
-  { return Field<"_channelDetail", TextLocalizer*>(); }
 };
 
 struct ChatBlockUserWidget : unity::Component {
@@ -301,6 +304,9 @@ struct ChatBlockUserWidget : unity::Component {
 
 struct ChatMessageWidget : unity::Component {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatMessageWidget">;
+
+  UserProfileWidget* profile()
+  { return Field<"_userProfileWidget", UserProfileWidget*>(); }
 
   enum class RetentionStatus { Unavailable, NativeBehavior, Ready };
   static RetentionStatus AvatarRetentionStatus();

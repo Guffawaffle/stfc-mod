@@ -20,10 +20,10 @@ inline bool HideLocations()
   const auto& ui = Config::Get().ui;
   return ui.streamer_mode && ui.streamer_hide_locations;
 }
-inline bool HideChat()
+inline bool HideChatNames()
 {
   const auto& ui = Config::Get().ui;
-  return ui.streamer_mode && ui.streamer_hide_chat;
+  return ui.streamer_mode && ui.streamer_hide_chat_names;
 }
 inline bool HideReports()
 {
@@ -37,8 +37,13 @@ inline bool HideBalances()
 }
 
 bool IdentityAvailable();
+bool IdentityDegraded();
 bool LocationsAvailable();
-bool ChatAvailable();
+bool LocationsDegraded();
+bool ChatNamesAvailable();
+bool ChatNamesDegraded();
 bool ReportsAvailable();
+bool ReportsDegraded();
 bool BalancesAvailable();
+bool BalancesDegraded();
 } // namespace streamer_mode

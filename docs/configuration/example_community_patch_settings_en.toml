@@ -828,8 +828,8 @@ streamer_hide_account = true
 streamer_hide_identity = false
 # Cover location details on supported screens.
 streamer_hide_locations = false
-# Cover supported chat content.
-streamer_hide_chat = false
+# Hide sender names in supported chat views. Chat remains readable.
+streamer_hide_chat_names = false
 # Cover identifying details in supported reports and alerts.
 streamer_hide_reports = false
 # Cover resource balances on supported HUD and store panels.

@@ -9,8 +9,10 @@
 #include <il2cpp/hook.h>
 #include <map>
 #include <memory>
+#include <set>
 #include <span>
 #include <spdlog/spdlog.h>
+#include <string_view>
 #include <thread>
 #include <utility>
 
@@ -21,13 +23,16 @@ namespace snb = streamer_navigation_binding;
 using NavigationPrivacyCollector = bool (*)(il2cpp::Object*, snb::Targets&);
 struct NavigationPrivacyView {
   il2cpp::GcHandle                                          owner;
+  std::string_view                                          name;
   NavigationPrivacyCollector                                collect = nullptr;
   std::map<unity::GameObject*, streamer_mode::SurfaceCover> covers;
-  bool                                                      applying = false;
+  bool                                                      applying = false, incomplete = false;
 };
 
 struct NavigationPrivacyLane {
-  bool                                                              installed = false, healthy = true, hidden = false;
+  bool                                                              installed = false, hidden = false;
+  bool                                                              untracked_view = false;
+  std::set<std::string_view>                                        warned_surfaces;
   std::map<il2cpp::Object*, std::shared_ptr<NavigationPrivacyView>> views;
 };
 
@@ -45,11 +50,11 @@ NavigationPrivacyState& NavigationPrivacy()
 bool NavigationPrivacyThread()
 { return std::this_thread::get_id() == NavigationPrivacy().thread; }
 
-void NavigationPrivacyFailure(NavigationPrivacyLane& lane)
+void NavigationPrivacyFailure(NavigationPrivacyLane& lane, std::string_view view, std::string_view stage)
 {
-  if (std::exchange(lane.healthy, false))
-    spdlog::warn("[StreamerNavigationPrivacy] could not cover every {} display",
-                 &lane == &NavigationPrivacy().identity ? "commander identity" : "location");
+  if (lane.warned_surfaces.insert(view).second)
+    spdlog::warn("[StreamerNavigationPrivacy] {} presentation incomplete for {} ({})",
+                 &lane == &NavigationPrivacy().identity ? "Commander identity" : "Location", view, stage);
 }
 
 bool RestoreNavigationCovers(NavigationPrivacyView& view)
@@ -74,27 +79,36 @@ void ApplyNavigationPrivacy(const std::shared_ptr<NavigationPrivacyView>& view, 
     { applying = false; }
   } finish{view->applying};
 
-  if (!hidden) {
-    if (!RestoreNavigationCovers(*view))
-      NavigationPrivacyFailure(lane);
+  auto record = [&](bool complete, std::string_view stage) {
+    view->incomplete = !complete;
+    if (!complete)
+      NavigationPrivacyFailure(lane, view->name, stage);
+  };
+  auto* observed = view->owner.Get();
+  if (!hidden || !observed) {
+    record(RestoreNavigationCovers(*view), "restore");
     return;
   }
 
-  auto       owner = il2cpp::GcHandle::Strong(view->owner.Get());
-  const auto alive = unity::TryAlive(owner.Get());
-  if (alive && !alive.value) {
-    if (!RestoreNavigationCovers(*view))
-      NavigationPrivacyFailure(lane);
+  auto owner = il2cpp::GcHandle::Strong(observed);
+  if (!owner) {
+    record(false, "view lifetime");
     return;
   }
-  if (!alive || !owner) {
-    NavigationPrivacyFailure(lane);
+  const auto alive = unity::TryAlive(owner.Get());
+  if (alive && !alive.value) {
+    record(RestoreNavigationCovers(*view), "restore");
+    return;
+  }
+  if (!alive) {
+    record(false, "view lifetime");
     return;
   }
 
   snb::Targets targets;
-  bool         complete = view->collect(owner.Get<il2cpp::Object>(), targets);
-  if (complete)
+  const bool   collected = view->collect(owner.Get<il2cpp::Object>(), targets);
+  bool         updated   = true;
+  if (collected)
     for (auto it = view->covers.begin(); it != view->covers.end();) {
       const bool current = std::ranges::any_of(targets, [&](const auto& root) { return root.Get() == it->first; });
       if (current) {
@@ -102,17 +116,16 @@ void ApplyNavigationPrivacy(const std::shared_ptr<NavigationPrivacyView>& view, 
       } else if (it->second.Restore()) {
         it = view->covers.erase(it);
       } else {
-        complete = false;
+        updated = false;
         ++it;
       }
     }
   for (const auto& root : targets) {
     auto* target = root.Get<unity::GameObject>();
     if (!view->covers[target].Set(target, true))
-      complete = false;
+      updated = false;
   }
-  if (!complete)
-    NavigationPrivacyFailure(lane);
+  record(collected && updated, collected ? "apply or restore cover" : "resolve renderer");
 }
 
 template <typename View> void ObserveNavigationPrivacy(View* owner, NavigationPrivacyLane& lane, bool hidden)
@@ -126,18 +139,23 @@ template <typename View> void ObserveNavigationPrivacy(View* owner, NavigationPr
   }
   if (found != lane.views.end()) {
     if (!RestoreNavigationCovers(*found->second)) {
-      NavigationPrivacyFailure(lane);
+      found->second->incomplete = true;
+      NavigationPrivacyFailure(lane, found->second->name, "restore replaced view");
       return;
     }
     lane.views.erase(found);
   }
   auto root = il2cpp::GcHandle::Weak(owner);
   if (!root) {
-    NavigationPrivacyFailure(lane);
+    if (hidden) {
+      lane.untracked_view = true;
+      NavigationPrivacyFailure(lane, View::surface_name, "retain view");
+    }
     return;
   }
   auto view     = std::make_shared<NavigationPrivacyView>();
   view->owner   = std::move(root);
+  view->name    = View::surface_name;
   view->collect = [](il2cpp::Object* object, snb::Targets& targets) {
     return static_cast<View*>(object)->Collect(targets);
   };
@@ -295,6 +313,8 @@ void RefreshNavigationPrivacy(NavigationPrivacyLane& lane, bool hidden, bool pru
   if (!lane.installed)
     return;
   const bool changed = std::exchange(lane.hidden, hidden) != hidden;
+  if (changed && !hidden)
+    lane.untracked_view = false;
   if (!changed && !prune)
     return;
   std::vector<std::shared_ptr<NavigationPrivacyView>> views;
@@ -302,7 +322,7 @@ void RefreshNavigationPrivacy(NavigationPrivacyLane& lane, bool hidden, bool pru
     if (!it->second->owner.Get() && it->second->covers.empty()) {
       it = lane.views.erase(it);
     } else {
-      if (changed || !it->second->owner.Get())
+      if (changed || it->second->incomplete || !it->second->owner.Get())
         views.push_back(it->second);
       ++it;
     }
@@ -323,7 +343,15 @@ void StreamerNavigationPrivacyFrame()
 }
 
 bool NavigationPrivacyAvailable(const NavigationPrivacyLane& lane)
-{ return NavigationPrivacyThread() && lane.installed && lane.healthy && FrameDeliveryAvailable(); }
+{ return NavigationPrivacyThread() && lane.installed && FrameDeliveryAvailable(); }
+
+bool NavigationPrivacyDegraded(const NavigationPrivacyLane& lane, bool enabled)
+{
+  return enabled && NavigationPrivacyAvailable(lane)
+         && (lane.untracked_view || std::ranges::any_of(lane.views, [](const auto& entry) {
+               return entry.second->incomplete && entry.second->owner.Get();
+             }));
+}
 } // namespace
 
 bool streamer_mode::IdentityAvailable()
@@ -331,6 +359,12 @@ bool streamer_mode::IdentityAvailable()
 
 bool streamer_mode::LocationsAvailable()
 { return NavigationPrivacyAvailable(NavigationPrivacy().locations); }
+
+bool streamer_mode::IdentityDegraded()
+{ return NavigationPrivacyDegraded(NavigationPrivacy().identity, streamer_mode::HideIdentity()); }
+
+bool streamer_mode::LocationsDegraded()
+{ return NavigationPrivacyDegraded(NavigationPrivacy().locations, streamer_mode::HideLocations()); }
 
 const Feature kStreamerNavigationPrivacy{"StreamerNavigationPrivacy", &Config::Patches::streamermodehooks,
                                          InstallStreamerNavigationPrivacy, StreamerNavigationPrivacyFrame};

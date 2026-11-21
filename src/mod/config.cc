@@ -984,7 +984,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "streamer_hide_account", u.streamer_hide_account);
   r.Read("ui", "streamer_hide_identity", u.streamer_hide_identity);
   r.Read("ui", "streamer_hide_locations", u.streamer_hide_locations);
-  r.Read("ui", "streamer_hide_chat", u.streamer_hide_chat);
+  r.ReadRenamed("ui", "streamer_hide_chat_names", "streamer_hide_chat", u.streamer_hide_chat_names);
   r.Read("ui", "streamer_hide_reports", u.streamer_hide_reports);
   r.Read("ui", "streamer_hide_balances", u.streamer_hide_balances);
   r.Read("ui", "check_for_mod_updates", u.check_for_mod_updates);

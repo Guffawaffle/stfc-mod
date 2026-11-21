@@ -4,6 +4,7 @@
 #include "fleet.h"
 #include "ui.h"
 #include <algorithm>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -11,14 +12,11 @@ namespace streamer_navigation_binding
 {
 using Targets = std::vector<il2cpp::GcHandle>;
 
-struct ImageSelector : unity::Component {
-  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "ImageSelector">;
-};
-
 inline bool AppendPrivacyTarget(Targets& targets, unity::GameObject* object)
 {
-  if (!object)
-    return true; // An optional prefab slot may be absent.
+  const auto alive = unity::TryAlive(object);
+  if (!alive || !alive.value)
+    return alive.succeeded;
   if (std::ranges::any_of(targets, [object](const auto& target) { return target.Get() == object; }))
     return true;
   auto root = il2cpp::GcHandle::Strong(object);
@@ -28,28 +26,19 @@ inline bool AppendPrivacyTarget(Targets& targets, unity::GameObject* object)
   return true;
 }
 
-template <typename Component> bool AppendPrivacyTarget(Targets& targets, Component* component)
+inline bool AppendPrivacyTarget(Targets& targets, il2cpp::Object* component)
 {
   if (!component)
     return true;
-  il2cpp::GcHandle root = il2cpp::GcHandle::Strong(component);
+  auto root = il2cpp::GcHandle::Strong(component);
   if (!root)
     return false;
-  const auto object   = component->template TryCall<"get_gameObject", unity::GameObject*>();
-  bool       complete = object && object.value && AppendPrivacyTarget(targets, object.value);
-  auto*      observed = root.Get<il2cpp::Object>();
-  if (observed->Is<TextLocalizer>() || observed->Is<ImageSelector>()) {
-    // A localizer's rendered Graphic can have a different GameObject from the authored localizer component.
-    const auto graphic = observed->TryCall<"get_Target", unity::Component*>();
-    if (!graphic)
-      return false;
-    if (graphic.value) {
-      const auto graphic_object = graphic.value->TryCall<"get_gameObject", unity::GameObject*>();
-      complete =
-          graphic_object && graphic_object.value && AppendPrivacyTarget(targets, graphic_object.value) && complete;
-    }
-  }
-  return complete;
+  const auto alive = unity::TryAlive(root.Get());
+  if (!alive || !alive.value)
+    return alive.succeeded; // Serialized optional components may retain destroyed managed wrappers.
+  // GraphicLocalizer resolves its Graphic through GetComponent on this same GameObject.
+  const auto object = root.Get<il2cpp::Object>()->TryCall<"get_gameObject", unity::GameObject*>();
+  return object && object.value && AppendPrivacyTarget(targets, object.value);
 }
 
 template <typename FieldType, il2cpp::Name... Names> struct PrivacyFields {
@@ -68,7 +57,8 @@ template <il2cpp::Name... Names> using Components = PrivacyFields<unity::Compone
 template <il2cpp::Name... Names> using Objects    = PrivacyFields<unity::GameObject, Names...>;
 
 template <il2cpp::Name Namespace, il2cpp::Name Type, typename... Fields> struct PrivacyView : il2cpp::Object {
-  using Class = il2cpp::Class<"Assembly-CSharp", Namespace, Type>;
+  using Class                                    = il2cpp::Class<"Assembly-CSharp", Namespace, Type>;
+  static constexpr std::string_view surface_name = Type.View();
 
   static bool Available()
   { return (Fields::template Available<Class>() && ...); }
@@ -116,17 +106,21 @@ using NavigationGalaxyFleetWidget =
 using NavigationStarEntityWidget =
     PrivacyView<"Digit.Prime.Navigation", "NavigationStarEntityWidget",
                 Components<"_starName", "_homeRegionalSystemTextLocalizer", "_regionalSystemTextLocalizer">,
-                Objects<"_homeIcon", "_homeRegionalSystemCallout">>;
+                Objects<"_homeIcon", "_isRegionalSpaceSystemCallout", "_isHomeRegionalSystemCallout">>;
 
 struct FactionInformation : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.HUD", "FactionInformation">;
+  static constexpr std::string_view surface_name = "FactionInformation";
 
   static bool Available()
   { return Class::HasField<"_systemName", il2cpp::Object*>(); }
 
   bool Collect(Targets& targets)
   {
-    auto list = il2cpp::GcHandle::Strong(Field<"_systemName", il2cpp::Object*>());
+    auto* observed = Field<"_systemName", il2cpp::Object*>();
+    if (!observed)
+      return true;
+    auto list = il2cpp::GcHandle::Strong(observed);
     if (!list)
       return false;
     const auto count = list.Get<il2cpp::Object>()->TryCall<"get_Count", int32_t>();
