@@ -217,6 +217,9 @@ constexpr const Feature* kFeatures[] = {
     &kNativeSettingsTextEntry,
     &kNativeSettingsPages,
     &kNativeSettingsSearch,
+    &kStreamerAccountBalances,
+    &kStreamerChatPrivacy,
+    &kStreamerNavigationPrivacy,
     // shop.cc
     &kGiftsAutoOpen,
     &kAllianceGamesStore,
@@ -228,6 +231,7 @@ constexpr const Feature* kFeatures[] = {
     &kArtifactExchange,
     // toasts.cc
     &kToasts,
+    &kStreamerReports,
     // ui_scale.cc
     &kUiScale,
 // window.cc

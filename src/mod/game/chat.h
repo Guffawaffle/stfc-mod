@@ -64,6 +64,13 @@ struct SwipeScroller : il2cpp::Object {
   { Call<"FocusOnInstantly">(index); }
 };
 
+struct DynamicListContainer : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "DynamicListContainer">;
+
+  unity::RectTransform* content()
+  { return Field<"m_container", unity::RectTransform*>(); }
+};
+
 struct ChatPreviewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatPreviewController">;
 
@@ -76,11 +83,20 @@ struct ChatPreviewController : il2cpp::Object {
   { return Field<"_isSectionChangedCompleted", bool>(); }
 };
 
+struct ChatPreviewMessageWidget : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatPreviewMessageWidget">;
+
+  TextLocalizer* messageText()
+  { return Field<"_text", TextLocalizer*>(); }
+};
+
 struct ChatMessageListLocalViewController : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatMessageListLocalViewController">;
 
   unity::TMP_InputField* inputField()
   { return Field<"_inputField", unity::TMP_InputField*>(); }
+  DynamicListContainer* visualMessageList()
+  { return Field<"_visualMessageList", DynamicListContainer*>(); }
 
   // Native chat submission uses these two flags independently of TMP's focus. A missing/drifted field is
   // unavailable, rather than a confirmed false gate; the diagnostic never changes either flag.
@@ -104,6 +120,8 @@ struct FullScreenChatViewController : il2cpp::Object {
   { return Field<"_messageList", ChatMessageListLocalViewController*>(); }
   TabBarViewController* categoriesTabBarViewController()
   { return Field<"_categoriesTabBarViewController", TabBarViewController*>(); }
+  TextLocalizer* headerTitle()
+  { return Field<"_headerTitle", TextLocalizer*>(); }
 };
 
 namespace chat_submit_binding
@@ -263,6 +281,22 @@ struct UserProfileWidget : unity::Component {
 
   PlayerTitleWidget* playerTitleWidget()
   { return Field<"_playerTitleWidget", PlayerTitleWidget*>(); }
+};
+
+struct ChatChannelItemWidget : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatChannelItemWidget">;
+
+  UserProfileWidget* profile()
+  { return Field<"_userProfileWidget", UserProfileWidget*>(); }
+  TextLocalizer* detail()
+  { return Field<"_channelDetail", TextLocalizer*>(); }
+};
+
+struct ChatBlockUserWidget : unity::Component {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatBlockUserWidget">;
+
+  UserProfileWidget* profile()
+  { return Field<"_userProfileWidget", UserProfileWidget*>(); }
 };
 
 struct ChatMessageWidget : unity::Component {

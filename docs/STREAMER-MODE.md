@@ -1,35 +1,22 @@
-# Streamer Mode design
+# Streamer Mode
 
-The first Streamer Mode setting lives in **Mod Settings → Interface & Scale**. It defaults off. Enable it to show **Hidden** in place of the Player ID in **General Settings**. The row’s **Copy** button still puts the real ID on your clipboard.
+Open **Mod Settings → Streamer Mode** to choose the privacy protections you want. The master switch applies the selected protections and starts off. **Hide Player ID** starts selected so existing Streamer Mode configurations keep their Player ID mask. The other protections start clear. Turning the master switch off restores native presentation and keeps your choices for next time.
 
-## Proposed controls
+## Coverage
 
-- Put one **Streamer Mode** switch in Mod Settings. It starts off and saves its state in the current mod configuration. When enabled, it protects the account fields covered by the current build.
-- Offer independent switches for the other groups as their screens gain coverage. Start those switches off so players can keep using the parts of the interface they want on stream.
-- Show a small **Streamer Mode on** status indicator. Report individual protections as unavailable when the current client cannot apply them.
-- Consider an unbound **Enable Streamer Mode** shortcut. Pressing the shortcut while protection is already on leaves it enabled. Turning protection off takes an explicit choice in Mod Settings.
-
-## What to cover
-
-| Protection | What a viewer could see | Proposed presentation |
+| Control | Protected presentation | Additional exposure to check |
 | --- | --- | --- |
-| Account details | Player ID in General Settings first. Audit other account identifiers, linked email, support or verification codes, and QR codes separately. | Replace text with fixed **Hidden**. Cover codes rendered as images with an opaque placeholder. Keep the native Player ID Copy action available and assess copy and reveal behavior for other fields individually. |
-| Commander identity | Commander names, alliance tags, server labels, and identifying cosmetics on profiles, fleet labels, station cards, and chat rows. | Use **You** for the local commander and session-local aliases such as **Player 01** for other covered names. Hide associated tags and optionally portraits or frames. Keep ship and combat state readable. |
-| Locations | Station location, system names, coordinates, bookmarks, fleet destinations, and location links. | Replace exact values with neutral labels and cover location previews where necessary. Visible map geometry, routes, and landmarks can still identify a system, so offer a full map cover for streams that require location privacy. |
-| Chat and messages | HUD previews, full and side chat, direct messages, drafts, and inbox messages. | Cover the contents and sender details together. Keep navigation and a generic new-message indication. The game displays chat messages in its map HUD as well as in the chat screen. [STFC chat guide](https://scopely.helpshift.com/hc/en/19-star-trek-fleet-command/faq/3741-how-do-i-use-and-access-chat/) |
-| Reports and notifications | Report list and details, opponent and alliance names, battle locations, and in-game or mod desktop notifications. | Apply the selected identity and location protection to report displays. Offer generic notification text such as **Battle report received** and keep outcomes and round information readable. |
-| Balances and purchases | Personal balances, purchase history, and account details shown by in-game commerce screens. | Replace only identified balances. Use an opaque cover for sensitive commerce panels that lack reliable field-level coverage. |
+| Hide Player ID | General Settings shows **Hidden**. **Copy** puts the real ID on the clipboard in either state. The separate native Player ID label is covered when its display hook is available. | Account details in sign-in pages and support codes opened through other apps. |
+| Hide commander identity | Commander and alliance profile details, player and alliance fleet labels, station labels, and Galaxy fleet names. | Other profile popups and identifying art outside the covered fields. |
+| Hide locations | Galaxy and System names, regional labels, the HUD home pointer, location links, and bookmark names and coordinates. | Map geometry, fleet destinations, and tooltip text can still identify a location. |
+| Hide chat and messages | HUD chat previews, message lists and drafts in full, side, and direct chat, direct-chat headings and channel previews, and blocked-player profiles. | Native attachment previews, share dialogs, and other popups can have their own display paths. |
+| Hide report and alert details | Combat and destruction report rows, participant and location fields in report details, participant headers in detailed battle logs, supported native banners, and the bodies of mod-delivered desktop notifications. Round and outcome information remains readable. | Other native banner types, individual ship and log entries, and notifications delivered before the switch was enabled. |
+| Hide balances | Resource amounts in the standard HUD, the shared currency and resource groups and their dropdown, and the shop showcase’s resource panel when its hook is available. | Tooltips, purchase history, and separately rendered commerce panels can still display account or transaction information. |
 
-## First implementation
+The settings page shows whether Streamer Mode is on. Each selectable control becomes unavailable when its required hooks or frame delivery cannot be qualified. The masks act on game presentation. The game still has the original values for account features, navigation, and messaging.
 
-The General Settings Player ID row uses `game_settings_option_0`. Its visible value comes from `GetUserId`. Its native Copy action reads the ID separately, so players can copy the real ID for support while the display stays masked. Turning Streamer Mode off restores the visible ID. [Settings hook](../src/mod/features/settings_actions.cc) · [Scopely support guide](https://scopely.helpshift.com/hc/en/19-star-trek-fleet-command/faq/6507-how-to-contact-us-through-support/)
+## Validation
 
-Reuse the existing General Settings hook owner and live settings catalog. Apply the mask before the row binds or becomes visible. Keep it in place through refreshes and widget reuse, then rebind from the current native model when protection is turned off. Keep the real ID in its original data path so account services continue to receive it. Audit the separate `PlayerIdViewController` before claiming coverage for other ID screens. [Settings catalog](../src/mod/settings/config_settings.cc)
+Check new presentation coverage on every supported client build. Confirm the first visible frame with Streamer Mode saved on, toggle it with surfaces already open, and reopen or recycle the masked rows. Verify that native navigation and conversation input still work. Use synthetic identifiers where possible and record pass/fail results without capturing IDs, chat, or financial details.
 
-Qualify each later mask at its own display and notification paths. A location hidden in a bookmark row can still appear in its editor, a report, or a toast. Where a covered panel cannot safely bind its fields, keep it covered and show its protection status. Streamer Mode applies to the desktop game and supported mod notifications. A stream that captures a browser, the launcher, or the full desktop can also show information from those sources.
-
-## Acceptance checks
-
-- Use synthetic IDs to inspect the first frame of saved-on startup, opening and reopening General Settings, and enabling protection while the panel is already visible.
-- Check that refreshes and reused rows stay masked and that turning the mode off restores the visible ID. Verify that the Player ID Copy action puts the real ID on the clipboard in both states and that the client version row keeps its value and Copy behavior.
-- Verify rendered captures on Windows and macOS before advertising coverage. Record coverage by surface so additions such as chat previews and desktop notifications can be tested independently.
+The initial Player ID implementation was live-tested on Windows client 275. The expanded masks need separate rendered checks on the exact build being tested. A compile check establishes build coverage for a target architecture.

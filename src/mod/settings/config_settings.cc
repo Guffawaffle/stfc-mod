@@ -9,6 +9,7 @@
 #include "features/galaxy.h"
 #include "features/navigation_orbit.h"
 #include "features/notification_audio.h"
+#include "features/streamer_mode.h"
 #include "frame.h"
 #include "game/notifications.h"
 #include "image_file_setting.h"
@@ -393,6 +394,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
        std::initializer_list<std::pair<const char*, const char*>>{{"controls", "Controls"},
                                                                   {"camera", "Camera"},
                                                                   {"interface", "Interface & Scale"},
+                                                                  {"streamer", "Streamer Mode"},
                                                                   {"travel", "Map & Travel"},
                                                                   {"previews", "Previews & Cargo"},
                                                                   {"claims", "Claims & Confirmations"},
@@ -493,10 +495,27 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
        "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");
 
-  Boolean(catalog, "community_mod.interface", "ui", "streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode),
-          StreamerModeAvailable, Timing::Live,
+  const Available streamer = [] {
+    return StreamerModeAvailable() || streamer_mode::IdentityAvailable() || streamer_mode::LocationsAvailable()
+           || streamer_mode::ChatAvailable() || streamer_mode::ReportsAvailable() || streamer_mode::BalancesAvailable();
+  };
+  catalog.SetSummary("community_mod.streamer", [] { return Config::Get().ui.streamer_mode ? "On" : "Off"; });
+  Boolean(catalog, "community_mod.streamer", "ui", "streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode),
+          streamer, Timing::Live, "Apply the selected privacy protections.", RefreshStreamerMode);
+  Boolean(catalog, "community_mod.streamer", "ui", "streamer_hide_account", "Hide Player ID",
+          ACCESS(ui, streamer_hide_account), StreamerModeAvailable, Timing::Live,
           "Hide the Player ID in General Settings. Copy still puts the real ID on your clipboard.",
           RefreshStreamerMode);
+  BOOL("streamer", ui, streamer_hide_identity, "Hide commander identity", streamer_mode::IdentityAvailable, Live,
+       "Cover commander and alliance details on supported game screens.");
+  BOOL("streamer", ui, streamer_hide_locations, "Hide locations", streamer_mode::LocationsAvailable, Live,
+       "Cover location labels on supported game screens.");
+  BOOL("streamer", ui, streamer_hide_chat, "Hide chat and messages", streamer_mode::ChatAvailable, Live,
+       "Cover chat content and identifying details on supported chat screens.");
+  BOOL("streamer", ui, streamer_hide_reports, "Hide report and alert details", streamer_mode::ReportsAvailable, Live,
+       "Cover identifying details in supported reports and notifications.");
+  BOOL("streamer", ui, streamer_hide_balances, "Hide balances", streamer_mode::BalancesAvailable, Live,
+       "Cover personal resource balances in supported HUD and store panels.");
   FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
         "multiplier", 0, largest, 2, .05f);
   FLOAT("interface", graphics, ui_scale_step, "Scale shortcut step", scale, Live,

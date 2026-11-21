@@ -177,6 +177,7 @@ public:
     bool toastbannerhooks           = true;
     bool fleetnotificationhooks     = true;
     bool nativesettingshooks        = true;
+    bool streamermodehooks          = true;
     bool transitionscreenhooks      = true;
     bool uiscalehooks               = true;
     bool zoomhooks                  = true;
@@ -282,7 +283,13 @@ public:
   } audio;
 
   struct Ui {
-    bool streamer_mode       = false;
+    bool streamer_mode           = false;
+    bool streamer_hide_account   = true;
+    bool streamer_hide_identity  = false;
+    bool streamer_hide_locations = false;
+    bool streamer_hide_chat      = false;
+    bool streamer_hide_reports   = false;
+    bool streamer_hide_balances  = false;
     bool disable_escape_exit = true;
     // Maximum gap in milliseconds between two Escape presses that opens the exit prompt; 0 never opens it.
     int  disable_escape_exit_timer       = 0;

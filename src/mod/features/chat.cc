@@ -3,10 +3,14 @@
 // [ui] show_player_title, which can hide the title row under each sender's name; and [ui] auto_open_chat and
 // default_chat_width, which open alliance side chat and set its starting width once per login.
 // Chat portrait retention keeps downloaded avatars available when chat rows are reused.
+// [ui] streamer_hide_chat covers chat message and sender presentation while Streamer Mode is on.
 
 #include "config.h"
 #include "features/chat_startup.h"
 #include "features/features.h"
+#include "features/streamer_mode.h"
+#include "features/streamer_surface_cover.h"
+#include "frame.h"
 #include "shortcuts.h"
 
 #include "game/chat.h"
@@ -20,10 +24,15 @@
 #include <unity/tracker.h>
 #include <unity/ui.h>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <memory>
 #include <optional>
+#include <thread>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -385,6 +394,251 @@ void PlayerTitleWidget_Bind_Hook(auto original, PlayerTitleWidget* _this)
   HideChatTitle(profile.Get<UserProfileWidget>());
 }
 
+// --- Streamer Mode chat ---
+
+enum class StreamerChatViewKind { Preview, Messages, Header, PrivateChannel, BlockedUser };
+
+struct StreamerChatView {
+  il2cpp::GcHandle                         owner;
+  StreamerChatViewKind                     kind;
+  std::vector<streamer_mode::SurfaceCover> covers;
+  bool                                     updating = false;
+
+  bool Restore()
+  {
+    bool restored = true;
+    for (auto& cover : covers)
+      restored &= cover.Restore();
+    if (restored)
+      covers.clear();
+    return restored;
+  }
+};
+
+struct StreamerChatState {
+  std::vector<std::shared_ptr<StreamerChatView>> views;
+  std::thread::id                                game_thread;
+  bool                                           installed = false, healthy = true, last_hidden = false;
+};
+
+StreamerChatState& StreamerChat()
+{
+  // Weak owners retire during use. Their final bookkeeping must not call a stopped runtime.
+  static auto* state = new StreamerChatState;
+  return *state;
+}
+
+il2cpp::GcHandle StreamerChatObject(il2cpp::Object* component)
+{
+  auto       root   = il2cpp::GcHandle::Strong(component);
+  const auto object = root ? root.Get<il2cpp::Object>()->TryCall<"get_gameObject", unity::GameObject*>()
+                           : il2cpp::CallResult<unity::GameObject*>{};
+  return il2cpp::GcHandle::Strong(object ? object.value : nullptr);
+}
+
+il2cpp::GcHandle StreamerChatLabel(TextLocalizer* label)
+{
+  auto root = il2cpp::GcHandle::Strong(label);
+  return StreamerChatObject(root ? root.Get<TextLocalizer>()->Target() : nullptr);
+}
+
+il2cpp::GcHandle StreamerChatListContent(DynamicListContainer* list)
+{
+  auto root = il2cpp::GcHandle::Strong(list);
+  return StreamerChatObject(root ? root.Get<DynamicListContainer>()->content() : nullptr);
+}
+
+bool ApplyStreamerChat(StreamerChatView& view, bool hidden)
+{
+  if (std::exchange(view.updating, true))
+    return true;
+  struct Done {
+    bool& updating;
+    ~Done()
+    { updating = false; }
+  } done{view.updating};
+  auto owner = il2cpp::GcHandle::Strong(view.owner.Get());
+  if (!hidden || !unity::Alive(owner.Get()))
+    return view.Restore();
+
+  size_t     slot    = 0;
+  bool       covered = true;
+  const auto cover   = [&](il2cpp::GcHandle target) {
+    if (slot == view.covers.size())
+      view.covers.emplace_back();
+    covered &= view.covers[slot++].Set(target.Get<unity::GameObject>(), true);
+  };
+  switch (view.kind) {
+    case StreamerChatViewKind::Preview:
+      cover(StreamerChatLabel(owner.Get<ChatPreviewMessageWidget>()->messageText()));
+      break;
+    case StreamerChatViewKind::Messages: {
+      auto* messages = owner.Get<ChatMessageListLocalViewController>();
+      cover(StreamerChatListContent(messages->visualMessageList()));
+      auto input = il2cpp::GcHandle::Strong(messages->inputField());
+      if (input) {
+        const auto viewport = input.Get<unity::TMP_InputField>()->TryCall<"get_textViewport", unity::RectTransform*>();
+        auto       render_target = StreamerChatObject(viewport ? viewport.value : nullptr);
+        if (!render_target) {
+          const auto text = input.Get<unity::TMP_InputField>()->TryCall<"get_textComponent", unity::TMP_Text*>();
+          render_target   = StreamerChatObject(text ? text.value : nullptr);
+        }
+        cover(std::move(render_target));
+      }
+      break;
+    }
+    case StreamerChatViewKind::Header:
+      cover(StreamerChatLabel(owner.Get<FullScreenChatViewController>()->headerTitle()));
+      break;
+    case StreamerChatViewKind::PrivateChannel: {
+      auto* channel = owner.Get<ChatChannelItemWidget>();
+      // The profile and last-message preview are separate from the channel button and unread pip.
+      if (auto* profile = channel->profile())
+        cover(StreamerChatObject(profile));
+      cover(StreamerChatLabel(channel->detail()));
+      break;
+    }
+    case StreamerChatViewKind::BlockedUser:
+      cover(StreamerChatObject(owner.Get<ChatBlockUserWidget>()->profile()));
+      break;
+  }
+  for (size_t index = slot; index < view.covers.size(); ++index)
+    covered &= view.covers[index].Restore();
+  return covered;
+}
+
+void ReportStreamerChat(bool covered)
+{
+  if (!covered && std::exchange(StreamerChat().healthy, false))
+    spdlog::warn("[StreamerChatPrivacy] could not verify that an active chat presentation was covered");
+}
+
+void ObserveStreamerChat(il2cpp::Object* owner, StreamerChatViewKind kind)
+{
+  auto& state = StreamerChat();
+  if (!state.installed || state.game_thread != std::this_thread::get_id())
+    return;
+  for (const auto& view : state.views) {
+    if (view->owner.Get() == owner) {
+      ReportStreamerChat(ApplyStreamerChat(*view, streamer_mode::HideChat()));
+      return;
+    }
+  }
+  auto weak = il2cpp::GcHandle::Weak(owner);
+  if (!weak) {
+    ReportStreamerChat(false);
+    return;
+  }
+  std::vector<std::shared_ptr<StreamerChatView>> retired;
+  std::erase_if(state.views, [&](const auto& view) {
+    if (view->owner.Get())
+      return false;
+    retired.push_back(view);
+    return true;
+  });
+  auto view = std::make_shared<StreamerChatView>(StreamerChatView{std::move(weak), kind});
+  state.views.push_back(view);
+  ReportStreamerChat(ApplyStreamerChat(*view, streamer_mode::HideChat()));
+  // Destroying an owned Unity group can reenter the game. Retire the old records outside the vector walk.
+  for (const auto& old : retired) {
+    if (!old->Restore()) {
+      state.views.push_back(old);
+      ReportStreamerChat(false);
+    }
+  }
+}
+
+void StreamerChatFrame()
+{
+  auto&      state  = StreamerChat();
+  const bool hidden = streamer_mode::HideChat();
+  if (state.last_hidden == hidden)
+    return;
+  // A managed visibility call can admit another view. Iterate a snapshot of known live owners.
+  const auto views   = state.views;
+  bool       applied = true;
+  for (const auto& view : views)
+    applied &= ApplyStreamerChat(*view, hidden);
+  ReportStreamerChat(applied);
+  if (hidden || applied)
+    state.last_hidden = hidden;
+}
+
+void ChatPreviewMessageWidget_SetWidgetData_Hook(auto original, ChatPreviewMessageWidget* _this)
+{
+  original(_this);
+  ObserveStreamerChat(_this, StreamerChatViewKind::Preview);
+}
+
+void ChatMessageListLocalViewController_BindDataContext_Hook(auto original, ChatMessageListLocalViewController* _this,
+                                                             il2cpp::Object* provider, il2cpp::Object* context)
+{
+  original(_this, provider, context);
+  ObserveStreamerChat(_this, StreamerChatViewKind::Messages);
+}
+
+void FullScreenChatViewController_RefreshContent_Hook(auto original, FullScreenChatViewController* _this)
+{
+  original(_this);
+  ObserveStreamerChat(_this, StreamerChatViewKind::Header);
+}
+
+void ChatChannelItemWidget_SetWidgetData_Hook(auto original, ChatChannelItemWidget* _this)
+{
+  original(_this);
+  ObserveStreamerChat(_this, StreamerChatViewKind::PrivateChannel);
+}
+
+void ChatBlockUserWidget_SetWidgetData_Hook(auto original, ChatBlockUserWidget* _this)
+{
+  original(_this);
+  ObserveStreamerChat(_this, StreamerChatViewKind::BlockedUser);
+}
+
+template <class Owner> void* StreamerChatEntry(il2cpp::Method method)
+{ return method && method.Info()->klass == Owner::Class::Raw() ? il2cpp::CheckedEntry(method) : nullptr; }
+
+bool InstallStreamerChat()
+{
+  if (!unity::CanvasGroup::Available() || !ChatPreviewMessageWidget::Class::HasField<"_text", TextLocalizer*>()
+      || !DynamicListContainer::Class::HasField<"m_container", unity::RectTransform*>()
+      || !ChatMessageListLocalViewController::Class::HasField<"_visualMessageList", DynamicListContainer*>()
+      || !ChatMessageListLocalViewController::Class::HasField<"_inputField", unity::TMP_InputField*>()
+      || !unity::TMP_InputField::Class::Method<unity::RectTransform*()>("get_textViewport")
+      || !unity::TMP_InputField::Class::Method<unity::TMP_Text*()>("get_textComponent")
+      || !FullScreenChatViewController::Class::HasField<"_headerTitle", TextLocalizer*>()
+      || !ChatChannelItemWidget::Class::HasField<"_userProfileWidget", UserProfileWidget*>()
+      || !ChatChannelItemWidget::Class::HasField<"_channelDetail", TextLocalizer*>()
+      || !ChatBlockUserWidget::Class::HasField<"_userProfileWidget", UserProfileWidget*>())
+    return false;
+
+  const auto preview =
+      StreamerChatEntry<ChatPreviewMessageWidget>(ChatPreviewMessageWidget::Class::Method<void()>("SetWidgetData"));
+  const auto messages =
+      StreamerChatEntry<ChatMessageListLocalViewController>(ChatMessageListLocalViewController::Class::Method(
+          "BindDataContext", {"Digit.Client.UI.IDataContextProvider", "System.Object"}));
+  const auto header = StreamerChatEntry<FullScreenChatViewController>(
+      FullScreenChatViewController::Class::Method<void()>("RefreshContent"));
+  const auto channel =
+      StreamerChatEntry<ChatChannelItemWidget>(ChatChannelItemWidget::Class::Method<void()>("SetWidgetData"));
+  const auto blocked =
+      StreamerChatEntry<ChatBlockUserWidget>(ChatBlockUserWidget::Class::Method<void()>("SetWidgetData"));
+  std::array entries{preview, messages, header, channel, blocked};
+  std::ranges::sort(entries);
+  if (std::ranges::adjacent_find(entries) != entries.end())
+    return false;
+  il2cpp::HookSet hooks("StreamerChatPrivacy");
+  IL2CPP_STAGE_AT(hooks, preview, ChatPreviewMessageWidget_SetWidgetData_Hook);
+  IL2CPP_STAGE_AT(hooks, messages, ChatMessageListLocalViewController_BindDataContext_Hook);
+  IL2CPP_STAGE_AT(hooks, header, FullScreenChatViewController_RefreshContent_Hook);
+  IL2CPP_STAGE_AT(hooks, channel, ChatChannelItemWidget_SetWidgetData_Hook);
+  IL2CPP_STAGE_AT(hooks, blocked, ChatBlockUserWidget_SetWidgetData_Hook);
+  auto& state       = StreamerChat();
+  state.game_thread = std::this_thread::get_id();
+  state.installed   = hooks.Commit();
+  return state.installed;
+}
+
 // Called before reload tears down the managers. Do not call back into native UI from this reset.
 void ResetChat()
 {
@@ -487,8 +741,16 @@ bool ChatChannelShortcuts()
   return false;
 }
 
+bool streamer_mode::ChatAvailable()
+{
+  const auto& state = StreamerChat();
+  return state.installed && state.healthy && FrameDeliveryAvailable();
+}
+
 const Feature kChat{"Chat",    &Config::Patches::chatpatches, InstallChat,
                     ChatFrame, InstallRequirement::kOptional, ResetChat};
 const Feature kChatAvatarRetention{"ChatAvatarRetention", &Config::Patches::chatpatches, InstallChatAvatarRetention};
 const Feature kChatTitles{"ChatTitles", &Config::Patches::chattitledisplayhooks, InstallChatTitles,
                           nullptr,      InstallRequirement::kOptional,           ResetChatTitles};
+const Feature kStreamerChatPrivacy{"StreamerChatPrivacy", &Config::Patches::streamermodehooks, InstallStreamerChat,
+                                   StreamerChatFrame};

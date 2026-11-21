@@ -7,6 +7,7 @@
 #include "features/incoming_player_attack_tracker.h"
 #include "features/notification_audio.h"
 #include "features/notifications.h"
+#include "features/streamer_mode.h"
 #include "features/toast_text.h"
 
 #include "game/notifications.h"
@@ -19,6 +20,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -407,7 +409,8 @@ void ShowWindowsNotification(const char* title, const std::string& body)
 }
 #endif
 
-thread_local unsigned toast_notification_suppression_depth = 0;
+thread_local unsigned      toast_notification_suppression_depth = 0;
+constinit std::atomic_bool desktop_notification_details_hidden  = false;
 
 void Notify(Toast* toast)
 {
@@ -422,7 +425,10 @@ void Notify(Toast* toast)
     spdlog::debug("[Toasts] No title mapping for toast state {}, skipping", std::to_underlying(state));
     return;
   }
-  EmitDesktopNotification(title->second, NotificationBody(toast));
+  if (streamer_mode::HideReports())
+    EmitDesktopNotification(title->second, kHiddenDesktopNotificationDetails);
+  else
+    EmitDesktopNotification(title->second, NotificationBody(toast));
 }
 
 // --- Banners ---
@@ -455,6 +461,10 @@ bool HandleIncomingPlayerAlert(Toast* toast)
       && (Config::Get().ui.notify_incoming_player_attack
           || std::ranges::contains(Config::Get().ui.notify_banner_types,
                                    std::to_underlying(ToastState::IncomingAttack)))) {
+    if (streamer_mode::HideReports()) {
+      EmitDesktopNotification("Incoming Player Attack", kHiddenDesktopNotificationDetails);
+      return true;
+    }
     auto body = toast_text::StripRichText(ToastText(toast));
     if (body.empty()) {
       body = attack->attacker.empty() ? "A player is approaching your ship."
@@ -524,6 +534,7 @@ bool InstallToasts()
 
 void ToastNotificationFrame()
 {
+  PublishDesktopNotificationPrivacy();
   const auto& ui = Config::Get().ui;
   if (!ui.notify_banner_types.empty() || ui.notify_incoming_player_attack || ui.notify_fleet_events)
     InitializeDesktopNotifications();
@@ -550,6 +561,9 @@ void InitializeDesktopNotifications()
 
 void EmitDesktopNotification(std::string_view title, std::string_view body)
 {
+  PublishDesktopNotificationPrivacy();
+  if (DesktopNotificationDetailsHidden())
+    body = kHiddenDesktopNotificationDetails;
   InitializeDesktopNotifications();
 #if _WIN32
   ShowWindowsNotification(std::string(title).c_str(), std::string(body));
@@ -557,6 +571,12 @@ void EmitDesktopNotification(std::string_view title, std::string_view body)
   NotificationDesktopMacEmit(title, body);
 #endif
 }
+
+void PublishDesktopNotificationPrivacy()
+{ desktop_notification_details_hidden.store(streamer_mode::HideReports(), std::memory_order_relaxed); }
+
+bool DesktopNotificationDetailsHidden() noexcept
+{ return desktop_notification_details_hidden.load(std::memory_order_relaxed); }
 
 ScopedToastNotificationSuppression::ScopedToastNotificationSuppression()
 { ++toast_notification_suppression_depth; }

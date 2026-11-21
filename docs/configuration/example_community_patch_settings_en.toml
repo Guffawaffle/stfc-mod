@@ -348,6 +348,7 @@ zoom = 5000.0
 [patches]
 fleetnotificationhooks = true
 nativesettingshooks = true
+streamermodehooks = true
 
 # Subgroup: Leave Well Alone
 # --------------------------
@@ -819,8 +820,20 @@ zoom_reset = "="
 #  <[===================================================================]>
 
 [ui]
-# Hide the Player ID in General Settings. Copy still puts the real ID on your clipboard. Applies live.
+# Apply the selected Streamer Mode privacy protections. Applies live.
 streamer_mode = false
+# Hide the Player ID. General Settings Copy still uses the real ID.
+streamer_hide_account = true
+# Cover commander and alliance details on supported screens.
+streamer_hide_identity = false
+# Cover location details on supported screens.
+streamer_hide_locations = false
+# Cover supported chat content.
+streamer_hide_chat = false
+# Cover identifying details in supported reports and alerts.
+streamer_hide_reports = false
+# Cover resource balances on supported HUD and store panels.
+streamer_hide_balances = false
 
 ## Dedicated own-ship incoming-player desktop alerts (station and NPC attacks are excluded).
 notify_incoming_player_attack = false

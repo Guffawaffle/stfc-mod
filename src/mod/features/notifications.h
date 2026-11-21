@@ -5,6 +5,10 @@
 // Desktop delivery is independent of native banner visibility and custom audio.
 void EmitDesktopNotification(std::string_view title, std::string_view body);
 void InitializeDesktopNotifications();
+// Publish on the game thread. Native delivery callbacks may read the snapshot.
+void PublishDesktopNotificationPrivacy();
+bool DesktopNotificationDetailsHidden() noexcept;
+inline constexpr std::string_view kHiddenDesktopNotificationDetails = "Details hidden in Streamer Mode.";
 
 // Suppresses only generic desktop forwarding while the native depletion handler emits its banner.
 class ScopedToastNotificationSuppression

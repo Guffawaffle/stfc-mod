@@ -3,6 +3,7 @@
 #include "game/settings_actions.h"
 #include "config.h"
 #include "features/features.h"
+#include "features/streamer_mode.h"
 #include "frame.h"
 #include "settings/native_boolean_callback.h"
 #include "settings/native_controls.h"
@@ -86,7 +87,7 @@ bool                         ActionsThread()
 constexpr std::string_view kHiddenPlayerId = "Hidden";
 
 bool MaskPlayerId()
-{ return !ActionsThread() || Config::Get().ui.streamer_mode; }
+{ return !ActionsThread() || streamer_mode::HideAccount(); }
 
 Il2CppString* SettingsSectionDirector_GetUserId_Hook(auto original, SettingsSectionDirector* _this)
 { return MaskPlayerId() ? il2cpp::NewString(kHiddenPlayerId) : original(_this); }

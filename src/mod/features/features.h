@@ -280,6 +280,10 @@ extern const Feature kAllianceGamesStore;
 
 // toasts.cc
 extern const Feature kToasts;
+extern const Feature kStreamerReports;
+extern const Feature kStreamerAccountBalances;
+extern const Feature kStreamerChatPrivacy;
+extern const Feature kStreamerNavigationPrivacy;
 
 // tracked_objects.cc
 extern const Feature kObjectTracker;
