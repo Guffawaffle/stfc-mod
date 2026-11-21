@@ -1,8 +1,8 @@
 # Streamer Mode design
 
-Streamer Mode is a proposed desktop setting for covering private information during a stream or recording. The first slice protects the Player ID in General Settings. The value should read **Hidden** from the first visible frame, including when the player opens Settings immediately after launch.
+The first Streamer Mode setting lives in **Mod Settings → Interface & Scale**. It defaults off. Enable it to replace the Player ID in **General Settings** with **Hidden** and disable that row’s Copy action. The selected protections below describe possible extensions.
 
-## Controls
+## Proposed controls
 
 - Put one **Streamer Mode** switch in Mod Settings. It starts off and saves its state in the current mod configuration. When enabled, it protects the account fields covered by the current build.
 - Offer independent switches for the other groups as their screens gain coverage. Start those switches off so players can keep using the parts of the interface they want on stream.

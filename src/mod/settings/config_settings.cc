@@ -493,6 +493,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
        "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");
 
+  Boolean(catalog, "community_mod.interface", "ui", "streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode),
+          StreamerModeAvailable, Timing::Live,
+          "Hide the Player ID and disable its Copy action in the game's General Settings.", RefreshStreamerMode);
   FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
         "multiplier", 0, largest, 2, .05f);
   FLOAT("interface", graphics, ui_scale_step, "Scale shortcut step", scale, Live,

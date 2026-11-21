@@ -282,6 +282,7 @@ public:
   } audio;
 
   struct Ui {
+    bool streamer_mode       = false;
     bool disable_escape_exit = true;
     // Maximum gap in milliseconds between two Escape presses that opens the exit prompt; 0 never opens it.
     int  disable_escape_exit_timer       = 0;

@@ -133,6 +133,10 @@ void OpenChatShortcut();
 // In chat, the channel shortcuts. True when the key was used.
 bool ChatChannelShortcuts();
 
+// settings_actions.cc: the native General Settings Player ID row.
+bool StreamerModeAvailable();
+void RefreshStreamerMode();
+
 // confirmations.cc
 extern const Feature kForbiddenTechConfirm;
 extern const Feature kRevealConfirm;

@@ -3,6 +3,7 @@
 // Native Settings contexts and preference access. Observing an FC confirmation must not create a singleton or
 // initialize account preference storage merely to render a control.
 #include "ui.h"
+#include <array>
 #include <il2cpp/il2cpp.h>
 
 namespace settings_binding
@@ -112,6 +113,21 @@ struct SettingsContext : il2cpp::Object {
 };
 struct SettingsSectionDirector : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "SettingsSectionDirector">;
+
+  static std::array<il2cpp::Method, 2> PlayerIdMethods()
+  {
+    const auto value        = Class::Method<Il2CppString*()>("GetUserId");
+    const auto copy         = Class::Method<void()>("<AddGeneralSettings>b__77_0");
+    const auto version      = Class::Method<Il2CppString*()>("GetClientVersion");
+    const auto copy_version = Class::Method<void()>("<AddGeneralSettings>b__77_1");
+    if (!value || !copy || !version || !copy_version || value.Info()->klass != Class::Raw()
+        || copy.Info()->klass != Class::Raw() || version.Info()->klass != Class::Raw()
+        || copy_version.Info()->klass != Class::Raw() || value.Pointer() == version.Pointer()
+        || copy.Pointer() == copy_version.Pointer())
+      return {};
+    return {value, copy};
+  }
+
   static bool QualifiedQueryState()
   {
     const auto  query      = Class::Method<int32_t()>("QueryShouldShowGenericPcSetting");

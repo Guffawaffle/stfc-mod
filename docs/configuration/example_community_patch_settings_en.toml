@@ -819,6 +819,9 @@ zoom_reset = "="
 #  <[===================================================================]>
 
 [ui]
+# Hide the Player ID and disable its Copy action in the game's General Settings. Applies live.
+streamer_mode = false
+
 ## Dedicated own-ship incoming-player desktop alerts (station and NPC attacks are excluded).
 notify_incoming_player_attack = false
 ## Fleet desktop events, comma-separated; All enables every event. Audio cues are configured separately.

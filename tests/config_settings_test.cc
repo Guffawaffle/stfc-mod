@@ -44,6 +44,9 @@ size_t                                        fleet_label_refreshes = 0;
 size_t                                        galaxy_refreshes      = 0;
 bool                                          starbase_available    = false;
 bool                                          orbit_available       = true;
+bool                                          streamer_available    = false;
+size_t                                        streamer_refreshes    = 0;
+bool                                          streamer_at_refresh   = false;
 size_t                                        save_calls            = 0;
 std::vector<FeatureInstallation>              features;
 std::set<std::string>                         registered;
@@ -199,6 +202,13 @@ bool IsModified()
 } // namespace unity::Key
 std::span<const FeatureInstallation> FeatureInstallations()
 { return features; }
+bool StreamerModeAvailable()
+{ return streamer_available; }
+void RefreshStreamerMode()
+{
+  ++streamer_refreshes;
+  streamer_at_refresh = Config::Get().ui.streamer_mode;
+}
 bool IncomingPlayerAttackAvailable()
 { return false; }
 #if __APPLE__
@@ -338,6 +348,11 @@ int main()
   auto* cargo = Find<BooleanSetting>(catalog, "ui.show_player_cargo");
   Check(cargo && !cargo->Observe().state.known() && path_reads == 0,
         "unavailable owners stay unavailable without initializing Config");
+  auto* streamer_mode = Find<BooleanSetting>(catalog, "ui.streamer_mode");
+  Check(streamer_mode && streamer_mode->default_value() == false
+            && streamer_mode->metadata().timing == ApplyTiming::Live && registered.contains("ui.streamer_mode")
+            && !streamer_mode->Observe().state.known() && path_reads == 0,
+        "Streamer Mode defaults off and requires an available native adapter");
   auto* research           = Find<BooleanSetting>(catalog, "ui.show_alliance_games_research");
   bool  research_on_claims = false;
   for (const auto& page : catalog.RegisteredPages())
@@ -412,6 +427,19 @@ int main()
   Check(cargo->status_text().find("file changed externally") != std::string::npos,
         "writer conflicts remain visible through the model");
   conflict = false;
+
+  streamer_available = true;
+  Check(streamer_mode->Observe().state.value == false, "missing Streamer Mode setting loads as off");
+  Check(streamer_mode->SetFromUser(true, streamer_mode->Observe()).outcome == Outcome::AppliedVerified
+            && streamer_refreshes == 1 && streamer_at_refresh && std::get<bool>(saved.at("ui.streamer_mode")),
+        "enabling Streamer Mode refreshes the native row synchronously with masking active and persists the setting");
+  toml::table       startup_output;
+  const toml::table startup_input{{"ui", toml::table{{"streamer_mode", std::get<bool>(saved.at("ui.streamer_mode"))}}}};
+  Check(Config::Parse(startup_input, startup_output, false)->ui.streamer_mode,
+        "the persisted enabled preference applies during startup parsing");
+  Check(streamer_mode->Reset(streamer_mode->Observe()).outcome == Outcome::AppliedVerified && streamer_refreshes == 2
+            && !streamer_at_refresh && !std::get<bool>(saved.at("ui.streamer_mode")),
+        "turning Streamer Mode off refreshes the native row and persists the default");
 
   Check(!research->Observe().state.known(), "unrelated ready features cannot expose the Alliance Games control");
   Enable("AllianceGamesStore");
