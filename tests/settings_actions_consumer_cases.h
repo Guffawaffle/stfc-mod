@@ -64,9 +64,18 @@ struct SettingsActionConsumerContext {
   Il2CppObject              header;
   SettingsContainerContext* parent;
   Il2CppObject *            query, *callback;
+  LocaleTextContext*        label = nullptr;
+};
+struct SettingsAccountIdFixtureLabel {
+  Il2CppObject  header;
+  Il2CppString* identifier;
 };
 SettingsContainerContext* ActionConsumerParent(SettingsActionConsumerContext* context, const MethodInfo*)
 { return context->parent; }
+LocaleTextContext* ActionConsumerLabel(SettingsActionConsumerContext* context, const MethodInfo*)
+{ return context->label; }
+Il2CppString* ActionConsumerLabelIdentifier(SettingsAccountIdFixtureLabel* label, const MethodInfo*)
+{ return label->identifier; }
 settings_binding::ReferenceDelegate* ActionConsumerQuery(SettingsActionConsumerContext* context, const MethodInfo*)
 { return reinterpret_cast<settings_binding::ReferenceDelegate*>(context->query); }
 settings_binding::ReferenceObject* ActionConsumerCallback(SettingsActionConsumerContext* context, const MethodInfo*)
@@ -85,6 +94,12 @@ void SettingsActionConsumerCases()
   AddMethod(list_class, "get_Count", reinterpret_cast<void*>(&ValuesCount), T(int_class), {});
   AddMethod(list_class, "get_Item", reinterpret_cast<void*>(&ValuesItem), T(delegate_base), {T(int_class)});
   AddMethod(option, "get_Parent", reinterpret_cast<void*>(&ActionConsumerParent), T(container), {});
+  const auto& label_context =
+      AddMethod(option, "get_LabelContext", reinterpret_cast<void*>(&ActionConsumerLabel), T(warp_locale_class), {});
+  AddProperty(option, "LabelContext", &label_context);
+  const auto& identifier = AddMethod(warp_locale_class, "get_Identifier",
+                                     reinterpret_cast<void*>(&ActionConsumerLabelIdentifier), T(string_class), {});
+  AddProperty(warp_locale_class, "Identifier", &identifier);
   AddMethod(option, "get_QueryOptionState", reinterpret_cast<void*>(&ActionConsumerQuery), T(delegate_base), {});
   AddMethod(context_class, "get_Callback", reinterpret_cast<void*>(&ActionConsumerCallback), T(safe_class), {});
   AddMethod(widget_class, "get_Context", reinterpret_cast<void*>(&SettingsConsumerGetContext), T(context_class), {});
@@ -115,6 +130,14 @@ void SettingsActionConsumerCases()
                                         &safe.header};
   SettingsActionConsumerContext replacement = context;
   auto*                         row         = reinterpret_cast<SettingsActionContext*>(&context);
+  SettingsAccountIdFixtureLabel account_label{{&warp_locale_class.klass}, il2cpp::NewString("game_settings_option_14")};
+  context.label = reinterpret_cast<LocaleTextContext*>(&account_label);
+  Require(AccountIdRow(row) == AccountIdRowKind::Scopely, "the Scopely row uses the value-label-only mask");
+  account_label.identifier = il2cpp::NewString("game_settings_option_0");
+  Require(AccountIdRow(row) == AccountIdRowKind::Player, "the normal Player ID row keeps its placeholder path");
+  account_label.identifier = il2cpp::NewString("game_settings_option_1");
+  Require(AccountIdRow(row) == AccountIdRowKind::None, "ordinary action rows remain outside the account value mask");
+  context.label = nullptr;
   SettingsConsumerWidget        widget{{&widget_class.klass}, row};
   auto*                         native_widget = reinterpret_cast<SettingsActionWidget*>(&widget);
   int                           invoked       = 0;

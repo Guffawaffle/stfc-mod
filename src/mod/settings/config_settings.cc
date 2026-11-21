@@ -529,8 +529,8 @@ void RegisterConfigSettings(PageCatalog& catalog)
   };
   privacy("streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode), streamer,
           "Apply the selected privacy protections.", RefreshStreamerMode);
-  privacy("streamer_hide_account", "Hide Player ID", ACCESS(ui, streamer_hide_account), StreamerModeAvailable,
-          "Hide the Player ID in General Settings. Copy still puts the real ID on your clipboard.",
+  privacy("streamer_hide_account", "Hide account IDs", ACCESS(ui, streamer_hide_account), StreamerModeAvailable,
+          "Hide the Player ID and signed-in Scopely ID in General Settings. Player ID Copy still uses the real ID.",
           RefreshStreamerMode);
   privacy("streamer_hide_identity", "Hide commander identity", ACCESS(ui, streamer_hide_identity),
           streamer_mode::IdentityAvailable, "Cover commander and alliance details on supported game screens.");
