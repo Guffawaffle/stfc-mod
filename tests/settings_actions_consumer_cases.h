@@ -36,34 +36,28 @@ void StreamerModePlayerIdCases()
   Il2CppObject receiver{&object_class.klass};
   auto*        director = reinterpret_cast<SettingsSectionDirector*>(&receiver);
   auto*        fake_id  = il2cpp::NewString("fixture-private-player-id");
-  int          reads = 0, copies = 0;
-  const auto   get_id = [&](auto*) {
+  int          reads    = 0;
+  const auto   get_id   = [&](auto*) {
     ++reads;
     return fake_id;
   };
-  const auto copy_id = [&](auto*) { ++copies; };
 
   enabled = false;
   Require(SettingsSectionDirector_GetUserId_Hook(get_id, director) == fake_id,
           "inactive Streamer Mode uses the native value");
-  SettingsSectionDirector_CopyPlayerId_Hook(copy_id, director);
   enabled = true;
   Require(il2cpp::ToUtf8(SettingsSectionDirector_GetUserId_Hook(get_id, director)) == "Hidden" && reads == 1,
           "the first protected value binds as Hidden before evaluating the native getter");
-  SettingsSectionDirector_CopyPlayerId_Hook(copy_id, director);
-  Require(copies == 1, "the independent ID copy action stays blocked while masked");
 
   enabled = false;
   Require(SettingsSectionDirector_GetUserId_Hook(get_id, director) == fake_id && reads == 2,
           "disabling Streamer Mode restores native reads");
-  SettingsSectionDirector_CopyPlayerId_Hook(copy_id, director);
-  Require(copies == 2, "disabling Streamer Mode restores the native ID copy action");
   enabled                      = saved_enabled;
   state.thread                 = saved_thread;
   state.active                 = false;
   state.streamer_hooks         = false;
   streamer_fixture_frame_ready = false;
-  std::cout << "Streamer Mode: first Player ID read, independent Copy and restoration fixtures passed\n";
+  std::cout << "Streamer Mode: first Player ID display read and restoration fixtures passed\n";
 }
 
 struct SettingsActionConsumerContext {

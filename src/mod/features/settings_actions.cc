@@ -91,12 +91,6 @@ bool MaskPlayerId()
 Il2CppString* SettingsSectionDirector_GetUserId_Hook(auto original, SettingsSectionDirector* _this)
 { return MaskPlayerId() ? il2cpp::NewString(kHiddenPlayerId) : original(_this); }
 
-void SettingsSectionDirector_CopyPlayerId_Hook(auto original, SettingsSectionDirector* _this)
-{
-  if (!MaskPlayerId())
-    original(_this);
-}
-
 bool PlayerIdRow(SettingsActionContext* context)
 { return context && context->HasLabel("game_settings_option_0"); }
 
@@ -254,15 +248,12 @@ void RefreshPlayerIdViews()
 
 bool InstallStreamerModeHooks()
 {
-  const auto [value, copy] = SettingsSectionDirector::PlayerIdMethods();
-  auto* value_entry        = il2cpp::CheckedEntry(value);
-  auto* copy_entry         = il2cpp::CheckedEntry(copy);
-  if (!value_entry || !copy_entry || value_entry == copy_entry)
+  auto* entry = il2cpp::CheckedEntry(SettingsSectionDirector::PlayerIdDisplayMethod());
+  if (!entry)
     return false;
 
   il2cpp::HookSet hooks("StreamerMode");
-  IL2CPP_STAGE_AT(hooks, value_entry, SettingsSectionDirector_GetUserId_Hook);
-  IL2CPP_STAGE_AT(hooks, copy_entry, SettingsSectionDirector_CopyPlayerId_Hook);
+  IL2CPP_STAGE_AT(hooks, entry, SettingsSectionDirector_GetUserId_Hook);
   return hooks.Commit();
 }
 

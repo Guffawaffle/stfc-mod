@@ -819,7 +819,7 @@ zoom_reset = "="
 #  <[===================================================================]>
 
 [ui]
-# Hide the Player ID and disable its Copy action in the game's General Settings. Applies live.
+# Hide the Player ID in General Settings. Copy still puts the real ID on your clipboard. Applies live.
 streamer_mode = false
 
 ## Dedicated own-ship incoming-player desktop alerts (station and NPC attacks are excluded).
