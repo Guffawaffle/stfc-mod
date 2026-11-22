@@ -10,9 +10,7 @@
 
 #include <algorithm>
 #include <array>
-#include <map>
 #include <memory>
-#include <span>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -20,10 +18,10 @@
 namespace
 {
 struct StreamerSelfProfileView {
-  il2cpp::GcHandle                                          owner;
-  std::map<unity::GameObject*, streamer_mode::SurfaceCover> covers;
-  bool                                                      showing  = true;
-  bool                                                      complete = true;
+  il2cpp::GcHandle             owner;
+  streamer_mode::SurfaceCovers covers;
+  bool                         showing  = true;
+  bool                         complete = true;
 };
 
 struct StreamerSelfProfileState {
@@ -40,22 +38,6 @@ StreamerSelfProfileState& StreamerSelfProfile()
 {
   static auto* state = new StreamerSelfProfileState;
   return *state;
-}
-
-bool RestoreStreamerProfileCovers(StreamerSelfProfileView& view, std::span<const il2cpp::GcHandle> keep = {})
-{
-  bool complete = true;
-  for (auto cover = view.covers.begin(); cover != view.covers.end();) {
-    if (std::ranges::any_of(keep, [&](const auto& target) { return target.Get() == cover->first; })) {
-      ++cover;
-    } else if (cover->second.Restore()) {
-      cover = view.covers.erase(cover);
-    } else {
-      complete = false;
-      ++cover;
-    }
-  }
-  return complete;
 }
 
 il2cpp::GcHandle StreamerProfileTarget(il2cpp::Object* component)
@@ -78,24 +60,16 @@ bool CoverSelfProfile(StreamerSelfProfileView& view, PlayerProfileViewController
                            StreamerProfileTarget(area ? area->allianceName() : nullptr),
                            StreamerProfileTarget(area ? area->allianceTag() : nullptr),
                            StreamerProfileTarget(area ? area->allianceIcon() : nullptr)};
-  bool             complete = true;
-  for (const auto& target : targets) {
-    auto* object = target.Get<unity::GameObject>();
-    if (!object) {
-      complete = false;
-      continue;
-    }
-    auto& cover = view.covers.try_emplace(object, streamer_mode::SurfaceCover::GroupRetention::kStrong).first->second;
-    complete    = cover.Set(object, true) && complete;
-  }
-  const bool restored = RestoreStreamerProfileCovers(view, targets);
-  return complete && restored;
+  const std::array objects{targets[0].Get<unity::GameObject>(), targets[1].Get<unity::GameObject>(),
+                           targets[2].Get<unity::GameObject>(), targets[3].Get<unity::GameObject>()};
+  const bool       covered = view.covers.Apply(objects);
+  return covered && std::ranges::all_of(objects, [](auto* object) { return object != nullptr; });
 }
 
 bool ApplyStreamerSelfProfile(StreamerSelfProfileView& view, bool hide)
 {
   if (!hide || !view.showing)
-    return RestoreStreamerProfileCovers(view);
+    return view.covers.Apply();
 
   auto* observed = view.owner.Get();
   auto  owner    = il2cpp::GcHandle::Strong(observed);
@@ -106,7 +80,7 @@ bool ApplyStreamerSelfProfile(StreamerSelfProfileView& view, bool hide)
     return false;
   if (!alive.value) {
     view.showing = false;
-    return RestoreStreamerProfileCovers(view);
+    return view.covers.Apply();
   }
 
   auto*      profile = owner.Get<PlayerProfileViewController>();
@@ -114,7 +88,7 @@ bool ApplyStreamerSelfProfile(StreamerSelfProfileView& view, bool hide)
   if (local && local.value)
     return CoverSelfProfile(view, profile);
   // A reused controller may now hold another player's profile or have no proven local owner.
-  const bool restored = RestoreStreamerProfileCovers(view);
+  const bool restored = view.covers.Apply();
   return local.succeeded && restored;
 }
 
@@ -196,7 +170,7 @@ bool InstallStreamerSelfProfile()
 {
   using Controller = PlayerProfileViewController::Class;
   using Alliance   = PlayerProfileAllianceAreaWidget::Class;
-  if (!unity::CanvasGroup::Available() || !Controller::HasField<"_userProfile", UserProfile*>()
+  if (!unity::CanvasGroup::AlphaAvailable() || !Controller::HasField<"_userProfile", UserProfile*>()
       || !UserProfile::Class::Method<bool()>("get_IsLocalPlayer")
       || !Controller::HasField<"_playerInfoWidget", UserProfileWidget*>()
       || !Controller::HasField<"_profileAllianceWidget", PlayerProfileAllianceAreaWidget*>()

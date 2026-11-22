@@ -44,11 +44,12 @@ size_t                                        path_reads = 0, ship_rescales = 0,
 size_t                                        fleet_label_refreshes = 0;
 size_t                                        galaxy_refreshes      = 0;
 bool                                          starbase_available    = false;
-bool                                          orbit_available       = true;
-bool                                          streamer_available    = false;
-size_t                                        streamer_refreshes    = 0;
-bool                                          streamer_at_refresh   = false;
-size_t                                        save_calls            = 0;
+bool                                          orbit_available                      = true;
+bool                                          streamer_available                   = false;
+bool                                          compact_player_ship_labels_available = false;
+size_t                                        streamer_refreshes                   = 0;
+bool                                          streamer_at_refresh                  = false;
+size_t                                        save_calls                           = 0;
 std::vector<FeatureInstallation>              features;
 std::set<std::string>                         registered;
 std::map<std::string, config_edit::Value>     saved;
@@ -203,10 +204,16 @@ bool IsModified()
 } // namespace unity::Key
 std::span<const FeatureInstallation> FeatureInstallations()
 { return features; }
-bool StreamerModeAvailable()
-{ return streamer_available; }
 namespace streamer_mode
 {
+bool GeneralAccountIdsAvailable()
+{ return streamer_available; }
+bool GeneralAccountIdsDegraded()
+{ return false; }
+bool StandaloneIdAvailable()
+{ return false; }
+bool StandaloneIdDegraded()
+{ return false; }
 bool SelfProfileAvailable()
 { return false; }
 bool SelfProfileDegraded()
@@ -215,12 +222,14 @@ bool ChatNamesAvailable()
 { return false; }
 bool ChatNamesDegraded()
 { return false; }
-} // namespace streamer_mode
-void RefreshStreamerMode()
+bool CompactPlayerShipLabelsAvailable()
+{ return compact_player_ship_labels_available; }
+void RefreshGeneralAccountIds()
 {
   ++streamer_refreshes;
   streamer_at_refresh = Config::Get().ui.streamer_mode;
 }
+} // namespace streamer_mode
 bool IncomingPlayerAttackAvailable()
 { return false; }
 #if __APPLE__
@@ -367,13 +376,21 @@ int main()
         "Streamer Mode defaults off and requires an available native adapter");
   const auto& pages        = catalog.RegisteredPages();
   const auto  privacy_page = std::ranges::find(pages, "community_mod.streamer", &PageCatalog::Page::id);
-  Check(privacy_page != pages.end() && privacy_page->ControlRows() == 3,
-        "Streamer Mode has one master switch plus account IDs and chat sender names");
+  Check(privacy_page != pages.end() && privacy_page->ControlRows() == 4,
+        "Streamer Mode has one master switch plus three privacy options");
   auto* streamer_account = Find<BooleanSetting>(catalog, "ui.streamer_hide_account");
-  Check(streamer_account && streamer_account->default_value()
+  Check(streamer_account && streamer_account->default_value() == true
             && streamer_account->label() == "Hide my IDs, name, and alliance"
             && registered.contains("ui.streamer_hide_account"),
         "existing enabled configurations retain the original Player ID protection");
+  auto* compact_ship_labels = Find<BooleanSetting>(catalog, "ui.streamer_compact_player_ship_labels");
+  Check(compact_ship_labels && compact_ship_labels->label() == "Compact player ship labels"
+            && registered.contains("ui.streamer_compact_player_ship_labels"),
+        "compact ship labels are registered with their save key and display label");
+  Check(compact_ship_labels->default_value() == false && compact_ship_labels->metadata().timing == ApplyTiming::Live,
+        "compact ship labels default off and apply live");
+  Check(compact_ship_labels->Observe().state.reason == UnavailableReason::ProtectionUnavailable && path_reads == 0,
+        "compact ship labels require the live label capability");
   auto* research           = Find<BooleanSetting>(catalog, "ui.show_alliance_games_research");
   bool  research_on_claims = false;
   for (const auto& page : catalog.RegisteredPages())
@@ -449,29 +466,49 @@ int main()
         "writer conflicts remain visible through the model");
   conflict = false;
 
+  compact_player_ship_labels_available = true;
+  Check(streamer_mode->Observe().state.value == false,
+        "compact ship labels alone make the default-off Streamer Mode switch available");
   streamer_available = true;
-  Check(streamer_mode->Observe().state.value == false, "missing Streamer Mode setting loads as off");
   Check(streamer_mode->SetFromUser(true, streamer_mode->Observe()).outcome == Outcome::AppliedVerified
             && streamer_refreshes == 1 && streamer_at_refresh && std::get<bool>(saved.at("ui.streamer_mode")),
         "enabling Streamer Mode refreshes the native row synchronously with masking active and persists the setting");
   Check(::streamer_mode::HideAccount() && !::streamer_mode::HideChatNames(),
         "chat sender names are opt-in while account ID protection stays selected");
+  const auto usual_player_detail = Config::Get().graphics.zoom_label_player.detail;
+  Check(compact_ship_labels->Observe().state.value == false
+            && compact_ship_labels->SetFromUser(true, compact_ship_labels->Observe()).outcome
+                   == Outcome::AppliedVerified
+            && Config::Get().ui.streamer_compact_player_ship_labels
+            && std::get<bool>(saved.at("ui.streamer_compact_player_ship_labels"))
+            && Config::Get().graphics.zoom_label_player.detail == usual_player_detail
+            && !saved.contains("graphics.zoom_label_player_detail"),
+        "compact ship labels save their own preference and preserve graphics detail");
+  Config::Get().ui.streamer_hide_account = false;
+  Check(privacy_page->summary() == "On", "the available compact protection is ready");
+  compact_player_ship_labels_available = false;
+  Check(privacy_page->summary() == "On · Check protections", "selected unavailable compact protection is reported");
+  compact_player_ship_labels_available   = true;
+  Config::Get().ui.streamer_hide_account = true;
   toml::table       startup_output;
   const toml::table startup_input{{"ui", toml::table{{"streamer_mode", std::get<bool>(saved.at("ui.streamer_mode"))},
+                                                     {"streamer_compact_player_ship_labels", true},
                                                      {"streamer_hide_identity", true},
                                                      {"streamer_hide_locations", true},
                                                      {"streamer_hide_reports", true},
                                                      {"streamer_hide_balances", true}}}};
-  Check(Config::Parse(startup_input, startup_output, false)->ui.streamer_mode,
-        "the persisted enabled preference applies with old settings files");
+  const auto        parsed_startup = Config::Parse(startup_input, startup_output, false);
+  Check(parsed_startup->ui.streamer_mode && parsed_startup->ui.streamer_compact_player_ship_labels,
+        "the reader restores the master switch and compact-label preference");
   const auto* effective_ui = startup_output["ui"].as_table();
   Check(effective_ui && !effective_ui->contains("streamer_hide_identity")
             && !effective_ui->contains("streamer_hide_locations") && !effective_ui->contains("streamer_hide_reports")
             && !effective_ui->contains("streamer_hide_balances"),
         "retired gameplay masks are omitted from effective settings");
   Check(streamer_mode->Reset(streamer_mode->Observe()).outcome == Outcome::AppliedVerified && streamer_refreshes == 2
-            && !streamer_at_refresh && !std::get<bool>(saved.at("ui.streamer_mode")),
-        "turning Streamer Mode off refreshes the native row and persists the default");
+            && !streamer_at_refresh && !std::get<bool>(saved.at("ui.streamer_mode"))
+            && Config::Get().ui.streamer_compact_player_ship_labels,
+        "turning Streamer Mode off refreshes the native row and preserves the selected options");
   const toml::table legacy_chat{{"ui", toml::table{{"streamer_hide_chat", true}}}};
   const toml::table explicit_chat{
       {"ui", toml::table{{"streamer_hide_chat", true}, {"streamer_hide_chat_names", false}}}};

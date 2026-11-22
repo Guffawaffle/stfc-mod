@@ -1,11 +1,12 @@
 // [graphics] zoom_label_player_*, zoom_label_non_player_* and zoom_label_base_* control system label detail. The
 // game picks each label's level of detail from the camera's zoom; these settings override that per label kind. The
-// camera's own hooks in camera.cc report the zoom here.
+// camera's own hooks in camera.cc report the zoom here. Streamer Mode can temporarily use compact player labels.
 
 #include "config.h"
 #include "features/features.h"
 #include "features/galaxy.h"
 #include "features/ship_shortcut_badges.h"
+#include "features/streamer_mode.h"
 
 #include "game/navigation.h"
 
@@ -22,6 +23,14 @@
 
 namespace
 {
+FleetLabelProfile EffectivePlayerLabelProfile(const Config& config)
+{
+  auto profile = config.graphics.zoom_label_player;
+  if (config.patches.streamermodehooks && config.ui.streamer_mode && config.ui.streamer_compact_player_ship_labels)
+    profile.detail = FleetLabelDetail::kCompact;
+  return profile;
+}
+
 // The tracked fleet labels and the zoom state they follow. Each fleet kind is always expanded, always compact, or
 // expanded below a zoom threshold.
 class FleetLabels
@@ -33,6 +42,8 @@ public:
 
   void MarkBasesInstalled()
   { installed_ = bases_installed_ = true; }
+  bool FleetsInstalled() const
+  { return fleets_installed_; }
 
   // Settings writers do no managed work. The next live system camera update owns the refresh.
   void Refresh()
@@ -101,7 +112,7 @@ public:
   static bool Enabled()
   {
     const auto& config = Config::Get();
-    return config.graphics.zoom_label_player.detail != FleetLabelDetail::kNative
+    return EffectivePlayerLabelProfile(config).detail != FleetLabelDetail::kNative
            || config.graphics.zoom_label_non_player.detail != FleetLabelDetail::kNative
            || config.graphics.zoom_label_base.detail != FleetLabelDetail::kNative;
   }
@@ -383,15 +394,16 @@ private:
     if (!kind || Revision(lod) != generation)
       return std::nullopt;
     const auto& config = Config::Get();
-    return kind.value == DeployedFleetType::Player ? config.graphics.zoom_label_player
+    return kind.value == DeployedFleetType::Player ? EffectivePlayerLabelProfile(config)
                                                    : config.graphics.zoom_label_non_player;
   }
 
   using Profiles = std::array<FleetLabelProfile, 3>;
   static Profiles CurrentProfiles()
   {
-    const auto& graphics = Config::Get().graphics;
-    return {graphics.zoom_label_player, graphics.zoom_label_non_player, graphics.zoom_label_base};
+    const auto& config = Config::Get();
+    return {EffectivePlayerLabelProfile(config), config.graphics.zoom_label_non_player,
+            config.graphics.zoom_label_base};
   }
   static bool SameProfiles(const Profiles& left, const Profiles& right)
   {
@@ -701,6 +713,9 @@ void FleetLabelsAfterZoom(NavigationZoom* zoom)
 
 void RefreshFleetLabelControls()
 { fleet_labels.Refresh(); }
+
+bool streamer_mode::CompactPlayerShipLabelsAvailable()
+{ return Config::Get().patches.streamermodehooks && fleet_labels.FleetsInstalled(); }
 
 const Feature kFleetLabels{"FleetLabels", &Config::Patches::zoomhooks,   InstallFleetLabels,
                            nullptr,       InstallRequirement::kOptional, ResetFleetLabels};

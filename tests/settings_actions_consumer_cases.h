@@ -68,10 +68,16 @@ void StreamerModePlayerIdCases()
   const auto saved_thread  = state.thread;
   state.active             = true;
   state.thread             = std::this_thread::get_id();
+  const auto saved_patch_enabled          = Config::Get().patches.streamermodehooks;
+  Config::Get().patches.streamermodehooks = false;
+  enabled                                 = true;
+  Require(!InstallStreamerModeHooks(), "the startup patch switch declines the General Settings ID hook");
+  Config::Get().patches.streamermodehooks = saved_patch_enabled;
   state.streamer_hooks     = true;
-  Require(!StreamerModeAvailable(), "Streamer Mode requires the pre-render refresh path");
+  Require(!streamer_mode::GeneralAccountIdsAvailable(), "account masking requires the pre-render refresh path");
   streamer_fixture_frame_ready = true;
-  Require(StreamerModeAvailable(), "the installed Player ID adapter is available with frame delivery");
+  Require(streamer_mode::GeneralAccountIdsAvailable(),
+          "the installed Player ID adapter is available with frame delivery");
 
   Il2CppObject receiver{&object_class.klass};
   auto*        director = reinterpret_cast<SettingsSectionDirector*>(&receiver);
@@ -98,6 +104,75 @@ void StreamerModePlayerIdCases()
   state.streamer_hooks         = false;
   streamer_fixture_frame_ready = false;
   std::cout << "Streamer Mode: first Player ID display read and restoration fixtures passed\n";
+}
+
+struct StreamerCoverFixtureGroup {
+  Il2CppObject header;
+  float        alpha        = 1.0f;
+  bool         fail_restore = false;
+  bool         destroyed    = false;
+};
+struct StreamerCoverFixtureObject {
+  Il2CppObject               header;
+  StreamerCoverFixtureGroup* next = nullptr;
+};
+
+void StreamerModeCoverCases(SettingsActionWidget* receiver)
+{
+  auto& group_class = ValuesClass("UnityEngine", "CanvasGroup", &component_class);
+  AddMethod(group_class, "set_alpha",
+            reinterpret_cast<void*>(+[](StreamerCoverFixtureGroup* group, float alpha, const MethodInfo*) {
+              if (alpha == 1.0f && group->fail_restore)
+                throw Il2CppExceptionWrapper(&thrown);
+              group->alpha = alpha;
+            }),
+            T(void_class), {T(float_class)});
+  AddMethod(game_object_class, "AddComponent",
+            reinterpret_cast<void*>(+[](StreamerCoverFixtureObject* object, Il2CppObject*, const MethodInfo*) {
+              return &object->next->header;
+            }),
+            T(group_class), {T(type_class)});
+  AddMethod(unity_object_class, "Destroy",
+            reinterpret_cast<void*>(+[](StreamerCoverFixtureGroup* group, const MethodInfo*) {
+              Require(group->alpha == 1.0f, "a retired group is neutral before Unity destroys it");
+              group->destroyed = true;
+            }),
+            T(void_class), {T(unity_object_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+
+  auto& state  = Actions();
+  state.active = state.streamer_hooks = streamer_fixture_frame_ready = true;
+  state.thread                                                       = std::this_thread::get_id();
+  Config::Get().ui.streamer_mode                                     = true;
+  StreamerCoverFixtureGroup  old_group{{&group_class.klass}}, new_group{{&group_class.klass}};
+  StreamerCoverFixtureObject label{{&game_object_class.klass}, &old_group};
+  auto*                      object = reinterpret_cast<unity::GameObject*>(&label);
+  auto                       view     = std::make_shared<StreamerAccountIdView>();
+  state.account_id_views.emplace(receiver, view);
+  Require(view->cover.Hide(object) && old_group.alpha == 0.0f, "the enrolled label is covered");
+  warp_root_failure = true;
+  TrackAccountIdView(receiver);
+  warp_root_failure = false;
+  Require(state.account_id_views.at(receiver) == view && !view->complete && old_group.alpha == 0.0f,
+          "an unreadable native context preserves its existing mask and degrades status");
+  old_group.fail_restore = true;
+  ReleaseAccountIdView(receiver);
+  Require(state.retired_account_id_views.size() == 1 && old_group.alpha == 0.0f && !old_group.destroyed,
+          "a pooled row retains ownership of its failed restore");
+  Require(streamer_mode::GeneralAccountIdsAvailable() && streamer_mode::GeneralAccountIdsDegraded(),
+          "degraded account privacy preserves an editable installed control");
+
+  streamer_mode::SurfaceCover rebound;
+  label.next = &new_group;
+  Require(rebound.Hide(object) && new_group.alpha == 0.0f, "a replacement bind owns its display group");
+  old_group.fail_restore = false;
+  RefreshAccountIdViews(true);
+  Require(state.retired_account_id_views.empty() && old_group.destroyed && new_group.alpha == 0.0f,
+          "retired cleanup leaves the replacement mask in place on the reused label");
+  Require(!streamer_mode::GeneralAccountIdsDegraded(), "successful retry clears degraded status");
+  Require(rebound.Restore() && new_group.destroyed, "the replacement can restore its own label");
+  Config::Get().ui.streamer_mode = false;
+  state.active = state.streamer_hooks = streamer_fixture_frame_ready = false;
+  std::cout << "Streamer Mode: pooled label restore and recoverable account health passed\n";
 }
 
 struct SettingsActionConsumerContext {
@@ -264,5 +339,6 @@ void SettingsActionConsumerCases()
   std::cout << "Settings action consumer: invocation, token/page/context/presentation guards and reentry passed\n";
   StreamerModePlayerIdCases();
   StreamerModeSelfProfileCases();
+  StreamerModeCoverCases(native_widget);
 }
 } // namespace

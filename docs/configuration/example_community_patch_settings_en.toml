@@ -826,6 +826,8 @@ streamer_mode = false
 streamer_hide_account = true
 # Hide sender names in supported chat views. Chat remains readable.
 streamer_hide_chat_names = false
+# Use compact player ship labels in System view while Streamer Mode is on. Your usual detail returns afterward.
+streamer_compact_player_ship_labels = false
 
 ## Dedicated own-ship incoming-player desktop alerts (station and NPC attacks are excluded).
 notify_incoming_player_attack = false

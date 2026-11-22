@@ -421,7 +421,8 @@ StreamerChatState& StreamerChat()
 
 struct StreamerChatPreviewBind {
   TextLocalizer* label;
-  bool           healthy = true;
+  bool           rewritten = false;
+  bool           failed    = false;
 };
 thread_local StreamerChatPreviewBind* streamer_chat_preview_bind = nullptr;
 
@@ -447,7 +448,7 @@ bool CoverStreamerChatLabel(StreamerChatView& view, TextLocalizer* label)
     return false;
   const auto observed = root.Get<TextLocalizer>()->TryCall<"get_gameObject", unity::GameObject*>();
   auto       target   = il2cpp::GcHandle::Strong(observed ? observed.value : nullptr);
-  return target && view.cover.Set(target.Get<unity::GameObject>(), true);
+  return target && view.cover.Hide(target.Get<unity::GameObject>());
 }
 
 TextLocalizer* StreamerChatProfileName(UserProfileWidget* profile)
@@ -589,14 +590,14 @@ void TextLocalizer_SetTextParameters_StreamerChatHook(auto original, TextLocaliz
                                  : il2cpp::CallResult<il2cpp::Array<Il2CppObject*>*>{};
   const auto count    = checked && checked.value ? checked.value->size() : 0;
   if (count != 4 && count != 5) {
-    bind->healthy = false;
+    bind->failed = true;
     original(_this, arguments);
     return;
   }
   auto blank = il2cpp::GcHandle::Strong(reinterpret_cast<Il2CppObject*>(il2cpp::NewString("")));
   auto copy  = il2cpp::GcHandle::Strong(il2cpp::Array<Il2CppObject*>::New(il2cpp::ObjectClass(), count));
   if (!blank || !copy) {
-    bind->healthy = false;
+    bind->failed = true;
     original(_this, arguments);
     return;
   }
@@ -604,6 +605,16 @@ void TextLocalizer_SetTextParameters_StreamerChatHook(auto original, TextLocaliz
   for (size_t index = 0; index < count; ++index)
     args->Set(index, index > 0 && index < count - 2 ? blank.Get() : (*checked.value)[index]);
   original(_this, copy.Get<il2cpp::ArrayObject>());
+  bind->rewritten = true;
+}
+
+bool StreamerChatPreviewDisabled(TextLocalizer* label)
+{
+  // The native empty-preview path disables its graphic without invoking the formatter.
+  const auto target = il2cpp::GcHandle::Strong(label->Target());
+  const auto enabled =
+      target ? target.Get<il2cpp::Object>()->TryCall<"get_enabled", bool>() : il2cpp::CallResult<bool>{};
+  return enabled && !enabled.value;
 }
 
 void ChatPreviewMessageWidget_SetWidgetData_Hook(auto original, ChatPreviewMessageWidget* _this)
@@ -612,7 +623,8 @@ void ChatPreviewMessageWidget_SetWidgetData_Hook(auto original, ChatPreviewMessa
     original(_this);
     return;
   }
-  auto label = il2cpp::GcHandle::Strong(streamer_mode::HideChatNames() ? _this->messageText() : nullptr);
+  const bool              hidden = streamer_mode::HideChatNames();
+  auto                    label  = il2cpp::GcHandle::Strong(hidden ? _this->messageText() : nullptr);
   StreamerChatPreviewBind bind{label.Get<TextLocalizer>()};
   {
     struct RestoreBind {
@@ -622,7 +634,10 @@ void ChatPreviewMessageWidget_SetWidgetData_Hook(auto original, ChatPreviewMessa
     } restore{std::exchange(streamer_chat_preview_bind, bind.label ? &bind : nullptr)};
     original(_this);
   }
-  ObserveStreamerChatName(_this, StreamerChatViewKind::Preview, bind.healthy);
+  const bool healthy = !hidden
+                       || (bind.label && _this->messageText() == bind.label && !bind.failed
+                           && (bind.rewritten || StreamerChatPreviewDisabled(bind.label)));
+  ObserveStreamerChatName(_this, StreamerChatViewKind::Preview, healthy);
 }
 
 void ChatMessageWidget_OnDidBindContext_StreamerHook(auto original, ChatMessageWidget* _this)
@@ -654,7 +669,7 @@ template <class Owner> void* StreamerChatEntry(il2cpp::Method method)
 
 bool InstallStreamerChat()
 {
-  if (!unity::CanvasGroup::Available() || !ChatPreviewMessageWidget::Class::HasField<"_text", TextLocalizer*>()
+  if (!unity::CanvasGroup::AlphaAvailable() || !ChatPreviewMessageWidget::Class::HasField<"_text", TextLocalizer*>()
       || !ChatMessageWidget::Class::HasField<"_userProfileWidget", UserProfileWidget*>()
       || !UserProfileWidget::Class::HasField<"_name", TextLocalizer*>()
       || !FullScreenChatViewController::Class::HasField<"_headerTitle", TextLocalizer*>()

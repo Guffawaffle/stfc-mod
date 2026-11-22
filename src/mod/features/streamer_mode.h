@@ -18,6 +18,12 @@ inline bool HideChatNames()
 
 bool SelfProfileAvailable();
 bool SelfProfileDegraded();
+bool GeneralAccountIdsAvailable();
+bool GeneralAccountIdsDegraded();
+void RefreshGeneralAccountIds();
+bool StandaloneIdAvailable();
+bool StandaloneIdDegraded();
 bool ChatNamesAvailable();
 bool ChatNamesDegraded();
+bool CompactPlayerShipLabelsAvailable();
 } // namespace streamer_mode

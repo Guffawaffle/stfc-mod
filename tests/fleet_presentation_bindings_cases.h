@@ -606,6 +606,38 @@ void FleetPresentationCases(std::string_view mode)
     Require(lod.seen == ZoomLevels::Near, "unavailable fleet kind preserves native instead of guessing non-player");
     NavigationLOD_UpdateLOD_Hook(FpOriginalLod, lod_receiver, ZoomLevels::Near);
     Require(lod.seen == ZoomLevels::Near, "Expanded preserves native Near detail");
+
+    zoom.level                                    = ZoomLevels::Near;
+    config.ui.streamer_compact_player_ship_labels = true;
+    FleetLabelsAfterZoom(camera);
+    Require(streamer_mode::CompactPlayerShipLabelsAvailable() && lod.target == ZoomLevels::Near,
+            "the selected privacy option takes effect only while Streamer Mode is on");
+    config.ui.streamer_mode = true;
+    FleetLabelsAfterZoom(camera);
+    Require(lod.seen == ZoomLevels::Far && lod.target == ZoomLevels::Far
+                && config.graphics.zoom_label_player.detail == FleetLabelDetail::kExpanded,
+            "turning Streamer Mode on reapplies Compact without changing the saved player profile");
+    config.graphics.zoom_label_non_player.detail = FleetLabelDetail::kExpanded;
+    fleet.kind                                   = DeployedFleetType::Marauder;
+    NavigationLOD_UpdateLOD_Hook(FpOriginalLod, lod_receiver, ZoomLevels::Near);
+    Require(lod.seen == ZoomLevels::Near, "non-player labels keep their own detail in Streamer Mode");
+    fleet.kind                                    = DeployedFleetType::Player;
+    config.ui.streamer_compact_player_ship_labels = false;
+    FleetLabelsAfterZoom(camera);
+    Require(lod.target == ZoomLevels::Near, "turning off the privacy option restores the saved detail live");
+    config.ui.streamer_compact_player_ship_labels = true;
+    FleetLabelsAfterZoom(camera);
+    config.ui.streamer_mode = false;
+    FleetLabelsAfterZoom(camera);
+    Require(lod.target == ZoomLevels::Near, "turning off Streamer Mode also restores the saved detail live");
+    config.ui.streamer_mode          = true;
+    config.patches.streamermodehooks = false;
+    FleetLabelsAfterZoom(camera);
+    Require(!streamer_mode::CompactPlayerShipLabelsAvailable() && lod.target == ZoomLevels::Near,
+            "disabling the Streamer Mode hook group retains the ordinary label policy");
+    config.patches.streamermodehooks = true;
+    config.ui.streamer_mode = config.ui.streamer_compact_player_ship_labels = false;
+
     fp_on_original = [&] {
       NavigationFleetWidget_OnAboutToReleaseContext_Hook([](auto*) {}, receiver);
       lod.target = ZoomLevels::Far;

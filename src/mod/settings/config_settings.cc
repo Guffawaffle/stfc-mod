@@ -504,16 +504,25 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
        "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");
 
-  const Available streamer = [] { return StreamerModeAvailable() || streamer_mode::ChatNamesAvailable(); };
+  const Available account_privacy = [] {
+    return streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::SelfProfileAvailable()
+           || streamer_mode::StandaloneIdAvailable();
+  };
+  const Available streamer = [account_privacy] {
+    return account_privacy() || streamer_mode::ChatNamesAvailable()
+           || streamer_mode::CompactPlayerShipLabelsAvailable();
+  };
   catalog.SetSummary("community_mod.streamer", [] {
     const auto& ui = Config::Get().ui;
     if (!ui.streamer_mode)
       return "Off";
-    const bool incomplete = (ui.streamer_hide_account
-                             && (!StreamerModeAvailable() || !streamer_mode::SelfProfileAvailable()
-                                 || streamer_mode::SelfProfileDegraded()))
-                            || (ui.streamer_hide_chat_names
-                                && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()));
+    const bool incomplete =
+        (ui.streamer_hide_account
+         && (!streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::GeneralAccountIdsDegraded()
+             || !streamer_mode::SelfProfileAvailable() || streamer_mode::SelfProfileDegraded()
+             || streamer_mode::StandaloneIdDegraded()))
+        || (ui.streamer_hide_chat_names && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()))
+        || (ui.streamer_compact_player_ship_labels && !streamer_mode::CompactPlayerShipLabelsAvailable());
     return incomplete ? "On · Check protections" : "On";
   });
   const auto privacy = [&catalog](const char* key, const char* label, auto access, Available available,
@@ -522,13 +531,16 @@ void RegisterConfigSettings(PageCatalog& catalog)
             std::move(changed), UnavailableReason::ProtectionUnavailable);
   };
   privacy("streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode), streamer,
-          "Apply the selected personal-info protections.", RefreshStreamerMode);
+          "Apply the selected personal-info protections.", streamer_mode::RefreshGeneralAccountIds);
   privacy("streamer_hide_account", "Hide my IDs, name, and alliance", ACCESS(ui, streamer_hide_account),
-          StreamerModeAvailable,
+          account_privacy,
           "Hide account IDs and the name and alliance on your own Player Profile. Player ID Copy uses the real ID.",
-          RefreshStreamerMode);
+          streamer_mode::RefreshGeneralAccountIds);
   privacy("streamer_hide_chat_names", "Hide chat sender names", ACCESS(ui, streamer_hide_chat_names),
           streamer_mode::ChatNamesAvailable, "Hide sender names in supported chat views. Chat remains readable.");
+  privacy("streamer_compact_player_ship_labels", "Compact player ship labels",
+          ACCESS(ui, streamer_compact_player_ship_labels), streamer_mode::CompactPlayerShipLabelsAvailable,
+          "Use Compact for player ship labels in System view. The Compact layout omits names and alliance tags.");
   FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
         "multiplier", 0, largest, 2, .05f);
   FLOAT("interface", graphics, ui_scale_step, "Scale shortcut step", scale, Live,

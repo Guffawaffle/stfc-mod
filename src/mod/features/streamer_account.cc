@@ -1,12 +1,13 @@
 // Streamer Mode: protect the standalone native Player ID display.
-#include "game/streamer_account.h"
 #include "features/features.h"
 #include "features/streamer_mode.h"
 #include "features/streamer_surface_cover.h"
+#include "frame.h"
+#include "game/settings.h"
 
 #include <algorithm>
+#include <array>
 #include <il2cpp/hook.h>
-#include <map>
 #include <memory>
 #include <spdlog/spdlog.h>
 #include <utility>
@@ -14,13 +15,10 @@
 
 namespace
 {
-using streamer_mode::SurfaceCover;
-using streamer_mode::game::PlayerIdDisplay;
-
 struct StreamerIdView {
-  il2cpp::GcHandle                           owner;
-  std::map<unity::GameObject*, SurfaceCover> covers;
-  bool                                       complete = true;
+  il2cpp::GcHandle             owner;
+  streamer_mode::SurfaceCovers covers;
+  bool                         complete = true;
 };
 
 struct StreamerAccountViews {
@@ -30,6 +28,7 @@ struct StreamerAccountViews {
   bool                                         reported  = false;
   bool                                         untracked = false;
   bool                                         pending   = false;
+  bool                                         installed = false;
 };
 
 StreamerAccountViews& StreamerIdViews()
@@ -56,41 +55,22 @@ il2cpp::CallResult<unity::GameObject*> ObserveStreamerIdLabel(PlayerIdDisplay* o
   return {alive.succeeded, alive.value ? object.value : nullptr};
 }
 
-bool RestoreStreamerIdCovers(StreamerIdView& row, unity::GameObject* keep = nullptr)
-{
-  bool restored = true;
-  for (auto it = row.covers.begin(); it != row.covers.end();) {
-    if (it->first == keep) {
-      ++it;
-    } else if (it->second.Restore()) {
-      it = row.covers.erase(it);
-    } else {
-      restored = false;
-      ++it;
-    }
-  }
-  return restored;
-}
-
 bool ApplyStreamerIdView(StreamerIdView& row, bool hidden)
 {
   auto* observed_owner = row.owner.Get();
   if (!hidden || !observed_owner)
-    return RestoreStreamerIdCovers(row);
+    return row.covers.Apply();
   auto       owner = il2cpp::GcHandle::Strong(observed_owner);
   const auto alive = owner ? unity::TryAlive(owner.Get()) : il2cpp::CallResult<bool>{};
   if (!alive)
     return false;
   if (!alive.value) {
     row.owner.Reset();
-    return RestoreStreamerIdCovers(row);
+    return row.covers.Apply();
   }
 
   const auto target = ObserveStreamerIdLabel(owner.Get<PlayerIdDisplay>());
-  if (!target || (target.value && !row.covers[target.value].Set(target.value, true)))
-    return false;
-  // Protect the current label before attempting to restore any previous label.
-  return RestoreStreamerIdCovers(row, target.value);
+  return target && row.covers.Apply(std::array{target.value});
 }
 
 void ReportStreamerAccountCoverage(StreamerAccountViews& views)
@@ -103,7 +83,6 @@ void ReportStreamerAccountCoverage(StreamerAccountViews& views)
 void UpdateStreamerIdView(PlayerIdDisplay* owner)
 {
   auto& views = StreamerIdViews();
-  std::erase_if(views.rows, [](const auto& row) { return !row->owner.Get() && RestoreStreamerIdCovers(*row); });
   const auto found = std::ranges::find_if(views.rows, [owner](const auto& row) { return row->owner.Get() == owner; });
   const auto row   = found == views.rows.end() ? std::make_shared<StreamerIdView>() : *found;
   if (found == views.rows.end()) {
@@ -127,8 +106,8 @@ void ReleaseStreamerIdView(PlayerIdDisplay* owner)
     return;
   const auto row = *found;
   row->owner.Reset();
-  if (RestoreStreamerIdCovers(*row)) {
-    views.rows.erase(found);
+  if (row->covers.Apply()) {
+    std::erase(views.rows, row);
   } else {
     row->complete = false;
   }
@@ -152,11 +131,13 @@ void StreamerAccountPrivacyFrame()
   auto&      views   = StreamerIdViews();
   const bool hidden  = streamer_mode::HideAccount();
   const bool changed = std::exchange(views.hidden, hidden) != hidden;
-  if (!changed && (!views.pending || !views.review.Due()))
+  if (!changed && (views.rows.empty() || !views.review.Due()))
     return;
+  if (!hidden)
+    views.untracked = false;
   const auto rows = views.rows;
   for (const auto& row : rows)
-    if (changed || !row->complete)
+    if (changed || !row->complete || !row->owner.Get())
       row->complete = ApplyStreamerIdView(*row, hidden);
   std::erase_if(views.rows, [](const auto& row) { return !row->owner.Get() && row->complete; });
   ReportStreamerAccountCoverage(views);
@@ -165,7 +146,7 @@ void StreamerAccountPrivacyFrame()
 bool InstallStreamerAccountPrivacy()
 {
   using Class = PlayerIdDisplay::Class;
-  if (!unity::CanvasGroup::Available() || !Class::HasField<"_textLocalizer", TextLocalizer*>())
+  if (!unity::CanvasGroup::AlphaAvailable() || !Class::HasField<"_textLocalizer", TextLocalizer*>())
     return false;
   const auto set_method     = Class::Method<void(bool)>("SetPlayerIdToText");
   const auto disable_method = Class::Method<void()>("OnDisable");
@@ -179,9 +160,19 @@ bool InstallStreamerAccountPrivacy()
   il2cpp::HookSet hooks("StreamerAccountPrivacy");
   IL2CPP_STAGE_AT(hooks, set, PlayerIdDisplay_SetPlayerIdToText_Hook);
   IL2CPP_STAGE_AT(hooks, disable, PlayerIdDisplay_OnDisable_Hook);
-  return hooks.Commit();
+  StreamerIdViews().installed = hooks.Commit();
+  return StreamerIdViews().installed;
 }
 } // namespace
+
+bool streamer_mode::StandaloneIdAvailable()
+{ return StreamerIdViews().installed && FrameDeliveryAvailable(); }
+
+bool streamer_mode::StandaloneIdDegraded()
+{
+  const auto& views = StreamerIdViews();
+  return StandaloneIdAvailable() && HideAccount() && (views.pending || views.untracked);
+}
 
 const Feature kStreamerAccountPrivacy{"StreamerAccountPrivacy", &Config::Patches::streamermodehooks,
                                       InstallStreamerAccountPrivacy, StreamerAccountPrivacyFrame};

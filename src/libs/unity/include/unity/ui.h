@@ -82,14 +82,18 @@ struct Button : Behaviour {
 struct CanvasGroup : Behaviour {
   using Class = il2cpp::Class<"UnityEngine.UIModule", "UnityEngine", "CanvasGroup">;
 
+  static bool AlphaAvailable()
+  { return bool(Class::Method<void(float)>("set_alpha")); }
   static bool Available()
   {
-    return Class::Method<void(float)>("set_alpha") && Class::Method<void(bool)>("set_interactable")
+    return AlphaAvailable() && Class::Method<void(bool)>("set_interactable")
            && Class::Method<void(bool)>("set_blocksRaycasts");
   }
+  bool SetAlpha(float alpha)
+  { return TryCall<"set_alpha", void(float)>(alpha).succeeded; }
   bool SetHidden(bool hidden)
   {
-    const auto alpha       = TryCall<"set_alpha", void(float)>(hidden ? 0.0f : 1.0f);
+    const bool alpha       = SetAlpha(hidden ? 0.0f : 1.0f);
     const auto interaction = TryCall<"set_interactable", void(bool)>(!hidden);
     const auto raycasts    = TryCall<"set_blocksRaycasts", void(bool)>(!hidden);
     return alpha && interaction && raycasts;
