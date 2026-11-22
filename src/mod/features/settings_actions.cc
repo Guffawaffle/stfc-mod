@@ -1,7 +1,11 @@
-// Native command rows. Each context owns a unique closed callback token; pooled widget release never cancels a
-// page-owned editor. Dynamic repeated rows use the existing insertion/quarantine policies before native mutation.
+// Native command rows and the General Settings Player ID presentation. Each mod command context owns a unique
+// closed callback token; pooled widget release never cancels a page-owned editor.
 #include "game/settings_actions.h"
+#include "config.h"
 #include "features/features.h"
+#include "features/streamer_mode.h"
+#include "features/streamer_surface_cover.h"
+#include "frame.h"
 #include "settings/native_boolean_callback.h"
 #include "settings/native_controls.h"
 #include "settings/native_row_insertion.h"
@@ -50,18 +54,32 @@ struct SettingsActionView {
   bool                                  cleanup_complete = false;
   bool revoked = false, rendering = false, invoking = false, ready = false, restoring = false;
 };
+enum class AccountIdRowKind { None, Player, Scopely };
+struct StreamerAccountIdView {
+  il2cpp::GcHandle widget, context, label, label_object;
+  AccountIdRowKind kind;
+  streamer_mode::SurfaceCover cover;
+  bool                        complete = true;
+};
 struct NativeActionsState {
-  NativeCallback<void>                                                 click;
-  NativeCallback<Il2CppString*>                                        text;
-  NativeCallback<int>                                                  query;
-  std::map<SettingsOptionContext*, std::shared_ptr<SettingsActionRow>> rows;
-  std::map<Il2CppObject*, std::shared_ptr<SettingsActionPlan>>         plans;
-  std::map<SettingsActionWidget*, std::shared_ptr<SettingsActionView>> views;
-  RowInsertion<il2cpp::GcHandle>                                       insertions;
-  RowQuarantine<il2cpp::GcHandle>                                      quarantine;
-  std::thread::id                                                      thread;
-  uint64_t                                                             epoch  = 0;
-  bool                                                                 active = false;
+  NativeCallback<void>                                                    click;
+  NativeCallback<Il2CppString*>                                           text;
+  NativeCallback<int>                                                     query;
+  std::map<SettingsOptionContext*, std::shared_ptr<SettingsActionRow>>    rows;
+  std::map<Il2CppObject*, std::shared_ptr<SettingsActionPlan>>            plans;
+  std::map<SettingsActionWidget*, std::shared_ptr<SettingsActionView>>    views;
+  std::map<SettingsActionWidget*, std::shared_ptr<StreamerAccountIdView>> account_id_views;
+  std::vector<std::shared_ptr<StreamerAccountIdView>>                     retired_account_id_views;
+  RowInsertion<il2cpp::GcHandle>                                          insertions;
+  RowQuarantine<il2cpp::GcHandle>                                         quarantine;
+  std::thread::id                                                         thread;
+  uint64_t                                                                epoch               = 0;
+  bool                                                                    active              = false;
+  bool                                                                    streamer_hooks      = false;
+  bool                                                                    account_ids_hidden    = false;
+  bool                                                                    streamer_refreshing = false;
+  bool                                                                    account_ids_untracked = false;
+  bool                                                                    account_ids_warned    = false;
 };
 NativeActionsState& Actions()
 {
@@ -71,6 +89,214 @@ NativeActionsState& Actions()
 thread_local il2cpp::Object* invoking_action_widget = nullptr;
 bool                         ActionsThread()
 { return Actions().active && Actions().thread == std::this_thread::get_id(); }
+
+constexpr std::string_view kHiddenPlayerId = "Hidden";
+
+bool MaskAccountIds()
+{ return !ActionsThread() || streamer_mode::HideAccount(); }
+
+Il2CppString* SettingsSectionDirector_GetUserId_Hook(auto original, SettingsSectionDirector* _this)
+{ return MaskAccountIds() ? il2cpp::NewString(kHiddenPlayerId) : original(_this); }
+
+std::optional<AccountIdRowKind> AccountIdRow(SettingsActionContext* context)
+{
+  if (!context)
+    return AccountIdRowKind::None;
+  const auto identifier = context->TryLabelIdentifier();
+  if (!identifier)
+    return std::nullopt;
+  if (il2cpp::Equals(identifier.value, "game_settings_option_0"))
+    return AccountIdRowKind::Player;
+  // The Scopely account value delegate shares its native entry with unrelated getters. Mask its exact row instead.
+  if (il2cpp::Equals(identifier.value, "game_settings_option_14"))
+    return AccountIdRowKind::Scopely;
+  return AccountIdRowKind::None;
+}
+
+bool HideAccountIdValue(SettingsActionWidget* widget, const std::shared_ptr<StreamerAccountIdView>& view)
+{
+  auto  label = il2cpp::GcHandle::Strong(view->label.Get());
+  auto* value = label.Get<TextLocalizer>();
+  if (!value || widget->ValueLabel() != value)
+    return false;
+
+  if (view->kind == AccountIdRowKind::Player) {
+    const auto current = value->TryCall<"CurrentText", Il2CppString*>();
+    if (current && il2cpp::Equals(current.value, kHiddenPlayerId))
+      return view->cover.Restore();
+  }
+
+  // This is the exact value label's GameObject. Cover it if the native bind cannot prove the mask.
+  auto  object       = il2cpp::GcHandle::Strong(view->label_object.Get());
+  auto* label_object = object.Get<unity::GameObject>();
+  return label_object && widget->ValueLabel() == value && view->cover.Hide(label_object);
+}
+
+void ReportAccountIdProtection(bool protected_value)
+{
+  auto& state = Actions();
+  if (!protected_value && !std::exchange(state.account_ids_warned, true))
+    spdlog::warn("[StreamerMode] could not verify General Settings account ID presentation");
+}
+
+void ReleaseAccountIdView(SettingsActionWidget* widget)
+{
+  const auto found = Actions().account_id_views.find(widget);
+  if (found == Actions().account_id_views.end())
+    return;
+  const auto view = found->second;
+  Actions().account_id_views.erase(found);
+  if (!view->cover.Restore())
+    Actions().retired_account_id_views.push_back(view);
+}
+
+void TrackAccountIdView(SettingsActionWidget* widget, bool verify = true)
+{
+  auto& state = Actions();
+  if (!state.streamer_hooks)
+    return;
+  const auto unverified = [&] {
+    if (!verify)
+      return;
+    const auto found = state.account_id_views.find(widget);
+    if (found != state.account_id_views.end())
+      found->second->complete = false;
+    if (MaskAccountIds()) {
+      state.account_ids_untracked |= found == state.account_id_views.end();
+      ReportAccountIdProtection(false);
+    }
+  };
+  const auto context = widget->TryCall<"get_Context", SettingsActionContext*>();
+  const auto root    = il2cpp::GcHandle::Strong(context ? context.value : nullptr);
+  const auto kind =
+      context && (!context.value || root) ? AccountIdRow(root.Get<SettingsActionContext>()) : std::nullopt;
+  if (!kind) {
+    unverified();
+    return;
+  }
+  if (kind == AccountIdRowKind::None) {
+    ReleaseAccountIdView(widget);
+    return;
+  }
+  auto                                   label = il2cpp::GcHandle::Strong(widget->ValueLabel());
+  if (!label) {
+    unverified();
+    return;
+  }
+  const auto                             found = state.account_id_views.find(widget);
+  std::shared_ptr<StreamerAccountIdView> view;
+  if (found != state.account_id_views.end() && found->second->widget.Get() == widget
+      && found->second->context.Get() == root.Get() && found->second->label.Get() == label.Get()
+      && found->second->kind == kind) {
+    view = found->second;
+  } else {
+    const auto observed = found == state.account_id_views.end() ? nullptr : found->second;
+    const auto object   = label.Get<TextLocalizer>()->TryCall<"get_gameObject", unity::GameObject*>();
+    view                = std::make_shared<StreamerAccountIdView>(StreamerAccountIdView{
+        il2cpp::GcHandle::Weak(widget), il2cpp::GcHandle::Weak(root.Get()), il2cpp::GcHandle::Weak(label.Get()),
+        il2cpp::GcHandle::Weak(object ? object.value : nullptr), *kind});
+    if (!view->widget || !view->context || !view->label || !view->label_object) {
+      unverified();
+      return;
+    }
+    const auto current = state.account_id_views.find(widget);
+    if ((current == state.account_id_views.end() ? nullptr : current->second) != observed)
+      return;
+    ReleaseAccountIdView(widget);
+    const auto rebound = widget->TryCall<"get_Context", SettingsActionContext*>();
+    if (state.account_id_views.contains(widget))
+      return;
+    if (!rebound || rebound.value != root.Get() || widget->ValueLabel() != label.Get()) {
+      unverified();
+      return;
+    }
+    state.account_id_views.emplace(widget, view);
+  }
+  const bool complete = MaskAccountIds() ? HideAccountIdValue(widget, view) : view->cover.Restore();
+  if (verify) {
+    view->complete = complete;
+    ReportAccountIdProtection(complete);
+  }
+}
+
+void RefreshAccountIdViews(bool retry = false)
+{
+  auto& state = Actions();
+  if (!ActionsThread() || !state.streamer_hooks || state.streamer_refreshing)
+    return;
+  const bool enabled = MaskAccountIds();
+  const bool changed = std::exchange(state.account_ids_hidden, enabled) != enabled;
+  if (!changed && !retry)
+    return;
+
+  state.streamer_refreshing = true;
+  struct Done {
+    bool& flag;
+    ~Done()
+    { flag = false; }
+  } done{state.streamer_refreshing};
+  if (!enabled)
+    state.account_ids_untracked = false;
+
+  // Managed calls can rebind pooled rows; keep the registry walk separate from presentation calls.
+  auto retired = std::exchange(state.retired_account_id_views, {});
+  for (const auto& view : retired)
+    if (!view->cover.Restore())
+      state.retired_account_id_views.push_back(view);
+  std::vector<std::pair<SettingsActionWidget*, std::shared_ptr<StreamerAccountIdView>>> views(
+      state.account_id_views.begin(), state.account_id_views.end());
+  for (const auto& [key, view] : views) {
+    const auto is_current = [&] {
+      const auto found = state.account_id_views.find(key);
+      return found != state.account_id_views.end() && found->second == view;
+    };
+    if (!is_current())
+      continue;
+    if (!view->widget.Get()) {
+      ReleaseAccountIdView(key);
+      continue;
+    }
+    if (!changed && view->complete)
+      continue;
+    if (!enabled)
+      view->complete = view->cover.Restore();
+    if (!is_current())
+      continue;
+    auto       root   = il2cpp::GcHandle::Strong(view->widget.Get());
+    auto*      widget = root.Get<SettingsActionWidget>();
+    const auto alive   = root ? unity::TryAlive(widget) : il2cpp::CallResult<bool>{};
+    const auto current = alive && alive.value ? widget->TryCall<"get_Context", SettingsActionContext*>()
+                                              : il2cpp::CallResult<SettingsActionContext*>{};
+    if (!is_current())
+      continue;
+    if ((alive && !alive.value) || (current && (!current.value || current.value != view->context.Get()))) {
+      ReleaseAccountIdView(key);
+      continue;
+    }
+    if (current && widget->TryCall<"SetWidgetData", void>())
+      continue;
+    if (is_current()) {
+      if (current && enabled)
+        HideAccountIdValue(widget, view);
+      view->complete = false;
+      ReportAccountIdProtection(false);
+    }
+  }
+}
+
+bool InstallStreamerModeHooks()
+{
+  if (!Config::Get().patches.streamermodehooks)
+    return false;
+  auto* entry = il2cpp::CheckedEntry(SettingsSectionDirector::PlayerIdDisplayMethod());
+  if (!entry || !unity::CanvasGroup::AlphaAvailable())
+    return false;
+
+  il2cpp::HookSet hooks("StreamerMode");
+  IL2CPP_STAGE_AT(hooks, entry, SettingsSectionDirector_GetUserId_Hook);
+  return hooks.Commit();
+}
+
 void ActionWarning() noexcept
 {
   static bool reported = false;
@@ -643,6 +869,8 @@ void SettingsActionWidget_SetWidgetData_Hook(auto original, SettingsActionWidget
   std::shared_ptr<SettingsActionRebind> request;
   if (ActionsThread()) {
     try {
+      if (MaskAccountIds() || Actions().account_id_views.contains(_this))
+        TrackAccountIdView(_this, false);
       retired = ActionView(_this);
       if (!retired) {
         // An inert reservation gives first binds the same nested-bind ordering
@@ -677,9 +905,12 @@ void SettingsActionWidget_SetWidgetData_Hook(auto original, SettingsActionWidget
   } completion{_this, retired, request};
   original(_this);
   completion.returned = true;
-  if (!ActionsThread() || !retired || !request || ActionView(_this) != retired || retired->rebind != request)
+  if (!ActionsThread())
     return;
   try {
+    TrackAccountIdView(_this);
+    if (!retired || !request || ActionView(_this) != retired || retired->rebind != request)
+      return;
     const auto context      = _this->TryCall<"get_Context", SettingsActionContext*>();
     auto       context_root = il2cpp::GcHandle::Strong(context ? context.value : nullptr);
     auto       row          = ActionRow(context_root.Get<SettingsOptionContext>());
@@ -698,6 +929,7 @@ void SettingsActionWidget_SetWidgetData_Hook(auto original, SettingsActionWidget
 void SettingsActionWidget_OnAboutToReleaseContext_Hook(auto original, SettingsActionWidget* _this)
 {
   if (ActionsThread()) {
+    ReleaseAccountIdView(_this);
     if (auto view = ActionView(_this))
       view->rebind.reset();
     ReleaseAction(_this);
@@ -763,9 +995,11 @@ void ActionsFrame()
 {
   if (!ActionsThread())
     return;
+  RefreshAccountIdViews();
   static Throttle lifecycle(std::chrono::milliseconds(250));
   if (!lifecycle.Due())
     return;
+  RefreshAccountIdViews(true);
   ActionInsertionHost host;
   Actions().insertions.Retry(host);
   Actions().quarantine.Retry(host);
@@ -820,6 +1054,8 @@ bool InstallSettingsActions()
     return false;
   state.thread = std::this_thread::get_id();
   state.active = RegisterPageItemAdapter(PageItemKind::Action, AppendAction, ResolveAction, InvalidateActions);
+  if (state.active)
+    state.streamer_hooks = InstallStreamerModeHooks();
   return state.active;
 }
 } // namespace
@@ -828,5 +1064,16 @@ il2cpp::Object* mod_settings::native::InvokingActionWidget()
 { return invoking_action_widget; }
 void mod_settings::native::RefreshActions()
 { RequestPageRefresh(); }
+bool streamer_mode::GeneralAccountIdsAvailable()
+{ return ActionsThread() && Actions().streamer_hooks && FrameDeliveryAvailable(); }
+bool streamer_mode::GeneralAccountIdsDegraded()
+{
+  const auto& state = Actions();
+  return GeneralAccountIdsAvailable() && HideAccount()
+         && (state.account_ids_untracked || !state.retired_account_id_views.empty()
+             || std::ranges::any_of(state.account_id_views, [](const auto& entry) { return !entry.second->complete; }));
+}
+void streamer_mode::RefreshGeneralAccountIds()
+{ RefreshAccountIdViews(); }
 const Feature kNativeSettingsActions{"NativeSettingsActions", &Config::Patches::nativesettingshooks,
                                      InstallSettingsActions, ActionsFrame};

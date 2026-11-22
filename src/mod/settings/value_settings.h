@@ -14,7 +14,7 @@
 namespace mod_settings
 {
 enum class Availability { Known, Unavailable, Unsupported };
-enum class UnavailableReason { Retry, OutsideRange, InvalidValue };
+enum class UnavailableReason { Retry, OutsideRange, InvalidValue, ProtectionUnavailable };
 template <typename T> struct ValueReadResult {
   Availability           availability = Availability::Unavailable;
   std::optional<T>       value;

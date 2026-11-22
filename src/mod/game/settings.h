@@ -77,11 +77,19 @@ struct SettingsOptionContext : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "OptionContext">;
   LocaleTextContext* Label()
   { return Get<"LabelContext", LocaleTextContext*>(); }
+  il2cpp::CallResult<Il2CppString*> TryLabelIdentifier()
+  {
+    const auto observed = TryCall<"get_LabelContext", LocaleTextContext*>();
+    if (!observed || !observed.value)
+      return {observed.succeeded, nullptr};
+    const auto label = il2cpp::GcHandle::Strong(observed.value);
+    return label ? label.Get<LocaleTextContext>()->TryCall<"get_Identifier", Il2CppString*>()
+                 : il2cpp::CallResult<Il2CppString*>{};
+  }
   bool HasLabel(std::string_view id)
   {
-    auto  label = il2cpp::GcHandle::Strong(Label());
-    auto* value = label.Get<LocaleTextContext>();
-    return value && il2cpp::Equals(value->Get<"Identifier", Il2CppString*>(), id);
+    const auto identifier = TryLabelIdentifier();
+    return identifier && il2cpp::Equals(identifier.value, id);
   }
 };
 struct SettingsContainerContext : SettingsOptionContext {
@@ -112,6 +120,17 @@ struct SettingsContext : il2cpp::Object {
 };
 struct SettingsSectionDirector : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "SettingsSectionDirector">;
+
+  static il2cpp::Method PlayerIdDisplayMethod()
+  {
+    const auto value   = Class::Method<Il2CppString*()>("GetUserId");
+    const auto version = Class::Method<Il2CppString*()>("GetClientVersion");
+    if (!value || !version || value.Info()->klass != Class::Raw() || version.Info()->klass != Class::Raw()
+        || value.Pointer() == version.Pointer())
+      return {};
+    return value;
+  }
+
   static bool QualifiedQueryState()
   {
     const auto  query      = Class::Method<int32_t()>("QueryShouldShowGenericPcSetting");
@@ -120,6 +139,12 @@ struct SettingsSectionDirector : il2cpp::Object {
     return underlying && underlying->type == IL2CPP_TYPE_I4;
   }
 };
+struct PlayerIdDisplay : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.UI", "PlayerIdViewController">;
+  TextLocalizer* Label()
+  { return Field<"_textLocalizer", TextLocalizer*>(); }
+};
+
 struct ToggleOptionContext : SettingsOptionContext {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.GameSettings", "ToggleOptionContext">;
   il2cpp::Object* Query()

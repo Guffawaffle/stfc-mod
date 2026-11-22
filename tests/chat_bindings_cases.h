@@ -461,6 +461,90 @@ void ChatNativeNavigation()
   Require(warp_roots.empty(), "navigation callbacks release all acquired manager/view/input roots");
 }
 
+struct StreamerPreviewFixtureWidget {
+  Il2CppObject   header;
+  TextLocalizer* label;
+};
+struct StreamerPreviewFixtureGraphic {
+  Il2CppObject header;
+  bool         enabled = true;
+};
+
+void ChatNativeStreamerPreview()
+{
+  auto& widget  = Define("Digit.Prime.Chat", "ChatPreviewMessageWidget", IL2CPP_TYPE_CLASS, &unity_object_class);
+  auto& label   = Define("Digit.Client.UI", "TextLocalizer", IL2CPP_TYPE_CLASS, &unity_object_class);
+  auto& graphic = Define("Fixture", "StreamerPreviewGraphic", IL2CPP_TYPE_CLASS, &unity_object_class);
+  AddField(widget, "_text", label, offsetof(StreamerPreviewFixtureWidget, label));
+  auto& target =
+      AddMethod(label, "get_Target",
+                reinterpret_cast<void*>(+[](ChatNativeReference* self, const MethodInfo*) { return self->value; }),
+                T(graphic), {});
+  AddProperty(label, "Target", &target);
+  AddMethod(
+      graphic, "get_enabled",
+      reinterpret_cast<void*>(+[](StreamerPreviewFixtureGraphic* self, const MethodInfo*) { return self->enabled; }),
+      T(bool_class), {});
+  StreamerPreviewFixtureGraphic rendered{{&graphic.klass}};
+  ChatNativeReference           text{{&label.klass}, &rendered.header}, unrelated{{&label.klass}, &rendered.header};
+  StreamerPreviewFixtureWidget  row{{&widget.klass}, reinterpret_cast<TextLocalizer*>(&text)};
+  auto*                         receiver = reinterpret_cast<ChatPreviewMessageWidget*>(&row);
+  auto&                         state    = StreamerChat();
+  state.installed                        = true;
+  state.game_thread                      = std::this_thread::get_id();
+  Config::Get().ui.streamer_mode = Config::Get().ui.streamer_hide_chat_names = true;
+  const auto bind                                                            = [&](auto original) {
+    ChatPreviewMessageWidget_SetWidgetData_Hook(original, receiver);
+    return state.views.front()->healthy;
+  };
+
+  for (const size_t count : {4, 5}) {
+    auto* source = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), count));
+    auto* input  = reinterpret_cast<il2cpp::ArrayObject*>(source);
+    std::array<Il2CppObject*, 5> values{};
+    for (size_t index = 0; index < count; ++index) {
+      values[index] = reinterpret_cast<Il2CppObject*>(il2cpp::NewString("native parameter"));
+      source->Set(index, values[index]);
+    }
+    int formats = 0;
+    Require(bind([&](auto*) {
+              TextLocalizer_SetTextParameters_StreamerChatHook(
+                  [&](auto*, auto* output) {
+                    Require(output == input, "unrelated native formatting passes through unchanged");
+                  },
+                  reinterpret_cast<TextLocalizer*>(&unrelated), input);
+              TextLocalizer_SetTextParameters_StreamerChatHook(
+                  [&](auto*, auto* output) {
+                    ++formats;
+                    Require(output != input, "streamer preview never mutates the original native array");
+                    auto* masked = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(output);
+                    for (size_t index = 0; index < count; ++index) {
+                      const bool identity = index > 0 && index < count - 2;
+                      Require((*source)[index] == values[index]
+                                  && (identity ? il2cpp::Equals(reinterpret_cast<Il2CppString*>((*masked)[index]), "")
+                                               : (*masked)[index] == values[index]),
+                              "preview replaces only its sender and optional alliance, keeping the color and body");
+                    }
+                  },
+                  row.label, input);
+            }) && formats == 1,
+            "native preview reports success after rewriting the exact formatter inputs");
+  }
+  Require(!bind([](auto*) {}), "a visible preview with no intercepted formatter is degraded");
+  rendered.enabled = false;
+  Require(bind([](auto*) {}), "the disabled native preview graphic needs no formatter");
+  rendered.enabled     = true;
+  auto* original_label = row.label;
+  row.label            = nullptr;
+  Require(!bind([](auto*) {}), "a missing preview label cannot report verified privacy");
+  row.label                      = original_label;
+  Config::Get().ui.streamer_mode = false;
+  Require(bind([](auto*) {}), "turning Streamer Mode off leaves native previews alone");
+  state = StreamerChatState{};
+  Require(warp_roots.empty(), "preview fixture releases all temporary roots");
+  std::cout << "Streamer Mode: exact preview formatting, visible failure and disabled preview passed\n";
+}
+
 void ChatNativeCases(std::string_view mode)
 {
   if (mode == "chat-native-channels")
@@ -471,6 +555,8 @@ void ChatNativeCases(std::string_view mode)
     ChatNativeTitles();
   else if (mode == "chat-native-navigation")
     ChatNativeNavigation();
+  else if (mode == "chat-native-streamer")
+    ChatNativeStreamerPreview();
   else
     Require(false, "unknown chat-native mode");
   std::cout << "Actual production chat consumer " << mode << " passed\n";
