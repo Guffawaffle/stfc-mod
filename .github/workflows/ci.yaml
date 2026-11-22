@@ -47,7 +47,7 @@ jobs:
           STFC_WINDOWS_TOOLCHAIN_URL: ${{ vars.STFC_WINDOWS_TOOLCHAIN_URL }}
         run: |
           if ($env:STFC_WINDOWS_TOOLCHAIN_URL) {
-            zig build fetch-toolchains
+            python scripts/ci-build-retry.py --prefetch -- zig build fetch-toolchains
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } else {
             # Zig's native discovery reads the default toolset even inside a pinned developer shell.
@@ -74,7 +74,7 @@ jobs:
           "run_attempt=${{ github.run_attempt }}" >> $env:GITHUB_OUTPUT
           $sysrootArgs = @()
           if ($env:STFC_WINDOWS_MSVC_SYSROOT) { $sysrootArgs += "-Dmsvc-sysroot=$env:STFC_WINDOWS_MSVC_SYSROOT" }
-          python scripts/ci-build-retry.py -- zig build install test-toolchains test-codegen test-deps test-il2cpp test-mod test-sync test-spud `
+          python scripts/ci-build-retry.py --prefetch -- zig build install test-toolchains test-codegen test-deps test-il2cpp test-mod test-sync test-spud `
             -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug `
             "-Dstfc_source_state_id=git:${{ github.sha }}" `
             "-Dstfc_base_commit=${{ github.sha }}" `
@@ -117,8 +117,8 @@ jobs:
         env:
           STFC_WINDOWS_TOOLCHAIN_URL: ${{ vars.STFC_WINDOWS_TOOLCHAIN_URL }}
         run: |
-          zig build fetch-toolchains
-          zig build install build-tests -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug
+          python3 scripts/ci-build-retry.py --prefetch -- zig build fetch-toolchains
+          python3 scripts/ci-build-retry.py --prefetch -- zig build install build-tests -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug
           python3 scripts/verify-windows-binary.py
 
   # The native fixtures need no SDK, so they run on Linux too, where they are cheapest.
@@ -130,7 +130,7 @@ jobs:
         with:
           version: ${{ env.ZIG_VERSION }}
       - name: Test
-        run: python3 scripts/ci-build-retry.py -- zig build test-toolchains test-codegen test-il2cpp test-mod test-sync test-launcher test-spud
+        run: python3 scripts/ci-build-retry.py --prefetch -- zig build test-toolchains test-codegen test-il2cpp test-mod test-sync test-launcher test-spud
 
   build-mac:
     name: build-mac (${{ matrix.arch }})
@@ -159,7 +159,7 @@ jobs:
         run: python3 scripts/stamp-version-hash.py "${{ github.sha }}"
       - name: Build and test
         run: |
-          python3 scripts/ci-build-retry.py -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
+          python3 scripts/ci-build-retry.py --prefetch -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
             -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all \
             -Dprofiles=${{ github.repository == 'Guffawaffle/stfc-mod' }} \
             -Dlauncher_channel=ci \
