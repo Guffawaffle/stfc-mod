@@ -89,17 +89,10 @@ bool MiningBegin()
     return false;
   for (auto* widget : unity::Instances<MiningObjectViewerWidget>()) {
     auto observed = binding::Observe(widget);
-    if (!observed
-        || binding::Read<int32_t>(observed.source.Get(), a.occupied)
-               != std::to_underlying(OccupiedState::OtherPlayerOccupied))
+    if (!observed)
       continue;
-    auto slot  = il2cpp::GcHandle::Strong(binding::Read<binding::Slot*>(observed.source.Get(), a.node_slot));
-    auto fleet = slot ? il2cpp::GcHandle::Strong(binding::Read<FleetDeployedData*>(slot.Get(), a.slot_fleet))
-                      : il2cpp::GcHandle{};
-    if (!fleet || binding::Read<bool>(fleet.Get(), a.local_fleet))
-      continue; // The player's own miners retain native fleet controls.
-    const auto id = planned_warp_binding::Scalar<"get_ID", int64_t>(fleet.Get<FleetDeployedData>());
-    if (!id || id.value == 0 || id.value == -1)
+    const auto occupant = binding::ForeignOccupant(widget);
+    if (!occupant)
       continue;
     MiningReset();
     auto& session   = MiningSession();
@@ -108,7 +101,7 @@ bool MiningBegin()
       return false;
     session.node            = observed.id;
     session.type            = observed.type;
-    session.fleet           = id.value;
+    session.fleet           = occupant.id;
     session.cargo_first     = Config::Get().ui.mining_preview_cargo_first;
     session.cargo_requested = session.cargo_first;
     session.polling.Start(Clock::now());
@@ -121,39 +114,48 @@ bool MiningBegin()
   return false;
 }
 
-// --- Selected ship OPC outline ---
+// --- Selected mining view OPC indicator ---
 
-struct MiningOpcOutline {
+constexpr unity::Color kMiningOpcAmber{1.0f, 0.66f, 0.12f, 1.0f};
+
+struct MiningOpcIndicator {
   il2cpp::GcHandle  card, anchor, object, context, loader, poi;
+  il2cpp::GcHandle  slot, occupant;
+  bool              node  = false;
   int64_t           fleet = 0;
   Clock::time_point next{};
 };
 
-MiningOpcOutline& MiningOutline()
+MiningOpcIndicator& MiningIndicator()
 {
-  // The native card owns its overlay. Retain only weak handles between frames.
-  static auto* outline = new MiningOpcOutline;
-  return *outline;
+  // Keep the overlay wrapper alive so we can always hide it while its native parent exists.
+  // The native viewer and its occupants remain weak. Do not release handles after IL2CPP teardown.
+  static auto* indicator = new MiningOpcIndicator;
+  return *indicator;
 }
 
-void HideMiningOutline()
+void HideMiningIndicator()
 {
-  auto& outline = MiningOutline();
-  if (outline.fleet == 0)
+  auto& indicator = MiningIndicator();
+  if (indicator.fleet == 0)
     return;
-  outline.context.Reset();
-  outline.loader.Reset();
-  outline.poi.Reset();
-  outline.fleet = 0;
-  auto object   = il2cpp::GcHandle::Strong(outline.object.Get());
-  if (unity::Alive(object.Get()) && !object.Get<unity::GameObject>()->TryCall<"SetActive", void(bool)>(false)) {
+  indicator.context.Reset();
+  indicator.loader.Reset();
+  indicator.poi.Reset();
+  indicator.slot.Reset();
+  indicator.occupant.Reset();
+  indicator.fleet = 0;
+  auto object     = il2cpp::GcHandle::Strong(indicator.object.Get());
+  if (!unity::Alive(object.Get())) {
+    indicator.object.Reset();
+  } else if (!object.Get<unity::GameObject>()->TryCall<"SetActive", void(bool)>(false)) {
     unity::Destroy(object.Get());
-    outline.object.Reset();
+    indicator.object.Reset();
   }
 }
 
-bool SetMiningOutlineRect(unity::RectTransform* rect, unity::Vector2 min, unity::Vector2 max, unity::Vector2 offset_min,
-                          unity::Vector2 offset_max)
+bool SetMiningIndicatorRect(unity::RectTransform* rect, unity::Vector2 min, unity::Vector2 max,
+                            unity::Vector2 offset_min, unity::Vector2 offset_max)
 {
   return rect->TryCall<"set_anchorMin", void(unity::Vector2)>(min)
          && rect->TryCall<"set_anchorMax", void(unity::Vector2)>(max)
@@ -174,7 +176,7 @@ il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
   auto layout = il2cpp::GcHandle::Strong(container ? container->AddComponent<unity::LayoutElement>() : nullptr);
   if (!rect || !layout || !container->TryCall<"set_layer", void(int32_t)>(layer.value)
       || !layout.Get<unity::LayoutElement>()->ExcludeFromLayout()
-      || !SetMiningOutlineRect(rect, {0, 0}, {1, 1}, {0, 0}, {0, 0})) {
+      || !SetMiningIndicatorRect(rect, {0, 0}, {1, 1}, {0, 0}, {0, 0})) {
     if (container)
       unity::Destroy(container);
     return {};
@@ -195,9 +197,9 @@ il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
     auto*            object = child.Get<unity::GameObject>();
     auto             image  = il2cpp::GcHandle::Strong(object ? object->AddComponent<unity::Image>() : nullptr);
     if (!line || !image || !object->TryCall<"set_layer", void(int32_t)>(layer.value)
-        || !SetMiningOutlineRect(line, edge.min, edge.max, edge.offset_min, edge.offset_max)
+        || !SetMiningIndicatorRect(line, edge.min, edge.max, edge.offset_min, edge.offset_max)
         || !image.Get<unity::Image>()->TryCall<"set_raycastTarget", void(bool)>(false)
-        || !image.Get<unity::Image>()->TryCall<"set_color", void(unity::Color)>(unity::Color{1.0f, 0.66f, 0.12f, 1.0f})
+        || !image.Get<unity::Image>()->TryCall<"set_color", void(unity::Color)>(kMiningOpcAmber)
         || !object->TryCall<"SetActive", void(bool)>(true)) {
       unity::Destroy(container);
       return {};
@@ -206,23 +208,73 @@ il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
   return root;
 }
 
-void ShowMiningOutline(const binding::Viewer& selected)
+il2cpp::GcHandle CreateMiningNodeBadge(unity::RectTransform* anchor, il2cpp::Object* font)
 {
-  auto& outline = MiningOutline();
-  auto* card    = selected.source.Get<PreScanTargetWidget>();
-  auto  anchor  = binding::CardAnchor(card);
-  if (anchor && outline.anchor.Get() == anchor.Get() && outline.context.Get() == selected.context.Get()
-      && outline.card.Get() == selected.source.Get() && outline.loader.Get() == selected.loader.Get()
-      && outline.poi.Get() == selected.poi.Get() && outline.fleet == selected.id && unity::Alive(outline.object.Get()))
+  auto       parent = il2cpp::GcHandle::Strong(anchor->gameObject());
+  const auto layer =
+      parent ? parent.Get<unity::GameObject>()->TryCall<"get_layer", int32_t>() : il2cpp::CallResult<int32_t>{};
+  if (!layer || !font)
+    return {};
+  il2cpp::GcHandle root;
+  auto*            rect   = unity::CreateUiObject("CommunityMod_MiningNodeOpc", anchor, root);
+  auto*            object = root.Get<unity::GameObject>();
+  auto             label  = il2cpp::GcHandle::Strong(rect ? object->AddComponent<unity::TextMeshProUGUI>() : nullptr);
+  auto*            badge  = label.Get<unity::TextMeshProUGUI>();
+  if (!badge || !object->TryCall<"set_layer", void(int32_t)>(layer.value)
+      || !SetMiningIndicatorRect(rect, {1, 0.5f}, {1, 0.5f}, {6, -15}, {62, 15})
+      || !badge->TryCall<"set_raycastTarget", void(bool)>(false)
+      || !badge->TryCall<"set_alignment", void(unity::TMP_Text::Alignment)>(unity::TMP_Text::Alignment::Center)
+      || !badge->TryCall<"set_fontSize", void(float)>(22.0f)
+      || !badge->TryCall<"set_color", void(unity::Color)>(kMiningOpcAmber)
+      || !badge->TryCall<"set_text", void(Il2CppString*)>(il2cpp::NewString("OPC"))) {
+    if (object)
+      unity::Destroy(object);
+    return {};
+  }
+  badge->SetFont(font);
+  return root;
+}
+
+bool MiningIndicatorSelected(ObjectViewerBaseWidget* card, NavigationInteractionUIContext* context,
+                             binding::Loader* loader, binding::Poi* poi, bool node, binding::Slot* slot,
+                             FleetDeployedData* occupant, int64_t id)
+{
+  if (!unity::Alive(card))
+    return false;
+  if (node) {
+    if (!binding::ViewerVisible(card))
+      return false;
+    const auto current = binding::ForeignOccupant(static_cast<MiningObjectViewerWidget*>(card));
+    if (!current || current.slot.Get() != slot || current.fleet.Get() != occupant || current.id != id)
+      return false;
+  } else if (!static_cast<PreScanTargetWidget*>(card)->IsCardShown()) {
+    return false;
+  }
+  return binding::StillSelected(card, context, loader, poi);
+}
+
+void ShowMiningIndicator(const binding::Viewer& selected, const il2cpp::GcHandle& anchor,
+                         const binding::Occupant& occupant = {}, il2cpp::Object* font = nullptr)
+{
+  auto&      indicator = MiningIndicator();
+  auto*      card      = selected.source.Get<ObjectViewerBaseWidget>();
+  const bool node      = static_cast<bool>(occupant);
+  const auto id        = node ? occupant.id : selected.id;
+  if (anchor && indicator.node == node && indicator.anchor.Get() == anchor.Get()
+      && indicator.context.Get() == selected.context.Get() && indicator.card.Get() == card
+      && indicator.loader.Get() == selected.loader.Get() && indicator.poi.Get() == selected.poi.Get()
+      && indicator.fleet == id && indicator.slot.Get() == occupant.slot.Get()
+      && indicator.occupant.Get() == occupant.fleet.Get() && unity::Alive(indicator.object.Get()))
     return;
-  HideMiningOutline();
+  HideMiningIndicator();
   if (!anchor)
     return;
-  auto object = il2cpp::GcHandle::Strong(outline.object.Get());
-  if (!unity::Alive(object.Get()) || outline.anchor.Get() != anchor.Get()) {
+  auto object = il2cpp::GcHandle::Strong(indicator.object.Get());
+  if (!unity::Alive(object.Get()) || indicator.anchor.Get() != anchor.Get() || indicator.node != node) {
     if (unity::Alive(object.Get()))
       unity::Destroy(object.Get());
-    object = CreateMiningOutline(anchor.Get<unity::RectTransform>());
+    object = node ? CreateMiningNodeBadge(anchor.Get<unity::RectTransform>(), font)
+                  : CreateMiningOutline(anchor.Get<unity::RectTransform>());
   }
   if (!object)
     return;
@@ -230,50 +282,71 @@ void ShowMiningOutline(const binding::Viewer& selected)
   // Native object creation and property calls can reenter card binding. Recheck before showing.
   auto card_ref    = il2cpp::GcHandle::Weak(card);
   auto anchor_ref  = il2cpp::GcHandle::Weak(anchor.Get());
-  auto object_ref  = il2cpp::GcHandle::Weak(object.Get());
   auto context_ref = il2cpp::GcHandle::Weak(selected.context.Get());
   auto loader_ref  = il2cpp::GcHandle::Weak(selected.loader.Get());
   auto poi_ref     = il2cpp::GcHandle::Weak(selected.poi.Get());
-  if (!card_ref || !anchor_ref || !object_ref || !context_ref || !loader_ref || !poi_ref
-      || !binding::StillSelected(card, selected.context.Get<NavigationInteractionUIContext>(),
-                                 selected.loader.Get<binding::Loader>(), selected.poi.Get<binding::Poi>())
+  auto slot_ref    = il2cpp::GcHandle::Weak(occupant.slot.Get());
+  auto fleet_ref   = il2cpp::GcHandle::Weak(occupant.fleet.Get());
+  if (!card_ref || !anchor_ref || !context_ref || !loader_ref || !poi_ref || (node && (!slot_ref || !fleet_ref))
+      || !MiningIndicatorSelected(card, selected.context.Get<NavigationInteractionUIContext>(),
+                                  selected.loader.Get<binding::Loader>(), selected.poi.Get<binding::Poi>(), node,
+                                  occupant.slot.Get<binding::Slot>(), occupant.fleet.Get<FleetDeployedData>(), id)
       || !object.Get<unity::GameObject>()->TryCall<"SetActive", void(bool)>(true)) {
     unity::Destroy(object.Get());
     return;
   }
-  outline.card    = std::move(card_ref);
-  outline.anchor  = std::move(anchor_ref);
-  outline.object  = std::move(object_ref);
-  outline.context = std::move(context_ref);
-  outline.loader  = std::move(loader_ref);
-  outline.poi     = std::move(poi_ref);
-  outline.fleet   = selected.id;
+  indicator.card     = std::move(card_ref);
+  indicator.anchor   = std::move(anchor_ref);
+  indicator.object   = std::move(object);
+  indicator.context  = std::move(context_ref);
+  indicator.loader   = std::move(loader_ref);
+  indicator.poi      = std::move(poi_ref);
+  indicator.slot     = std::move(slot_ref);
+  indicator.occupant = std::move(fleet_ref);
+  indicator.node     = node;
+  indicator.fleet    = id;
 }
 
 void MiningTargetOpcFrame()
 {
-  auto& outline = MiningOutline();
+  auto& indicator = MiningIndicator();
   if (!Config::Get().ui.highlight_opc_fleets || !MiningSystemMap()) {
-    HideMiningOutline();
-    outline.next = {};
+    HideMiningIndicator();
+    indicator.next = {};
     return;
   }
 
-  if (outline.fleet != 0) {
-    auto card    = il2cpp::GcHandle::Strong(outline.card.Get());
-    auto context = il2cpp::GcHandle::Strong(outline.context.Get());
-    auto loader  = il2cpp::GcHandle::Strong(outline.loader.Get());
-    auto poi     = il2cpp::GcHandle::Strong(outline.poi.Get());
-    if (!unity::Alive(card.Get())
-        || !binding::StillSelected(card.Get<PreScanTargetWidget>(), context.Get<NavigationInteractionUIContext>(),
-                                   loader.Get<binding::Loader>(), poi.Get<binding::Poi>()))
-      HideMiningOutline();
+  if (indicator.fleet != 0) {
+    auto card    = il2cpp::GcHandle::Strong(indicator.card.Get());
+    auto context = il2cpp::GcHandle::Strong(indicator.context.Get());
+    auto loader  = il2cpp::GcHandle::Strong(indicator.loader.Get());
+    auto poi     = il2cpp::GcHandle::Strong(indicator.poi.Get());
+    auto slot    = il2cpp::GcHandle::Strong(indicator.slot.Get());
+    auto fleet   = il2cpp::GcHandle::Strong(indicator.occupant.Get());
+    if (!MiningIndicatorSelected(card.Get<ObjectViewerBaseWidget>(), context.Get<NavigationInteractionUIContext>(),
+                                 loader.Get<binding::Loader>(), poi.Get<binding::Poi>(), indicator.node,
+                                 slot.Get<binding::Slot>(), fleet.Get<FleetDeployedData>(), indicator.fleet))
+      HideMiningIndicator();
   }
 
   const auto now = Clock::now();
-  if (now < outline.next)
+  if (now < indicator.next)
     return;
-  outline.next = now + std::chrono::milliseconds(250);
+  indicator.next = now + std::chrono::milliseconds(250);
+  for (auto* card : unity::Instances<MiningObjectViewerWidget>()) {
+    const auto selected = binding::Observe(card);
+    if (!selected)
+      continue;
+    const auto occupant = binding::ForeignOccupant(card);
+    if (!occupant
+        || !binding::TargetIsOpc(occupant.fleet.Get<FleetDeployedData>(), occupant.id,
+                                 occupant.slot.Get<binding::Slot>()))
+      continue;
+    const auto status = binding::OccupiedStatus(card);
+    ShowMiningIndicator(selected, status.anchor, occupant, status.font.Get<il2cpp::Object>());
+    return;
+  }
+
   for (auto* card : unity::Instances<PreScanTargetWidget>()) {
     auto selected = binding::Observe(card);
     if (!selected)
@@ -282,11 +355,11 @@ void MiningTargetOpcFrame()
     auto*      target = fleet.Get<FleetDeployedData>();
     const auto id     = target ? target->TryId() : il2cpp::CallResult<int64_t>{};
     if (id && id.value == selected.id && binding::TargetIsOpc(target, id.value)) {
-      ShowMiningOutline(selected);
+      ShowMiningIndicator(selected, binding::CardAnchor(card));
       return;
     }
   }
-  HideMiningOutline();
+  HideMiningIndicator();
 }
 
 bool InstallMiningTargetOpc()

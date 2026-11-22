@@ -1,12 +1,14 @@
 #pragma once
 
-// Native observations for the existing node/occupant/cargo ActionView cycle.
+// Native observations for the node/occupant/cargo ActionView cycle and OPC indicators.
 #include "game/fleet_opc.h"
 #include "game/viewers.h"
 
 #include <cmath>
 #include <type_traits>
 #include <unity/tracker.h>
+#include <unity/ui.h>
+#include <utility>
 
 namespace mining_preview_binding
 {
@@ -18,6 +20,9 @@ struct Slot : il2cpp::Object {
 };
 struct Loader : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ObjectViewer", "ParentObjectViewerLoadAndShow">;
+};
+struct ThreatLevel : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Combat", "ThreatLevelWidget">;
 };
 
 template <class Owner, class Value> FieldInfo* Field(const char* name)
@@ -38,6 +43,7 @@ struct Api {
   FieldInfo *context, *poi, *node_slot, *slot_fleet, *id, *type, *parent, *loaded, *parent_visibility;
   FieldInfo *loader, *active_viewer, *active_poi, *data_state, *local_fleet, *occupied, *visibility, *visibility_state;
   FieldInfo *battle, *target_fleet, *card_bounds;
+  FieldInfo *node_threat, *occupied_text;
   il2cpp::Method find, select, can_select, rewards_click;
   bool           viewer_ready = false, ready = false;
 };
@@ -66,6 +72,8 @@ inline const Api& Native()
     a.battle            = Field<PreScanTargetWidget, BattleTargetData*>("_battleTargetData");
     a.card_bounds       = Field<PreScanTargetWidget, unity::RectTransform*>("_inputBlocker");
     a.target_fleet      = Field<BattleTargetData, FleetDeployedData*>("TargetFleetDeployedData");
+    a.node_threat       = Field<MiningObjectViewerWidget, ThreatLevel*>("_threatLevelWidget");
+    a.occupied_text     = Field<ThreatLevel, TextLocalizer*>("_occupiedText");
     a.find              = Poi::Class::StaticMethod<Poi*(int64_t, int32_t)>("GetOfType");
     a.select            = NavigationInteractionUIViewController::Class::Method<void(Poi*)>("SelectPOI");
     a.can_select        = NavigationInteractionUIViewController::Class::Method<bool()>("CanSelectPOI");
@@ -90,6 +98,14 @@ struct Viewer {
   { return source && context && poi; }
 };
 
+inline bool ViewerVisible(ObjectViewerBaseWidget* widget)
+{
+  const auto& a          = Native();
+  auto        visibility = il2cpp::GcHandle::Strong(Read<VisibilityController*>(widget, a.visibility));
+  return visibility
+         && Read<int32_t>(visibility.Get(), a.visibility_state) == std::to_underlying(VisibilityState::Visible);
+}
+
 inline Viewer Observe(ObjectViewerBaseWidget* widget)
 {
   const auto& a = Native();
@@ -97,11 +113,7 @@ inline Viewer Observe(ObjectViewerBaseWidget* widget)
   if (!a.viewer_ready || !widget)
     return result;
   result.source = il2cpp::GcHandle::Strong(widget);
-  if (!result.source)
-    return {};
-  auto visibility = il2cpp::GcHandle::Strong(Read<VisibilityController*>(result.source.Get(), a.visibility));
-  if (!visibility
-      || Read<int32_t>(visibility.Get(), a.visibility_state) != std::to_underlying(VisibilityState::Visible))
+  if (!result.source || !ViewerVisible(result.source.Get<ObjectViewerBaseWidget>()))
     return {};
   result.context = il2cpp::GcHandle::Strong(Read<NavigationInteractionUIContext*>(result.source.Get(), a.context));
   if (!result.context || Read<int32_t>(result.context.Get(), a.data_state) != 0)
@@ -132,14 +144,34 @@ inline Viewer Observe(ObjectViewerBaseWidget* widget)
 }
 
 // The active POI changes before an old viewer has necessarily completed its hide transition.
-inline bool StillSelected(PreScanTargetWidget* widget, NavigationInteractionUIContext* context, Loader* loader,
+inline bool StillSelected(ObjectViewerBaseWidget* widget, NavigationInteractionUIContext* context, Loader* loader,
                           Poi* poi)
 {
   const auto& a = Native();
-  return widget && context && loader && poi && widget->IsCardShown()
-         && Read<NavigationInteractionUIContext*>(widget, a.context) == context
+  return widget && context && loader && poi && Read<NavigationInteractionUIContext*>(widget, a.context) == context
          && Read<int32_t>(context, a.data_state) == 0 && Read<Poi*>(context, a.poi) == poi
          && Read<ObjectViewerBaseWidget*>(loader, a.active_viewer) == widget && Read<Poi*>(loader, a.active_poi) == poi;
+}
+
+struct Occupant {
+  il2cpp::GcHandle slot, fleet;
+  int64_t          id = 0;
+  explicit         operator bool() const
+  { return slot && fleet && id != 0 && id != -1; }
+};
+
+inline Occupant ForeignOccupant(MiningObjectViewerWidget* widget)
+{
+  const auto& a = Native();
+  if (!widget || !a.node_slot || !a.slot_fleet || !a.local_fleet || !a.occupied
+      || Read<int32_t>(widget, a.occupied) != std::to_underlying(OccupiedState::OtherPlayerOccupied))
+    return {};
+  auto slot  = il2cpp::GcHandle::Strong(Read<Slot*>(widget, a.node_slot));
+  auto fleet = slot ? il2cpp::GcHandle::Strong(Read<FleetDeployedData*>(slot.Get(), a.slot_fleet)) : il2cpp::GcHandle{};
+  if (!fleet || Read<bool>(fleet.Get(), a.local_fleet))
+    return {};
+  const auto id = fleet.Get<FleetDeployedData>()->TryId();
+  return id ? Occupant{std::move(slot), std::move(fleet), id.value} : Occupant{};
 }
 
 inline il2cpp::GcHandle Fleet(PreScanTargetWidget* widget)
@@ -179,11 +211,9 @@ inline bool TargetOpcAvailable()
          && ScanResource::Class::HasProperty<"IsFactionPoint", bool>();
 }
 
-inline il2cpp::GcHandle CardAnchor(PreScanTargetWidget* widget)
+inline il2cpp::GcHandle VisibleRect(unity::RectTransform* rect)
 {
-  // The native ship card uses this rectangle for its own screen hit test.
-  auto  transform = il2cpp::GcHandle::Strong(Read<unity::RectTransform*>(widget, Native().card_bounds));
-  auto* rect      = transform.Get<unity::RectTransform>();
+  auto transform = il2cpp::GcHandle::Strong(rect);
   if (!unity::Alive(rect))
     return {};
   auto       object = il2cpp::GcHandle::Strong(rect->gameObject());
@@ -195,7 +225,37 @@ inline il2cpp::GcHandle CardAnchor(PreScanTargetWidget* widget)
   return transform;
 }
 
-inline bool TargetIsOpc(FleetDeployedData* fleet, int64_t fleet_id)
+inline il2cpp::GcHandle CardAnchor(PreScanTargetWidget* widget)
+{
+  // The native ship card uses this rectangle for its own screen hit test.
+  return VisibleRect(Read<unity::RectTransform*>(widget, Native().card_bounds));
+}
+
+struct NodeStatus {
+  il2cpp::GcHandle anchor, font;
+};
+
+inline NodeStatus OccupiedStatus(MiningObjectViewerWidget* widget)
+{
+  const auto& a = Native();
+  if (!a.node_threat || !a.occupied_text)
+    return {};
+  auto threat = il2cpp::GcHandle::Strong(Read<ThreatLevel*>(widget, a.node_threat));
+  auto text =
+      threat ? il2cpp::GcHandle::Strong(Read<TextLocalizer*>(threat.Get(), a.occupied_text)) : il2cpp::GcHandle{};
+  auto* component = text ? text.Get<TextLocalizer>()->As<unity::Component>() : nullptr;
+  auto* object    = component ? component->gameObject() : nullptr;
+  auto  label     = il2cpp::GcHandle::Strong(object ? object->GetComponent<unity::TextMeshProUGUI>() : nullptr);
+  auto* transform = label ? label.Get<unity::TextMeshProUGUI>()->transform() : nullptr;
+  auto* parent    = transform ? transform->parent() : nullptr;
+  // The text fills the occupied row. Its parent leaves room for a separate badge at the right edge.
+  auto anchor = VisibleRect(parent ? parent->As<unity::RectTransform>() : nullptr);
+  if (!anchor)
+    return {};
+  return {std::move(anchor), il2cpp::GcHandle::Strong(label.Get<unity::TextMeshProUGUI>()->font())};
+}
+
+inline bool TargetIsOpc(FleetDeployedData* fleet, int64_t fleet_id, Slot* selected_slot = nullptr)
 {
   const auto type   = fleet->TryFleetType();
   const auto local  = fleet->TryIsLocalPlayer();
@@ -221,6 +281,22 @@ inline bool TargetIsOpc(FleetDeployedData* fleet, int64_t fleet_id)
   if (!point || point.value != DockPointType::Mining || !occupied || !occupied.value || !occupant
       || occupant.value != fleet_id || !resource || resource.value <= 0)
     return false;
+
+  if (selected_slot) {
+    using Mining                  = fleet_opc_binding::Mining;
+    const auto observed_slot_data = selected_slot->TryCall<"get_SlotData", Mining*>();
+    auto       slot_data          = il2cpp::GcHandle::Strong(observed_slot_data ? observed_slot_data.value : nullptr);
+    if (!slot_data)
+      return false;
+    const auto fleet_slot_id = mine->TryCall<"get_SlotId", int64_t>();
+    const auto node_slot_id  = slot_data.Get<Mining>()->TryCall<"get_SlotId", int64_t>();
+    const auto node_fleet_id = slot_data.Get<Mining>()->TryCall<"get_DeployedFleetId", int64_t>();
+    const auto node_resource = slot_data.Get<Mining>()->TryCall<"get_ResourceId", int64_t>();
+    if (!fleet_slot_id || !node_slot_id || node_slot_id.value == 0 || node_slot_id.value == -1
+        || node_slot_id.value != fleet_slot_id.value || !node_fleet_id || node_fleet_id.value != fleet_id
+        || !node_resource || node_resource.value != resource.value)
+      return false;
+  }
 
   const auto observed = fleet->TryCall<"get_LatestQuickScanData", QuickScan*>();
   auto       scan     = il2cpp::GcHandle::Strong(observed ? observed.value : nullptr);
