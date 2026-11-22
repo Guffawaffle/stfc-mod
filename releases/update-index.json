@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channels": {
-    "release": "v1.1.9.5-guffa.10",
+    "release": "v1.1.9.5-guffa.11",
     "pre": "v1.1.9.5-guffa.7",
     "dev": "v1.1.9.5-guffa.7-dev.5"
   }
