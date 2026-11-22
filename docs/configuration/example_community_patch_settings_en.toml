@@ -1025,7 +1025,7 @@ focus_search = true
 
 # Format abbreviated cargo values using Cargo Significant Decimals
 format_cargo_values = true
-# Highlight your fleet tiles and selected player mining cards with unprotected cargo
+# Highlight your fleet tiles and mark selected mining nodes and player ship cards with confirmed unprotected cargo
 highlight_opc_fleets = true
 fleet_hud_opc_eta = true
 
