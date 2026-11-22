@@ -170,7 +170,7 @@ inline Occupant ForeignOccupant(MiningObjectViewerWidget* widget)
   auto fleet = slot ? il2cpp::GcHandle::Strong(Read<FleetDeployedData*>(slot.Get(), a.slot_fleet)) : il2cpp::GcHandle{};
   if (!fleet || Read<bool>(fleet.Get(), a.local_fleet))
     return {};
-  const auto id = fleet.Get<FleetDeployedData>()->TryId();
+  const auto id = planned_warp_binding::Scalar<"get_ID", int64_t>(fleet.Get<FleetDeployedData>());
   return id ? Occupant{std::move(slot), std::move(fleet), id.value} : Occupant{};
 }
 
@@ -211,9 +211,10 @@ inline bool TargetOpcAvailable()
          && ScanResource::Class::HasProperty<"IsFactionPoint", bool>();
 }
 
-inline il2cpp::GcHandle VisibleRect(unity::RectTransform* rect)
+inline il2cpp::GcHandle VisibleRect(unity::RectTransform* candidate)
 {
-  auto transform = il2cpp::GcHandle::Strong(rect);
+  auto  transform = il2cpp::GcHandle::Strong(candidate);
+  auto* rect      = transform.Get<unity::RectTransform>();
   if (!unity::Alive(rect))
     return {};
   auto       object = il2cpp::GcHandle::Strong(rect->gameObject());

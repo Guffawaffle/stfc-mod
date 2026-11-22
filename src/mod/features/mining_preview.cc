@@ -13,6 +13,7 @@
 #include <array>
 #include <chrono>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 namespace
@@ -134,24 +135,26 @@ MiningOpcIndicator& MiningIndicator()
   return *indicator;
 }
 
-void HideMiningIndicator()
+bool HideMiningIndicator()
 {
   auto& indicator = MiningIndicator();
   if (indicator.fleet == 0)
-    return;
+    return true;
+  auto*      object = indicator.object.Get<unity::GameObject>();
+  const auto alive  = unity::TryAlive(object);
+  // Keep custody until we have hidden the overlay or confirmed that Unity destroyed it.
+  if (!alive || (alive.value && !object->TryCall<"SetActive", void(bool)>(false)))
+    return false;
+  if (!alive.value)
+    indicator.object.Reset();
+
   indicator.context.Reset();
   indicator.loader.Reset();
   indicator.poi.Reset();
   indicator.slot.Reset();
   indicator.occupant.Reset();
   indicator.fleet = 0;
-  auto object     = il2cpp::GcHandle::Strong(indicator.object.Get());
-  if (!unity::Alive(object.Get())) {
-    indicator.object.Reset();
-  } else if (!object.Get<unity::GameObject>()->TryCall<"SetActive", void(bool)>(false)) {
-    unity::Destroy(object.Get());
-    indicator.object.Reset();
-  }
+  return true;
 }
 
 bool SetMiningIndicatorRect(unity::RectTransform* rect, unity::Vector2 min, unity::Vector2 max,
@@ -163,22 +166,42 @@ bool SetMiningIndicatorRect(unity::RectTransform* rect, unity::Vector2 min, unit
          && rect->TryCall<"set_offsetMax", void(unity::Vector2)>(offset_max);
 }
 
-il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
+struct MiningOverlay {
+  il2cpp::GcHandle      object;
+  unity::RectTransform* rect  = nullptr;
+  int32_t               layer = 0;
+};
+
+MiningOverlay CreateMiningOverlay(std::string_view name, unity::RectTransform* anchor)
 {
   auto       parent = il2cpp::GcHandle::Strong(anchor->gameObject());
   const auto layer =
       parent ? parent.Get<unity::GameObject>()->TryCall<"get_layer", int32_t>() : il2cpp::CallResult<int32_t>{};
   if (!layer)
     return {};
-  il2cpp::GcHandle root;
-  auto*            rect      = unity::CreateUiObject("CommunityMod_MiningTargetOpc", anchor, root);
-  auto*            container = root.Get<unity::GameObject>();
-  auto layout = il2cpp::GcHandle::Strong(container ? container->AddComponent<unity::LayoutElement>() : nullptr);
-  if (!rect || !layout || !container->TryCall<"set_layer", void(int32_t)>(layer.value)
-      || !layout.Get<unity::LayoutElement>()->ExcludeFromLayout()
+  MiningOverlay overlay;
+  overlay.rect = unity::CreateUiObject(name, anchor, overlay.object);
+  auto* object = overlay.object.Get<unity::GameObject>();
+  if (!object || !overlay.rect || !object->TryCall<"set_layer", void(int32_t)>(layer.value)) {
+    if (object)
+      unity::Destroy(object);
+    return {};
+  }
+  overlay.layer = layer.value;
+  return overlay;
+}
+
+il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
+{
+  auto overlay = CreateMiningOverlay("CommunityMod_MiningTargetOpc", anchor);
+  if (!overlay.object)
+    return {};
+  auto* container = overlay.object.Get<unity::GameObject>();
+  auto* rect      = overlay.rect;
+  auto  layout    = il2cpp::GcHandle::Strong(container->AddComponent<unity::LayoutElement>());
+  if (!layout || !layout.Get<unity::LayoutElement>()->ExcludeFromLayout()
       || !SetMiningIndicatorRect(rect, {0, 0}, {1, 1}, {0, 0}, {0, 0})) {
-    if (container)
-      unity::Destroy(container);
+    unity::Destroy(container);
     return {};
   }
   struct Edge {
@@ -196,7 +219,7 @@ il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
     auto*            line   = unity::CreateUiObject("Edge", rect, child);
     auto*            object = child.Get<unity::GameObject>();
     auto             image  = il2cpp::GcHandle::Strong(object ? object->AddComponent<unity::Image>() : nullptr);
-    if (!line || !image || !object->TryCall<"set_layer", void(int32_t)>(layer.value)
+    if (!line || !image || !object->TryCall<"set_layer", void(int32_t)>(overlay.layer)
         || !SetMiningIndicatorRect(line, edge.min, edge.max, edge.offset_min, edge.offset_max)
         || !image.Get<unity::Image>()->TryCall<"set_raycastTarget", void(bool)>(false)
         || !image.Get<unity::Image>()->TryCall<"set_color", void(unity::Color)>(kMiningOpcAmber)
@@ -205,34 +228,30 @@ il2cpp::GcHandle CreateMiningOutline(unity::RectTransform* anchor)
       return {};
     }
   }
-  return root;
+  return std::move(overlay.object);
 }
 
 il2cpp::GcHandle CreateMiningNodeBadge(unity::RectTransform* anchor, il2cpp::Object* font)
 {
-  auto       parent = il2cpp::GcHandle::Strong(anchor->gameObject());
-  const auto layer =
-      parent ? parent.Get<unity::GameObject>()->TryCall<"get_layer", int32_t>() : il2cpp::CallResult<int32_t>{};
-  if (!layer || !font)
+  if (!font)
     return {};
-  il2cpp::GcHandle root;
-  auto*            rect   = unity::CreateUiObject("CommunityMod_MiningNodeOpc", anchor, root);
-  auto*            object = root.Get<unity::GameObject>();
-  auto             label  = il2cpp::GcHandle::Strong(rect ? object->AddComponent<unity::TextMeshProUGUI>() : nullptr);
-  auto*            badge  = label.Get<unity::TextMeshProUGUI>();
-  if (!badge || !object->TryCall<"set_layer", void(int32_t)>(layer.value)
-      || !SetMiningIndicatorRect(rect, {1, 0.5f}, {1, 0.5f}, {6, -15}, {62, 15})
+  auto overlay = CreateMiningOverlay("CommunityMod_MiningNodeOpc", anchor);
+  if (!overlay.object)
+    return {};
+  auto* object = overlay.object.Get<unity::GameObject>();
+  auto  label  = il2cpp::GcHandle::Strong(object->AddComponent<unity::TextMeshProUGUI>());
+  auto* badge  = label.Get<unity::TextMeshProUGUI>();
+  if (!badge || !SetMiningIndicatorRect(overlay.rect, {1, 0.5f}, {1, 0.5f}, {6, -15}, {62, 15})
       || !badge->TryCall<"set_raycastTarget", void(bool)>(false)
       || !badge->TryCall<"set_alignment", void(unity::TMP_Text::Alignment)>(unity::TMP_Text::Alignment::Center)
       || !badge->TryCall<"set_fontSize", void(float)>(22.0f)
       || !badge->TryCall<"set_color", void(unity::Color)>(kMiningOpcAmber)
       || !badge->TryCall<"set_text", void(Il2CppString*)>(il2cpp::NewString("OPC"))) {
-    if (object)
-      unity::Destroy(object);
+    unity::Destroy(object);
     return {};
   }
   badge->SetFont(font);
-  return root;
+  return std::move(overlay.object);
 }
 
 bool MiningIndicatorSelected(ObjectViewerBaseWidget* card, NavigationInteractionUIContext* context,
@@ -266,12 +285,14 @@ void ShowMiningIndicator(const binding::Viewer& selected, const il2cpp::GcHandle
       && indicator.fleet == id && indicator.slot.Get() == occupant.slot.Get()
       && indicator.occupant.Get() == occupant.fleet.Get() && unity::Alive(indicator.object.Get()))
     return;
-  HideMiningIndicator();
-  if (!anchor)
+  if (!HideMiningIndicator() || !anchor)
     return;
-  auto object = il2cpp::GcHandle::Strong(indicator.object.Get());
-  if (!unity::Alive(object.Get()) || indicator.anchor.Get() != anchor.Get() || indicator.node != node) {
-    if (unity::Alive(object.Get()))
+  const auto alive = unity::TryAlive(indicator.object.Get());
+  if (!alive)
+    return;
+  auto object = std::move(indicator.object);
+  if (!alive.value || indicator.anchor.Get() != anchor.Get() || indicator.node != node) {
+    if (alive.value)
       unity::Destroy(object.Get());
     object = node ? CreateMiningNodeBadge(anchor.Get<unity::RectTransform>(), font)
                   : CreateMiningOutline(anchor.Get<unity::RectTransform>());
@@ -325,8 +346,9 @@ void MiningTargetOpcFrame()
     auto fleet   = il2cpp::GcHandle::Strong(indicator.occupant.Get());
     if (!MiningIndicatorSelected(card.Get<ObjectViewerBaseWidget>(), context.Get<NavigationInteractionUIContext>(),
                                  loader.Get<binding::Loader>(), poi.Get<binding::Poi>(), indicator.node,
-                                 slot.Get<binding::Slot>(), fleet.Get<FleetDeployedData>(), indicator.fleet))
-      HideMiningIndicator();
+                                 slot.Get<binding::Slot>(), fleet.Get<FleetDeployedData>(), indicator.fleet)
+        && !HideMiningIndicator())
+      return;
   }
 
   const auto now = Clock::now();
