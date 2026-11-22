@@ -3,10 +3,9 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/navigation_hud.h"
 
 #include "game/app.h"
-#include "game/hud.h"
-#include "game/ui.h"
 
 #include <il2cpp/il2cpp.h>
 #include <spdlog/spdlog.h>
@@ -72,7 +71,7 @@ public:
 
     auto* nav = Navigation(now);
     // Remaining ticks of the active anomaly in the viewed system.
-    const int64_t ticks = nav && nav->isActiveAndEnabled() && nav->CanShowGalacticAnomaly() ? RemainingTicks(nav) : 0;
+    const int64_t ticks = nav && nav->CanShowGalacticAnomaly() ? RemainingTicks(nav) : 0;
     auto*         label = Label();
     if (ticks <= 0) {
       if (auto* panel = label ? label->ParentObject() : nullptr)
@@ -113,16 +112,14 @@ private:
       next_discovery_ = {};
       return nullptr;
     }
-    if (auto* nav = navigation_.Get<HudNavigationViewController>(); unity::Alive(nav) && nav->isActiveAndEnabled())
+    if (auto* nav = navigation_.Get<HudNavigationViewController>(); navigation_hud::Active(nav))
       return nav;
     if (now < next_discovery_)
       return nullptr;
     next_discovery_ = now + std::chrono::seconds(1);
     DestroyPanel();
-    navigation_ = il2cpp::GcHandle::Strong(
-        ScreenManager::RegisteredController<HudNavigationViewController, NavigationViewData>());
-    auto* nav = navigation_.Get<HudNavigationViewController>();
-    return unity::Alive(nav) ? nav : nullptr;
+    navigation_ = navigation_hud::FindNavigation();
+    return navigation_.Get<HudNavigationViewController>();
   }
 
   unity::TMP_Text* Label()
@@ -158,19 +155,20 @@ private:
   // the system-name font. A missing sprite still gives a visible frame. Returns the countdown label, or null.
   unity::TMP_Text* Create(HudNavigationViewController* nav)
   {
-    auto* helper = nav->factionInformationHelper();
-    auto* name   = il2cpp::At(helper ? helper->systemName() : nullptr, 0);
-    if (!unity::Alive(name))
+    auto  names       = navigation_hud::FindSystemNames(nav);
+    auto  name_object = navigation_hud::SystemNameObject(il2cpp::At(names.Get<il2cpp::List<unity::Component*>>(), 0));
+    auto* object      = name_object.Get<unity::GameObject>();
+    auto  font_source = il2cpp::GcHandle::Strong(object ? object->GetComponent<unity::TextMeshProUGUI>() : nullptr);
+    auto* source      = font_source.Get<unity::TextMeshProUGUI>();
+    auto  font_root   = il2cpp::GcHandle::Strong(source ? source->font() : nullptr);
+    auto* font        = font_root.Get<il2cpp::Object>();
+    if (!unity::Alive(font))
       return nullptr;
-    auto* drawer    = ScreenManager::RegisteredController<HudAllianceAndNewsViewController,
-                                                          HudAllianceAndNewsViewControllerContext>();
-    auto* promotion = drawer ? drawer->chestPromotion() : nullptr;
-    auto* chest     = promotion ? promotion->transform() : nullptr;
-    auto* parent    = chest ? chest->parent() : nullptr;
-    auto* object    = name->gameObject();
-    auto* source    = object ? object->GetComponent<unity::TextMeshProUGUI>() : nullptr;
-    auto* font      = source ? source->font() : nullptr;
-    if (!parent || !font)
+
+    auto  drawer = navigation_hud::FindAllianceDrawer();
+    auto  anchor = navigation_hud::FindDrawerAnchor(drawer.Get<HudAllianceAndNewsViewController>());
+    auto* parent = anchor.parent.Get<unity::Transform>();
+    if (!unity::Alive(parent))
       return nullptr;
 
     il2cpp::GcHandle panel, fill, text;

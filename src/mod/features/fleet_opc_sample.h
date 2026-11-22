@@ -25,9 +25,15 @@ class SampleCache
 public:
   void Invalidate(int32_t slot)
   {
-    if (slot >= 0 && static_cast<size_t>(slot) < entries_.size())
-      entries_[slot].valid = false;
+    if (slot >= 0 && static_cast<size_t>(slot) < entries_.size()) {
+      auto& entry = entries_[slot];
+      entry.valid = false;
+      ++entry.revision;
+    }
   }
+  uint64_t Revision(int32_t slot) const
+  { return slot >= 0 && static_cast<size_t>(slot) < entries_.size() ? entries_[slot].revision : 0; }
+
   template <class Reader>
   Cargo Read(int32_t slot, int64_t fleet, uintptr_t object, int32_t state, int64_t now, Reader&& reader)
   {
@@ -37,8 +43,11 @@ public:
     if (entry.valid && entry.fleet == fleet && entry.object == object && entry.state == state && now >= entry.sampled
         && now - entry.sampled < 1000)
       return entry.cargo;
+    const auto revision = entry.revision;
     const auto observed = reader();
-    entry               = {true, fleet, object, state, now, observed};
+    if (entry.revision != revision)
+      return {};
+    entry = {true, fleet, object, state, now, observed, revision};
     return observed;
   }
 
@@ -50,6 +59,7 @@ private:
     int32_t   state   = 0;
     int64_t   sampled = 0;
     Cargo     cargo;
+    uint64_t  revision = 0;
   };
   std::array<Entry, 10> entries_{};
 };
@@ -133,7 +143,8 @@ inline std::string CardDisplay(const Status& status)
                                       : std::string("Unknown"));
 }
 
-Cargo  Read(FleetPlayerData* fleet, int32_t slot, int64_t fleet_id, int32_t state);
-void   Invalidate(int32_t slot);
-Status Observe(FleetPlayerData* fleet, int32_t slot, int64_t fleet_id, int32_t state);
+Cargo    Read(FleetPlayerData* fleet, int32_t slot, int64_t fleet_id, int32_t state);
+void     Invalidate(int32_t slot);
+uint64_t CargoRevision(int32_t slot);
+Status   Observe(FleetPlayerData* fleet, int32_t slot, int64_t fleet_id, int32_t state);
 } // namespace fleet_opc

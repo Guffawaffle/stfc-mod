@@ -45,6 +45,7 @@ The [shortcut reference](KEYMAPPING.md) lists the defaults.
 | Kir'Shara fixes | Keep a queue moving when its target vanishes mid-course or the watchdog prunes it (Windows), and keep it from being cleared when moving another ship briefly misreports the fleet's position. `control.kirshara_fixes = false` turns all three off. |
 | Instant warp | Show the confirmation, use regular warp, or jump automatically. Ship-name filters can override the choice. |
 | Target previews | Show cargo by target type, toggle cargo view, and close viewers with Escape. Locate and recall can remain enabled while previews are open. |
+| Unprotected cargo | **Highlight unprotected cargo** marks your fleet tiles and outlines a selected player mining ship when a fresh game scan shows lootable cargo from its mining node. |
 | Cargo numbers | Choose decimal places for abbreviated totals. Supported Windows clients can skip the count-up animation. |
 | Ship assignment | Select adjacent ships with arrow keys, double-click to assign, and pin named ships while preserving sort order. Shift+click a ship tile to pin or unpin it; only the `pinned_ships` line of the settings file changes. |
 | Officer sorting | Restore **Below Deck Ability** in roster and assignment screens. |

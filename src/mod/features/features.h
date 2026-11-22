@@ -187,6 +187,7 @@ extern const Feature kOpcIndicators;
 
 // mining_preview.cc
 extern const Feature kMiningPreview;
+extern const Feature kMiningTargetOpc;
 
 // navigation_orbit.cc
 extern const Feature kNavigationOrbit;

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "features/hyperthermic_decay_state.h"
-#include "game/hud.h"
+#include "features/navigation_hud.h"
+
 #include "game/hyperthermic_decay.h"
-#include "game/ui.h"
 
 #include <il2cpp/il2cpp.h>
 #include <unity/ui.h>
@@ -336,33 +336,26 @@ private:
     auto* chest     = chest_.Get<unity::Transform>();
     auto* parent    = parent_.Get<unity::Transform>();
     auto* object    = parent_object_.Get<unity::GameObject>();
-    return unity::Alive(nav) && nav->isActiveAndEnabled() && unity::Alive(drawer) && unity::Alive(promotion)
-           && unity::Alive(chest) && unity::Alive(parent) && unity::Alive(object) && object->activeInHierarchy()
+    return navigation_hud::Active(nav) && unity::Alive(drawer) && unity::Alive(promotion) && unity::Alive(chest)
+           && unity::Alive(parent) && unity::Alive(object) && object->activeInHierarchy()
            && drawer->chestPromotion() == promotion && promotion->transform() == chest && chest->parent() == parent;
   }
 
   bool RefreshOwners(Clock::time_point now, bool valid)
   {
-    auto navigation = il2cpp::GcHandle::Strong(
-        ScreenManager::RegisteredController<HudNavigationViewController, NavigationViewData>());
-    auto drawer =
-        il2cpp::GcHandle::Strong(ScreenManager::RegisteredController<HudAllianceAndNewsViewController,
-                                                                     HudAllianceAndNewsViewControllerContext>());
-    auto* nav = navigation.Get<HudNavigationViewController>();
-    auto* hud = drawer.Get<HudAllianceAndNewsViewController>();
-    if (!unity::Alive(nav) || !nav->isActiveAndEnabled() || !unity::Alive(hud)) {
+    auto  navigation = navigation_hud::FindNavigation();
+    auto  drawer     = navigation_hud::FindAllianceDrawer();
+    auto* nav        = navigation.Get<HudNavigationViewController>();
+    auto* hud        = drawer.Get<HudAllianceAndNewsViewController>();
+    if (!nav || !hud) {
       Clear();
       return false;
     }
     next_registry_check_ = now + std::chrono::seconds(5);
     if (valid && navigation_.Get() == nav && drawer_.Get() == hud)
       return true;
-    auto  promotion     = il2cpp::GcHandle::Strong(hud->chestPromotion());
-    auto* button        = promotion.Get<unity::Component>();
-    auto  chest         = il2cpp::GcHandle::Strong(unity::Alive(button) ? button->transform() : nullptr);
-    auto* anchor        = chest.Get<unity::Transform>();
-    auto  parent        = il2cpp::GcHandle::Strong(unity::Alive(anchor) ? anchor->parent() : nullptr);
-    auto* transform     = parent.Get<unity::Transform>();
+    auto  anchor        = navigation_hud::FindDrawerAnchor(hud);
+    auto* transform     = anchor.parent.Get<unity::Transform>();
     auto  parent_object = il2cpp::GcHandle::Strong(unity::Alive(transform) ? transform->gameObject() : nullptr);
     if (!unity::Alive(parent_object.Get()) || !parent_object.Get<unity::GameObject>()->activeInHierarchy()) {
       Clear();
@@ -371,9 +364,9 @@ private:
     Clear();
     navigation_          = std::move(navigation);
     drawer_              = std::move(drawer);
-    promotion_           = std::move(promotion);
-    chest_               = std::move(chest);
-    parent_              = std::move(parent);
+    promotion_           = std::move(anchor.promotion);
+    chest_               = std::move(anchor.chest);
+    parent_              = std::move(anchor.parent);
     parent_object_       = std::move(parent_object);
     next_registry_check_ = now + std::chrono::seconds(5);
     return true;
@@ -409,24 +402,19 @@ private:
   {
     if (unity::Alive(font_.Get()))
       return font_.Get<il2cpp::Object>();
-    auto*      navigation  = navigation_.Get<HudNavigationViewController>();
-    auto       helper      = il2cpp::GcHandle::Strong(navigation->factionInformationHelper());
-    auto*      information = helper.Get<FactionInformation>();
-    auto       names       = il2cpp::GcHandle::Strong(information ? information->systemName() : nullptr);
-    auto*      labels      = names.Get<il2cpp::List<unity::Component*>>();
-    const auto count       = labels ? labels->TryCall<"get_Count", int32_t>() : il2cpp::CallResult<int32_t>{};
+    auto       names  = navigation_hud::FindSystemNames(navigation_.Get<HudNavigationViewController>());
+    auto*      labels = names.Get<il2cpp::List<unity::Component*>>();
+    const auto count  = labels ? labels->TryCall<"get_Count", int32_t>() : il2cpp::CallResult<int32_t>{};
     if (!count || count.value < 0)
       return nullptr;
     // Reuse a HUD font through its known owner. No scene-wide text discovery.
     for (int32_t index = 0; index < count.value; ++index) {
-      const auto item      = labels->TryCall<"get_Item", unity::Component*>(index);
-      auto       name      = il2cpp::GcHandle::Strong(item ? item.value : nullptr);
-      auto*      component = name.Get<unity::Component>();
-      auto       object    = il2cpp::GcHandle::Strong(unity::Alive(component) ? component->gameObject() : nullptr);
-      auto*      owner     = object.Get<unity::GameObject>();
-      auto       label     = il2cpp::GcHandle::Strong(owner ? owner->GetComponent<unity::TextMeshProUGUI>() : nullptr);
-      auto*      text      = label.Get<unity::TextMeshProUGUI>();
-      auto       font      = il2cpp::GcHandle::Strong(unity::Alive(text) ? text->font() : nullptr);
+      const auto item   = labels->TryCall<"get_Item", unity::Component*>(index);
+      auto       object = navigation_hud::SystemNameObject(item ? item.value : nullptr);
+      auto*      owner  = object.Get<unity::GameObject>();
+      auto       label  = il2cpp::GcHandle::Strong(owner ? owner->GetComponent<unity::TextMeshProUGUI>() : nullptr);
+      auto*      text   = label.Get<unity::TextMeshProUGUI>();
+      auto       font   = il2cpp::GcHandle::Strong(unity::Alive(text) ? text->font() : nullptr);
       if (unity::Alive(font.Get())) {
         font_ = std::move(font);
         return font_.Get<il2cpp::Object>();

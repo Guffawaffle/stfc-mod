@@ -90,6 +90,10 @@ struct NodeAddress : il2cpp::Object {
   { return planned_warp_binding::Scalar<"get_NodeDepth", int32_t>(this); }
 };
 
+struct DeployedFleetInterface : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IDeployedFleet">;
+};
+
 // IDeployedFleet: the server's model behind a deployed fleet. Its class varies (DeployedFleet, DeployedFleetJSON),
 // so members resolve on the runtime class.
 struct DeployedFleetModel : il2cpp::Object {
