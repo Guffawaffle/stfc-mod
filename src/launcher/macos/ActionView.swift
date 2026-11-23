@@ -30,6 +30,8 @@ struct ActionView: View {
   @State private var showErrorAlert = false
   @State private var errorMessage = ""
   @State private var launchStatus = ""
+  @State private var showsKeyboardFocus = false
+  @State private var focusMonitor: Any?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -96,6 +98,9 @@ struct ActionView: View {
       .background(LauncherPalette.surface)
     }
     .background(LauncherPalette.background)
+    .focusEffectDisabled(!showsKeyboardFocus)
+    .onAppear(perform: startMonitoringFocusInput)
+    .onDisappear(perform: stopMonitoringFocusInput)
     .focusedSceneValue(\.modFolderAction, openConfigFolder)
     .task {
       // Check installed data and available updates once a minute, never on redraw.
@@ -128,6 +133,27 @@ struct ActionView: View {
     } message: {
       Text("Choose a launcher name for your existing login and settings. Leave it blank to use Ordinary game.")
     }
+  }
+
+  private func startMonitoringFocusInput() {
+    guard focusMonitor == nil else { return }
+    let events: NSEvent.EventTypeMask = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+    // Keep the normal focus and event handling. Only the focus decoration follows the last input method.
+    focusMonitor = NSEvent.addLocalMonitorForEvents(matching: events) { event in
+      let keyboard = event.type == .keyDown
+      // AppKit calls local event monitors on the main thread.
+      MainActor.assumeIsolated {
+        if showsKeyboardFocus != keyboard { showsKeyboardFocus = keyboard }
+      }
+      return event
+    }
+    if focusMonitor == nil { showsKeyboardFocus = true }
+  }
+
+  private func stopMonitoringFocusInput() {
+    if let focusMonitor { NSEvent.removeMonitor(focusMonitor) }
+    focusMonitor = nil
+    showsKeyboardFocus = false
   }
 
   private var ordinaryLaunchName: String {
