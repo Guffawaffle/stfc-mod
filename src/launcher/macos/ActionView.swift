@@ -11,10 +11,12 @@ struct ActionView: View {
   @State private var ordinaryGameNameDraft = ""
   @State private var showingOrdinaryGameRename = false
   #if PROFILES_PREVIEW
+  @Environment(\.scenePhase) private var scenePhase
   @Binding var showingProfiles: Bool
   @State private var profiles: [LaunchProfile] = []
   @State private var selectedProfileID: String?
   @State private var profileLaunching = false
+  @State private var profileActivity: ProfileActivity?
   @State private var profileListProblem = ""
   #endif
   private let gameUpdater = XsollaUpdater(gameName: "Star Trek Fleet Command")
@@ -106,6 +108,10 @@ struct ActionView: View {
     }
     #if PROFILES_PREVIEW
     .task { await refreshProfiles() }
+    .task(id: monitoredProfileID) {
+      guard let id = monitoredProfileID else { return }
+      await monitorProfileActivity(id)
+    }
     .onChange(of: showingProfiles) { _, presented in
       if !presented { Task { await refreshProfiles() } }
     }
@@ -145,7 +151,11 @@ struct ActionView: View {
   private var launchTitle: String {
     #if PROFILES_PREVIEW
     if profileLaunching { return "Launching…" }
-    if let profile = selectedProfile { return "Launch \(profile.name)" }
+    if let profile = selectedProfile {
+      if profileActivity == nil { return "Checking…" }
+      if profileActivity == .running { return "\(profile.name) running" }
+      return "Launch \(profile.name)"
+    }
     #endif
     if gameRunning { return "Game running" }
     return ordinaryGameName.isEmpty ? "Launch game" : "Launch \(ordinaryLaunchName)"
@@ -155,9 +165,18 @@ struct ActionView: View {
     if updating || !gameInstalled { return true }
     #if PROFILES_PREVIEW
     if profileLaunching { return true }
-    if selectedProfile != nil { return false }
+    if selectedProfile != nil { return profileActivity == nil || profileActivity == .running }
     #endif
     return gameRunning
+  }
+
+  private var launchHelp: String {
+    #if PROFILES_PREVIEW
+    if selectedProfile != nil && profileActivity == .unavailable {
+      return "Profile status is unavailable. The launcher checks again before starting."
+    }
+    #endif
+    return launchDescription
   }
 
   private var launchButton: some View {
@@ -168,7 +187,7 @@ struct ActionView: View {
           .frame(maxWidth: .infinity, minHeight: 48).contentShape(Rectangle())
       }
       .buttonStyle(.plain).disabled(launchDisabled)
-      .help(launchDescription)
+      .help(launchHelp)
       #if PROFILES_PREVIEW
       Rectangle().fill(LauncherPalette.onAccent.opacity(0.23)).frame(width: 1, height: 48)
       Menu {
@@ -267,10 +286,23 @@ struct ActionView: View {
 
   #if PROFILES_PREVIEW
   private var selectedProfile: LaunchProfile? { profiles.first { $0.id == selectedProfileID } }
+  private var monitoredProfileID: String? {
+    scenePhase == .active && !profileLaunching ? selectedProfileID : nil
+  }
 
   private func selectProfile(_ id: String?) {
+    if selectedProfileID != id { profileActivity = nil }
     selectedProfileID = id
     launchStatus = ""
+  }
+
+  @MainActor private func monitorProfileActivity(_ id: String) async {
+    while !Task.isCancelled {
+      let activity = await ProfileCoordinator.activity(for: id)
+      guard !Task.isCancelled, monitoredProfileID == id else { return }
+      profileActivity = activity
+      try? await Task.sleep(for: .seconds(5))
+    }
   }
 
   @MainActor private func refreshProfiles() async {
@@ -280,7 +312,7 @@ struct ActionView: View {
       profiles = listed.filter { $0.kind == "isolated" }
       profileListProblem = reply.issues?.map(\.message).joined(separator: "\n") ?? ""
       if let id = selectedProfileID, !profiles.contains(where: { $0.id == id }) {
-        selectedProfileID = nil
+        selectProfile(nil)
         launchStatus = "The selected profile is no longer available. \(ordinaryLaunchName) is selected."
       }
     } catch { profileListProblem = error.localizedDescription }
@@ -297,7 +329,8 @@ struct ActionView: View {
       defer { profileLaunching = false }
       do {
         _ = try await ProfileCoordinator.launch(profile: profile, gameApp: app)
-        launchStatus = "\(profile.name) started."
+        profileActivity = .running
+        launchStatus = ""
       } catch { launchStatus = ""; showError(error.localizedDescription) }
     }
   }

@@ -23,7 +23,11 @@ struct LaunchProfile: Decodable, Identifiable, Sendable {
 }
 
 struct ProfileReply: Decodable, Sendable {
-  struct Problem: Decodable, Sendable { let message: String }
+  struct Problem: Decodable, Sendable {
+    let id: String?
+    let message: String
+  }
+  struct Session: Decodable, Sendable { let id: String }
   let ok: Bool
   let error: Problem?
   let issues: [Problem]?
@@ -31,6 +35,11 @@ struct ProfileReply: Decodable, Sendable {
   let profile: LaunchProfile?
   let processId: Int?
   let readiness: String?
+  let sessions: [Session]?
+}
+
+enum ProfileActivity: Equatable, Sendable {
+  case running, stopped, unavailable
 }
 
 enum ProfileCoordinator {
@@ -74,6 +83,14 @@ enum ProfileCoordinator {
         catch { continuation.resume(throwing: error) }
       }
     }
+  }
+
+  static func activity(for profileID: String) async -> ProfileActivity {
+    // The helper validates the process identity and its admission or writer lock.
+    guard let reply = try? await call(["sessions"]), let sessions = reply.sessions else { return .unavailable }
+    if sessions.contains(where: { $0.id == profileID }) { return .running }
+    if reply.issues?.contains(where: { $0.id == profileID }) == true { return .unavailable }
+    return .stopped
   }
 
   static func prepareGame(_ app: URL) async throws {
