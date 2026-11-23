@@ -9,6 +9,7 @@
 #include "features/galaxy.h"
 #include "features/navigation_orbit.h"
 #include "features/notification_audio.h"
+#include "features/streamer_mode.h"
 #include "frame.h"
 #include "game/notifications.h"
 #include "image_file_setting.h"
@@ -139,7 +140,8 @@ namespace
 
   template <class Access>
   void Boolean(PageCatalog& catalog, const char* page, const char* section, const char* key, const char* label,
-               Access access, Available available, Timing timing, const char* help, std::function<void()> changed = {})
+               Access access, Available available, Timing timing, const char* help, std::function<void()> changed = {},
+               UnavailableReason unavailable = UnavailableReason::Retry)
   {
     auto definition = MakeConfigDefinition<bool>(
         section, key, label, access(Defaults()), [access] { return access(Config::Get()); },
@@ -151,6 +153,14 @@ namespace
           return true;
         },
         available, timing, help);
+    if (unavailable != UnavailableReason::Retry) {
+      definition.read = [read = std::move(definition.read), unavailable] {
+        auto result = read();
+        if (!result.known())
+          result.reason = unavailable;
+        return result;
+      };
+    }
     catalog.AddBoolean(page, *Keep<BooleanSetting>(std::move(definition)));
   }
 
@@ -393,6 +403,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
        std::initializer_list<std::pair<const char*, const char*>>{{"controls", "Controls"},
                                                                   {"camera", "Camera"},
                                                                   {"interface", "Interface & Scale"},
+                                                                  {"streamer", "Streamer Mode"},
                                                                   {"travel", "Map & Travel"},
                                                                   {"previews", "Previews & Cargo"},
                                                                   {"claims", "Claims & Confirmations"},
@@ -493,6 +504,43 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
        "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");
 
+  const Available account_privacy = [] {
+    return streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::SelfProfileAvailable()
+           || streamer_mode::StandaloneIdAvailable();
+  };
+  const Available streamer = [account_privacy] {
+    return account_privacy() || streamer_mode::ChatNamesAvailable()
+           || streamer_mode::CompactPlayerShipLabelsAvailable();
+  };
+  catalog.SetSummary("community_mod.streamer", [] {
+    const auto& ui = Config::Get().ui;
+    if (!ui.streamer_mode)
+      return "Off";
+    const bool incomplete =
+        (ui.streamer_hide_account
+         && (!streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::GeneralAccountIdsDegraded()
+             || !streamer_mode::SelfProfileAvailable() || streamer_mode::SelfProfileDegraded()
+             || streamer_mode::StandaloneIdDegraded()))
+        || (ui.streamer_hide_chat_names && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()))
+        || (ui.streamer_compact_player_ship_labels && !streamer_mode::CompactPlayerShipLabelsAvailable());
+    return incomplete ? "On · Check protections" : "On";
+  });
+  const auto privacy = [&catalog](const char* key, const char* label, auto access, Available available,
+                                  const char* help, std::function<void()> changed = {}) {
+    Boolean(catalog, "community_mod.streamer", "ui", key, label, access, std::move(available), Timing::Live, help,
+            std::move(changed), UnavailableReason::ProtectionUnavailable);
+  };
+  privacy("streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode), streamer,
+          "Apply the selected personal-info protections.", streamer_mode::RefreshGeneralAccountIds);
+  privacy("streamer_hide_account", "Hide my IDs, name, and alliance", ACCESS(ui, streamer_hide_account),
+          account_privacy,
+          "Hide account IDs and the name and alliance on your own Player Profile. Player ID Copy uses the real ID.",
+          streamer_mode::RefreshGeneralAccountIds);
+  privacy("streamer_hide_chat_names", "Hide chat sender names", ACCESS(ui, streamer_hide_chat_names),
+          streamer_mode::ChatNamesAvailable, "Hide sender names in supported chat views. Chat remains readable.");
+  privacy("streamer_compact_player_ship_labels", "Compact player ship labels",
+          ACCESS(ui, streamer_compact_player_ship_labels), streamer_mode::CompactPlayerShipLabelsAvailable,
+          "Use Compact for player ship labels in System view. The Compact layout omits names and alliance tags.");
   FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
         "multiplier", 0, largest, 2, .05f);
   FLOAT("interface", graphics, ui_scale_step, "Scale shortcut step", scale, Live,
@@ -570,8 +618,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Keep the base card open after supported actions.");
   BOOL("previews", ui, keep_player_ship_card_open, "Keep player ship card open after attack", Owner("BaseCard"), Live,
        "Keep the player ship card open after attacks. For miners, switch to the ship card.");
-  BOOL("previews", ui, highlight_opc_fleets, "Highlight unprotected cargo", Owner("OpcIndicators"), Live,
-       "Highlight fleets over protected cargo.");
+  BOOL("previews", ui, highlight_opc_fleets, "Highlight unprotected cargo",
+       Either(Owner("OpcIndicators"), Owner("MiningTargetOpc")), Live,
+       "Highlight your fleet tiles and mark selected mining nodes and player ship cards when the game confirms "
+       "unprotected cargo.");
   BOOL("previews", ui, fleet_hud_opc_eta, "Time until unprotected cargo", Owner("OpcIndicators"), Live,
        "Estimate time until cargo exceeds protection.");
   BOOL("previews", ui, show_ship_tech_indicators, "Ship technology indicators", Owner("ShipTechIndicators"), Live,

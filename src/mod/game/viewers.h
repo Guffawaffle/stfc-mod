@@ -61,6 +61,15 @@ struct ScanEngageButtonsWidget : Widget<BattleTargetData> {
 struct PreScanTargetWidget : ObjectViewerBaseWidget {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Combat", "PreScanTargetWidget">;
 
+  bool IsCardShown()
+  {
+    const auto controller = TryVisibilityController();
+    auto       visibility = il2cpp::GcHandle::Strong(controller ? controller.value : nullptr);
+    const auto state =
+        visibility ? visibility.Get<VisibilityController>()->TryState() : il2cpp::CallResult<VisibilityState>{};
+    return state && VisibilityController::IsShown(state.value);
+  }
+
   ScanEngageButtonsWidget* scanEngageButtonsWidget()
   { return Field<"_scanEngageButtonsWidget", ScanEngageButtonsWidget*>(); }
   RewardsButtonWidget* rewardsButtonWidget()

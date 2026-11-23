@@ -28,32 +28,58 @@ jobs:
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
         with:
           version: ${{ env.ZIG_VERSION }}
+          cache-size-limit: 6144
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+          # Zig 0.16 uses Clang 21. The runner's newer MSVC STL requires Clang 22.
+          toolset: "14.44"
       - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
         if: github.repository == 'Guffawaffle/stfc-mod'
         with:
           xmake-version: "3.0.8"
       - name: Stamp commit hash
         run: python scripts/stamp-version-hash.py "${{ github.sha }}"
-      - name: Provision pinned sysroot when configured
+      - name: Provision Windows build sysroot
+        id: windows_sysroot
         shell: pwsh
         env:
           STFC_WINDOWS_TOOLCHAIN_URL: ${{ vars.STFC_WINDOWS_TOOLCHAIN_URL }}
         run: |
-          if ($env:STFC_WINDOWS_TOOLCHAIN_URL) { zig build fetch-toolchains }
+          if ($env:STFC_WINDOWS_TOOLCHAIN_URL) {
+            python scripts/ci-build-retry.py --prefetch -- zig build fetch-toolchains
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else {
+            # Zig's native discovery reads the default toolset even inside a pinned developer shell.
+            $root = Join-Path $env:RUNNER_TEMP 'stfc-msvc-sysroot'
+            $sdkVersion = $env:WindowsSDKVersion.TrimEnd('\', '/')
+            New-Item -ItemType Directory -Path $root, "$root/msvc", "$root/winsdk" | Out-Null
+            $links = @{
+              'msvc/include' = Join-Path $env:VCToolsInstallDir 'include'
+              'msvc/lib' = Join-Path $env:VCToolsInstallDir 'lib'
+              'winsdk/include' = Join-Path $env:WindowsSdkDir "Include/$sdkVersion"
+              'winsdk/lib' = Join-Path $env:WindowsSdkDir "Lib/$sdkVersion"
+            }
+            foreach ($link in $links.GetEnumerator()) {
+              New-Item -ItemType Junction -Path (Join-Path $root $link.Key) -Target $link.Value | Out-Null
+            }
+            "path=$root" >> $env:GITHUB_OUTPUT
+          }
       - name: Build and test
         id: build_identity
         shell: pwsh
+        env:
+          STFC_WINDOWS_MSVC_SYSROOT: ${{ steps.windows_sysroot.outputs.path }}
         run: |
           "run_attempt=${{ github.run_attempt }}" >> $env:GITHUB_OUTPUT
-          python scripts/ci-build-retry.py -- zig build install test-toolchains test-codegen test-deps test-il2cpp test-mod test-sync test-spud `
+          $sysrootArgs = @()
+          if ($env:STFC_WINDOWS_MSVC_SYSROOT) { $sysrootArgs += "-Dmsvc-sysroot=$env:STFC_WINDOWS_MSVC_SYSROOT" }
+          python scripts/ci-build-retry.py --prefetch -- zig build install test-toolchains test-codegen test-deps test-il2cpp test-mod test-sync test-spud `
             -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug `
             "-Dstfc_source_state_id=git:${{ github.sha }}" `
             "-Dstfc_base_commit=${{ github.sha }}" `
             "-Dstfc_build_invocation_id=github:${{ github.run_id }}:${{ github.run_attempt }}:windows" `
-            -Dstfc_build_channel=ci -Dprofiles=${{ github.repository == 'Guffawaffle/stfc-mod' }}
+            -Dstfc_build_channel=ci -Dprofiles=${{ github.repository == 'Guffawaffle/stfc-mod' }} @sysrootArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify proxy binary contract
         run: >-
@@ -91,8 +117,8 @@ jobs:
         env:
           STFC_WINDOWS_TOOLCHAIN_URL: ${{ vars.STFC_WINDOWS_TOOLCHAIN_URL }}
         run: |
-          zig build fetch-toolchains
-          zig build install build-tests -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug
+          python3 scripts/ci-build-retry.py --prefetch -- zig build fetch-toolchains
+          python3 scripts/ci-build-retry.py --prefetch -- zig build install build-tests -Dtarget=x86_64-windows-msvc -Doptimize=ReleaseFast -Dtest-optimize=Debug
           python3 scripts/verify-windows-binary.py
 
   # The native fixtures need no SDK, so they run on Linux too, where they are cheapest.
@@ -109,7 +135,7 @@ jobs:
         with:
           version: ${{ env.ZIG_VERSION }}
       - name: Test
-        run: python3 scripts/ci-build-retry.py -- zig build test-toolchains test-codegen test-il2cpp test-mod test-sync test-launcher test-spud
+        run: python3 scripts/ci-build-retry.py --prefetch -- zig build test-toolchains test-codegen test-il2cpp test-mod test-sync test-launcher test-spud
 
   build-mac:
     name: build-mac (${{ matrix.arch }})
@@ -138,7 +164,7 @@ jobs:
         run: python3 scripts/stamp-version-hash.py "${{ github.sha }}"
       - name: Build and test
         run: |
-          python3 scripts/ci-build-retry.py -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
+          python3 scripts/ci-build-retry.py --prefetch -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
             -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all \
             -Dprofiles=${{ github.repository == 'Guffawaffle/stfc-mod' }} \
             -Dlauncher_channel=ci \

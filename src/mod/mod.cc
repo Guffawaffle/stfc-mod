@@ -170,6 +170,7 @@ constexpr const Feature* kFeatures[] = {
     &kFleetNodeDepletion,
     // mining_preview.cc
     &kMiningPreview,
+    &kMiningTargetOpc,
     &kNavigationOrbit,
     // fleet_labels.cc
     &kFleetLabels,
@@ -218,6 +219,9 @@ constexpr const Feature* kFeatures[] = {
     &kNativeSettingsTextEntry,
     &kNativeSettingsPages,
     &kNativeSettingsSearch,
+    &kStreamerAccountPrivacy,
+    &kStreamerSelfProfile,
+    &kStreamerChatPrivacy,
     // shop.cc
     &kGiftsAutoOpen,
     &kAllianceGamesStore,

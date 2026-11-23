@@ -73,6 +73,8 @@ public:
         return "Outside slider range; use Edit";
       case UnavailableReason::InvalidValue:
         return "Invalid value; edit TOML";
+      case UnavailableReason::ProtectionUnavailable:
+        return "Protection unavailable";
       default:
         return "Reopen to retry";
     }

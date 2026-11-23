@@ -84,6 +84,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"toastbannerhooks", &Config::Patches::toastbannerhooks},
     {"fleetnotificationhooks", &Config::Patches::fleetnotificationhooks},
     {"nativesettingshooks", &Config::Patches::nativesettingshooks},
+    {"streamermodehooks", &Config::Patches::streamermodehooks},
     {"transitionscreenhooks", &Config::Patches::transitionscreenhooks},
     {"uiscalehooks", &Config::Patches::uiscalehooks},
     {"zoomhooks", &Config::Patches::zoomhooks},
@@ -980,6 +981,10 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
 
   // [ui]
   auto& u = ui;
+  r.Read("ui", "streamer_mode", u.streamer_mode);
+  r.Read("ui", "streamer_hide_account", u.streamer_hide_account);
+  r.ReadRenamed("ui", "streamer_hide_chat_names", "streamer_hide_chat", u.streamer_hide_chat_names);
+  r.Read("ui", "streamer_compact_player_ship_labels", u.streamer_compact_player_ship_labels);
   r.Read("ui", "check_for_mod_updates", u.check_for_mod_updates);
   r.Read("ui", "disable_escape_exit", u.disable_escape_exit);
   r.Read("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);

@@ -13,24 +13,34 @@ import unittest
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/ci-build-retry.py"
 API = runpy.run_path(str(SCRIPT))
 FETCH = b"D:\\a\\stfc-mod\\stfc-mod\\build.zig.zon:86:20: error: bad HTTP response code: '504 Gateway Timeout'\r\n"
+CLOSING = b"build.zig.zon:86:20: error: invalid HTTP response: HttpConnectionClosing\n"
 
 
 class FixtureProcess:
-    def __init__(self, output, status):
+    def __init__(self, output, status, stdout=subprocess.PIPE):
         class ShortReads(io.BytesIO):
             def read(self, size):
                 return super().read(min(size, 13))
 
-        self.stdout = ShortReads(output)
+        self.stdout = None
+        if stdout == subprocess.PIPE:
+            self.stdout = ShortReads(output)
+        else:
+            stdout.write(output)
+            stdout.flush()
         self.status = status
 
     def __enter__(self):
         return self
 
     def __exit__(self, *args):
-        self.stdout.close()
+        if self.stdout is not None:
+            self.stdout.close()
 
     def wait(self, timeout=None):
+        return self.status
+
+    def poll(self):
         return self.status
 
 
@@ -67,9 +77,14 @@ class BuildRetryTests(unittest.TestCase):
         self.assertEqual((status, len(calls), delays), (0, 2, [10]))
         status, calls, delays, _, _ = self.invoke([(closed + b"native.cc:4: error: invalid type\n", 1)])
         self.assertEqual((status, len(calls), delays), (1, 1, []))
-        diagnostic = API["Diagnostics"]()
-        diagnostic.feed(b"native.cc:71:20: error: invalid HTTP response: HttpConnectionClosing\n")
-        self.assertFalse(diagnostic.retryable())
+        for failure in (
+            CLOSING.replace(b"build.zig.zon", b"source.cc"),
+            CLOSING.replace(b"HttpConnectionClosing", b"HttpHeadersInvalid"),
+            CLOSING.replace(b"Closing", b"Closing (unexpected suffix)"),
+        ):
+            with self.subTest(failure=failure):
+                status, calls, delays, _, _ = self.invoke([(failure, 1)])
+                self.assertEqual((status, len(calls), delays), (1, 1, []))
 
     def test_transient_fetch_exhaustion_preserves_last_failure(self):
         status, calls, delays, output, notes = self.invoke([(FETCH, 1), (FETCH, 2), (FETCH, 7)])
@@ -178,6 +193,81 @@ class BuildRetryTests(unittest.TestCase):
             capture_output=True,
         )
         self.assertEqual(result.returncode, 0xC000013A)
+
+
+class PrefetchTests(unittest.TestCase):
+    command = ["zig", "build", "test-mod", "-Dtarget=x86_64-windows-msvc", "-Dprofiles=true",
+               "--", "literal test argument"]
+    fetch = [*command[:2], "--fetch=needed", *command[2:]]
+
+    def invoke(self, attempts):
+        calls, delays = [], []
+        output, notes = io.BytesIO(), io.StringIO()
+        fixtures = iter(attempts)
+
+        def popen(command, **kwargs):
+            calls.append(list(command))
+            return FixtureProcess(*next(fixtures), stdout=kwargs["stdout"])
+
+        status = API["run_with_prefetch"](
+            self.command, popen=popen, sleep=delays.append, output=output, notes=notes,
+        )
+        return status, calls, delays, output.getvalue()
+
+    def test_prefetch_retries_with_same_options_and_build_runs_once(self):
+        ready = b"dependencies ready\n"
+        status, calls, delays, output = self.invoke([(CLOSING, 1), (ready, 0), (FETCH, 5)])
+        self.assertEqual(status, 5)
+        self.assertEqual(calls, [self.fetch, self.fetch, self.command])
+        self.assertEqual(delays, [10])
+        self.assertEqual(output, CLOSING + ready + FETCH)
+
+    def test_failed_prefetch_never_starts_the_build(self):
+        not_found = FETCH.replace(b"504 Gateway Timeout", b"404 Not Found")
+        for attempts, expected, delays in (
+            ([(not_found, 8)], 8, []),
+            ([(FETCH, 1), (CLOSING, 2), (FETCH, 7)], 7, [10, 20]),
+        ):
+            with self.subTest(attempts=attempts):
+                status, calls, actual_delays, output = self.invoke(attempts)
+                self.assertEqual(status, expected)
+                self.assertEqual(calls, [self.fetch] * len(attempts))
+                self.assertEqual(actual_delays, delays)
+                self.assertEqual(output, b"".join(chunk for chunk, _ in attempts))
+
+    def test_prefetch_deadline_retries_and_reaps_hung_children(self):
+        children, delays = [], []
+
+        def popen(command, **kwargs):
+            self.assertEqual(list(command), self.fetch)
+            child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], **kwargs)
+            children.append(child)
+            return child
+
+        status = API["run_with_prefetch"](
+            self.command, timeout=0.2, popen=popen, sleep=delays.append,
+            output=io.BytesIO(), notes=io.StringIO(),
+        )
+        self.assertEqual(status, 124)
+        self.assertEqual(delays, [10, 20])
+        self.assertEqual(len(children), 3)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
+    def test_prefetch_preserves_a_child_status_observed_during_timeout_cleanup(self):
+        class JustExited(FixtureProcess):
+            args = self.fetch
+
+            def poll(self):
+                if self.status is not None:
+                    return super().poll()
+                self.status = 23
+                return None
+
+        def popen(command, *, stdout, **kwargs):
+            return JustExited(b"", None, stdout=stdout)
+
+        status, timed_out = API["fetch_attempt"](self.fetch, popen, io.BytesIO(), API["Diagnostics"](), 0)
+        self.assertEqual((status, timed_out), (23, False))
 
 
 if __name__ == "__main__":

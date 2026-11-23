@@ -22,6 +22,13 @@ int main()
   assert(reads == 4);
   assert(!cache.Read(-1, 1, 2, 4, 2003, reader).known);
   assert(reads == 4);
+  cache.Invalidate(0);
+  const auto invalidating_read = [&] {
+    cache.Invalidate(0);
+    return Cargo{true, true, 101, 100};
+  };
+  assert(!cache.Read(0, 1, 3, 4, 2004, invalidating_read).known);
+  assert(!cache.Read(0, 1, 3, 4, 2005, reader).opc && reads == 5);
 
   const Cargo protected_cargo{true, false, 99, 100};
   assert(Display(Evaluate(true, protected_cargo, true, 1, true, 0, 1)) == "SAFE");

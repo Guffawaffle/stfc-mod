@@ -129,6 +129,7 @@ extern const Feature kInstantCargo;
 extern const Feature kChat;
 extern const Feature kChatAvatarRetention;
 extern const Feature kChatTitles;
+extern const Feature kStreamerChatPrivacy;
 // Opens chat, or focuses side chat's input. Never swallows the key.
 void OpenChatShortcut();
 // In chat, the channel shortcuts. True when the key was used.
@@ -188,6 +189,7 @@ extern const Feature kOpcIndicators;
 
 // mining_preview.cc
 extern const Feature kMiningPreview;
+extern const Feature kMiningTargetOpc;
 
 // navigation_orbit.cc
 extern const Feature kNavigationOrbit;
@@ -253,6 +255,11 @@ extern const Feature kNativeSettingsActions;
 extern const Feature kNativeSettingsTextEntry;
 extern const Feature kNativeSettingsPages;
 extern const Feature kNativeSettingsSearch;
+
+// streamer_account.cc
+extern const Feature kStreamerAccountPrivacy;
+// streamer_self_profile.cc
+extern const Feature kStreamerSelfProfile;
 
 // screens.cc: shortcut helpers only, so no descriptor.
 // Presses a button a screen shortcut opened a screen for, once the screen is up. True when one was pressed.

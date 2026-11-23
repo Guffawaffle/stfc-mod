@@ -38,14 +38,31 @@ struct OpcView {
   uintptr_t        body       = 0;
   uintptr_t        timer      = 0;
 };
+struct OpcAppearance {
+  il2cpp::GcHandle label, backing;
+  bool             selected = false, safe = false;
+
+  bool Matches(unity::RectTransform* current_label, unity::RectTransform* current_backing = nullptr) const
+  { return label.Get() == current_label && backing.Get() == current_backing; }
+};
+struct OpcMiningSample {
+  il2cpp::GcHandle  fleet;
+  int64_t           id       = 0;
+  int32_t           state    = 0;
+  uint64_t          revision = 0;
+  fleet_opc::Status status;
+};
+using OpcMiningSamples = std::array<OpcMiningSample, 10>;
+
 struct OpcUi {
-  bool                                         installed      = false;
-  bool                                         updating       = false;
-  uint8_t                                      options_active = 0;
-  bool                                         touched        = false;
-  uint64_t                                     generation     = 0;
-  int64_t                                      next           = 0;
-  std::unordered_map<il2cpp::Object*, OpcView> views;
+  bool                                                 installed      = false;
+  bool                                                 updating       = false;
+  uint8_t                                              options_active = 0;
+  bool                                                 touched        = false;
+  uint64_t                                             generation     = 0;
+  int64_t                                              next           = 0;
+  std::unordered_map<il2cpp::Object*, OpcView>         views;
+  std::unordered_map<unity::Transform*, OpcAppearance> appearances;
 };
 OpcUi& Opc()
 {
@@ -59,11 +76,16 @@ int64_t OpcNow()
       .count();
 }
 
-void OpcShow(unity::Transform* parent, std::string_view name, bool show)
+void OpcSetActive(unity::GameObject* object, bool show)
 {
-  if (auto* object = fleet_opc_binding::ChildObject(parent, name))
+  if (!object)
+    return;
+  const auto active = object->TryCall<"get_activeSelf", bool>();
+  if (!active || active.value != show)
     object->SetActive(show);
 }
+void OpcShow(unity::Transform* parent, std::string_view name, bool show)
+{ OpcSetActive(fleet_opc_binding::ChildObject(parent, name), show); }
 void OpcHideBody(unity::Transform* body)
 {
   OpcShow(body, kOpcHighlight, false);
@@ -227,44 +249,71 @@ bool OpcRenderEta(unity::Transform* body, bool selected, const fleet_opc::Status
   auto* backing_native    = backing ? backing->transform() : nullptr;
   auto* label_transform   = label_native ? label_native->As<unity::RectTransform>() : nullptr;
   auto* backing_transform = backing_native ? backing_native->As<unity::RectTransform>() : nullptr;
+  auto& appearances       = Opc().appearances;
   if (!label_transform || !backing_transform) {
+    appearances.erase(body);
     OpcShow(body, kOpcLabel, false);
     OpcShow(body, kOpcBacking, false);
     return false;
   }
-  const auto color = status.safe_on_node ? unity::Color{0.45f, 0.86f, 1, 1} : unity::Color{1, 0.69f, 0.13f, 1};
-  if (!OpcPlace(backing_transform, {0.5f, 1}, {0.5f, 0}, {108, 30}, {0, selected ? 25.0f : 15.0f})
-      || !OpcPlace(label_transform, {0.5f, 1}, {0.5f, 0}, {148, 36}, {0, selected ? 24.0f : 14.0f})
-      || !label->TryCall<"set_color", void(unity::Color)>(color) || !OpcText(label, "<b>" + display + "</b>")) {
+  const auto previous = appearances.find(body);
+  const bool same_objects =
+      previous != appearances.end() && previous->second.Matches(label_transform, backing_transform);
+  const bool move    = !same_objects || previous->second.selected != selected;
+  const bool recolor = !same_objects || previous->second.safe != status.safe_on_node;
+  const auto color   = status.safe_on_node ? unity::Color{0.45f, 0.86f, 1, 1} : unity::Color{1, 0.69f, 0.13f, 1};
+  // Lay out both siblings when either object is replaced so the label stays on top of its backing.
+  if ((move
+       && (!OpcPlace(backing_transform, {0.5f, 1}, {0.5f, 0}, {108, 30}, {0, selected ? 25.0f : 15.0f})
+           || !OpcPlace(label_transform, {0.5f, 1}, {0.5f, 0}, {148, 36}, {0, selected ? 24.0f : 14.0f})))
+      || (recolor && !label->TryCall<"set_color", void(unity::Color)>(color))
+      || !OpcText(label, "<b>" + display + "</b>")) {
+    appearances.erase(body);
     OpcShow(body, kOpcLabel, false);
     OpcShow(body, kOpcBacking, false);
     return false;
   }
-  backing->SetActive(true);
-  label_transform->gameObject()->SetActive(true);
+  if (!same_objects) {
+    appearances.insert_or_assign(body, OpcAppearance{il2cpp::GcHandle::Weak(label_transform),
+                                                     il2cpp::GcHandle::Weak(backing_transform), selected,
+                                                     status.safe_on_node});
+  } else {
+    auto& painted    = appearances.at(body);
+    painted.selected = selected;
+    painted.safe     = status.safe_on_node;
+  }
+  OpcSetActive(backing, true);
+  OpcSetActive(label_transform->gameObject(), true);
   return true;
 }
-bool OpcRenderCard(FleetLocalViewController* panel, const std::string& display)
+bool OpcRenderCard(unity::Transform* timer, const std::string& display)
 {
-  auto* timer = fleet_opc_binding::TimerAnchor(panel);
   if (!timer || display.empty()) {
     OpcShow(timer, kOpcCardLabel, false);
     return true;
   }
-  auto* label  = OpcEnsureLabel(timer, kOpcCardLabel);
-  auto* native = label ? label->transform() : nullptr;
-  auto* rect   = native ? native->As<unity::RectTransform>() : nullptr;
+  auto* label       = OpcEnsureLabel(timer, kOpcCardLabel);
+  auto* native      = label ? label->transform() : nullptr;
+  auto* rect        = native ? native->As<unity::RectTransform>() : nullptr;
+  auto& appearances = Opc().appearances;
   if (!rect) {
+    appearances.erase(timer);
     OpcShow(timer, kOpcCardLabel, false);
     return false;
   }
-  if (!OpcPlace(rect, {0.5f, 0.5f}, {0.5f, 0.5f}, {190, 26}, {7.6f, -39})
-      || !label->TryCall<"set_color", void(unity::Color)>(unity::Color{0.82f, 0.91f, 0.96f, 1})
+  const auto previous    = appearances.find(timer);
+  const bool same_object = previous != appearances.end() && previous->second.Matches(rect);
+  if ((!same_object
+       && (!OpcPlace(rect, {0.5f, 0.5f}, {0.5f, 0.5f}, {190, 26}, {7.6f, -39})
+           || !label->TryCall<"set_color", void(unity::Color)>(unity::Color{0.82f, 0.91f, 0.96f, 1})))
       || !OpcText(label, display)) {
+    appearances.erase(timer);
     OpcShow(timer, kOpcCardLabel, false);
     return false;
   }
-  rect->gameObject()->SetActive(true);
+  if (!same_object)
+    appearances.insert_or_assign(timer, OpcAppearance{il2cpp::GcHandle::Weak(rect), {}});
+  OpcSetActive(rect->gameObject(), true);
   return true;
 }
 
@@ -290,10 +339,30 @@ void OpcRelease(il2cpp::Object* source)
     OpcShow(body, kOpcBacking, false);
   }
   if (owner == OpcOwner::Local)
-    (void)OpcRenderCard(root.Get<il2cpp::Object>()->As<FleetLocalViewController>(), {});
+    OpcShow(fleet_opc_binding::TimerAnchor(root.Get<il2cpp::Object>()->As<FleetLocalViewController>()), kOpcCardLabel,
+            false);
 }
 
-void OpcRefresh(il2cpp::Object* key)
+fleet_opc::Status OpcObserveMining(il2cpp::GcHandle& fleet_root, int32_t slot, int64_t id, int32_t fleet_state,
+                                   OpcMiningSamples* samples)
+{
+  auto*      fleet    = fleet_root.Get<FleetPlayerData>();
+  auto*      sample   = samples ? &(*samples)[slot] : nullptr;
+  const auto revision = fleet_opc::CargoRevision(slot);
+  if (sample && sample->fleet.Get() == fleet && sample->id == id && sample->state == fleet_state
+      && sample->revision == revision)
+    return sample->status;
+
+  const auto status = fleet_opc::Observe(fleet, slot, id, fleet_state);
+  // A cargo callback can run inside an observation. The next view must resample the invalidated fleet.
+  if (fleet_opc::CargoRevision(slot) != revision)
+    return {};
+  if (sample)
+    *sample = {std::move(fleet_root), id, fleet_state, revision, status};
+  return status;
+}
+
+void OpcRefresh(il2cpp::Object* key, OpcMiningSamples* samples = nullptr)
 {
   auto&      state = Opc();
   const auto found = state.views.find(key);
@@ -324,7 +393,7 @@ void OpcRefresh(il2cpp::Object* key)
   if (!eta && !highlight_enabled) {
     OpcHideBody(body);
     if (local)
-      (void)OpcRenderCard(source->As<FleetLocalViewController>(), {});
+      OpcShow(fleet_opc_binding::TimerAnchor(source->As<FleetLocalViewController>()), kOpcCardLabel, false);
     return;
   }
   const auto observed    = fleet_opc_binding::Fleet(source, local);
@@ -346,40 +415,35 @@ void OpcRefresh(il2cpp::Object* key)
   if (!usable) {
     OpcHideBody(body);
     if (panel_component)
-      (void)OpcRenderCard(panel, {});
+      OpcShow(fleet_opc_binding::TimerAnchor(panel), kOpcCardLabel, false);
     return;
   }
   if (!highlight_enabled)
     OpcShow(body, kOpcHighlight, false);
-  if (!eta) {
-    OpcShow(body, kOpcLabel, false);
-    OpcShow(body, kOpcBacking, false);
-    if (panel_component)
-      (void)OpcRenderCard(panel, {});
-  }
-  if (!highlight_enabled && !eta)
-    return;
   // Setup backoff must not keep artwork visible after its data ceases to apply.
   // These observations retain the shared cargo cache and frame cadence; only
   // allocation/configuration work below waits for the retry deadline.
-  const auto has_ship = highlight_enabled ? fleet->TryCall<"get_HasShip", bool>() : il2cpp::CallResult<bool>{};
-  const bool deployed = (static_cast<int32_t>(fleet_state.value) & static_cast<int32_t>(FleetState::Deployed)) != 0;
-  const bool show     = highlight_enabled && body && has_ship && has_ship.value && deployed
-                        && fleet_opc::Read(fleet, slot.value, id.value, static_cast<int32_t>(fleet_state.value)).opc;
-  const auto status   = eta ? fleet_opc::Observe(fleet, slot.value, id.value, static_cast<int32_t>(fleet_state.value))
-                            : fleet_opc::Status{};
-  const auto display  = fleet_opc::Display(status);
+  const auto has_ship      = highlight_enabled ? fleet->TryCall<"get_HasShip", bool>() : il2cpp::CallResult<bool>{};
+  const auto native_state  = static_cast<int32_t>(fleet_state.value);
+  const bool deployed      = (native_state & static_cast<int32_t>(FleetState::Deployed)) != 0;
+  const bool can_highlight = highlight_enabled && body && has_ship && has_ship.value && deployed;
+  const bool can_observe_mining = eta && fleet_state.value == FleetState::Mining;
+  const auto status = can_observe_mining ? OpcObserveMining(fleet_root, slot.value, id.value, native_state, samples)
+                                         : fleet_opc::Status{};
+  const bool show =
+      can_highlight
+      && (can_observe_mining ? status.cargo.opc : fleet_opc::Read(fleet, slot.value, id.value, native_state).opc);
+  const auto display    = fleet_opc::Display(status);
+  auto*      timer      = selected_view ? fleet_opc_binding::TimerAnchor(panel) : nullptr;
+  auto       timer_root = il2cpp::GcHandle::Strong(timer);
   if (!show)
     OpcShow(body, kOpcHighlight, false);
   if (display.empty()) {
     OpcShow(body, kOpcLabel, false);
     OpcShow(body, kOpcBacking, false);
-    if (selected_view)
-      (void)OpcRenderCard(panel, {});
+    OpcShow(timer, kOpcCardLabel, false);
   }
-  auto*      timer      = eta && selected_view ? fleet_opc_binding::TimerAnchor(panel) : nullptr;
-  auto       timer_root = il2cpp::GcHandle::Strong(timer);
-  const auto current    = state.views.find(key);
+  const auto current = state.views.find(key);
   if (current == state.views.end() || current->second.generation != generation)
     return;
   // Backoff belongs to this fleet and native anchor, not to a reused widget.
@@ -411,16 +475,15 @@ void OpcRefresh(il2cpp::Object* key)
   bool success = true;
   if (show) {
     auto* highlight = fleet_opc_binding::ChildObject(body, kOpcHighlight);
-    if (show && !highlight)
+    if (!highlight)
       highlight = OpcCreateHighlight(body);
-    if (highlight)
-      highlight->SetActive(show);
-    success = !show || highlight;
+    OpcSetActive(highlight, true);
+    success = highlight != nullptr;
   }
   if (eta && !display.empty()) {
     success = OpcRenderEta(body, selected_view, status) && success;
-    if (selected_view)
-      success = OpcRenderCard(panel, fleet_opc::CardDisplay(status)) && success;
+    if (timer)
+      success = OpcRenderCard(timer, fleet_opc::CardDisplay(status)) && success;
   }
   // Native calls may rebind/release a row. Do not publish bookkeeping through a
   // stale unordered_map iterator or apply the previous generation's backoff.
@@ -455,8 +518,12 @@ void OpcBind(il2cpp::Object* source, OpcOwner owner)
 void OpcFrame()
 {
   auto& state = Opc();
-  if (state.views.empty() || state.updating)
+  if (state.updating)
     return;
+  if (state.views.empty()) {
+    state.appearances.clear();
+    return;
+  }
   const auto& ui = Config::Get().ui;
   const auto  enabled =
       uint8_t{static_cast<uint8_t>((ui.highlight_opc_fleets ? 1 : 0) | (ui.fleet_hud_opc_eta ? 2 : 0))};
@@ -476,13 +543,15 @@ void OpcFrame()
   }
   state.options_active = enabled;
   state.next           = now + 1000;
+  std::erase_if(state.appearances, [](const auto& entry) { return !entry.second.label.Get(); });
   std::vector<il2cpp::Object*> keys;
   keys.reserve(state.views.size());
   for (const auto& [key, view] : state.views)
     keys.push_back(key);
   state.updating = true;
+  OpcMiningSamples samples;
   for (auto* key : keys)
-    OpcRefresh(key);
+    OpcRefresh(key, &samples);
   state.updating = false;
 }
 
