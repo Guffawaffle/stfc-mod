@@ -22,6 +22,8 @@ struct ActionView: View {
   private let gameUpdater = XsollaUpdater(gameName: "Star Trek Fleet Command")
   @State private var gameVersion = 0
   @State private var gameUpdateAvailable = false
+  @State private var gameUpToDate = false
+  @State private var updateRequestID = UUID()
   @State private var updating = false
   @State private var updateAction = ""
   @State private var updateSubAction = ""
@@ -81,9 +83,7 @@ struct ActionView: View {
     .task {
       // Check installed data and available updates once a minute, never on redraw.
       repeat {
-        gameVersion = gameUpdater.installedVersion()
-        gameInstalled = gameVersion > 0
-        gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
+        await refreshGameAvailability()
         try? await Task.sleep(for: .seconds(60))
       } while !Task.isCancelled
     }
@@ -276,10 +276,33 @@ struct ActionView: View {
       Button("Rename ordinary game…", action: renameOrdinaryGame)
     } label: { Label("Mod settings", systemImage: "slider.horizontal.3") }
     .help("Open configuration files for the selected launch target.")
+    let showsUpdateCheckmark = gameInstalled && gameUpToDate && !gameUpdateAvailable
     Button(action: requestUpdate) {
-      Label(gameUpdateAvailable ? "Update game" : "Game update", systemImage: "arrow.down.to.line")
+      Label {
+        Text(gameUpdateAvailable ? "Update game" : "Game update")
+      } icon: {
+        Image(systemName: showsUpdateCheckmark ? "checkmark" : "arrow.down.to.line")
+          .foregroundStyle(showsUpdateCheckmark ? Color.green : Color.primary)
+      }
     }
     .disabled(updateDisabled)
+    .accessibilityValue(showsUpdateCheckmark ? "Up to date" : "")
+    .help(showsUpdateCheckmark ? "Game is up to date. Click to check again." : "Check for a game update.")
+  }
+
+  @MainActor
+  private func refreshGameAvailability() async {
+    guard !updating else { return }
+    let requestID = updateRequestID
+    let installedVersion = gameUpdater.installedVersion()
+    if installedVersion != gameVersion { gameUpToDate = false }
+    gameVersion = installedVersion
+    gameInstalled = installedVersion > 0
+    let available = try? await gameUpdater.checkForUpdateAvailable(from: installedVersion)
+    // A manual check takes precedence over an earlier refresh.
+    guard requestID == updateRequestID else { return }
+    gameUpdateAvailable = available ?? false
+    if available != false { gameUpToDate = false }
   }
 
   private func requestUpdate() {
@@ -289,13 +312,27 @@ struct ActionView: View {
     #endif
     // Claim the UI state before scheduling, including when checking for an update.
     updating = true
+    updateRequestID = UUID()
     updateAction = "Checking for updates"
     updateSubAction = ""
     launchStatus = ""
+    gameUpToDate = false
     Task { @MainActor in
-      gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
-      if gameUpdateAvailable { await updateGame() }
-      else { updating = false; launchStatus = "No game update is currently reported." }
+      let installedVersion = gameUpdater.installedVersion()
+      gameVersion = installedVersion
+      gameInstalled = installedVersion > 0
+      do {
+        gameUpdateAvailable = try await gameUpdater.checkForUpdateAvailable(from: installedVersion)
+        if gameUpdateAvailable {
+          await updateGame()
+        } else {
+          gameUpToDate = true
+          updating = false
+        }
+      } catch {
+        updating = false
+        showError("Game update check failed: \(error.localizedDescription)")
+      }
     }
   }
 
@@ -475,8 +512,7 @@ struct ActionView: View {
       showError("Game update failed: \(error.localizedDescription)")
     }
     updating = false
-    gameVersion = gameUpdater.installedVersion()
-    gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
+    await refreshGameAvailability()
   }
 
   private func showError(_ message: String) {
