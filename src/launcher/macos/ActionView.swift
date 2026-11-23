@@ -49,39 +49,15 @@ struct ActionView: View {
       }
       .padding(.horizontal, 24).padding(.top, 16)
 
-      GeometryReader { geometry in
+      ViewThatFits(in: .vertical) {
+        launchContent(compact: false).fixedSize(horizontal: false, vertical: true)
+        launchContent(compact: true).fixedSize(horizontal: false, vertical: true)
         ScrollView(.vertical) {
-          VStack(spacing: 0) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-              .resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
-              .accessibilityLabel("STFC Mod")
-            Text("STFC Mod").font(.system(size: 23, weight: .bold)).padding(.top, 6)
-            Text(launchDescription).font(.system(size: 13)).foregroundStyle(.secondary)
-              .multilineTextAlignment(.center).lineLimit(2).help(launchDescription)
-              .frame(maxWidth: 410, minHeight: 28).padding(.top, 6)
-            launchButton.padding(.top, 10)
-            utilityButtons.padding(.top, 16)
-
-            if updating {
-              HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text(updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)").font(.caption)
-                  .fixedSize(horizontal: false, vertical: true)
-              }
-              .padding(.top, 16)
-            } else if !launchStatus.isEmpty {
-              Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true).help(launchStatus).padding(.top, 16)
-                .accessibilityAddTraits(.updatesFrequently)
-            }
-          }
-          .padding(.horizontal, 24).padding(.vertical, 16)
-          .frame(maxWidth: .infinity)
-          // Center at the default size; scroll instead of clipping in a short window.
-          .frame(minHeight: geometry.size.height)
+          launchContent(compact: true)
         }
         .scrollBounceBehavior(.basedOnSize)
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
       Divider()
       HStack(spacing: 20) {
         VStack(alignment: .leading, spacing: 4) {
@@ -133,6 +109,35 @@ struct ActionView: View {
     } message: {
       Text("Choose a launcher name for your existing login and settings. Leave it blank to use Ordinary game.")
     }
+  }
+
+  private func launchContent(compact: Bool) -> some View {
+    VStack(spacing: 0) {
+      Image(nsImage: NSApplication.shared.applicationIconImage)
+        .resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
+        .accessibilityLabel("STFC Mod")
+      Text("STFC Mod").font(.system(size: 23, weight: .bold)).padding(.top, 6)
+      Text(launchDescription).font(.system(size: 13)).foregroundStyle(.secondary)
+        .multilineTextAlignment(.center).lineLimit(2).help(launchDescription)
+        .frame(maxWidth: 410, minHeight: compact ? 22 : 28).padding(.top, 6)
+      launchButton.padding(.top, 10)
+      utilityButtons.padding(.top, compact ? 10 : 16)
+
+      if updating {
+        HStack(spacing: 8) {
+          ProgressView().controlSize(.small)
+          Text(updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)").font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 16)
+      } else if !launchStatus.isEmpty {
+        Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+          .fixedSize(horizontal: false, vertical: true).help(launchStatus).padding(.top, 16)
+          .accessibilityAddTraits(.updatesFrequently)
+      }
+    }
+    .padding(.horizontal, 24).padding(.vertical, compact ? 8 : 16)
+    .frame(maxWidth: .infinity)
   }
 
   private func startMonitoringFocusInput() {
