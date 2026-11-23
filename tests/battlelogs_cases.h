@@ -172,9 +172,15 @@ void BattleRetryRemoval()
   expected["profile"]  = expected.at("profile").get<int>() + 1;
   expected["alliance"] = expected.at("alliance").get<int>() + 1;
   CheckBattleCounts(expected, "re-enabled battle did not exercise journal/player/alliance requests");
-  Check(BattleWire().at("names").at("player7001")
-            == json{{"name", "Synthetic Player"}, {"alliance_name", "Synthetic Alliance"}, {"alliance_tag", "FX"}},
-        "re-enabled journal did not retain resolved player/alliance wire names");
+  const auto  record  = BattleWire();
+  const auto& journal = record.at("journal");
+  Check(journal.at("id") == 7001 && journal.at("journal_src") == "pb1"
+            && journal.at("battle_log").dump() == "[-96,5.0,-97]",
+        "protobuf journal did not retain exact combat token kinds on the sync wire");
+  const auto names =
+      json{{"name", "Synthetic Player"}, {"alliance_name", "Synthetic Alliance"}, {"alliance_tag", "FX"}};
+  Check(record.at("names") == json{{"player7001", names}, {"ally7001", names}},
+        "protobuf journal did not retain resolved player/alliance names from both participant sources");
 }
 
 void BattleRequestAdmission(bool remove_during_setup)

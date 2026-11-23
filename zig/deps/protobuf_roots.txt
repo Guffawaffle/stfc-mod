@@ -17,6 +17,7 @@ Digit.PrimeServer.Models.GlobalActiveBuffsResponse
 Digit.PrimeServer.Models.InventoryResponse
 Digit.PrimeServer.Models.Job
 Digit.PrimeServer.Models.JobResponse
+Digit.PrimeServer.Models.JournalResponse
 Digit.PrimeServer.Models.OfficerTraitsResponse
 Digit.PrimeServer.Models.OfficersResponse
 Digit.PrimeServer.Models.PlanetaryBase
@@ -27,6 +28,7 @@ Digit.PrimeServer.Models.PlayerShipsResponse
 Digit.PrimeServer.Models.ResearchTreesState
 Digit.PrimeServer.Models.ResourcesDeltaResponse
 Digit.PrimeServer.Models.ResourcesResponse
+Digit.PrimeServer.Models.ServiceResponse
 Digit.PrimeServer.Models.StarbaseModulesResponse
 Digit.PrimeServer.Models.UserProfilesResponse
 
