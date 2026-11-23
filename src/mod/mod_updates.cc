@@ -245,29 +245,110 @@ namespace
     il2cpp::GcHandle object_, pip_;
   };
 
-  void RefreshUpdateBadges(bool pending)
+  unity::RectTransform* ProfileRect(il2cpp::Object* component)
   {
-    static auto* hud     = new UpdateBadge;
-    static auto* profile = new UpdateBadge;
-    static auto next     = Clock::time_point{};
-    const auto now       = Clock::now();
+    if (!unity::Alive(component))
+      return nullptr;
+    const auto transform = component->TryCall<"get_transform", unity::Transform*>();
+    return transform && transform.value ? transform.value->As<unity::RectTransform>() : nullptr;
+  }
+
+  class ProfileAvatarAlignment
+  {
+  public:
+    void Refresh(PlayerProfileViewController* owner)
+    {
+      const auto local  = unity::Alive(owner) ? owner->TryIsLocalProfile() : il2cpp::CallResult<bool>{};
+      auto*      info   = local && local.value ? owner->playerInfoWidget() : nullptr;
+      auto*      avatar = unity::Alive(info) ? ProfileRect(info->profileFrameAndAvatar()) : nullptr;
+      auto*      space  = avatar ? avatar->parent() : nullptr;
+      if ((!avatar || avatar_.Get() != avatar || parent_.Get() != space) && !Restore())
+        return;
+      if (!unity::Alive(space))
+        return;
+      const auto avatar_bounds = unity::RectTransformUtility::OwnBounds(space, avatar);
+      const auto name_bounds   = unity::RectTransformUtility::OwnBounds(space, ProfileRect(info->nameLabel()));
+      if (!avatar_bounds || !name_bounds || avatar_bounds.value.extents.x <= 0 || name_bounds.value.extents.x <= 0)
+        return;
+      const float avatar_x = avatar_bounds.value.center.x;
+      const float shift    = name_bounds.value.center.x - avatar_x;
+      if (std::abs(shift) < .25f)
+        return;
+
+      // Only move away from the edit button, whose anchor also owns the Mod Settings badge.
+      const auto edit_bounds = unity::RectTransformUtility::OwnBounds(space, ProfileRect(owner->avatarEditButton()));
+      if (!edit_bounds || shift * (edit_bounds.value.center.x - avatar_x) >= 0)
+        return;
+      const auto position = avatar->TryCall<"get_anchoredPosition", unity::Vector2>();
+      if (!position || !std::isfinite(position.value.x) || !std::isfinite(position.value.y))
+        return;
+      auto       target   = il2cpp::GcHandle::Weak(avatar);
+      auto       parent   = il2cpp::GcHandle::Weak(space);
+      const auto adjusted = unity::Vector2{position.value.x + shift, position.value.y};
+      if (!target || !parent || !avatar->TryCall<"set_anchoredPosition", void(unity::Vector2)>(adjusted))
+        return;
+      if (!avatar_ || position.value.x != applied_x_)
+        original_x_ = position.value.x;
+      applied_x_ = adjusted.x;
+      avatar_    = std::move(target);
+      parent_    = std::move(parent);
+    }
+
+  private:
+    bool Restore()
+    {
+      auto* avatar = avatar_.Get<unity::RectTransform>();
+      auto* parent = parent_.Get<unity::Transform>();
+      if (unity::Alive(avatar) && unity::Alive(parent) && avatar->parent() == parent) {
+        auto position = avatar->TryCall<"get_anchoredPosition", unity::Vector2>();
+        if (!position)
+          return false;
+        // Another profile can reuse this widget. Restore only the x value we still own.
+        if (position.value.x == applied_x_) {
+          position.value.x = original_x_;
+          if (!avatar->TryCall<"set_anchoredPosition", void(unity::Vector2)>(position.value))
+            return false;
+        }
+      }
+      avatar_.Reset();
+      parent_.Reset();
+      return true;
+    }
+
+    il2cpp::GcHandle avatar_, parent_;
+    float            original_x_ = 0, applied_x_ = 0;
+  };
+
+  void RefreshHudAndProfile(bool pending)
+  {
+    static auto* hud       = new UpdateBadge;
+    static auto* profile   = new UpdateBadge;
+    static auto* alignment = new ProfileAvatarAlignment;
+    static auto  next      = Clock::time_point{};
+    const auto   now       = Clock::now();
     if (now < next)
       return;
-    next = now + 300ms;
-    const bool can_open = mod_settings::native::CanOpenSettingsPage(settings_page);
-    const bool profile_section = can_open && Hub::CurrentSection() == SectionID::PlayerProfile;
-    const bool hud_visible = can_open && pending && Hub::IsInSystemOrGalaxyOrStarbase();
+    next                       = now + 300ms;
+    const bool can_open        = mod_settings::native::CanOpenSettingsPage(settings_page);
+    const bool in_profile      = Hub::CurrentSection() == SectionID::PlayerProfile;
+    const bool profile_section = can_open && in_profile;
+    const bool hud_visible     = can_open && pending && Hub::IsInSystemOrGalaxyOrStarbase();
     if (hud_visible && !hud->HasActiveAnchor()) {
       hud->Clear();
       auto* drawer = ScreenManager::RegisteredController<HudDrawerViewController, HudDrawerContext>();
       if (drawer)
         hud->Create(drawer->profileFrameAndAvatar(), nullptr);
     }
-    if (profile_section && !profile->HasActiveAnchor()) {
-      profile->Clear();
-      auto* owner = ScreenManager::RegisteredController<PlayerProfileViewController, PlayerProfileDataContext>();
-      if (owner)
-        profile->Create(owner->avatarEditButton(), owner);
+    auto* owner = in_profile
+                      ? ScreenManager::RegisteredController<PlayerProfileViewController, PlayerProfileDataContext>()
+                      : nullptr;
+    alignment->Refresh(owner);
+    if (in_profile) {
+      if (profile_section && !profile->HasActiveAnchor()) {
+        profile->Clear();
+        if (owner)
+          profile->Create(owner->avatarEditButton(), owner);
+      }
     }
     hud->Show(hud_visible, hud_visible);
     profile->Show(profile_section, pending);
@@ -452,7 +533,7 @@ namespace
     }
     if (enabled && Installed() && Clock::now() >= state.next_check)
       Start(true);
-    RefreshUpdateBadges(UpdatePending());
+    RefreshHudAndProfile(UpdatePending());
   }
 } // namespace
 

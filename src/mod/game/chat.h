@@ -284,6 +284,8 @@ struct UserProfileWidget : unity::Component {
 
   TextLocalizer* nameLabel()
   { return Field<"_name", TextLocalizer*>(); }
+  FrameAndAvatarWidget* profileFrameAndAvatar()
+  { return Field<"_profileFrameAndAvatar", FrameAndAvatarWidget*>(); }
   PlayerTitleWidget* playerTitleWidget()
   { return Field<"_playerTitleWidget", PlayerTitleWidget*>(); }
 };
