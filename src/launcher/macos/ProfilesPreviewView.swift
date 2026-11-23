@@ -11,6 +11,15 @@ struct LaunchProfile: Decodable, Identifiable, Sendable {
   let name: String
   let kind: String
   let directory: String
+  let configPath: String?
+
+  var modFiles: ModFiles? {
+    guard directory.hasPrefix("/") else { return nil }
+    let configURL: URL? = configPath.flatMap { path in
+      path.hasPrefix("/") ? URL(fileURLWithPath: path, isDirectory: false) : nil
+    }
+    return ModFiles(directoryURL: URL(fileURLWithPath: directory, isDirectory: true), configURL: configURL)
+  }
 }
 
 struct ProfileReply: Decodable, Sendable {
@@ -257,8 +266,11 @@ struct ProfilesPreviewView: View {
   }
 
   private func openProfileFolder() {
-    guard let profile = selected else { return }
-    if !NSWorkspace.shared.open(URL(fileURLWithPath: profile.directory, isDirectory: true)) {
+    guard let directoryURL = selected?.modFiles?.directoryURL else {
+      problem = "Could not locate the profile folder."
+      return
+    }
+    if !NSWorkspace.shared.open(directoryURL) {
       problem = "Could not open the profile folder in Finder."
     }
   }

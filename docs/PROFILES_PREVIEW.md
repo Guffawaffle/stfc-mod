@@ -6,6 +6,11 @@ slim arrow beside **Launch game**. Ordinary launch keeps your existing login and
 settings. The Windows Profiles ZIP includes the CLI; the standard DLL-only ZIP
 remains available for ordinary installs and existing updaters.
 
+On Mac, choose the launch target using the arrow beside **Launch game**.
+**Mod settings → Open TOML** and **Open Config Folder** use that selection.
+**View → View Mod Folder** opens the same folder. Named profiles use their own
+`config.toml`. Ordinary play uses `community_patch_settings.toml`.
+
 For a normal downstream DEV release, use its **stfc-community-mod-installer.dmg** on Mac.
 Open it and drag the app to Applications, keeping your ordinary launcher available.
 The DEV app includes AAI, Profiles and the matching helper; open **Profiles…** to test accounts.

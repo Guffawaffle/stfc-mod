@@ -94,6 +94,7 @@ struct ActionView: View {
       .background(LauncherPalette.surface)
     }
     .background(LauncherPalette.background)
+    .focusedSceneValue(\.modFolderAction, openConfigFolder)
     .task {
       // Check installed data and available updates once a minute, never on redraw.
       repeat {
@@ -219,11 +220,12 @@ struct ActionView: View {
     #endif
     Menu {
       Button("Open web configuration", action: openConfigSite)
-      Button("Open ordinary TOML", action: openConfigFile)
+      Button("Open TOML", action: openConfigFile)
+      Button("Open Config Folder", action: openConfigFolder)
       Divider()
       Button("Rename ordinary game…", action: renameOrdinaryGame)
     } label: { Label("Mod settings", systemImage: "slider.horizontal.3") }
-    .help("Settings for ordinary play. Named profiles have their own configuration folders.")
+    .help("Open configuration files for the selected launch target.")
     Button(action: requestUpdate) {
       Label(gameUpdateAvailable ? "Update game" : "Game update", systemImage: "arrow.down.to.line")
     }
@@ -306,9 +308,36 @@ struct ActionView: View {
     NSWorkspace.shared.open(configSiteURL)
   }
 
+  private var selectedModFiles: ModFiles? {
+    #if PROFILES_PREVIEW
+    if selectedProfileID != nil { return selectedProfile?.modFiles }
+    #endif
+    return ModFiles.ordinary
+  }
+
+  private func openConfigFolder() {
+    guard let directoryURL = selectedModFiles?.directoryURL else {
+      showError("Could not locate the config folder for the selected launch target.")
+      return
+    }
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),
+      isDirectory.boolValue
+    else {
+      showError(
+        "The mod folder is unavailable at \(directoryURL.path). "
+          + "If you selected a named profile, check that it still appears in Profiles. "
+          + "For a new launch target, launch it once with the mod to create the folder.")
+      return
+    }
+    if !NSWorkspace.shared.open(directoryURL) {
+      showError("Could not open the mod folder in Finder.")
+    }
+  }
+
   private func openConfigFile() {
-    guard let configURL = ModFiles.configURL else {
-      showError("Could not locate your Library folder.")
+    guard let configURL = selectedModFiles?.configURL else {
+      showError("Could not locate the TOML file for the selected launch target.")
       return
     }
     var isDirectory: ObjCBool = false
@@ -316,7 +345,9 @@ struct ActionView: View {
       !isDirectory.boolValue
     else {
       showError(
-        "The mod config file is not available at \(configURL.path). Launch the game with the mod once to create it.")
+        "The mod config file is unavailable at \(configURL.path). "
+          + "If you selected a named profile, check that it still appears in Profiles. "
+          + "For a new launch target, launch it once with the mod to create the file.")
       return
     }
 
