@@ -513,6 +513,45 @@ void StationRadiusCases(std::string_view mode)
   Require(StationCamera().view.Active() && StationCamera().view.yaw != 0 && close_enough(distance(), 4000)
               && close_enough(scene.result.clip - native_clip, 3000),
           "orbit keeps the verified outer zoom and expanded far clip");
+
+  struct PanFixture {
+    Il2CppObject    header;
+    PanDriver::Plane plane = PanDriver::Plane::XZ;
+  };
+  auto& pan_class = Define("Digit.Client.CameraController", "PanDriver", IL2CPP_TYPE_CLASS, &component_class);
+  pan_class.klass.instance_size = sizeof(PanFixture);
+  AddField(pan_class, "_plane", int_class, offsetof(PanFixture, plane));
+  AddField(Fake(concrete->parent), "_targetOffsetDriver", pan_class, offsetof(HavenFixtureProvider, pan));
+  AddField(Fake(concrete->parent), "_targetOffsetDelta", vec3_class, offsetof(HavenFixtureProvider, pan_delta));
+  PanFixture driver{{&pan_class.klass}};
+  auto& view = StationCamera().view;
+  const auto native_yaw = view.yaw;
+  const auto pan_input = [&](HavenFixtureProvider& endpoint) {
+    endpoint.pan_delta = {180, 2, 110};
+    ApplyStationInteriorPan(reinterpret_cast<OrbitFrameProvider*>(&endpoint));
+    return endpoint.pan_delta;
+  };
+  scene.far_provider.pan = scene.close_provider.pan = reinterpret_cast<PanDriver*>(&driver);
+  view.yaw = 90;
+  const auto quarter = pan_input(scene.far_provider);
+  Require(close_enough(quarter.x, 110) && quarter.y == 2 && close_enough(quarter.z, -180),
+          "quarter turn remaps the fresh pan delta to the heading on both horizontal axes");
+  view.yaw = 180;
+  const auto half = pan_input(scene.close_provider);
+  Require(close_enough(half.x, -180) && half.y == 2 && close_enough(half.z, -110),
+          "half turn reverses both native horizontal pan axes");
+  const auto unchanged = [](unity::Vector3 delta) { return delta.x == 180 && delta.y == 2 && delta.z == 110; };
+  driver.plane = PanDriver::Plane::XY;
+  Require(unchanged(pan_input(scene.close_provider)), "other pan planes stay native");
+  driver.plane = PanDriver::Plane::XZ;
+  auto* active_provider = station_zoom_current_provider;
+  station_zoom_current_provider = nullptr;
+  Require(unchanged(pan_input(scene.close_provider)), "an inactive station blend cannot redirect pan input");
+  station_zoom_current_provider = active_provider;
+  view.yaw = 0;
+  Require(unchanged(pan_input(scene.close_provider)), "reset heading preserves native pan");
+  view.yaw = native_yaw;
+
   haven_fixture_shortcuts::held = false;
   pan                           = {180, 0, 110};
   ++input_frame;

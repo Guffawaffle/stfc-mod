@@ -149,6 +149,8 @@ struct HavenFixtureProvider {
   float                   radius = 0, yaw = 20, pitch = 45;
   TargetController*       pivot = nullptr;
   TargetController*       look  = nullptr;
+  PanDriver*              pan   = nullptr;
+  unity::Vector3          pan_delta{};
 };
 struct HavenFixtureFrame {
   Il2CppObject      header;

@@ -906,10 +906,16 @@ bool NavigationPan_LateUpdate_Hook(auto original, NavigationPan* _this)
   return true;
 }
 
-// Move left and right rotate the camera around the station.
+bool camera_pan_installed = false;
+
 void OrbitFrameProvider_UpdateInputData_Hook(auto original, OrbitFrameProvider* _this, unity::Camera* primary_camera)
 {
   original(_this, primary_camera);
+  ApplyStationInteriorPan(_this);
+  if (!camera_pan_installed)
+    return;
+
+  // Move left and right rotate the camera around the exterior station.
   unity::Key::Poll();
 
   auto* sections = Hub::Sections();
@@ -923,6 +929,17 @@ void OrbitFrameProvider_UpdateInputData_Hook(auto original, OrbitFrameProvider* 
     _this->SetRotationAngleDelta(_this->rotationAngleDelta() - step);
   if (Shortcut::IsPressed(Action::kMoveRight))
     _this->SetRotationAngleDelta(_this->rotationAngleDelta() + step);
+}
+
+bool EnsureOrbitInput()
+{
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("OrbitInput");
+    IL2CPP_STAGE(hooks, OrbitFrameProvider::Class::Method<void(unity::Camera*)>("UpdateInputData"),
+                 OrbitFrameProvider_UpdateInputData_Hook);
+    return hooks.Commit();
+  }();
+  return installed;
 }
 
 // A held touch reports Stationary, which the game's pan ignores; report it as moving so drags keep panning.
@@ -974,13 +991,13 @@ bool InstallZoom()
 
 bool InstallPan()
 {
-  if (!navigation_orbit::EnsurePanMovement())
+  if (!navigation_orbit::EnsurePanMovement() || !EnsureOrbitInput())
     return false;
   il2cpp::HookSet hooks("Pan");
-  IL2CPP_STAGE(hooks, OrbitFrameProvider::Class::Method("UpdateInputData"), OrbitFrameProvider_UpdateInputData_Hook);
   IL2CPP_STAGE(hooks, TKTouch::Class::Method("populateWithPosition"), TKTouch_populateWithPosition_Hook);
   IL2CPP_STAGE(hooks, NavigationPan::Class::Method("LateUpdate"), NavigationPan_LateUpdate_Hook);
-  return hooks.Commit();
+  camera_pan_installed = hooks.Commit();
+  return camera_pan_installed;
 }
 
 bool InstallScrollZoomGuard()
@@ -1001,6 +1018,8 @@ bool InstallScrollZoomGuard()
 bool InstallInteriorZoom()
 {
   interior_zoom_installed = EnsureCameraBlendZoom();
+  if (interior_zoom_installed)
+    (void)EnsureOrbitInput();
   return interior_zoom_installed;
 }
 } // namespace

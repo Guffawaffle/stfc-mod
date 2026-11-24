@@ -27,6 +27,13 @@ struct View {
   bool Active() const
   { return yaw != 0 || tilt != 0; }
 
+  unity::Vector3 PanDelta(unity::Vector3 delta) const
+  {
+    const auto angle = yaw * radians;
+    const auto sine = std::sin(angle), cosine = std::cos(angle);
+    return {delta.x * cosine + delta.z * sine, delta.y, delta.z * cosine - delta.x * sine};
+  }
+
   void DragOrbit(unity::Vector2 delta, unity::Quaternion native)
   {
     const auto pitch = std::asin(std::clamp(-Forward(native).y, -1.0f, 1.0f)) / radians;

@@ -561,6 +561,15 @@ bool InStationInterior()
   return sections && sections->CurrentSection() == SectionID::Starbase_Interior;
 }
 
+bool IsCurrentProvider(FrameProvider* provider)
+{
+  const auto controller = CameraController::Class::TryCall<"get_Instance", CameraController*>();
+  const auto current    = controller && controller.value
+                              ? controller.value->TryCall<"get_CurrentProvider", FrameProvider*>()
+                              : il2cpp::CallResult<FrameProvider*>{};
+  return current && current.value == provider;
+}
+
 bool StationCameraEnabled()
 {
   const auto& config = Config::Get();
@@ -634,14 +643,7 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   // Native input, constraints and endpoint updates run first. Only this blend's newly generated output is extended;
   // endpoint assets and normalized LOD stay native.
   original(_this, camera);
-  bool interior = false;
-  if (InteriorZoomInstalled() && InStationInterior()) {
-    const auto controller = CameraController::Class::TryCall<"get_Instance", CameraController*>();
-    const auto current    = controller && controller.value
-                                ? controller.value->TryCall<"get_CurrentProvider", FrameProvider*>()
-                                : il2cpp::CallResult<FrameProvider*>{};
-    interior              = current && current.value == _this;
-  }
+  const bool interior = InteriorZoomInstalled() && InStationInterior() && IsCurrentProvider(_this);
   if (!interior && !haven_zoom_installed)
     return;
   const bool station_controls = interior && StationCameraEnabled();
@@ -852,6 +854,43 @@ bool InstallHavenHistory()
   return hooks.Commit();
 }
 } // namespace
+
+void ApplyStationInteriorPan(OrbitFrameProvider* provider)
+{
+  const auto& state = StationCamera();
+  if (state.view.yaw == 0 || !provider)
+    return;
+
+  auto* blend = state.blend.Get<BlendFrameProvider>();
+  if (!blend)
+    return;
+  const auto source = haven_binding::Field<"_sourceFrameProvider", FrameProvider*>(blend);
+  const auto target = haven_binding::Field<"_targetFrameProvider", FrameProvider*>(blend);
+  if (!source || !target || (provider != source.value && provider != target.value))
+    return;
+
+  auto* orbit = static_cast<AbstractOrbitFrameProvider*>(provider);
+  const auto delta = haven_binding::Field<"_targetOffsetDelta", unity::Vector3>(orbit);
+  if (!delta || !HavenFinite(delta.value.x, delta.value.y, delta.value.z)
+      || (delta.value.x == 0 && delta.value.z == 0))
+    return;
+
+  const auto frame = unity::Time::frameCount();
+  if (frame < state.frame || frame - state.frame > 1 || !StationCameraEnabled() || !InStationInterior()
+      || !IsCurrentProvider(blend))
+    return;
+
+  const auto driver = haven_binding::Field<"_targetOffsetDriver", PanDriver*>(orbit);
+  const auto alive = driver ? unity::TryAlive(driver.value) : il2cpp::CallResult<bool>{};
+  if (!alive || !alive.value || driver.value->plane() != PanDriver::Plane::XZ)
+    return;
+
+  // The live driver just supplied a fresh delta. Use the heading of the last displayed view
+  // before native frame generation applies it to the pivot, with the game's own pan limits.
+  const auto rotated = state.view.PanDelta(delta.value);
+  if (HavenFinite(rotated.x, rotated.z))
+    orbit->SetTargetOffsetDelta(rotated);
+}
 
 void ResetStationInteriorCamera()
 { StationCamera() = {}; }
