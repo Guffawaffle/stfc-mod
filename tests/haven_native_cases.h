@@ -152,6 +152,10 @@ struct HavenFixtureProvider {
   PanDriver*              pan   = nullptr;
   unity::Vector3          pan_delta{};
 };
+struct HavenFixturePanDriver {
+  Il2CppObject     header;
+  PanDriver::Plane plane = PanDriver::Plane::XZ;
+};
 struct HavenFixtureFrame {
   Il2CppObject      header;
   unity::Vector3    position{10, 20, 30};
@@ -181,6 +185,7 @@ struct HavenFixtureGeometry {
   HavenFixtureRange      close_range{}, far_range{}, pitch_range{};
   HavenFixtureConstraint close_constraint{}, far_constraint{};
   HavenFixtureProvider   close_provider{}, far_provider{};
+  HavenFixturePanDriver  pan_driver{};
   HavenFixtureFrame      source_frame{}, target_frame{}, result{};
   HavenFixtureBlend      blend{};
   Il2CppObject           pivot{}, curve{};
@@ -190,6 +195,7 @@ struct HavenFixtureGeometry {
     auto& provider = Define("Digit.Client.CameraController", "FrameProvider", IL2CPP_TYPE_CLASS, &component_class);
     auto& orbit = Define("Digit.Client.CameraController", "AbstractOrbitFrameProvider", IL2CPP_TYPE_CLASS, &provider);
     auto& concrete = Define("Digit.Client.CameraController", "OrbitFrameProvider", IL2CPP_TYPE_CLASS, &orbit);
+    auto& pan = Define("Digit.Client.CameraController", "PanDriver", IL2CPP_TYPE_CLASS, &component_class);
     auto& planetary =
         Define("Digit.Client.CameraController", "PlanetaryOrbitFrameProvider", IL2CPP_TYPE_CLASS, &concrete);
     auto& target =
@@ -226,6 +232,11 @@ struct HavenFixtureGeometry {
     AddField(orbit, "_elevationAngle", float_class, offsetof(HavenFixtureProvider, pitch));
     AddField(orbit, "_orbitPivot", target, offsetof(HavenFixtureProvider, pivot));
     AddField(orbit, "_lookTarget", target, offsetof(HavenFixtureProvider, look));
+    AddField(orbit, "_targetOffsetDriver", pan, offsetof(HavenFixtureProvider, pan));
+    AddField(orbit, "_targetOffsetDelta", vec3_class, offsetof(HavenFixtureProvider, pan_delta));
+    pan.klass.instance_size = sizeof(HavenFixturePanDriver);
+    AddField(pan, "_plane", int_class, offsetof(HavenFixturePanDriver, plane));
+    pan_driver.header.klass = &pan.klass;
     auto& position_type = mode == "haven-zoom-missing-position"   ? int_class
                           : mode == "haven-zoom-foreign-position" ? foreign_position
                                                                   : vec3_class;
