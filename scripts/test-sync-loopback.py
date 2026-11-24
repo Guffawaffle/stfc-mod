@@ -11,6 +11,16 @@ import sys
 import threading
 
 
+# A ServiceResponse with journal 7001 and an ally listed only in deployed_fleets.
+# An unknown field pads the first group to 123 bytes, so this starts with b"\n{".
+PROTOBUF_JOURNAL = bytes.fromhex(
+    "0a7b08dd01124008d93620053a0a706c6179657237303031420b6e70635f66697874757265"
+    "5a032d39365a03352e305a032d39376211ba010e081f120a0a08616c6c79373030317a34"
+) + bytes(52)
+# A valid journal 7002 with a distinct participant, returned in response to a request for 7001.
+PROTOBUF_WRONG_ID = bytes.fromhex("0a1408dd01120f08da363a0a706c6179657237303032")
+
+
 def main():
     modes = {"battle-request", "battle-prepost", "battle-retry", "battle-journal", "battle-profile", "battle-native"}
     if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] not in modes):
@@ -43,10 +53,13 @@ def main():
         def log_message(self, *_):
             pass
 
-        def answer(self, status, value):
-            body = json.dumps(value).encode()
+        def answer(self, status, value, *, json_bom=False):
+            binary = isinstance(value, bytes)
+            body = value if binary else json.dumps(value).encode()
+            if json_bom:
+                body = b"\xef\xbb\xbf" + body
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", "application/x-protobuf" if binary else "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Connection", "close")
             self.end_headers()
@@ -143,16 +156,20 @@ def main():
                     ordinal = journal_attempts[identity]
                     if identity == 7101:
                         counters["battle"]["journal_entered"] = True
-                if identity == 7001 and ordinal == 1:
-                    self.answer(503, {})
+                if identity == 7001:
+                    if ordinal == 1:
+                        self.answer(503, {})
+                    else:
+                        self.answer(200, PROTOBUF_WRONG_ID if ordinal == 2 else PROTOBUF_JOURNAL)
                     return
                 if identity == 7101 and not lifecycle_release["battle-journal"].wait(10):
                     self.answer(504, {})
                     return
-                self.answer(200, {"journal": {"initiator_id": f"player{identity}", "target_id": "npc_fixture"}})
+                journal = {"journal": {"initiator_id": f"player{identity}", "target_id": "npc_fixture"}}
+                self.answer(200, journal, json_bom=identity == 7101)
             elif lane == "profile":
                 identities = body.get("user_ids", [])
-                if not identities or any(value not in ("player7001", "player7101", "player7201", "player7301")
+                if not identities or any(value not in ("player7001", "ally7001", "player7101", "player7201", "player7301")
                                          for value in identities):
                     self.answer(400, {})
                     return
@@ -196,8 +213,8 @@ def main():
         with lock:
             captured = list(records)
             battle_counts = dict(counters["battle"]["counts"])
-        expected = {"battle-request": (0, 0, 0), "battle-prepost": (0, 0, 0), "battle-retry": (2, 1, 1),
-                    "battle-journal": (1, 0, 0), "battle-profile": (1, 1, 0), "battle-native": (4, 2, 1)}
+        expected = {"battle-request": (0, 0, 0), "battle-prepost": (0, 0, 0), "battle-retry": (3, 1, 1),
+                    "battle-journal": (1, 0, 0), "battle-profile": (1, 1, 0), "battle-native": (5, 2, 1)}
         if tuple(battle_counts[name] for name in ("journal", "profile", "alliance")) != expected[mode or "battle-native"]:
             raise RuntimeError("battle transport admission/removal/re-enable counts differ")
         if mode:

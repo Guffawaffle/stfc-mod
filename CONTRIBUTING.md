@@ -228,6 +228,7 @@ It uses text matching. Runtime type checks and in-game validation remain necessa
 | `sync/state.cc` | Comparisons, removals, and per-target acknowledgements |
 | `sync/upload.cc` | Sessions, the record store, target workers, and HTTP delivery |
 | `sync/battlelogs.cc` | Battle-journal fetching |
+| `sync/journal.cc` | Battle journal protobuf decoding and JSON conversion |
 
 Payload construction and HTTP run outside the store lock.
 Session generations prevent old responses and acknowledgements from changing a new login.

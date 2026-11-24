@@ -166,15 +166,27 @@ void BattleRetryRemoval()
         "unrelated resource destination must survive removal of the last battle destination");
   BattleInterest(true);
   QueueNewBattles({7001}, generation);
-  ProcessBattle(battles.Pop());
+  ProcessBattle(battles.Pop()); // The listener returns a valid report for a different battle.
+  Check(!HasBattle(7001, generation), "a mismatched journal was cached as the requested battle");
+  expected["journal"] = expected.at("journal").get<int>() + 1;
+  CheckBattleCounts(expected, "the mismatched response reached name resolution");
+  retry = battles.Pop();
+  Check(retry.id == 7001 && retry.attempts == 1, "a mismatched journal did not schedule a retry");
+  ProcessBattle(retry);
   Check(HasBattle(7001, generation), "re-adding interest did not recover the same pending battle id");
   expected["journal"]  = expected.at("journal").get<int>() + 1;
   expected["profile"]  = expected.at("profile").get<int>() + 1;
   expected["alliance"] = expected.at("alliance").get<int>() + 1;
-  CheckBattleCounts(expected, "re-enabled battle did not exercise journal/player/alliance requests");
-  Check(BattleWire().at("names").at("player7001")
-            == json{{"name", "Synthetic Player"}, {"alliance_name", "Synthetic Alliance"}, {"alliance_tag", "FX"}},
-        "re-enabled journal did not retain resolved player/alliance wire names");
+  CheckBattleCounts(expected, "re-enabled battle did not retry the mismatched journal and resolve names");
+  const auto  record  = BattleWire();
+  const auto& journal = record.at("journal");
+  Check(journal.at("id") == 7001 && journal.at("journal_src") == "pb1"
+            && journal.at("battle_log").dump() == "[-96,5.0,-97]",
+        "protobuf journal did not retain exact combat token kinds on the sync wire");
+  const auto names =
+      json{{"name", "Synthetic Player"}, {"alliance_name", "Synthetic Alliance"}, {"alliance_tag", "FX"}};
+  Check(record.at("names") == json{{"player7001", names}, {"ally7001", names}},
+        "protobuf journal did not retain resolved player/alliance names from both participant sources");
 }
 
 void BattleRequestAdmission(bool remove_during_setup)
