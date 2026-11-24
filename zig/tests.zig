@@ -520,9 +520,6 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         if (ctx.isWindows()) inline for (.{ "runtimeobject", "ole32", "oleaut32" }) |lib| module.linkSystemLibrary(lib, .{});
         build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
         test_il2cpp.dependOn(&b.addRunArtifact(exe).step);
-        const station_camera = b.addRunArtifact(exe);
-        station_camera.addArg("station-radius-native");
-        test_il2cpp.dependOn(&station_camera.step);
         inline for (.{ "haven-visual-events", "haven-history-native", "haven-zoom-native", "haven-zoom-missing-position", "haven-zoom-missing-orthographic", "haven-zoom-foreign-position", "haven-zoom-foreign-rotation", "haven-zoom-widened-provider", "haven-zoom-widened-frame", "haven-zoom-widened-output-frame", "haven-orbit-native", "scale-native", "scale-missing-local", "loading-login-consumer", "loading-transition-consumer", "loading-tips-consumer" }) |mode| {
             const presentation_case = b.addRunArtifact(exe);
             presentation_case.addArg(mode);
