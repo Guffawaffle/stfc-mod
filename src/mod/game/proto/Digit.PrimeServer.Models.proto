@@ -1452,7 +1452,7 @@ enum OutpostMarauderType {
   map<int64, int32> shipLevels = 24;
   map<int64, float> shipLevelPercentages = 25;
   int64 battleOpponentFleetId = 26;
-  bool battleWon = 27;
+  google.protobuf.BoolValue battleWon = 27;
   google.protobuf.Timestamp battleStartTime = 28;
   map<int64, DeployedShip> deployedShips = 29;
   int64 armadaAttackId = 30;
@@ -5682,7 +5682,7 @@ message BridgeCrewOfficer {
   int64 id = 1;                                   // id
   int32 level = 2;                                // level
   int32 rank = 3;                                 // rank
-  int64 slotIndex = 4;                            // slot_index (absent = slot 0)
+  int32 slotIndex = 4;                            // slot_index (absent = slot 0)
 }
 
 message CargoProto {
@@ -5715,5 +5715,5 @@ message JournalMultitargetArmadaInfo {
 
 message JournalGalacticAnomalyData {
   int64 tournamentId = 1;                         // tournament_id
-  map<int64, int64> systemBuffs = 2;              // system_buffs
+  map<int64, int32> systemBuffs = 2;              // system_buffs
 }

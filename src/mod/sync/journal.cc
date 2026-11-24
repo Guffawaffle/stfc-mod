@@ -264,7 +264,8 @@ namespace
       result["battle_opponent_fleet_id"] = *side.opponent_fleet_id;
     if (fleet.has_battlestarttime())
       result["battle_start_time"] = Time(fleet.battlestarttime());
-    result["battle_won"]           = fleet.battlewon() || side.won;
+    // The side result is the compatibility fallback when the fleet has no explicit outcome.
+    result["battle_won"]           = fleet.has_battlewon() ? fleet.battlewon().value() : side.won;
     result["cause_of_destruction"] = static_cast<int32_t>(fleet.causeofdestruction());
     if (fleet.courseid() != 0)
       result["course_id"] = fleet.courseid();
@@ -506,12 +507,6 @@ namespace
   }
 } // namespace
 
-bool IsJsonBody(std::string_view body)
-{
-  const auto start = body.find_first_not_of(" \t\r\n");
-  return start != std::string_view::npos && body[start] == '{';
-}
-
 std::optional<json> JournalFromProtobuf(std::string_view body, std::string* error)
 {
   try {
@@ -519,8 +514,6 @@ std::optional<json> JournalFromProtobuf(std::string_view body, std::string* erro
       return Fail(error, "the body is empty");
     if (body.size() > kMaxJournalBytes)
       return Fail(error, "the body is too large");
-    if (IsJsonBody(body))
-      return Fail(error, "the body is JSON");
     if (body.size() >= 2 && static_cast<uint8_t>(body[0]) == 0x1f && static_cast<uint8_t>(body[1]) == 0x8b)
       return Fail(error, "the body is still gzip-compressed");
 

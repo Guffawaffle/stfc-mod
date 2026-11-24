@@ -14,9 +14,6 @@
 
 namespace data_sync
 {
-// True when the first non-whitespace byte is '{': a server that still answers with JSON.
-bool IsJsonBody(std::string_view body);
-
 // The journal object for a protobuf /journals/get body, or nullopt with a short reason in `error`. Never throws.
 std::optional<nlohmann::json> JournalFromProtobuf(std::string_view body, std::string* error = nullptr);
 } // namespace data_sync

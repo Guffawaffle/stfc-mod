@@ -908,7 +908,7 @@ void ProtobufJournals()
 {
   const auto body      = BattleReportBody(SyntheticJournal());
   const auto converted = JournalFromProtobuf(body);
-  Check(!IsJsonBody(body) && converted.has_value(), "a protobuf battle report converts");
+  Check(converted.has_value(), "a protobuf battle report converts");
   // dump() compares the JSON number kinds too: 5.0 must stay a float and the ids integers.
   const auto expected = json::parse(R"(
     {"battle_context_data":{"context_data":{}},"battle_duration":5,"battle_log":[-96,1234567890123456789,5.0,
@@ -962,7 +962,16 @@ void ProtobufJournals()
   )");
   Check(converted && converted->dump() == expected.dump(), "a protobuf journal keeps the JSON journal shape");
 
-  Check(IsJsonBody(" \n{\"journal\":{}}"), "a JSON body keeps the JSON path");
+  auto  outcomes = SyntheticJournal();
+  auto* winner   = outcomes.mutable_initiatorfleetdata();
+  winner->mutable_deployedfleet()->mutable_battlewon()->set_value(false);
+  (*winner->mutable_deployedfleets())[31] = winner->deployedfleet();
+  const auto  fleet_outcomes              = JournalFromProtobuf(BattleReportBody(outcomes));
+  const auto& winner_data                 = fleet_outcomes.value().at("initiator_fleet_data");
+  Check(winner_data.at("deployed_fleet").at("battle_won") == false
+            && winner_data.at("deployed_fleets").at("31").at("battle_won") == false,
+        "an explicit fleet loss is preserved on the winning side");
+
   Check(!JournalFromProtobuf(R"({"journal":{}})"), "a JSON body is not read as protobuf");
   Check(!JournalFromProtobuf(""), "an empty body is refused");
   Check(!JournalFromProtobuf("\xff\xff\xff\xff garbage"), "garbage is refused");

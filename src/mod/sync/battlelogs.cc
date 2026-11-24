@@ -336,14 +336,8 @@ namespace
     const auto text = RequestGameData(session, "/journals/get", json{{"journal_id", battle.id}}.dump());
     if (text.empty())
       return false;
-    json reply;
-    if (IsJsonBody(text)) {
-      reply = json::parse(text, nullptr, false);
-      if (!reply.is_object() || !reply.contains("journal")) {
-        logging::Error("process", "battle log", "the journal of battle {} does not parse", battle.id);
-        return false;
-      }
-    } else {
+    auto reply = json::parse(text, nullptr, false);
+    if (reply.is_discarded()) {
       // Since 2026-11-19 the game server answers with protobuf; the journal is rebuilt in the JSON shape.
       std::string error;
       auto        converted = JournalFromProtobuf(text, &error);
@@ -352,7 +346,14 @@ namespace
                        battle.id, text.size(), error);
         return false;
       }
+      if (static_cast<uint64_t>(converted->at("id").get<int64_t>()) != battle.id) {
+        logging::Error("process", "battle log", "the protobuf journal id does not match the request for {}", battle.id);
+        return false;
+      }
       reply = {{"journal", std::move(*converted)}};
+    } else if (!reply.is_object() || !reply.contains("journal")) {
+      logging::Error("process", "battle log", "the journal of battle {} does not parse", battle.id);
+      return false;
     }
     auto& journal = reply["journal"];
     auto  names   = ResolveNames(session, journal);
