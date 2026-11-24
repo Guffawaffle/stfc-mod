@@ -465,6 +465,90 @@ void StationRadiusCases(std::string_view mode)
   interior_zoom_installed = false;
   run();
   native();
+  // Exercise the shared output hook with real input state transitions and the measured station endpoints.
+  auto& application = Define("UnityEngine", "Application", IL2CPP_TYPE_CLASS, &object_class);
+  AddMethod(application, "get_isFocused", reinterpret_cast<void*>(&HavenFixtureFocused), T(bool_class), {},
+            METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddMethod(event_system_class, "IsPointerOverGameObject", reinterpret_cast<void*>(&HavenFixtureOverUI), T(bool_class),
+            {T(int_class)});
+  auto&               tutorial = Define("Digit.Prime.Tutorial", "TutorialManager", IL2CPP_TYPE_CLASS, &object_class);
+  static Il2CppObject station_tutorial{};
+  station_tutorial.klass = &tutorial.klass;
+  auto* get_tutorial     = +[](const MethodInfo*) { return &station_tutorial; };
+  auto& tutorial_getter  = AddMethod(hub, "get_TutorialManager", reinterpret_cast<void*>(get_tutorial), T(tutorial), {},
+                                     METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(hub, "TutorialManager", &tutorial_getter);
+  auto* allow_scene = +[](Il2CppObject*, const MethodInfo*) { return true; };
+  AddMethod(tutorial, "IsSceneInputAllowed", reinterpret_cast<void*>(allow_scene), T(bool_class), {});
+  auto& shortcuts   = Define("Digit.Prime.GameInput", "ShortcutsManager", IL2CPP_TYPE_CLASS, &component_class);
+  auto* allow_keys  = +[](const MethodInfo*) { return true; };
+  auto& keys_getter = AddMethod(shortcuts, "get_CanUseShortcuts", reinterpret_cast<void*>(allow_keys), T(bool_class),
+                                {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(shortcuts, "CanUseShortcuts", &keys_getter);
+  selected                             = nullptr;
+  has_event_system                     = true;
+  interior_zoom_installed              = true;
+  config.patches.interiorzoomhooks     = true;
+  config.control.hotkeys_enabled       = true;
+  config.control.use_scopely_hotkeys   = false;
+  config.graphics.station_camera_orbit = true;
+  scene.blend.ratio                    = 1;
+  input_frame                          = 100;
+  auto gesture                         = [&](bool down, float x, float y) {
+    ++input_frame;
+    haven_fixture_shortcuts::held = true;
+    haven_fixture_shortcuts::down = down;
+    camera_mouse                  = {x, y, 0};
+    run();
+  };
+  haven_fixture_ui = true;
+  gesture(true, 120, 100);
+  haven_fixture_ui = false;
+  gesture(false, 220, 100);
+  Require(!StationCamera().view.Active(), "station orbit cannot start on UI or continue a blocked press");
+  gesture(true, 220, 100);
+  gesture(false, 500, 150);
+  const auto orbit_eye  = scene.result.position;
+  const auto orbit_look = scene.result.rotation;
+  Require(StationCamera().view.Active() && StationCamera().view.yaw != 0 && close_enough(distance(), 4000)
+              && close_enough(scene.result.clip - native_clip, 3000),
+          "orbit keeps the verified outer zoom and expanded far clip");
+  haven_fixture_shortcuts::held = false;
+  pan                           = {180, 0, 110};
+  ++input_frame;
+  run();
+  Require(close_enough(scene.result.position.y, orbit_eye.y)
+              && close_enough(scene.result.position.x - orbit_eye.x, pan.x)
+              && close_enough(scene.result.position.z - orbit_eye.z, pan.z) && close_enough(distance(), 4000)
+              && scene.result.rotation.y == orbit_look.y,
+          "native pan translates the rotated view without moving its zoom or orientation");
+  scene.blend.ratio = 0;
+  ++input_frame;
+  run();
+  Require(close_enough(distance(), 600) && scene.result.clip == native_clip,
+          "close-up distance and clipping survive combined orbit and pan without extending the inner endpoint");
+  haven_fixture_shortcuts::reset = true;
+  ++input_frame;
+  run();
+  native();
+  Require(!StationCamera().view.Active() && close_enough(distance(), 600),
+          "reset clears orbit at current zoom and preserves native pan");
+  haven_fixture_shortcuts::reset      = false;
+  config.graphics.interior_zoom_scale = 1;
+  scene.blend.ratio                   = 1;
+  gesture(true, 750, 240);
+  gesture(false, 820, 245);
+  Require(StationCamera().view.Active() && close_enough(distance(), 1000) && scene.result.clip == native_clip,
+          "station orbit also works with the native zoom range");
+  haven_fixture_section = SectionID::Starbase_Exterior;
+  UpdateStationInteriorCamera();
+  run();
+  native();
+  Require(!StationCamera().blend && !StationCamera().view.Active(), "leaving the station forgets the view and gesture");
+  haven_fixture_section = SectionID::Starbase_Interior;
+  gesture(false, 850, 245);
+  native();
+  ResetStationInteriorCamera();
   bindings_config_override = nullptr;
   Require(warp_roots.empty(), "stateless zoom retains no managed endpoint or constraint owners");
   std::cout << "Station production blend zoom: native near, actual far reach, both directions, nonlinear soft stops, "

@@ -69,9 +69,9 @@ constexpr std::string_view ShortcutExplanation(Action action)
     case Action::kNativeShortcutEvents:
       return "Uses the game's own shortcut behavior for this screen.";
     case Action::kHavenOrbitDrag:
-      return "Hold and drag on the Haven map: sideways rotates, up/down adjusts tilt. Release to keep the view.";
+      return "Hold and drag in Haven or inside the station to rotate or tilt. Release to keep the view.";
     case Action::kHavenOrbitReset:
-      return "Restore Haven's native rotation and tilt.";
+      return "Restore native rotation and tilt in Haven or inside the station.";
     case Action::kNavigationOrbitDrag:
       return "Hold and drag on the system map: sideways rotates, up/down adjusts tilt (5 to 90 degrees).";
     case Action::kNavigationOrbitReset:
@@ -149,8 +149,8 @@ inline constexpr auto ShortcutCatalog = std::to_array<ShortcutInfo>({
     {Action::kZoomOut, ShortcutGroup::Camera, "Zoom out"},
     {Action::kZoomMin, ShortcutGroup::Camera, "Zoom to minimum"},
     {Action::kZoomMax, ShortcutGroup::Camera, "Zoom to maximum"},
-    {Action::kHavenOrbitDrag, ShortcutGroup::Camera, "Rotate and tilt Haven (hold)"},
-    {Action::kHavenOrbitReset, ShortcutGroup::Camera, "Reset Haven rotation and tilt"},
+    {Action::kHavenOrbitDrag, ShortcutGroup::Camera, "Orbit Haven or station interior (hold)"},
+    {Action::kHavenOrbitReset, ShortcutGroup::Camera, "Reset Haven or station interior orbit"},
     {Action::kNavigationOrbitDrag, ShortcutGroup::Camera, "Rotate and tilt system (hold)"},
     {Action::kNavigationOrbitReset, ShortcutGroup::Camera, "Reset system rotation and tilt"},
     {Action::kZoomReset, ShortcutGroup::Camera, "Reset zoom"},

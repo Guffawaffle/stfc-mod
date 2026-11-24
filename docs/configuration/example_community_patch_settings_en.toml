@@ -317,6 +317,9 @@ system_camera_orbit = true
 # Station-interior zoom-out multiplier; 1 preserves native behavior. Default 2.
 interior_zoom_scale = 2.0
 
+# Station interior orbit. Uses Haven's orbit shortcuts. Middle-drag orbits and Alt + middle-mouse resets by default.
+station_camera_orbit = false
+
 # Zoom preset F1 for system view
 system_zoom_preset_1 = 50.0
 

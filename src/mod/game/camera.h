@@ -42,6 +42,8 @@ struct CameraFrame : il2cpp::Object {
   { SetField<"_position">(value); }
   unity::Quaternion rotation()
   { return Field<"_rotation", unity::Quaternion>(); }
+  void SetRotation(unity::Quaternion value)
+  { SetField<"_rotation">(value); }
   float fov()
   { return Field<"_FOV", float>(); }
   float farPlane()

@@ -1046,4 +1046,9 @@ const Feature kZoom{"Zoom",    &Config::Patches::zoomhooks,   InstallZoom,
                     ZoomFrame, InstallRequirement::kOptional, ResetZoom};
 const Feature kScrollZoomGuard{"ScrollZoomGuard", &Config::Patches::zoomhooks, InstallScrollZoomGuard};
 const Feature kPan{"Pan", &Config::Patches::panhooks, InstallPan};
-const Feature kInteriorZoom{"InteriorZoom", &Config::Patches::interiorzoomhooks, InstallInteriorZoom};
+const Feature kInteriorZoom{"InteriorZoom",
+                            &Config::Patches::interiorzoomhooks,
+                            InstallInteriorZoom,
+                            UpdateStationInteriorCamera,
+                            InstallRequirement::kOptional,
+                            ResetStationInteriorCamera};

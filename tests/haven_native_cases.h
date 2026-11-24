@@ -3,18 +3,21 @@
 // Actual Haven camera/history consumers against the existing controlled runtime.
 // Orbit substitutes only shortcut input; scene/UI/constraint observations use the
 // production typed adapters. No installed detour, rendered image or player claim.
-#include "../src/mod/features/haven.cc"
+#include "shortcuts.h"
 
 namespace haven_fixture_shortcuts
 {
-inline bool bound = true, held = false, down = false, reset = false;
-inline bool HasBinding(Action)
+inline bool   bound = true, held = false, down = false, reset = false;
+inline bool   HasBinding(Action)
 { return bound; }
 inline bool IsPressed(Action action)
 { return action == Action::kHavenOrbitDrag && held; }
 inline bool IsDown(Action action)
 { return action == Action::kHavenOrbitDrag ? down : action == Action::kHavenOrbitReset && reset; }
 } // namespace haven_fixture_shortcuts
+#define Shortcut haven_fixture_shortcuts
+#include "../src/mod/features/haven.cc"
+#undef Shortcut
 namespace haven_fixture_orbit
 {
 void ApplyConstraints(OrbitFrameProvider* provider);

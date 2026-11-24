@@ -4,11 +4,14 @@
 
 #include "config.h"
 #include "features/features.h"
+#include "features/station_camera.h"
 #include "haven_visuals_policy.h"
+#include "shortcuts.h"
 
 #include "game/camera.h"
 #include "game/haven.h"
 #include "game/haven_orbit.h"
+#include "game/ui.h"
 
 #include <il2cpp/hook.h>
 #include <il2cpp/il2cpp.h>
@@ -537,26 +540,113 @@ std::optional<float> InteriorOrbitRadius(FrameProvider* provider)
   return radius && std::isfinite(radius.value) && radius.value > 0 ? std::optional{radius.value} : std::nullopt;
 }
 
+struct StationCameraState {
+  il2cpp::GcHandle    blend;
+  station_camera::View view;
+  bool                 dragging = false;
+  unity::Vector2       pointer{};
+  int32_t              frame = -1;
+};
+
+StationCameraState& StationCamera()
+{
+  // The weak handle is cleared on exit/reset, while IL2CPP can still be called.
+  static auto* state = new StationCameraState;
+  return *state;
+}
+
+bool InStationInterior()
+{
+  auto* sections = Hub::Sections();
+  return sections && sections->CurrentSection() == SectionID::Starbase_Interior;
+}
+
+bool StationCameraEnabled()
+{
+  const auto& config = Config::Get();
+  return config.graphics.station_camera_orbit && config.patches.interiorzoomhooks && config.control.hotkeys_enabled
+         && !config.control.use_scopely_hotkeys;
+}
+
+void StationCameraInput(StationCameraState& state, unity::Quaternion native)
+{
+  unity::Key::Poll();
+  const auto focused = unity::Application::Class::TryCall<"get_isFocused", bool>();
+  if (!focused || !focused.value || unity::Key::IsInputFocused()) {
+    state.dragging = false;
+    return;
+  }
+  const bool reset      = Shortcut::IsDown(Action::kHavenOrbitReset);
+  const bool held       = !reset && Shortcut::IsPressed(Action::kHavenOrbitDrag);
+  const bool continuing = held && state.dragging;
+  state.dragging        = false;
+  if (!held && !reset)
+    return;
+  auto* tutorial = Hub::Tutorial();
+  if (!tutorial || !tutorial->IsSceneInputAllowed() || !ShortcutsManager::CanUseShortcuts()
+      || !haven_orbit_binding::PointerClearOfUi(continuing))
+    return;
+  if (reset) {
+    state.view = {};
+    return;
+  }
+  if (!continuing && !Shortcut::IsDown(Action::kHavenOrbitDrag))
+    return;
+  const auto position = unity::Input::TryMousePosition();
+  if (!position || !HavenFinite(position.value.x, position.value.y))
+    return;
+  const unity::Vector2 delta{position.value.x - state.pointer.x, position.value.y - state.pointer.y};
+  state.pointer  = {position.value.x, position.value.y};
+  state.dragging = true;
+  if (continuing && HavenFinite(delta.x, delta.y) && (delta.x != 0 || delta.y != 0))
+    state.view.DragOrbit(delta, native);
+}
+
+void ApplyStationCamera(BlendFrameProvider* blend, CameraFrame* result, unity::Vector3 eye, unity::Quaternion native,
+                        float distance)
+{
+  const auto frame = unity::Time::frameCount();
+  if (frame < 0 || !HavenFinite(distance, eye.x, eye.y, eye.z) || distance <= 0)
+    return;
+  auto& state = StationCamera();
+  if (state.blend.Get() != blend || frame < state.frame || frame - state.frame > 1) {
+    state       = {};
+    state.blend = il2cpp::GcHandle::Weak(blend);
+    if (!state.blend)
+      return;
+  }
+  if (frame != state.frame) {
+    state.frame = frame;
+    StationCameraInput(state, native);
+  }
+  if (!state.view.Active())
+    return;
+  const auto look      = state.view.Rotation(native);
+  const auto eye_moved = station_camera::View::Position(eye, native, look, distance);
+  if (!HavenFinite(eye_moved.x, eye_moved.y, eye_moved.z, look.x, look.y, look.z, look.w))
+    return;
+  result->SetPosition(eye_moved);
+  result->SetRotation(look);
+}
+
 void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider* _this, unity::Camera* camera)
 {
   // Native input, constraints and endpoint updates run first. Only this blend's newly generated output is extended;
   // endpoint assets and normalized LOD stay native.
   original(_this, camera);
   bool interior = false;
-  if (InteriorZoomInstalled()) {
-    auto* sections = Hub::Sections();
-    if (sections && sections->CurrentSection() == SectionID::Starbase_Interior) {
-      const auto controller = CameraController::Class::TryCall<"get_Instance", CameraController*>();
-      const auto current    = controller && controller.value
-                                  ? controller.value->TryCall<"get_CurrentProvider", FrameProvider*>()
-                                  : il2cpp::CallResult<FrameProvider*>{};
-      interior              = current && current.value == _this;
-    }
+  if (InteriorZoomInstalled() && InStationInterior()) {
+    const auto controller = CameraController::Class::TryCall<"get_Instance", CameraController*>();
+    const auto current    = controller && controller.value
+                                ? controller.value->TryCall<"get_CurrentProvider", FrameProvider*>()
+                                : il2cpp::CallResult<FrameProvider*>{};
+    interior              = current && current.value == _this;
   }
   if (!interior && !haven_zoom_installed)
     return;
-  const auto scale = Config::Get().graphics.interior_zoom_scale;
-  if (interior && (!std::isfinite(scale) || scale <= 1.0f))
+  const bool station_controls = interior && StationCameraEnabled();
+  const auto scale            = Config::Get().graphics.interior_zoom_scale;
+  if (interior && !station_controls && (!std::isfinite(scale) || scale <= 1.0f))
     return;
   auto       max_zoom = interior ? 0.0f : Config::Get().graphics.haven_zoom;
   const bool hidden   = !interior && Config::Get().graphics.hide_haven_water;
@@ -577,7 +667,7 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
     return;
   if (interior) {
     max_zoom = std::max(source_radius, target_radius) * scale;
-    if (!std::isfinite(max_zoom))
+    if (!std::isfinite(max_zoom) && !station_controls)
       return;
   }
 
@@ -646,7 +736,7 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   if (!interior)
     if (auto* visuals = HavenVisuals())
       visuals->Apply(expanded, hidden);
-  if (!expanded)
+  if (!expanded && !station_controls)
     return;
 
   const auto curve_ratio   = curve->TryCall<"Evaluate", float(float)>(ratio);
@@ -673,33 +763,27 @@ void BlendFrameProvider_UpdateCameraFrame_Hook(auto original, BlendFrameProvider
   const auto native_outer = inner_radius + gap * outer_weight;
   const auto native_distance = inner_radius + gap * weight;
   const auto progress        = std::clamp((weight - inner_weight) / (outer_weight - inner_weight), 0.0, 1.0);
-  const auto extra           = std::min(max_zoom - native_distance, (max_zoom - native_outer) * progress);
-  if (!std::isfinite(extra))
-    return;
-  if (extra <= 0.0)
-    return;
-
-  // Preserve native pivot interpolation and pan offsets by adding only along the shared camera back axis.
-  // The rotation's forward vector is (2(xz + wy), 2(yz - wx), 1 - 2(x^2 + y^2)); move `extra` against it.
-  // The far plane moves out by the same amount.
-  position.x += static_cast<float>(-2.0 * (ar.x * ar.z + ar.w * ar.y) * extra);
-  position.y += static_cast<float>(-2.0 * (ar.y * ar.z - ar.w * ar.x) * extra);
-  position.z += static_cast<float>((2.0 * (ar.x * ar.x + ar.y * ar.y) - 1.0) * extra);
-  const auto clip_observed = haven_binding::Field<"_farPlane", float>(result);
-  if (!clip_observed)
-    return;
-  auto clip = clip_observed.value;
-  if (!std::isfinite(clip) || clip <= 0.0f)
-    return;
-  clip += static_cast<float>(extra);
-  if (!HavenFinite(position.x, position.y, position.z, clip) || clip <= 0.0f)
-    return;
-  result->SetPosition(position);
-  result->SetFarPlane(clip);
-  static std::array<bool, 2> reported{};
-  if (!std::exchange(reported[interior ? 1 : 0], true))
-    spdlog::info("[{}] expanded native outer distance {} to maximum {}", interior ? "InteriorZoom" : "HavenZoom",
-                 native_outer, max_zoom);
+  const auto extra = expanded ? std::min(max_zoom - native_distance, (max_zoom - native_outer) * progress) : 0.0;
+  if (std::isfinite(extra) && extra > 0) {
+    // Preserve native pivot interpolation and pan offsets by moving only along the shared camera back axis.
+    position.x += static_cast<float>(-2.0 * (ar.x * ar.z + ar.w * ar.y) * extra);
+    position.y += static_cast<float>(-2.0 * (ar.y * ar.z - ar.w * ar.x) * extra);
+    position.z += static_cast<float>((2.0 * (ar.x * ar.x + ar.y * ar.y) - 1.0) * extra);
+    const auto clip_observed = haven_binding::Field<"_farPlane", float>(result);
+    if (!clip_observed || !std::isfinite(clip_observed.value) || clip_observed.value <= 0)
+      return;
+    const auto clip = clip_observed.value + static_cast<float>(extra);
+    if (!HavenFinite(position.x, position.y, position.z, clip))
+      return;
+    result->SetPosition(position);
+    result->SetFarPlane(clip);
+    static std::array<bool, 2> reported{};
+    if (!std::exchange(reported[interior ? 1 : 0], true))
+      spdlog::info("[{}] expanded native outer distance {} to maximum {}", interior ? "InteriorZoom" : "HavenZoom",
+                   native_outer, max_zoom);
+  }
+  if (station_controls && std::isfinite(extra) && haven_binding::Field<"_rotation", unity::Quaternion>(result))
+    ApplyStationCamera(_this, result, position, ar, static_cast<float>(native_distance + std::max(0.0, extra)));
 }
 
 // --- Help history ---
@@ -768,6 +852,15 @@ bool InstallHavenHistory()
   return hooks.Commit();
 }
 } // namespace
+
+void ResetStationInteriorCamera()
+{ StationCamera() = {}; }
+
+void UpdateStationInteriorCamera()
+{
+  if (StationCamera().blend && (!StationCameraEnabled() || !InStationInterior()))
+    ResetStationInteriorCamera();
+}
 
 bool EnsureCameraBlendZoom()
 {
