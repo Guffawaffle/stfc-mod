@@ -824,7 +824,7 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
     {
         const module = syncModule(ctx, libs);
         module.addCSourceFiles(.{
-            .files = &.{ "tests/sync_logic.cc", "src/mod/sync/records.cc", "src/mod/sync/state.cc" },
+            .files = &.{ "tests/sync_logic.cc", "src/mod/sync/journal.cc", "src/mod/sync/records.cc", "src/mod/sync/state.cc" },
             .flags = mod_flags,
         });
         addFixture(ctx, build_tests, test_sync, "sync-logic-tests", module);
@@ -875,7 +875,13 @@ pub fn addSyncUpload(build_ctx: *const Ctx, libs: Libs, steps: Steps) void {
     (libs.cpr orelse @panic("The uploader fixture must reuse the existing product CPR library")).linkInto(module);
     (libs.curl orelse @panic("The uploader fixture must reuse the existing product CURL library")).linkInto(module);
     module.addCSourceFiles(.{
-        .files = &.{ "tests/sync_upload.cc", "src/mod/sync/upload.cc", "src/mod/sync/state.cc", "src/mod/sync/diagnostics.cc" },
+        .files = &.{
+            "tests/sync_upload.cc",
+            "src/mod/sync/upload.cc",
+            "src/mod/sync/state.cc",
+            "src/mod/sync/diagnostics.cc",
+            "src/mod/sync/journal.cc",
+        },
         .flags = ctx.cxxFlags("c++23", &.{ "-Wno-invalid-offsetof", "-UNDEBUG" }),
     });
     const exe = ctx.executable("sync-upload-tests", module);
