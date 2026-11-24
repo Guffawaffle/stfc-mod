@@ -34,13 +34,17 @@ inline bool InHaven()
       sections ? sections->TryCall<"get_CurrentSection", SectionID>() : il2cpp::CallResult<SectionID>{};
   return section && section.value == SectionID::Starbase_Planetary;
 }
-inline bool PointerAvailable(bool continuing)
+inline bool PointerClearOfUi(bool continuing)
 {
   const auto observed = unity::EventSystem::Class::TryCall<"get_current", unity::EventSystem*>();
   auto       events   = il2cpp::GcHandle::Strong(observed ? observed.value : nullptr);
   const auto over     = events ? events.Get<unity::EventSystem>()->TryCall<"IsPointerOverGameObject", bool(int32_t)>(-1)
                                : il2cpp::CallResult<bool>{};
-  if (!over || (over.value && !continuing))
+  return over && (!over.value || continuing);
+}
+inline bool PointerAvailable(bool continuing)
+{
+  if (!PointerClearOfUi(continuing))
     return false;
   const auto manager = Starbase::Class::TryCall<"get_Instance", Starbase*>();
   auto       root    = il2cpp::GcHandle::Strong(manager ? manager.value : nullptr);

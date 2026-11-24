@@ -858,6 +858,11 @@ void FrozenSettingsDefaults()
     Check(!disabled->graphics.system_camera_orbit && !disabled->patches.navigationorbithooks
               && !disabled->patches.havenzoomhooks,
           "explicit rotation opt-out and hook compatibility switches remain respected");
+    Check(!disabled->graphics.station_camera_orbit, "station camera orbit is opt-in for existing settings");
+    const auto station =
+        Config::Parse(toml::parse("[graphics]\nstation_camera_orbit=true\ninterior_zoom_scale=4"), parsed, false);
+    Check(station->graphics.station_camera_orbit && station->graphics.interior_zoom_scale == 4.0f,
+          "station orbit and zoom scale can be enabled independently");
     toml::table shortcut_defaults;
     (void)Shortcut::Parse(toml::table{}, shortcut_defaults, true, false);
     Check(Value(shortcut_defaults, "shortcuts", "navigation_orbit_drag") == "MOUSE2"

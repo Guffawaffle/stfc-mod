@@ -900,6 +900,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.ReadValid("graphics", "haven_zoom", g.haven_zoom, [](float v) { return std::isfinite(v) && v >= 0.0f; });
   r.Read("graphics", "hide_haven_water", g.hide_haven_water);
   r.Read("graphics", "system_camera_orbit", g.system_camera_orbit);
+  r.Read("graphics", "station_camera_orbit", g.station_camera_orbit);
   r.ReadValid("graphics", "interior_zoom_scale", g.interior_zoom_scale,
               [](float v) { return std::isfinite(v) && v >= 1.0f; });
   r.Read("graphics", "fr_scale", g.fr_scale);

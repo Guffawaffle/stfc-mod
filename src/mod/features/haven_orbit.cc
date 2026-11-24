@@ -2,6 +2,7 @@
 // Shared constraint assets, Haven zoom expansion and water ownership stay native.
 #include "features/haven_orbit.h"
 #include "config.h"
+#include "features/camera_orbit_input.h"
 #include "features/features.h"
 #include "shortcuts.h"
 
@@ -168,10 +169,8 @@ bool HavenOrbitPrepare(BlendFrameProvider* blend)
         state.dragging = false;
       } else {
         if (state.dragging) {
-          constexpr float degrees_per_pixel = 0.15f;
-          state.yaw  = std::remainder(state.yaw + (position.value.x - state.x) * degrees_per_pixel, 360.0f);
-          state.tilt = std::clamp(state.tilt - (position.value.y - state.y) * degrees_per_pixel, 5.0f - *pitch_a,
-                                  90.0f - *pitch_a);
+          ApplyOrbitDrag(state.yaw, state.tilt, position.value.x - state.x, position.value.y - state.y,
+                         5.0f - *pitch_a, 90.0f - *pitch_a);
         }
         state.x        = position.value.x;
         state.y        = position.value.y;
