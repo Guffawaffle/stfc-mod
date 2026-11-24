@@ -501,6 +501,11 @@ void StationRadiusCases(std::string_view mode)
     camera_mouse                  = {x, y, 0};
     run();
   };
+  gesture(true, 90, 100);
+  gesture(false, 120, 100);
+  Require(!StationCamera().view.Active() && close_enough(distance(), 4000),
+          "missing orbit input keeps camera rotation off and retains the extended zoom");
+  station_orbit_input_installed = true;
   haven_fixture_ui = true;
   gesture(true, 120, 100);
   haven_fixture_ui = false;

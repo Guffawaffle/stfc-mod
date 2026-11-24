@@ -954,6 +954,7 @@ TKTouch* TKTouch_populateWithPosition_Hook(auto original, TKTouch* _this, uintpt
 // --- Station interior zoom ---
 // The shared blend callback extends only the rendered output; native endpoints and constraints stay intact.
 bool interior_zoom_installed = false;
+bool station_orbit_input_installed = false;
 
 void OrbitFrameProvider_UpdateConstrains_Hook(auto original, OrbitFrameProvider* _this, unity::Camera* primary_camera)
 {
@@ -1018,14 +1019,16 @@ bool InstallScrollZoomGuard()
 bool InstallInteriorZoom()
 {
   interior_zoom_installed = EnsureCameraBlendZoom();
-  if (interior_zoom_installed)
-    (void)EnsureOrbitInput();
+  station_orbit_input_installed = interior_zoom_installed && EnsureOrbitInput();
   return interior_zoom_installed;
 }
 } // namespace
 
 bool InteriorZoomInstalled()
 { return interior_zoom_installed; }
+
+bool StationOrbitInputInstalled()
+{ return station_orbit_input_installed; }
 
 float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed)
 {

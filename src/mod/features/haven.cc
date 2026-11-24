@@ -573,8 +573,8 @@ bool IsCurrentProvider(FrameProvider* provider)
 bool StationCameraEnabled()
 {
   const auto& config = Config::Get();
-  return config.graphics.station_camera_orbit && config.patches.interiorzoomhooks && config.control.hotkeys_enabled
-         && !config.control.use_scopely_hotkeys;
+  return StationOrbitInputInstalled() && config.graphics.station_camera_orbit && config.patches.interiorzoomhooks
+         && config.control.hotkeys_enabled && !config.control.use_scopely_hotkeys;
 }
 
 void StationCameraInput(StationCameraState& state, unity::Quaternion native)

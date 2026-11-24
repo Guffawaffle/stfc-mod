@@ -115,6 +115,7 @@ extern const Feature kInteriorZoom;
 // Station interior and Haven share one native blend callback, with independent installation flags.
 bool EnsureCameraBlendZoom();
 bool InteriorZoomInstalled();
+bool StationOrbitInputInstalled();
 struct OrbitFrameProvider;
 void ApplyStationInteriorPan(OrbitFrameProvider* provider);
 void UpdateStationInteriorCamera();
