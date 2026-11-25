@@ -123,14 +123,7 @@ struct ActionView: View {
       launchButton.padding(.top, 10)
       utilityButtons.padding(.top, compact ? 10 : 16)
 
-      if updating {
-        HStack(spacing: 8) {
-          ProgressView().controlSize(.small)
-          Text(updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)").font(.caption)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.top, 16)
-      } else if !launchStatus.isEmpty {
+      if !launchStatus.isEmpty {
         Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
           .fixedSize(horizontal: false, vertical: true).help(launchStatus).padding(.top, 16)
           .accessibilityAddTraits(.updatesFrequently)
@@ -276,18 +269,37 @@ struct ActionView: View {
       Button("Rename ordinary game…", action: renameOrdinaryGame)
     } label: { Label("Mod settings", systemImage: "slider.horizontal.3") }
     .help("Open configuration files for the selected launch target.")
-    let showsUpdateCheckmark = gameInstalled && gameUpToDate && !gameUpdateAvailable
+    let showsUpdateCheckmark = !updating && gameInstalled && gameUpToDate && !gameUpdateAvailable
+    let updateStatus = if updating {
+      updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)"
+    } else {
+      showsUpdateCheckmark ? "Up to date" : ""
+    }
+    let updateHelp = showsUpdateCheckmark ? "Game is up to date. Click to check again." : "Check for a game update."
     Button(action: requestUpdate) {
       Label {
-        Text(gameUpdateAvailable ? "Update game" : "Game update")
+        ZStack {
+          // Size the button for both titles so an availability change can't reflow the utility controls.
+          Text("Game update").hidden().accessibilityHidden(true)
+          Text("Update game").hidden().accessibilityHidden(true)
+          Text(gameUpdateAvailable ? "Update game" : "Game update")
+        }
       } icon: {
-        Image(systemName: showsUpdateCheckmark ? "checkmark" : "arrow.down.to.line")
-          .foregroundStyle(showsUpdateCheckmark ? Color.green : Color.primary)
+        Group {
+          if updating {
+            ProgressView().progressViewStyle(.circular).controlSize(.small)
+          } else {
+            Image(systemName: showsUpdateCheckmark ? "checkmark" : "arrow.down.to.line")
+              .foregroundStyle(showsUpdateCheckmark ? Color.green : Color.primary)
+          }
+        }
+        .frame(width: 16, height: 16)
+        .accessibilityHidden(true)
       }
     }
     .disabled(updateDisabled)
-    .accessibilityValue(showsUpdateCheckmark ? "Up to date" : "")
-    .help(showsUpdateCheckmark ? "Game is up to date. Click to check again." : "Check for a game update.")
+    .accessibilityValue(updateStatus)
+    .help(updating ? updateStatus : updateHelp)
   }
 
   @MainActor
@@ -315,7 +327,6 @@ struct ActionView: View {
     updateRequestID = UUID()
     updateAction = "Checking for updates"
     updateSubAction = ""
-    launchStatus = ""
     gameUpToDate = false
     Task { @MainActor in
       let installedVersion = gameUpdater.installedVersion()
