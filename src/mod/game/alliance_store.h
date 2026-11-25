@@ -1,7 +1,6 @@
 #pragma once
 
-// Alliance Games store bindings. The study's native research path, with checked
-// metadata and operation-local custody; no diagnostic dispatcher or shop model.
+// Alliance Games store and shared reward tooltip bindings.
 #include "inventory.h"
 
 #include <array>
@@ -41,10 +40,38 @@ struct StoreSmartScroller : il2cpp::Object {
 struct StoreResearchManager : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Research", "ResearchManager">;
 };
+struct StoreArtifact : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ArtifactHall", "Artifact">;
+};
+struct StoreArtifactHall : MonoSingleton<StoreArtifactHall> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ArtifactHall", "ArtifactHallManager">;
+};
 
 namespace alliance_store_game
 {
-enum class ResearchTree : int32_t { Standard = 0 };
+struct TooltipWidget : Widget<il2cpp::Object> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Tooltip", "TooltipWidget">;
+};
+
+struct InventoryBaseWidget : Widget<InventoryItem> {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Inventories", "InventoryBaseWidget">;
+
+  StoreTooltipTrigger* Tooltip()
+  { return Field<"_toolTipTrigger", StoreTooltipTrigger*>(); }
+};
+
+enum class ResearchTree : int32_t { Standard = 0, ShipCosmetics = 1 };
+enum class RewardType : int32_t {
+  Unknown      = -1,
+  Blueprint    = 1,
+  Resource     = 3,
+  Officer      = 9,
+  OfficerShard = 11,
+  Cosmetic     = 12,
+  TechShard    = 14,
+  Tech         = 104,
+};
+enum class RewardResourceSubtype : int32_t { Unknown = -1, Soft = 1, Hard = 2, Material = 11, CosmeticShard = 16 };
 
 // Every nonnull acquired object must have successful custody before a later
 // allocating native call. Roots expire with this one reconciliation operation.
@@ -64,6 +91,12 @@ struct Roots {
     return value;
   }
 };
+
+inline StoreTooltipTrigger* Trigger(TooltipWidget* popup, Roots& roots)
+{
+  auto* context = roots.Keep(popup->Context());
+  return context ? context->As<StoreTooltipTrigger>() : nullptr;
+}
 
 template <typename T> struct Field {
   FieldInfo* field = nullptr;
@@ -92,18 +125,30 @@ struct OverridableBool {
 };
 static_assert(sizeof(OverridableBool) == 3);
 
-struct Fields {
+// The tooltip text path is shared by stock offer popups and the research action.
+struct TooltipBodyFields {
+  Field<bool>          override_locale;
+  Field<Il2CppString*> description_override;
+
+  bool Resolve(Il2CppClass* tooltip)
+  {
+    bool ok = override_locale.Resolve(tooltip, "_overrideLocale");
+    ok &= description_override.Resolve(tooltip, "<DescriptionOverrideText>k__BackingField");
+    return ok;
+  }
+};
+
+struct Fields : TooltipBodyFields {
   Field<StoreTooltipTrigger*>             trigger;
   Field<StoreTooltipAction*>              action;
   Field<StoreActionLocale*>               search, locale;
   Field<StoreActionLocales*>              settings;
   Field<OverridableBool>                  show_header, show_description;
   Field<LocaleTextContext*>               header, description;
-  Field<bool>                             override_locale, interactable;
+  Field<bool>                             interactable;
   Field<int32_t>                          anchor;
   Field<unity::Vector2>                   size, offset;
   Field<unity::Transform*>                target;
-  Field<Il2CppString*>                    description_override;
   Field<StoreTooltipLoader*>              loader;
   Field<StoreSmartScroller*>              scroller;
   Field<il2cpp::List<unity::Transform*>*> spawned;
@@ -116,7 +161,7 @@ struct Fields {
   {
     auto* widget  = StoreInventoryTooltip::Class::Raw();
     auto* tooltip = StoreTooltipTrigger::Class::Raw();
-    bool  ok      = true;
+    bool  ok      = TooltipBodyFields::Resolve(tooltip);
     ok &= trigger.Resolve(widget, "_tooltipTrigger");
     ok &= action.Resolve(widget, "_tooltipActionTrigger");
     ok &= search.Resolve(widget, "_searchActionLocaleSetting");
@@ -130,13 +175,11 @@ struct Fields {
             && il2cpp::ClassName(il2cpp_class_from_type(field->type)) == "Digit.Client.Serialization.OverridableBool";
     ok &= header.Resolve(tooltip, "_header");
     ok &= description.Resolve(tooltip, "_description");
-    ok &= override_locale.Resolve(tooltip, "_overrideLocale");
     ok &= anchor.Resolve(tooltip, "_anchorOverride");
     ok &= size.Resolve(tooltip, "_sizeOverride");
     ok &= target.Resolve(tooltip, "_positionOverrideTarget");
     ok &= offset.Resolve(tooltip, "_positionOverrideOffset");
     ok &= interactable.Resolve(tooltip, "_isInteractable");
-    ok &= description_override.Resolve(tooltip, "<DescriptionOverrideText>k__BackingField");
     ok &= loader.Resolve(tooltip, "_loader");
     ok &= scroller.Resolve(ShopListScrollerViewController::Class::Raw(), "_smartScroller");
     ok &= spawned.Resolve(StoreSmartScroller::Class::Raw(), "_spawnedItems");
@@ -186,30 +229,70 @@ inline bool NotifyPosition(StoreSmartScroller* smart, unity::Vector2 position)
   return il2cpp::detail::TryInvokeBoxed(method, smart, args).succeeded;
 }
 
-inline il2cpp::CallResult<bool> Eligible(InventoryItem* item)
+inline StoreArtifact* ArtifactForResource(int64_t resource_id, Roots& roots)
 {
-  Roots roots;
-  if (!roots.Keep(item))
-    return {};
-  const auto resource = item->TryCall<"get_ResourceSpec", ResourceSpec*>();
-  auto*      spec     = resource ? roots.Keep(resource.value) : nullptr;
-  const auto id       = spec ? spec->TryCall<"get_Id", int64_t>() : il2cpp::CallResult<int64_t>{};
-  if (!id || id.value <= 0)
-    return {};
-  using HubClass      = il2cpp::Class<"Assembly-CSharp", "Digit.Client.Core", "Hub">;
-  const auto observed = HubClass::TryCall<"get_ResearchManager", StoreResearchManager*>();
-  auto*      manager  = observed ? roots.Keep(observed.value) : nullptr;
-  return manager ? manager->TryCall<"IsResourceRequiredByVisibleResearches", bool(int64_t, ResearchTree)>(
-                       id.value, ResearchTree::Standard)
-                 : il2cpp::CallResult<bool>{};
+  auto* manager = roots.Keep(StoreArtifactHall::Instance());
+  if (!manager || !roots.healthy)
+    return nullptr;
+  // The conversion screen uses a shard-resource index. TryGetArtifactByID
+  // takes a research project ID instead.
+  auto*          index    = roots.Keep(manager->Field<"_artifactsByResourceId", il2cpp::Object*>());
+  StoreArtifact* artifact = nullptr;
+  const auto     found    = index ? index->TryCall<"TryGetValue", bool(int64_t, StoreArtifact*&)>(resource_id, artifact)
+                                  : il2cpp::CallResult<bool>{};
+  return found && found.value ? roots.Keep(artifact) : nullptr;
 }
+
+struct RewardIdentity {
+  RewardType            type             = RewardType::Unknown;
+  int64_t               resource_id      = 0;
+  RewardResourceSubtype resource_subtype = RewardResourceSubtype::Unknown;
+  StoreArtifact*        artifact         = nullptr;
+
+  bool IsCosmeticShard() const
+  { return resource_subtype == RewardResourceSubtype::CosmeticShard; }
+
+  bool HasCollectibleProgress() const
+  {
+    return artifact || IsCosmeticShard() || type == RewardType::Blueprint || type == RewardType::Officer
+           || type == RewardType::OfficerShard || type == RewardType::Cosmetic || type == RewardType::TechShard
+           || type == RewardType::Tech;
+  }
+};
+
+inline RewardIdentity IdentifyReward(InventoryItem* item, Roots& roots)
+{
+  RewardIdentity identity;
+  if (!item || !roots.healthy)
+    return identity;
+  const auto type = item->TryCall<"get_ItemType", RewardType()>();
+  if (type)
+    identity.type = type.value;
+  if (identity.HasCollectibleProgress())
+    return identity;
+  const auto resource = item->TryCall<"get_ResourceSpec", ResourceSpec*()>();
+  auto*      spec     = resource ? roots.Keep(resource.value) : nullptr;
+  const auto id       = spec ? spec->TryCall<"get_Id", int64_t()>() : il2cpp::CallResult<int64_t>{};
+  if (!id || id.value <= 0)
+    return identity;
+  identity.resource_id = id.value;
+  const auto subtype   = spec->TryCall<"get_Subtype", RewardResourceSubtype()>();
+  if (subtype) {
+    identity.resource_subtype = subtype.value;
+    if (subtype.value == RewardResourceSubtype::Material)
+      identity.artifact = ArtifactForResource(id.value, roots);
+  }
+  return identity;
+}
+
+enum class ResearchAvailability { kUnrelated, kNoneAvailable, kAvailable };
 
 // Match TooltipWidget's displayed body, including native material/timer extras.
 // A successful null Description means no native body; unavailable localization
 // must not be mistaken for a confirmed empty description.
-inline il2cpp::CallResult<Il2CppString*> Description(StoreTooltipTrigger* trigger, Roots& roots)
+inline il2cpp::CallResult<Il2CppString*> Description(StoreTooltipTrigger* trigger, Roots& roots,
+                                                     const TooltipBodyFields& f = Members())
 {
-  auto& f = Members();
   if (!trigger || !f.override_locale.field || !f.description_override.field)
     return {};
   auto* text = roots.Keep(f.description_override.Read(trigger));
