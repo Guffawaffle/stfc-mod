@@ -9,6 +9,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 SCRIPT = ROOT / "scripts/mac-release-context.py"
 spec = importlib.util.spec_from_file_location("mac_release_context", SCRIPT)
 context = importlib.util.module_from_spec(spec)
@@ -44,6 +45,21 @@ class MacReleaseContext(unittest.TestCase):
         self.assertEqual(release["selection_mode"], "release")
         self.assertEqual(pre["source_branch"], "play")
         self.assertEqual(release["source_branch"], "main")
+
+    def test_independent_tag_spelling_must_agree_with_the_selected_channel(self):
+        pre = self.resolve(tag="v2.2.0-rc.2")
+        self.assertEqual(pre["source_branch"], "play")
+        self.assertEqual(pre["channel"], "pre")
+        self.run["head_branch"] = "main"
+        release = self.resolve(tag="v2.2.0", prerelease=False)
+        self.assertEqual(release["source_branch"], "main")
+        for tag, prerelease in (("v2.2.0", True), ("v2.2.0-rc.1", False),
+                                ("v2.2.0-dev.1", True), ("v2.2.0-dev.1", False),
+                                ("v2.2.0-rc.0", True), ("v2.2.0-rc.01", True),
+                                ("v2.2.0+build.1", False), ("v2.2.0\n", False),
+                                ("v2.2.0-rc.4294967296", True)):
+            with self.subTest(tag=tag, prerelease=prerelease), self.assertRaises(ValueError):
+                self.resolve(tag=tag, prerelease=prerelease)
 
     def test_optional_pre_download_keeps_partial_and_failed_ci_policy(self):
         for status, conclusion in (("in_progress", None), ("completed", "failure")):
@@ -85,7 +101,7 @@ class MacReleaseContext(unittest.TestCase):
 
     def test_malformed_context_never_becomes_a_release(self):
         for key in ("run_number", "run_attempt"):
-            for value in (None, "", 0, -1, True, "01", "1\nx=y"):
+            for value in (None, "", 0, -1, True, "01", "1\nx=y", 2**63):
                 original = copy.deepcopy(self.run)
                 self.run[key] = value
                 with self.assertRaises(ValueError):

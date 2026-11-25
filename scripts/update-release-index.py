@@ -7,22 +7,42 @@ from pathlib import Path
 import re
 import urllib.request
 
+from release_version import parse_tag
 
 REPOSITORY = "Guffawaffle/stfc-mod"
 CHANNELS = ("release", "pre", "dev")
 PLATFORM_ASSETS = ("stfc-community-mod.zip", "stfc-community-mod-installer.dmg")
-TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\."
-                 r"(0|[1-9][0-9]*)-guffa\.([1-9][0-9]*)(?:-dev\.([1-9][0-9]*))?")
 
 
 def version(tag: str, channel: str) -> tuple[int, ...]:
-    match = TAG.fullmatch(tag)
-    if not match or (match[6] is not None) != (channel == "dev"):
-        raise ValueError(f"{tag!r} is not a canonical {channel} tag")
-    parts = tuple(int(part) for part in match.groups() if part is not None)
-    if any(part > 0xffffffff for part in parts):
-        raise ValueError(f"{tag!r} contains an out-of-range version component")
-    return parts
+    return parse_tag(tag, channel).order()
+
+
+def default_index(tag: str, channel: str) -> Path:
+    name = "update-index.json" if parse_tag(tag, channel).legacy else "update-index-v2.json"
+    return Path(__file__).resolve().parents[1] / "releases" / name
+
+
+def advance_index(path: Path, channel: str, tag: str) -> None:
+    """Validate all entries and publication before writing one selected feed."""
+    candidate = version(tag, channel)
+    legacy_feed = path.resolve().name.casefold() == "update-index.json"
+    if legacy_feed and not parse_tag(tag, channel).legacy:
+        raise ValueError("independent tags must use update-index-v2.json; the legacy feed stays legacy")
+    index = json.loads(path.read_text(encoding="utf-8"))
+    if (not isinstance(index, dict) or type(index.get("schema")) is not int or index["schema"] != 1
+            or not isinstance(index.get("channels"), dict) or set(index["channels"]) != set(CHANNELS)):
+        raise ValueError("Expected a schema-1 index with Release, Pre, and DEV entries")
+    channels = index["channels"]
+    for entry_channel in CHANNELS:
+        previous = version(channels[entry_channel], entry_channel)
+        if legacy_feed and not parse_tag(channels[entry_channel], entry_channel).legacy:
+            raise ValueError("the legacy feed must contain only legacy tags")
+        if entry_channel == channel and candidate < previous:
+            raise ValueError(f"{tag} is older than {channels[entry_channel]} in the {channel} channel")
+    verify_published(tag, channel)
+    channels[channel] = tag
+    path.write_bytes((json.dumps(index, indent=2) + "\n").encode("utf-8"))
 
 
 def fetch_json(url: str) -> dict:
@@ -71,22 +91,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("channel", choices=CHANNELS)
     parser.add_argument("tag")
-    parser.add_argument("--index", type=Path,
-                        default=Path(__file__).resolve().parents[1] / "releases" / "update-index.json")
+    parser.add_argument("--index", type=Path, help="explicit feed path; otherwise route by tag version")
     args = parser.parse_args()
     try:
-        candidate = version(args.tag, args.channel)
-        index = json.loads(args.index.read_text(encoding="utf-8"))
-        if type(index["schema"]) is not int or index["schema"] != 1 or set(index["channels"]) != set(CHANNELS):
-            raise ValueError("Expected a schema-1 index with Release, Pre, and DEV entries")
-        channels = index["channels"]
-        for channel in CHANNELS:
-            previous = version(channels[channel], channel)
-            if channel == args.channel and candidate < previous:
-                raise ValueError(f"{args.tag} is older than {channels[channel]} in the {channel} channel")
-        verify_published(args.tag, args.channel)
-        channels[args.channel] = args.tag
-        args.index.write_bytes((json.dumps(index, indent=2) + "\n").encode("utf-8"))
+        advance_index(args.index or default_index(args.tag, args.channel), args.channel, args.tag)
     except (OSError, ValueError, KeyError, TypeError) as error:
         parser.exit(1, f"Update index: {error}\n")
 

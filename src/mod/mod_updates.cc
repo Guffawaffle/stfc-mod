@@ -41,7 +41,7 @@ namespace
   using Clock = std::chrono::steady_clock;
   using namespace std::chrono_literals;
 
-  constexpr auto index_url   = "https://raw.githubusercontent.com/Guffawaffle/stfc-mod/play/releases/update-index.json";
+  constexpr auto index_url   = "https://raw.githubusercontent.com/Guffawaffle/stfc-mod/play/releases/update-index-v2.json";
   constexpr auto release_url = "https://github.com/Guffawaffle/stfc-mod/releases/tag/";
   constexpr auto check_interval = 24h;
   constexpr auto startup_delay  = 30s;

@@ -168,6 +168,7 @@ public:
     bool pinnedshiphooks            = true;
     bool queueaddressguardhooks     = true;
     bool revealconfirmhooks         = true;
+    bool rewardtooltipprogresshooks = true;
     bool runtimeconfighooks         = true;
     bool shiptechindicatorhooks     = true;
     bool syncpatches                = true;

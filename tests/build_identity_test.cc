@@ -134,10 +134,12 @@ int main()
           "unknown signing metadata retains known fork lineage without claiming a channel");
   const std::string dev_tag   = "v" + std::string(VER_FORK_VERSION_STR) + "-dev.1";
   const std::string dev_label = std::string(VER_FORK_VERSION_STR) + "-dev.1 · DEV";
-  Require(ValidDisplayVersion(dev_label, base), "a named DEV label retains its package sequence");
-  Require(HandoffVersion(base, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR, true) == dev_label,
+  Require(ValidDisplayVersion(dev_label, VER_FILE_VERSION_STR), "a named DEV label retains its package sequence");
+  Require(HandoffVersion(VER_FILE_VERSION_STR, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR, true)
+              == dev_label,
           "the exact source-bound named DEV label reaches the selected Mac development payload");
-  Require(HandoffVersion(base, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR) == VER_FORK_VERSION_STR,
+  Require(HandoffVersion(VER_FILE_VERSION_STR, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR)
+              == VER_FORK_VERSION_STR,
           "a named DEV label cannot relabel a core payload");
   Require(DescriptionVersion(base, {}, SignatureState::Absent, {}, VER_FORK_VERSION_STR, true, dev_tag) == dev_label,
           "the Windows compiled DEV tag supplies its complete unsigned display version");
@@ -152,6 +154,85 @@ int main()
   for (const auto invocation : {"github:windows", "github::windows", "github:0:1:windows", "github:1:0:windows",
                                 "github:1:1:windows\n", "ax-zig-20261111-local"})
     Require(FallbackVersion(base, invocation) == "1.1.9.5 · CI local", "unknown/malformed invocations stay local");
+
+  constexpr std::string_view independent_base = "2.2.0.0";
+  for (const auto* value :
+       {"2.2.0 · Release", "2.2.0-rc.2 · Pre", "2.2.0-dev.10 · DEV", "2.2.0-ci.45005222362.1 · CI",
+        "2.2.0 · CI b45005222362.1", "2.2.0 · CI local", "2.2.0 · DEV b45005222362.1", "2.2.0 · DEV local",
+        "2.2.0 · Pre b45005222362.1", "2.2.0-rc.4294967295 · Pre", "2.2.0-ci.9223372036854775807.1 · CI"})
+    Require(ValidDisplayVersion(value, independent_base), "independent labels use the three-component display base");
+  for (const auto* value : {"2.2.0.0 · Release",
+                            "2.2.0 · Pre",
+                            "2.2.0 · DEV",
+                            "2.2.0 · CI",
+                            "2.2.1 · Release",
+                            "2.2.0-guffa.1 · Release",
+                            "2.2.0.0-guffa.1 · Release",
+                            "2.2.0-rc.1 · Release",
+                            "2.2.0-dev.1 · Pre",
+                            "2.2.0-rc.1 · DEV",
+                            "2.2.0-dev.1 · CI",
+                            "2.2.0-ci.45005222362.1 · DEV",
+                            "2.2.0-beta.1 · Pre",
+                            "2.2.0-rc.01 · Pre",
+                            "2.2.0-rc.0 · Pre",
+                            "2.2.0-dev.4294967296 · DEV",
+                            "2.2.0-rc.4294967296 · Pre",
+                            "2.2.0-ci.01.1 · CI",
+                            "2.2.0-ci.1.0 · CI",
+                            "2.2.0-ci.1.1.1 · CI",
+                            "2.2.0-ci.9223372036854775808.1 · CI",
+                            "2.2.0-rc.1 · Pre\n",
+                            "v2.2.0 · Release",
+                            "2.2.00 · Release",
+                            "2.2.0+build.1 · Release"})
+    Require(!ValidDisplayVersion(value, independent_base), "independent labels reject legacy and wrong-channel forms");
+  Require(!ValidDisplayVersion("2.2.0 · Release", "2.2.0.1"), "independent numeric resources reserve the fourth field");
+  Require(!ValidDisplayVersion("2.2.0 · Release", "2.2.0"), "metadata qualification still requires a numeric PE base");
+  Require(!ValidDisplayVersion("2.4294967296.0 · Release", "2.4294967296.0.0"),
+          "independent version components cannot exceed uint32");
+  Require(!ValidDisplayVersion("2.2.0 · Release", base), "transition builds cannot claim the future compiled version");
+  Require(!ValidDisplayVersion(valid[0], independent_base),
+          "independent builds cannot claim a legacy compiled version");
+  Require(HandoffVersion(independent_base, "2.2.0-rc.2 · Pre", source, "01234567") == "2.2.0-rc.2 · Pre",
+          "source-bound Mac handoffs preserve independent prereleases");
+  Require(HandoffVersion(independent_base, "2.2.0 · Release", source, "fedcba98") == "2.2.0",
+          "wrong-source independent metadata leaves a three-component unqualified version");
+  Require(HandoffVersion(independent_base, "2.2.0-dev.10 · DEV", source, "01234567", {}, true, {}, true)
+              == "2.2.0-dev.10 · DEV",
+          "a matching independent DEV handoff requires a development payload");
+  Require(HandoffVersion(independent_base, "2.2.0-dev.10 · DEV", source, "01234567") == "2.2.0",
+          "a matching source cannot give a core payload an independent DEV identity");
+  Require(HandoffVersion(independent_base, "2.2.0-ci.45005222362.1 · CI", source, "01234567")
+              == "2.2.0-ci.45005222362.1 · CI",
+          "a matching core handoff can carry the canonical CI label");
+  Require(HandoffVersion(independent_base, "2.2.0-ci.45005222362.1 · CI", source, "01234567", {}, true, {}, true)
+              == "2.2.0",
+          "a development payload refuses canonical CI handoff metadata");
+  Require(DescriptionVersion(independent_base, "STFC Community Mod | 2.2.0 · Release", SignatureState::Present)
+              == "2.2.0 · Release",
+          "Windows signer descriptions accept independent release labels");
+  Require(DescriptionVersion(independent_base, "STFC Community Mod | 2.2.0-ci.45005222362.1 · CI",
+                             SignatureState::Present, {}, {}, true)
+              == "2.2.0",
+          "Windows package checks refuse a canonical CI label on a development payload");
+  Require(DescriptionVersion(independent_base, {}, SignatureState::Unknown) == "2.2.0",
+          "unknown signing metadata displays the independent base without a channel");
+  Require(FallbackVersion(independent_base, "github:45005222362:2:windows") == "2.2.0 · CI b45005222362.2",
+          "raw CI fallback preserves its established build label with an independent version");
+  Require(FallbackVersion(independent_base, {}, true, "v2.2.0-dev.10") == "2.2.0-dev.10 · DEV",
+          "the future numeric base accepts a matching compiled independent DEV tag");
+  Require(DescriptionVersion(independent_base, {}, SignatureState::Absent, {}, "2.2.0", true, "v2.2.0-dev.10")
+              == "2.2.0-dev.10 · DEV",
+          "Windows unsigned DEV fallback uses the independent package sequence");
+  for (const auto* wrong_tag :
+       {"v2.2.1-dev.1", "v2.2.0-dev.0", "v2.2.0-dev.01", "v2.2.0-dev.4294967296", "v2.2.0-rc.1", "v2.2.0-dev.1/other"})
+    Require(FallbackVersion("2.2.0", {}, true, wrong_tag) == "2.2.0 · DEV local",
+            "independent DEV fallback shares the strict named-version grammar");
+  const auto ci  = mod_version::Parse("2.2.0-ci.45005222362.1");
+  const auto dev = mod_version::Parse("2.2.0-dev.1");
+  Require(ci && dev && *ci < *dev, "canonical CI is ordered before DEV at the same independent base");
+  Require(*mod_version::Parse("2.2.0-ci.45005222362.2") > *ci, "canonical CI ordering includes the numeric attempt");
 
   std::puts("Build display identity: strict label grammar, source binding, signer description and fallbacks passed");
 }

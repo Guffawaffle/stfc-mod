@@ -143,8 +143,9 @@ fn forkRevision(b: *std.Build) []const u8 {
     const offset = std.mem.indexOf(u8, header, key) orelse @panic("missing fork revision in src/mod/version.h");
     const rest = std.mem.trimStart(u8, header[offset + key.len ..], " \t");
     const value = rest[0 .. std.mem.indexOfAny(u8, rest, " \t\r\n") orelse rest.len];
-    const revision = std.fmt.parseInt(u63, value, 10) catch @panic("invalid fork revision in src/mod/version.h");
-    if (revision == 0) @panic("fork revision must be positive");
+    // Zero selects independent versions; the metadata generator validates the
+    // complete base/fork combination before producing the bundle identity.
+    _ = std.fmt.parseInt(u63, value, 10) catch @panic("invalid fork revision in src/mod/version.h");
     return value;
 }
 

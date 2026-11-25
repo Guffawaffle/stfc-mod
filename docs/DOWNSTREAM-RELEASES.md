@@ -6,6 +6,36 @@
 | Pre | `play` | Signed pre-release |
 | DEV | `play-dev` | Development package with optional AAI/UI Lab |
 
+## Independent versions
+
+The next independent version is `2.2.0`. The fork has an existing 2.x history.
+Its version advances with this product's changes. Record verified upstream
+coverage and the supported game client in release notes.
+
+| Package | Tag |
+| --- | --- |
+| Release from `main` | `v2.2.0` |
+| Pre from `play` | `v2.2.0-rc.1` |
+| DEV from `play-dev` | `v2.2.0-dev.1` |
+
+Increment the patch for compatible fixes, the minor for compatible features,
+and the major for breaking changes to supported configuration, profile or
+integration contracts. Keep released tags immutable. Prerelease sequences are
+positive integers. A tag must match its declared channel and producing version.
+CI keeps its producing run and attempt in the package identity.
+
+The compatibility release retains `v1.1.9.5-guffa.12` naming and accepts both
+version formats. It reads `releases/update-index-v2.json`. Existing installations
+continue reading `releases/update-index.json`; that feed must retain a discoverable
+compatibility release in each published channel. Publish a compatibility update
+on the relevant channel before advancing that channel to independent versions.
+
+Roll out the updated identity helpers to the trusted signing controller before
+signing an independent version. Update the DEV publisher and its source/tag
+checks when integrating this contract into `play-dev`. Verify the generated
+Windows version resource and each Mac launcher's metadata in CI. Keep the
+platform signing, source, artifact and producer-attempt checks in place.
+
 Integrate changes through `play`. Before merging a pull request, have the
 assigned player smoke the exact candidate core CI payload. For a named Pre,
 select the successful **push** Build for the intended `play` commit. For a
@@ -62,12 +92,12 @@ a version tag must not publish the ordinary unsigned/ad-hoc CI payloads.
    Include the controller's additional signed Profiles ZIP as a separate download;
    its refreshed manifest records signed hashes and retains the unsigned input
    manifest and signing provenance. Do not reconstruct it from another build.
-6. Create a new immutable `vX.Y.Z.W-guffa.N` tag on the tested source commit
+6. Create a new immutable `vX.Y.Z` Release or `vX.Y.Z-rc.N` Pre tag on the tested source commit
    from the matching channel's push Build.
    Upload the complete signed assets to a draft release, verify the asset set,
    then publish with `prerelease=false` and explicitly mark it Latest. For a
    pre-release, use a fresh tag in the same format with `prerelease=true` and
-   `make_latest=false`. Use those same identity inputs when signing. A later
+   `make_latest=false`. The compatibility release uses its legacy tag. Use those same identity inputs when signing. A later
    Release needs a new tag if its identity or signed bytes change.
 
 Never move an existing published tag. Recheck source, run attempt and artifact
@@ -86,12 +116,13 @@ Once the release is public and its Windows ZIP and Mac DMG are uploaded, run thi
 from a checkout based on the current `play` branch:
 
 ```sh
-python3 scripts/update-release-index.py release v1.1.9.5-guffa.9
+python3 scripts/update-release-index.py release v2.2.0
 ```
 
 Use `pre` for a signed Pre release and `dev` for a tagged DEV release. The script
 checks the public GitHub release and manifest, including both asset digests,
-then updates the corresponding entry in `releases/update-index.json`. Merge that
+then updates the corresponding entry in `releases/update-index-v2.json`.
+Legacy tags select `releases/update-index.json`. Merge that
 index change into `play` to publish it. Advance the DEV entry from `play` after
 the DEV workflow publishes the exact `-dev.N` tag.
 
