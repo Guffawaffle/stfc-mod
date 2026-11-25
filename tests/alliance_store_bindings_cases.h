@@ -558,11 +558,17 @@ void AllianceStoreNativeCases(std::string_view mode)
   auto& artifact_hall = Define("Digit.Prime.ArtifactHall", "ArtifactHallManager", IL2CPP_TYPE_CLASS, &artifact_base);
   AddField(artifact_base, "s_initialized", bool_class, 0, true);
   AddField(artifact_base, "s_instance", artifact_hall, 0, true);
-  AddMethod(artifact_hall, "get_Instance", reinterpret_cast<void*>(+[](const MethodInfo*) -> Il2CppObject* {
-              Require(false, "a passive material lookup must not initialize Artifact Hall");
-              return nullptr;
-            }),
-            T(artifact_hall), {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  static bool called_instance_getter = false;
+  const auto& instance_getter =
+      AddMethod(artifact_base, "get_Instance", reinterpret_cast<void*>(+[](const MethodInfo*) -> Il2CppObject* {
+                  called_instance_getter = true;
+                  return nullptr;
+                }),
+                T(artifact_hall), {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(artifact_base, "Instance", &instance_getter);
+  (void)StoreArtifactHall::Class::Get<"Instance", StoreArtifactHall*>();
+  Require(called_instance_getter, "the fixture observes the creating getter through the native property");
+  called_instance_getter         = false;
   store_test_plain.header.klass  = &plain.klass;
   store_test_action.header.klass = &action.klass;
   store_test_widget.header.klass = store_test_donor.header.klass = &widget.klass;
@@ -678,6 +684,7 @@ void AllianceStoreNativeCases(std::string_view mode)
                 && store_test_eligibility_calls == before + 1,
             "unrelated materials stay plain and duplicate offers share one native search per pass");
   }
+  Require(!called_instance_getter, "a passive material lookup never calls the creating Artifact Hall getter");
   store_test_cost.resource       = store_test_research_resource;
   store_test_research_data.trees = &store_test_reloaded_trees;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated && !store_test_added
