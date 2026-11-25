@@ -89,13 +89,24 @@ struct StoreTestSpecManager {
   StoreTestSpecService* service = &store_test_spec_service;
 } store_test_spec_manager{};
 Il2CppClass* store_test_spec_manager_base = nullptr;
-bool         store_test_added = false, store_test_eligible = true, store_test_eligibility_throws = false,
-             store_test_setup_throws = false, store_test_rebind = false, store_test_fetching = false,
-             store_test_shop_active = true, store_test_donor_available = true;
-int          store_test_adds = 0, store_test_setups = 0, store_test_currency = 0, store_test_original_releases = 0;
-int          store_test_pool_count = 0, store_test_pool_reads = 0, store_test_eligibility_calls = 0;
-int64_t      store_test_seen_resource    = 0;
-int32_t      store_test_resource_subtype = 0;
+struct StoreTestArtifactCatalog {
+  struct Hall {
+    Il2CppObject  header;
+    Il2CppObject* index = nullptr;
+  } hall;
+  Il2CppObject index{}, artifact{};
+  Il2CppClass* base        = nullptr;
+  bool         initialized = false, found = true;
+  int          lookups       = 0;
+  int64_t      seen_resource = 0;
+} store_test_artifacts{};
+bool    store_test_added = false, store_test_eligible = true, store_test_eligibility_throws = false,
+        store_test_setup_throws = false, store_test_rebind = false, store_test_fetching = false,
+        store_test_shop_active = true, store_test_donor_available = true;
+int     store_test_adds = 0, store_test_setups = 0, store_test_currency = 0, store_test_original_releases = 0;
+int     store_test_pool_count = 0, store_test_pool_reads = 0, store_test_eligibility_calls = 0;
+int64_t store_test_seen_resource    = 0;
+int32_t store_test_resource_subtype = 0;
 std::function<void()> store_test_on_setup, store_test_on_eligibility, store_test_on_enable, store_test_on_description;
 int                   store_test_context_reads = 0, store_test_release_at_context = 0;
 int                   store_test_notifications           = 0;
@@ -154,6 +165,15 @@ bool StoreTestEligible(StoreResearchManager*, int64_t id, store_game::ResearchTr
 
 bool StoreTestSpecSingleton(FieldInfo* field, void* result)
 {
+  if (field->parent == store_test_artifacts.base) {
+    if (std::string_view(field->name) == "s_initialized")
+      std::memcpy(result, &store_test_artifacts.initialized, sizeof(store_test_artifacts.initialized));
+    else {
+      auto* value = &store_test_artifacts.hall.header;
+      std::memcpy(result, &value, sizeof(value));
+    }
+    return true;
+  }
   if (field->parent != store_test_spec_manager_base)
     return false;
   if (std::string_view(field->name) == "s_initialized") {
@@ -554,10 +574,32 @@ void AllianceStoreNativeCases(std::string_view mode)
     return;
 
   InstallStoreResearchCatalogFixture();
-  auto& artifact_base = Define("Fixture", "MonoSingleton`1", IL2CPP_TYPE_CLASS, &object_class);
-  auto& artifact_hall = Define("Digit.Prime.ArtifactHall", "ArtifactHallManager", IL2CPP_TYPE_CLASS, &artifact_base);
+  auto& artifact_base  = Define("Fixture", "MonoSingleton`1", IL2CPP_TYPE_CLASS, &object_class);
+  auto& artifact_hall  = Define("Digit.Prime.ArtifactHall", "ArtifactHallManager", IL2CPP_TYPE_CLASS, &artifact_base);
+  auto& artifact       = Define("Digit.Prime.ArtifactHall", "Artifact", IL2CPP_TYPE_CLASS, &object_class);
+  auto& artifact_index = Define("Fixture", "ArtifactResourceDictionary", IL2CPP_TYPE_CLASS, &object_class);
+  store_test_artifacts.base              = &artifact_base.klass;
+  store_test_artifacts.hall.header.klass = &artifact_hall.klass;
+  store_test_artifacts.hall.index        = &store_test_artifacts.index;
+  store_test_artifacts.index.klass       = &artifact_index.klass;
+  store_test_artifacts.artifact.klass    = &artifact.klass;
   AddField(artifact_base, "s_initialized", bool_class, 0, true);
   AddField(artifact_base, "s_instance", artifact_hall, 0, true);
+  AddField(artifact_hall, "_artifactsByResourceId", artifact_index, offsetof(StoreTestArtifactCatalog::Hall, index));
+  AddMethod(
+      artifact_index, "TryGetValue",
+      reinterpret_cast<void*>(+[](Il2CppObject* self, int64_t resource, StoreArtifact*& value, const MethodInfo*) {
+        const auto rooted = [](Il2CppObject* object) {
+          return std::ranges::any_of(warp_roots, [object](const auto& root) { return root.second == object; });
+        };
+        Require(self == &store_test_artifacts.index && rooted(self) && rooted(&store_test_artifacts.hall.header),
+                "artifact lookup roots the existing Hall and concrete dictionary before its native call");
+        ++store_test_artifacts.lookups;
+        store_test_artifacts.seen_resource = resource;
+        value = store_test_artifacts.found ? reinterpret_cast<StoreArtifact*>(&store_test_artifacts.artifact) : nullptr;
+        return value != nullptr;
+      }),
+      T(bool_class), {T(long_class), Ref(artifact)});
   static bool called_instance_getter = false;
   const auto& instance_getter =
       AddMethod(artifact_base, "get_Instance", reinterpret_cast<void*>(+[](const MethodInfo*) -> Il2CppObject* {
@@ -685,6 +727,28 @@ void AllianceStoreNativeCases(std::string_view mode)
             "unrelated materials stay plain and duplicate offers share one native search per pass");
   }
   Require(!called_instance_getter, "a passive material lookup never calls the creating Artifact Hall getter");
+  const auto artifact_roots_before = warp_roots.size();
+  store_test_artifacts.initialized = true;
+  for (const bool found : {true, false}) {
+    store_test_artifacts.found = found;
+    const auto        lookups  = store_test_artifacts.lookups;
+    store_game::Roots artifact_roots;
+    const auto        identity = store_game::IdentifyReward(
+        artifact_roots.Keep(reinterpret_cast<InventoryItem*>(&store_test_item)), artifact_roots);
+    Require(
+        artifact_roots.healthy && identity.resource_id == store_test_research_resource
+            && identity.resource_subtype == store_game::RewardResourceSubtype::Material
+            && store_test_artifacts.lookups == lookups + 1 && store_test_artifacts.seen_resource == 9007199254740993LL
+            && identity.artifact == (found ? reinterpret_cast<StoreArtifact*>(&store_test_artifacts.artifact) : nullptr)
+            && !called_instance_getter,
+        "IdentifyReward dispatches on the concrete artifact dictionary with an exact Int64 key and no creation");
+    Require(!found
+                || std::ranges::any_of(warp_roots,
+                                       [](const auto& root) { return root.second == &store_test_artifacts.artifact; }),
+            "a found artifact remains rooted for its progress reader");
+  }
+  store_test_artifacts.initialized = false;
+  Require(warp_roots.size() == artifact_roots_before, "artifact reward identity releases all temporary roots");
   store_test_cost.resource       = store_test_research_resource;
   store_test_research_data.trees = &store_test_reloaded_trees;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated && !store_test_added

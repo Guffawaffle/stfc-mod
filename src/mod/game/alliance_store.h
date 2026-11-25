@@ -238,10 +238,12 @@ inline StoreArtifact* ArtifactForResource(int64_t resource_id, Roots& roots)
     return nullptr;
   // The conversion screen uses a shard-resource index. TryGetArtifactByID
   // takes a research project ID instead.
-  auto*          index    = roots.Keep(manager->Field<"_artifactsByResourceId", ServerManagedReference*>());
-  StoreArtifact* artifact = nullptr;
-  const auto     found    = index ? index->TryCall<"TryGetValue", bool(int64_t, StoreArtifact*&)>(resource_id, artifact)
-                                  : il2cpp::CallResult<bool>{};
+  // Validate reference storage on acquisition, then resolve dictionary methods
+  // on the actual collection rather than the System.Object facade.
+  il2cpp::Object* index    = roots.Keep(manager->Field<"_artifactsByResourceId", ServerManagedReference*>());
+  StoreArtifact*  artifact = nullptr;
+  const auto      found = index ? index->TryCall<"TryGetValue", bool(int64_t, StoreArtifact*&)>(resource_id, artifact)
+                                : il2cpp::CallResult<bool>{};
   return found && found.value ? roots.Keep(artifact) : nullptr;
 }
 
