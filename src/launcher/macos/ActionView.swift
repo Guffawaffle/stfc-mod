@@ -11,15 +11,19 @@ struct ActionView: View {
   @State private var ordinaryGameNameDraft = ""
   @State private var showingOrdinaryGameRename = false
   #if PROFILES_PREVIEW
+  @Environment(\.scenePhase) private var scenePhase
   @Binding var showingProfiles: Bool
   @State private var profiles: [LaunchProfile] = []
   @State private var selectedProfileID: String?
   @State private var profileLaunching = false
+  @State private var profileActivity: ProfileActivity?
   @State private var profileListProblem = ""
   #endif
   private let gameUpdater = XsollaUpdater(gameName: "Star Trek Fleet Command")
   @State private var gameVersion = 0
   @State private var gameUpdateAvailable = false
+  @State private var gameUpToDate = false
+  @State private var updateRequestID = UUID()
   @State private var updating = false
   @State private var updateAction = ""
   @State private var updateSubAction = ""
@@ -28,6 +32,8 @@ struct ActionView: View {
   @State private var showErrorAlert = false
   @State private var errorMessage = ""
   @State private var launchStatus = ""
+  @State private var showsKeyboardFocus = false
+  @State private var focusMonitor: Any?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -45,39 +51,15 @@ struct ActionView: View {
       }
       .padding(.horizontal, 24).padding(.top, 16)
 
-      GeometryReader { geometry in
+      ViewThatFits(in: .vertical) {
+        launchContent(compact: false).fixedSize(horizontal: false, vertical: true)
+        launchContent(compact: true).fixedSize(horizontal: false, vertical: true)
         ScrollView(.vertical) {
-          VStack(spacing: 0) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-              .resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
-              .accessibilityLabel("STFC Mod")
-            Text("STFC Mod").font(.system(size: 23, weight: .bold)).padding(.top, 6)
-            Text(launchDescription).font(.system(size: 13)).foregroundStyle(.secondary)
-              .multilineTextAlignment(.center).lineLimit(2).help(launchDescription)
-              .frame(maxWidth: 410, minHeight: 28).padding(.top, 6)
-            launchButton.padding(.top, 10)
-            utilityButtons.padding(.top, 16)
-
-            if updating {
-              HStack(spacing: 8) {
-                ProgressView().controlSize(.small)
-                Text(updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)").font(.caption)
-                  .fixedSize(horizontal: false, vertical: true)
-              }
-              .padding(.top, 16)
-            } else if !launchStatus.isEmpty {
-              Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true).help(launchStatus).padding(.top, 16)
-                .accessibilityAddTraits(.updatesFrequently)
-            }
-          }
-          .padding(.horizontal, 24).padding(.vertical, 16)
-          .frame(maxWidth: .infinity)
-          // Center at the default size; scroll instead of clipping in a short window.
-          .frame(minHeight: geometry.size.height)
+          launchContent(compact: true)
         }
         .scrollBounceBehavior(.basedOnSize)
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
       Divider()
       HStack(spacing: 20) {
         VStack(alignment: .leading, spacing: 4) {
@@ -94,17 +76,23 @@ struct ActionView: View {
       .background(LauncherPalette.surface)
     }
     .background(LauncherPalette.background)
+    .focusEffectDisabled(!showsKeyboardFocus)
+    .onAppear(perform: startMonitoringFocusInput)
+    .onDisappear(perform: stopMonitoringFocusInput)
+    .focusedSceneValue(\.modFolderAction, openConfigFolder)
     .task {
       // Check installed data and available updates once a minute, never on redraw.
       repeat {
-        gameVersion = gameUpdater.installedVersion()
-        gameInstalled = gameVersion > 0
-        gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
+        await refreshGameAvailability()
         try? await Task.sleep(for: .seconds(60))
       } while !Task.isCancelled
     }
     #if PROFILES_PREVIEW
     .task { await refreshProfiles() }
+    .task(id: monitoredProfileID) {
+      guard let id = monitoredProfileID else { return }
+      await monitorProfileActivity(id)
+    }
     .onChange(of: showingProfiles) { _, presented in
       if !presented { Task { await refreshProfiles() } }
     }
@@ -121,6 +109,49 @@ struct ActionView: View {
     } message: {
       Text("Choose a launcher name for your existing login and settings. Leave it blank to use Ordinary game.")
     }
+  }
+
+  private func launchContent(compact: Bool) -> some View {
+    VStack(spacing: 0) {
+      Image(nsImage: NSApplication.shared.applicationIconImage)
+        .resizable().interpolation(.high).scaledToFit().frame(width: 72, height: 72)
+        .accessibilityLabel("STFC Mod")
+      Text("STFC Mod").font(.system(size: 23, weight: .bold)).padding(.top, 6)
+      Text(launchDescription).font(.system(size: 13)).foregroundStyle(.secondary)
+        .multilineTextAlignment(.center).lineLimit(2).help(launchDescription)
+        .frame(maxWidth: 410, minHeight: compact ? 22 : 28).padding(.top, 6)
+      launchButton.padding(.top, 10)
+      utilityButtons.padding(.top, compact ? 10 : 16)
+
+      if !launchStatus.isEmpty {
+        Text(launchStatus).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+          .fixedSize(horizontal: false, vertical: true).help(launchStatus).padding(.top, 16)
+          .accessibilityAddTraits(.updatesFrequently)
+      }
+    }
+    .padding(.horizontal, 24).padding(.vertical, compact ? 8 : 16)
+    .frame(maxWidth: .infinity)
+  }
+
+  private func startMonitoringFocusInput() {
+    guard focusMonitor == nil else { return }
+    let events: NSEvent.EventTypeMask = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+    // Keep the normal focus and event handling. Only the focus decoration follows the last input method.
+    focusMonitor = NSEvent.addLocalMonitorForEvents(matching: events) { event in
+      let keyboard = event.type == .keyDown
+      // AppKit calls local event monitors on the main thread.
+      MainActor.assumeIsolated {
+        if showsKeyboardFocus != keyboard { showsKeyboardFocus = keyboard }
+      }
+      return event
+    }
+    if focusMonitor == nil { showsKeyboardFocus = true }
+  }
+
+  private func stopMonitoringFocusInput() {
+    if let focusMonitor { NSEvent.removeMonitor(focusMonitor) }
+    focusMonitor = nil
+    showsKeyboardFocus = false
   }
 
   private var ordinaryLaunchName: String {
@@ -144,7 +175,11 @@ struct ActionView: View {
   private var launchTitle: String {
     #if PROFILES_PREVIEW
     if profileLaunching { return "Launching…" }
-    if let profile = selectedProfile { return "Launch \(profile.name)" }
+    if let profile = selectedProfile {
+      if profileActivity == nil { return "Checking…" }
+      if profileActivity == .running { return "\(profile.name) running" }
+      return "Launch \(profile.name)"
+    }
     #endif
     if gameRunning { return "Game running" }
     return ordinaryGameName.isEmpty ? "Launch game" : "Launch \(ordinaryLaunchName)"
@@ -154,9 +189,18 @@ struct ActionView: View {
     if updating || !gameInstalled { return true }
     #if PROFILES_PREVIEW
     if profileLaunching { return true }
-    if selectedProfile != nil { return false }
+    if selectedProfile != nil { return profileActivity == nil || profileActivity == .running }
     #endif
     return gameRunning
+  }
+
+  private var launchHelp: String {
+    #if PROFILES_PREVIEW
+    if selectedProfile != nil && profileActivity == .unavailable {
+      return "Profile status is unavailable. The launcher checks again before starting."
+    }
+    #endif
+    return launchDescription
   }
 
   private var launchButton: some View {
@@ -167,7 +211,7 @@ struct ActionView: View {
           .frame(maxWidth: .infinity, minHeight: 48).contentShape(Rectangle())
       }
       .buttonStyle(.plain).disabled(launchDisabled)
-      .help(launchDescription)
+      .help(launchHelp)
       #if PROFILES_PREVIEW
       Rectangle().fill(LauncherPalette.onAccent.opacity(0.23)).frame(width: 1, height: 48)
       Menu {
@@ -219,15 +263,58 @@ struct ActionView: View {
     #endif
     Menu {
       Button("Open web configuration", action: openConfigSite)
-      Button("Open ordinary TOML", action: openConfigFile)
+      Button("Open TOML", action: openConfigFile)
+      Button("Open Config Folder", action: openConfigFolder)
       Divider()
       Button("Rename ordinary game…", action: renameOrdinaryGame)
     } label: { Label("Mod settings", systemImage: "slider.horizontal.3") }
-    .help("Settings for ordinary play. Named profiles have their own configuration folders.")
+    .help("Open configuration files for the selected launch target.")
+    let showsUpdateCheckmark = !updating && gameInstalled && gameUpToDate && !gameUpdateAvailable
+    let updateStatus = if updating {
+      updateSubAction.isEmpty ? updateAction : "\(updateAction) · \(updateSubAction)"
+    } else {
+      showsUpdateCheckmark ? "Up to date" : ""
+    }
+    let updateHelp = showsUpdateCheckmark ? "Game is up to date. Click to check again." : "Check for a game update."
     Button(action: requestUpdate) {
-      Label(gameUpdateAvailable ? "Update game" : "Game update", systemImage: "arrow.down.to.line")
+      Label {
+        ZStack {
+          // Size the button for both titles so an availability change can't reflow the utility controls.
+          Text("Game update").hidden().accessibilityHidden(true)
+          Text("Update game").hidden().accessibilityHidden(true)
+          Text(gameUpdateAvailable ? "Update game" : "Game update")
+        }
+      } icon: {
+        Group {
+          if updating {
+            ProgressView().progressViewStyle(.circular).controlSize(.small)
+          } else {
+            Image(systemName: showsUpdateCheckmark ? "checkmark" : "arrow.down.to.line")
+              .foregroundStyle(showsUpdateCheckmark ? Color.green : Color.primary)
+          }
+        }
+        .frame(width: 16, height: 16)
+        .accessibilityHidden(true)
+      }
     }
     .disabled(updateDisabled)
+    .accessibilityValue(updateStatus)
+    .help(updating ? updateStatus : updateHelp)
+  }
+
+  @MainActor
+  private func refreshGameAvailability() async {
+    guard !updating else { return }
+    let requestID = updateRequestID
+    let installedVersion = gameUpdater.installedVersion()
+    if installedVersion != gameVersion { gameUpToDate = false }
+    gameVersion = installedVersion
+    gameInstalled = installedVersion > 0
+    let available = try? await gameUpdater.checkForUpdateAvailable(from: installedVersion)
+    // A manual check takes precedence over an earlier refresh.
+    guard requestID == updateRequestID else { return }
+    gameUpdateAvailable = available ?? false
+    if available != false { gameUpToDate = false }
   }
 
   private func requestUpdate() {
@@ -237,13 +324,26 @@ struct ActionView: View {
     #endif
     // Claim the UI state before scheduling, including when checking for an update.
     updating = true
+    updateRequestID = UUID()
     updateAction = "Checking for updates"
     updateSubAction = ""
-    launchStatus = ""
+    gameUpToDate = false
     Task { @MainActor in
-      gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
-      if gameUpdateAvailable { await updateGame() }
-      else { updating = false; launchStatus = "No game update is currently reported." }
+      let installedVersion = gameUpdater.installedVersion()
+      gameVersion = installedVersion
+      gameInstalled = installedVersion > 0
+      do {
+        gameUpdateAvailable = try await gameUpdater.checkForUpdateAvailable(from: installedVersion)
+        if gameUpdateAvailable {
+          await updateGame()
+        } else {
+          gameUpToDate = true
+          updating = false
+        }
+      } catch {
+        updating = false
+        showError("Game update check failed: \(error.localizedDescription)")
+      }
     }
   }
 
@@ -265,10 +365,23 @@ struct ActionView: View {
 
   #if PROFILES_PREVIEW
   private var selectedProfile: LaunchProfile? { profiles.first { $0.id == selectedProfileID } }
+  private var monitoredProfileID: String? {
+    scenePhase == .active && !profileLaunching ? selectedProfileID : nil
+  }
 
   private func selectProfile(_ id: String?) {
+    if selectedProfileID != id { profileActivity = nil }
     selectedProfileID = id
     launchStatus = ""
+  }
+
+  @MainActor private func monitorProfileActivity(_ id: String) async {
+    while !Task.isCancelled {
+      let activity = await ProfileCoordinator.activity(for: id)
+      guard !Task.isCancelled, monitoredProfileID == id else { return }
+      profileActivity = activity
+      try? await Task.sleep(for: .seconds(5))
+    }
   }
 
   @MainActor private func refreshProfiles() async {
@@ -278,7 +391,7 @@ struct ActionView: View {
       profiles = listed.filter { $0.kind == "isolated" }
       profileListProblem = reply.issues?.map(\.message).joined(separator: "\n") ?? ""
       if let id = selectedProfileID, !profiles.contains(where: { $0.id == id }) {
-        selectedProfileID = nil
+        selectProfile(nil)
         launchStatus = "The selected profile is no longer available. \(ordinaryLaunchName) is selected."
       }
     } catch { profileListProblem = error.localizedDescription }
@@ -295,7 +408,8 @@ struct ActionView: View {
       defer { profileLaunching = false }
       do {
         _ = try await ProfileCoordinator.launch(profile: profile, gameApp: app)
-        launchStatus = "\(profile.name) started."
+        profileActivity = .running
+        launchStatus = ""
       } catch { launchStatus = ""; showError(error.localizedDescription) }
     }
   }
@@ -306,9 +420,36 @@ struct ActionView: View {
     NSWorkspace.shared.open(configSiteURL)
   }
 
+  private var selectedModFiles: ModFiles? {
+    #if PROFILES_PREVIEW
+    if selectedProfileID != nil { return selectedProfile?.modFiles }
+    #endif
+    return ModFiles.ordinary
+  }
+
+  private func openConfigFolder() {
+    guard let directoryURL = selectedModFiles?.directoryURL else {
+      showError("Could not locate the config folder for the selected launch target.")
+      return
+    }
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),
+      isDirectory.boolValue
+    else {
+      showError(
+        "The mod folder is unavailable at \(directoryURL.path). "
+          + "If you selected a named profile, check that it still appears in Profiles. "
+          + "For a new launch target, launch it once with the mod to create the folder.")
+      return
+    }
+    if !NSWorkspace.shared.open(directoryURL) {
+      showError("Could not open the mod folder in Finder.")
+    }
+  }
+
   private func openConfigFile() {
-    guard let configURL = ModFiles.configURL else {
-      showError("Could not locate your Library folder.")
+    guard let configURL = selectedModFiles?.configURL else {
+      showError("Could not locate the TOML file for the selected launch target.")
       return
     }
     var isDirectory: ObjCBool = false
@@ -316,7 +457,9 @@ struct ActionView: View {
       !isDirectory.boolValue
     else {
       showError(
-        "The mod config file is not available at \(configURL.path). Launch the game with the mod once to create it.")
+        "The mod config file is unavailable at \(configURL.path). "
+          + "If you selected a named profile, check that it still appears in Profiles. "
+          + "For a new launch target, launch it once with the mod to create the file.")
       return
     }
 
@@ -380,8 +523,7 @@ struct ActionView: View {
       showError("Game update failed: \(error.localizedDescription)")
     }
     updating = false
-    gameVersion = gameUpdater.installedVersion()
-    gameUpdateAvailable = await gameUpdater.checkForUpdateAvailable()
+    await refreshGameAvailability()
   }
 
   private func showError(_ message: String) {

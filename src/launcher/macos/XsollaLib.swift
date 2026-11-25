@@ -11,6 +11,8 @@ private let projectID = "152033"
 
 enum XsollaError: LocalizedError {
   case missingLauncherSetting(String)
+  case missingInstalledVersion
+  case installedVersionChanged
   case invalidUpdateURL(String)
   case invalidUpdatePlan(String)
   case invalidPatchPath(String)
@@ -19,6 +21,10 @@ enum XsollaError: LocalizedError {
     switch self {
     case .missingLauncherSetting(let key):
       return "The Xsolla launcher settings have no \(key). Install the game with the Xsolla launcher first."
+    case .missingInstalledVersion:
+      return "The installed game version could not be read."
+    case .installedVersionChanged:
+      return "The installed game version changed during the check. Check again."
     case .invalidUpdateURL(let url):
       return "The update service returned an invalid URL: \(url)"
     case .invalidUpdatePlan(let reason):
@@ -255,9 +261,13 @@ struct XsollaUpdater {
       throw XsollaError.invalidUpdateURL(address)
     }
     let (data, response) = try await URLSession.shared.data(from: url)
+    let status = httpStatus(response)
     logger.info(
-      "Fetched Xsolla update plan status=\(httpStatus(response), privacy: .public) bytes=\(data.count, privacy: .public)"
+      "Fetched Xsolla update plan status=\(status, privacy: .public) bytes=\(data.count, privacy: .public)"
     )
+    guard (200..<300).contains(status) else {
+      throw XsollaError.invalidUpdatePlan("The update service responded with HTTP \(status).")
+    }
     let plan = try UpdatePlanReader.read(data)
     logger.info(
       "Parsed Xsolla update plan targetVersion=\(plan.gameVersion, privacy: .public) actions=\(plan.actions.count, privacy: .public)"
@@ -266,10 +276,15 @@ struct XsollaUpdater {
   }
 
   @MainActor
-  func checkForUpdateAvailable() async -> Bool {
+  func checkForUpdateAvailable(from installedVersion: Int) async throws -> Bool {
     do {
-      let installedVersion = self.installedVersion()
+      guard installedVersion > 0 else { throw XsollaError.missingInstalledVersion }
       let latestGameVersion = try await fetchUpdatePlan(from: installedVersion).gameVersion
+      guard self.installedVersion() == installedVersion else { throw XsollaError.installedVersionChanged }
+      // Xsolla returns version -1 when there is no update for the installed build.
+      guard latestGameVersion == -1 || latestGameVersion > 0 else {
+        throw XsollaError.invalidUpdatePlan("The update plan has no valid version.")
+      }
       let available = installedVersion < latestGameVersion
       logger.info(
         "Game update availability installed=\(installedVersion, privacy: .public) latest=\(latestGameVersion, privacy: .public) available=\(available, privacy: .public)"
@@ -277,7 +292,7 @@ struct XsollaUpdater {
       return available
     } catch {
       logger.error("Game update availability check failed: \(error.localizedDescription, privacy: .public)")
-      return false
+      throw error
     }
   }
 

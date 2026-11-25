@@ -219,7 +219,8 @@ public:
     float haven_zoom       = 4000.0f;
     bool  hide_haven_water = false;
     // System rotation is on by default; hook installation remains a separate restart-only compatibility switch.
-    bool system_camera_orbit = true;
+    bool system_camera_orbit     = true;
+    bool station_camera_orbit = false;
     // A multiple of the station interior's own zoom-out distance, at least 1.
     float             interior_zoom_scale = 2.0f;
     float             fr_scale            = 2.0f;

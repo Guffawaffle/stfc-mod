@@ -116,6 +116,11 @@ extern const Feature kInteriorZoom;
 // Station interior and Haven share one native blend callback, with independent installation flags.
 bool EnsureCameraBlendZoom();
 bool InteriorZoomInstalled();
+bool StationOrbitInputInstalled();
+struct OrbitFrameProvider;
+void ApplyStationInteriorPan(OrbitFrameProvider* provider);
+void UpdateStationInteriorCamera();
+void ResetStationInteriorCamera();
 // Fresh pan speed for this camera's own depth; unrelated or unknown depths retain native speed.
 float CameraPanSpeed(NodeDepth depth, float system_speed, float galaxy_speed);
 

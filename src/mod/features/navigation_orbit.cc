@@ -2,6 +2,7 @@
 // Default bindings are MOUSE2 drag and ALT-MOUSE2 reset.
 #include "features/navigation_orbit.h"
 #include "config.h"
+#include "features/camera_orbit_input.h"
 #include "features/features.h"
 #include "shortcuts.h"
 
@@ -170,9 +171,7 @@ void NavigationOrbitTick()
       return;
     }
     if (state.dragging && (position.value.x != state.x || position.value.y != state.y)) {
-      constexpr float degrees_per_pixel = 0.15f;
-      state.yaw        = std::remainder(state.yaw + (position.value.x - state.x) * degrees_per_pixel, 360.0f);
-      state.pitch      = std::clamp(state.pitch - (position.value.y - state.y) * degrees_per_pixel, 5.0f, 90.0f);
+      ApplyOrbitDrag(state.yaw, state.pitch, position.value.x - state.x, position.value.y - state.y, 5.0f, 90.0f);
       state.overridden = changed = true;
       if (!system_orbit::SetView(transform, {state.pitch, state.yaw, 0}, state.distance)) {
         NavigationOrbitFail("rotate camera transform");

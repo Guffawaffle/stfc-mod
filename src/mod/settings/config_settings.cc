@@ -470,6 +470,8 @@ void RegisterConfigSettings(PageCatalog& catalog)
         "Zero uses the native Haven limit.", "distance", 0, largest, 6000, 250);
   FLOAT("camera", graphics, interior_zoom_scale, "Station interior zoom-out", Owner("InteriorZoom"), Live,
         "A multiplier of one uses the native interior limit.", "multiplier", 1, largest, 4, .1f);
+  BOOL("camera", graphics, station_camera_orbit, "Station interior orbit", Owner("InteriorZoom"), Live,
+       "Uses the Haven orbit shortcuts. By default, hold middle-mouse and drag to orbit; Alt + middle-mouse resets.");
   FLOAT("camera", graphics, default_system_zoom, "Default system zoom", zoom, Live,
         "Zero keeps the game's system-entry zoom; otherwise used on entry and reset.", "distance", 0, largest, 6000,
         50);

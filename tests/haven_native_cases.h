@@ -3,18 +3,21 @@
 // Actual Haven camera/history consumers against the existing controlled runtime.
 // Orbit substitutes only shortcut input; scene/UI/constraint observations use the
 // production typed adapters. No installed detour, rendered image or player claim.
-#include "../src/mod/features/haven.cc"
+#include "shortcuts.h"
 
 namespace haven_fixture_shortcuts
 {
-inline bool bound = true, held = false, down = false, reset = false;
-inline bool HasBinding(Action)
+inline bool   bound = true, held = false, down = false, reset = false;
+inline bool   HasBinding(Action)
 { return bound; }
 inline bool IsPressed(Action action)
 { return action == Action::kHavenOrbitDrag && held; }
 inline bool IsDown(Action action)
 { return action == Action::kHavenOrbitDrag ? down : action == Action::kHavenOrbitReset && reset; }
 } // namespace haven_fixture_shortcuts
+#define Shortcut haven_fixture_shortcuts
+#include "../src/mod/features/haven.cc"
+#undef Shortcut
 namespace haven_fixture_orbit
 {
 void ApplyConstraints(OrbitFrameProvider* provider);
@@ -146,6 +149,12 @@ struct HavenFixtureProvider {
   float                   radius = 0, yaw = 20, pitch = 45;
   TargetController*       pivot = nullptr;
   TargetController*       look  = nullptr;
+  PanDriver*              pan   = nullptr;
+  unity::Vector3          pan_delta{};
+};
+struct HavenFixturePanDriver {
+  Il2CppObject     header;
+  PanDriver::Plane plane = PanDriver::Plane::XZ;
 };
 struct HavenFixtureFrame {
   Il2CppObject      header;
@@ -176,6 +185,7 @@ struct HavenFixtureGeometry {
   HavenFixtureRange      close_range{}, far_range{}, pitch_range{};
   HavenFixtureConstraint close_constraint{}, far_constraint{};
   HavenFixtureProvider   close_provider{}, far_provider{};
+  HavenFixturePanDriver  pan_driver{};
   HavenFixtureFrame      source_frame{}, target_frame{}, result{};
   HavenFixtureBlend      blend{};
   Il2CppObject           pivot{}, curve{};
@@ -185,6 +195,7 @@ struct HavenFixtureGeometry {
     auto& provider = Define("Digit.Client.CameraController", "FrameProvider", IL2CPP_TYPE_CLASS, &component_class);
     auto& orbit = Define("Digit.Client.CameraController", "AbstractOrbitFrameProvider", IL2CPP_TYPE_CLASS, &provider);
     auto& concrete = Define("Digit.Client.CameraController", "OrbitFrameProvider", IL2CPP_TYPE_CLASS, &orbit);
+    auto& pan = Define("Digit.Client.CameraController", "PanDriver", IL2CPP_TYPE_CLASS, &component_class);
     auto& planetary =
         Define("Digit.Client.CameraController", "PlanetaryOrbitFrameProvider", IL2CPP_TYPE_CLASS, &concrete);
     auto& target =
@@ -221,6 +232,11 @@ struct HavenFixtureGeometry {
     AddField(orbit, "_elevationAngle", float_class, offsetof(HavenFixtureProvider, pitch));
     AddField(orbit, "_orbitPivot", target, offsetof(HavenFixtureProvider, pivot));
     AddField(orbit, "_lookTarget", target, offsetof(HavenFixtureProvider, look));
+    AddField(orbit, "_targetOffsetDriver", pan, offsetof(HavenFixtureProvider, pan));
+    AddField(orbit, "_targetOffsetDelta", vec3_class, offsetof(HavenFixtureProvider, pan_delta));
+    pan.klass.instance_size = sizeof(HavenFixturePanDriver);
+    AddField(pan, "_plane", int_class, offsetof(HavenFixturePanDriver, plane));
+    pan_driver.header.klass = &pan.klass;
     auto& position_type = mode == "haven-zoom-missing-position"   ? int_class
                           : mode == "haven-zoom-foreign-position" ? foreign_position
                                                                   : vec3_class;

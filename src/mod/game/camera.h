@@ -42,6 +42,8 @@ struct CameraFrame : il2cpp::Object {
   { SetField<"_position">(value); }
   unity::Quaternion rotation()
   { return Field<"_rotation", unity::Quaternion>(); }
+  void SetRotation(unity::Quaternion value)
+  { SetField<"_rotation">(value); }
   float fov()
   { return Field<"_FOV", float>(); }
   float farPlane()
@@ -65,6 +67,14 @@ struct CameraController : unity::Behaviour {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.CameraController", "CameraController">;
 };
 
+struct PanDriver : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.CameraController", "PanDriver">;
+  enum class Plane : int32_t { XY, XZ, YZ };
+
+  Plane plane()
+  { return Field<"_plane", Plane>(); }
+};
+
 // An orbit around a pivot, at a radius its constraint bounds.
 struct AbstractOrbitFrameProvider : FrameProvider {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.CameraController", "AbstractOrbitFrameProvider">;
@@ -81,6 +91,8 @@ struct AbstractOrbitFrameProvider : FrameProvider {
   { return Field<"_rotationAngleDelta", float>(); }
   void SetRotationAngleDelta(float value)
   { SetField<"_rotationAngleDelta">(value); }
+  void SetTargetOffsetDelta(unity::Vector3 value)
+  { SetField<"_targetOffsetDelta">(value); }
 };
 
 // The system view's camera, and the far end of the station interior's blend.
