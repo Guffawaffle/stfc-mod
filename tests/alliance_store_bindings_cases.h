@@ -554,6 +554,15 @@ void AllianceStoreNativeCases(std::string_view mode)
     return;
 
   InstallStoreResearchCatalogFixture();
+  auto& artifact_base = Define("Fixture", "MonoSingleton`1", IL2CPP_TYPE_CLASS, &object_class);
+  auto& artifact_hall = Define("Digit.Prime.ArtifactHall", "ArtifactHallManager", IL2CPP_TYPE_CLASS, &artifact_base);
+  AddField(artifact_base, "s_initialized", bool_class, 0, true);
+  AddField(artifact_base, "s_instance", artifact_hall, 0, true);
+  AddMethod(artifact_hall, "get_Instance", reinterpret_cast<void*>(+[](const MethodInfo*) -> Il2CppObject* {
+              Require(false, "a passive material lookup must not initialize Artifact Hall");
+              return nullptr;
+            }),
+            T(artifact_hall), {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
   store_test_plain.header.klass  = &plain.klass;
   store_test_action.header.klass = &action.klass;
   store_test_widget.header.klass = store_test_donor.header.klass = &widget.klass;
@@ -658,7 +667,7 @@ void AllianceStoreNativeCases(std::string_view mode)
               && !store_test_plain.description_override && !store_test_widget.action
               && store_test_eligibility_calls == research_calls_before_collectible,
           "a collectible shard bypasses the research button and negative notice");
-  store_test_resource_subtype = 0;
+  store_test_resource_subtype = static_cast<int32_t>(store_game::RewardResourceSubtype::Material);
   store_test_cost.resource    = 1;
   {
     store_game::ResearchChecks checks{alliance_research_index};

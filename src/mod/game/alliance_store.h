@@ -2,6 +2,7 @@
 
 // Alliance Games store and shared reward tooltip bindings.
 #include "inventory.h"
+#include "settings.h"
 
 #include <array>
 #include <vector>
@@ -43,7 +44,7 @@ struct StoreResearchManager : il2cpp::Object {
 struct StoreArtifact : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ArtifactHall", "Artifact">;
 };
-struct StoreArtifactHall : MonoSingleton<StoreArtifactHall> {
+struct StoreArtifactHall : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.ArtifactHall", "ArtifactHallManager">;
 };
 
@@ -231,12 +232,13 @@ inline bool NotifyPosition(StoreSmartScroller* smart, unity::Vector2 position)
 
 inline StoreArtifact* ArtifactForResource(int64_t resource_id, Roots& roots)
 {
-  auto* manager = roots.Keep(StoreArtifactHall::Instance());
+  const auto existing = settings_binding::ExistingSingleton<StoreArtifactHall>();
+  auto*      manager  = existing ? roots.Keep(existing.value) : nullptr;
   if (!manager || !roots.healthy)
     return nullptr;
   // The conversion screen uses a shard-resource index. TryGetArtifactByID
   // takes a research project ID instead.
-  auto*          index    = roots.Keep(manager->Field<"_artifactsByResourceId", il2cpp::Object*>());
+  auto*          index    = roots.Keep(manager->Field<"_artifactsByResourceId", ServerManagedReference*>());
   StoreArtifact* artifact = nullptr;
   const auto     found    = index ? index->TryCall<"TryGetValue", bool(int64_t, StoreArtifact*&)>(resource_id, artifact)
                                   : il2cpp::CallResult<bool>{};
