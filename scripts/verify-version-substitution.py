@@ -6,6 +6,8 @@ import plistlib
 import re
 from pathlib import Path
 
+from release_version import canonical_base
+
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = importlib.util.spec_from_file_location("mac_build_identity", ROOT / "scripts/mac-build-identity.py")
 IDENTITY = importlib.util.module_from_spec(SPEC)
@@ -21,12 +23,12 @@ def header_version() -> str:
         if not match:
             raise SystemExit(f"Missing VERSION_{component}")
         parts.append(match.group(1))
-    return ".".join(parts)
+    return canonical_base(".".join(parts), packaged=True)
 
 
 def header_fork_revision() -> int:
     header = (ROOT / "src/mod/version.h").read_text()
-    match = re.search(r"^#define\s+VERSION_FORK_REVISION\s+([1-9][0-9]*)\s*$", header, re.MULTILINE)
+    match = re.search(r"^#define\s+VERSION_FORK_REVISION\s+(0|[1-9][0-9]*)\s*$", header, re.MULTILINE)
     if not match:
         raise SystemExit("Missing VERSION_FORK_REVISION")
     return int(match.group(1))
@@ -35,15 +37,15 @@ def header_fork_revision() -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("plist", nargs="?", default="zig-out/macOSLauncher.app/Contents/Info.plist")
-    parser.add_argument("--base-version", help="expected four-part core version; defaults to the version header")
+    parser.add_argument("--base-version", help="expected core or fixed PE version; defaults to the version header")
     parser.add_argument("--channel", choices=IDENTITY.CHANNEL_LABELS, help="expected build channel")
     parser.add_argument("--release-tag", help="expected full promotion tag")
     parser.add_argument("--source", help="expected full source commit")
     parser.add_argument("--fork-revision", type=int, help="expected fork revision; defaults to the version header")
     args = parser.parse_args()
 
-    version = args.base_version or header_version()
     try:
+        version = canonical_base(args.base_version, packaged=True) if args.base_version else header_version()
         _, plist = IDENTITY.read_plist(Path(args.plist))
         identity = IDENTITY.validate_plist(plist)
     except (OSError, ValueError, TypeError, plistlib.InvalidFileException) as error:

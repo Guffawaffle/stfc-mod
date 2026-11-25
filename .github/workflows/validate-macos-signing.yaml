@@ -24,7 +24,7 @@ on:
         options: [both, macos, windows]
         default: both
       release_tag:
-        description: Planned release tag (v1.1.9.5-guffa.N); leave empty for a signed CI test
+        description: Planned version tag (v2.2.0 or v2.2.0-rc.N); leave empty for a signed CI test
         type: string
       prerelease:
         description: Named Pre uses play; turn off for full Release from main
