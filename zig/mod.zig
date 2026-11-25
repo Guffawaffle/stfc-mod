@@ -177,7 +177,15 @@ fn addBuildIdentity(ctx: *const Ctx, module: *std.Build.Module, development_pack
             const rest = std.mem.trimStart(u8, header[offset + key.len ..], " \t");
             values[i] = rest[0 .. std.mem.indexOfAny(u8, rest, " \t\r\n") orelse rest.len];
         }
-        const prefix = b.fmt("v{s}.{s}.{s}.{s}-guffa.{s}-dev.", .{ values[0], values[1], values[2], values[3], values[4] });
+        if (std.mem.eql(u8, values[4], "0")) {
+            const major = std.fmt.parseInt(u32, values[0], 10) catch @panic("invalid version major");
+            if (major < 2 or !std.mem.eql(u8, values[3], "0"))
+                @panic("independent DEV versions require major >= 2 and a zero fourth component");
+        }
+        const prefix = if (std.mem.eql(u8, values[4], "0"))
+            b.fmt("v{s}.{s}.{s}-dev.", .{ values[0], values[1], values[2] })
+        else
+            b.fmt("v{s}.{s}.{s}.{s}-guffa.{s}-dev.", .{ values[0], values[1], values[2], values[3], values[4] });
         if (!std.mem.startsWith(u8, dev_tag, prefix))
             std.debug.panic("DEV tag {s} differs from compiled prefix {s}", .{ dev_tag, prefix });
         const sequence = dev_tag[prefix.len..];

@@ -6,8 +6,7 @@ import json
 from pathlib import Path
 import re
 
-
-TAG = re.compile(r"v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+-guffa\.[1-9][0-9]*\Z")
+from release_version import parse_tag
 
 
 def resolve(operation: str, release_tag: str, prerelease: bool, run: dict) -> dict:
@@ -15,8 +14,8 @@ def resolve(operation: str, release_tag: str, prerelease: bool, run: dict) -> di
         raise ValueError("Unsupported signing operation or prerelease value")
     if not isinstance(run, dict):
         raise ValueError("Producing CI run metadata must be an object")
-    if not isinstance(release_tag, str) or (release_tag and not TAG.fullmatch(release_tag)):
-        raise ValueError("release_tag must be an exact v1.1.9.5-guffa.N style tag")
+    if not isinstance(release_tag, str):
+        raise ValueError("release_tag must be a canonical package tag")
     if operation == "sign" and not release_tag:
         raise ValueError("Named signing requires the planned release_tag")
     if not release_tag and not prerelease:
@@ -24,6 +23,8 @@ def resolve(operation: str, release_tag: str, prerelease: bool, run: dict) -> di
 
     # Untagged signed CI tests retain their Pre label and test-only eligibility.
     channel = "pre" if prerelease else "release"
+    if release_tag:
+        parse_tag(release_tag, channel)
     source_branch = ("play" if prerelease else "main") if release_tag else ""
     if source_branch:
         if run.get("status") != "completed" or run.get("conclusion") != "success":
@@ -31,10 +32,10 @@ def resolve(operation: str, release_tag: str, prerelease: bool, run: dict) -> di
         if run.get("head_branch") != source_branch or run.get("event") != "push":
             raise ValueError(f"{channel.capitalize()} signing requires a successful {source_branch} push")
     run_number = str(run.get("run_number", ""))
-    if not re.fullmatch(r"[1-9][0-9]*", run_number):
+    if not re.fullmatch(r"[1-9][0-9]*", run_number) or int(run_number) >= 2**63:
         raise ValueError("Producing CI run_number must be a positive integer")
     run_attempt = str(run.get("run_attempt", ""))
-    if not re.fullmatch(r"[1-9][0-9]*", run_attempt):
+    if not re.fullmatch(r"[1-9][0-9]*", run_attempt) or int(run_attempt) >= 2**63:
         raise ValueError("Producing CI run_attempt must be a positive integer")
     return {
         "schema_version": "stfc-mac-release-context/v1",

@@ -16,11 +16,10 @@ import struct
 import tempfile
 from pathlib import Path
 
+from release_version import LEGACY_BASE, base_parts, canonical_base, parse_tag
+
 
 CHANNEL_LABELS = {"ci": "CI", "dev": "DEV", "pre": "Pre", "release": "Release"}
-BASE_PATTERN = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)")
-TAG_PATTERN = re.compile(r"v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))-guffa\.([1-9][0-9]*)")
-DEV_TAG_PATTERN = re.compile(TAG_PATTERN.pattern + r"-dev\.([1-9][0-9]*)")
 IDENTITY_KEYS = (
     "CFBundleShortVersionString", "CFBundleVersion", "CFBundleGetInfoString",
     "STFCBaseVersion", "STFCDisplayVersion", "STFCBuildChannel", "STFCReleaseTag",
@@ -41,8 +40,8 @@ def numeric(value, label, minimum):
 def build_metadata(base_version, *, channel="ci", release_tag=None, source=None, fork_revision=None,
                    run_id=None, run_number=0, run_attempt=1):
     """Return all owned plist fields from explicit, validated build inputs."""
-    if not isinstance(base_version, str) or not BASE_PATTERN.fullmatch(base_version):
-        raise ValueError("base version must contain four canonical numeric components")
+    base_version = canonical_base(base_version, packaged=True)
+    components = base_parts(base_version, packaged=True)
     if channel not in CHANNEL_LABELS:
         raise ValueError("channel must be ci, dev, pre, or release")
     if source is not None and (not isinstance(source, str) or not re.fullmatch(r"[0-9a-fA-F]{40}", source)):
@@ -51,35 +50,43 @@ def build_metadata(base_version, *, channel="ci", release_tag=None, source=None,
     run_attempt = numeric(run_attempt, "run attempt", 1)
     run_id = "" if run_id is None else str(numeric(run_id, "run ID", 1))
     fork_revision = 0 if fork_revision is None else numeric(fork_revision, "fork revision", 0)
-    version = f"{base_version}-guffa.{fork_revision}" if fork_revision else base_version
+    legacy = len(components) == 4
+    if not legacy and fork_revision:
+        raise ValueError("independent versions must not declare a legacy fork revision")
+    version = f"{base_version}-guffa.{fork_revision}" if legacy and fork_revision else base_version
     parts = base_version.split(".")
-    if channel == "dev" and release_tag is not None:
-        match = DEV_TAG_PATTERN.fullmatch(release_tag)
-        if not match or match.group(1) != base_version or int(match.group(2)) != fork_revision:
+    tagged = parse_tag(release_tag, channel) if release_tag is not None else None
+    if tagged is not None and tagged.base != base_version:
+        raise ValueError("release tag must match the compiled base version")
+    if channel == "dev" and tagged is not None:
+        if legacy and tagged.fork_revision != fork_revision:
             raise ValueError("DEV tag must match the compiled base and fork revision")
-        sequence = numeric(match.group(3), "development sequence", 1)
+        sequence = tagged.sequence
         version = release_tag[1:]
         label = "DEV"
-        bundle_version = f"{parts[3]}.{fork_revision}.{sequence}"
+        bundle_version = f"{parts[3]}.{fork_revision}.{sequence}" if legacy else base_version
     elif channel in ("ci", "dev"):
         if release_tag is not None:
             raise ValueError(f"{CHANNEL_LABELS[channel]} builds must not supply a release tag")
         number = str(run_number) if run_number else run_id
         label = CHANNEL_LABELS[channel] + " " + (f"b{number}.{run_attempt}" if number else "local")
-        bundle_version = f"{parts[3]}.{run_number}.{run_attempt}"
+        bundle_version = f"{parts[3]}.{run_number}.{run_attempt}" if legacy else base_version
     elif channel == "pre" and release_tag is None:
         if not source or not run_id or run_number <= 0:
             raise ValueError("unnamed Pre requires source commit, positive run ID, and positive run number")
         label = f"Pre b{run_number}.{run_attempt}"
-        bundle_version = f"{parts[3]}.{run_number}.{run_attempt}"
+        bundle_version = f"{parts[3]}.{run_number}.{run_attempt}" if legacy else base_version
     else:
-        match = TAG_PATTERN.fullmatch(release_tag) if isinstance(release_tag, str) else None
-        if not match or match.group(1) != base_version:
-            raise ValueError("Release/Pre requires a v<base-version>-guffa.<positive number> tag matching the base")
-        fork_revision = numeric(match.group(2), "release revision", 1)
+        if tagged is None:
+            raise ValueError("Release requires a canonical tag matching the compiled base")
+        fork_revision = tagged.fork_revision
         version = release_tag[1:]
         label = CHANNEL_LABELS[channel]
-        bundle_version = f"{parts[3]}.{match.group(2)}"
+        bundle_version = f"{parts[3]}.{fork_revision}" if legacy else base_version
+    if not legacy and run_number:
+        # The numeric bundle build identifies the producer, independently of rc/dev
+        # labels. Re-signing one exact producer retains its numeric build identity.
+        bundle_version = f"{run_number}.{run_attempt}.0"
     display = f"{version} · {label}"
     return {
         "CFBundleShortVersionString": ".".join(parts[:3]),
@@ -257,7 +264,7 @@ def stamp_app(app, *, icons_dir, receipt, **identity):
         if any(key.startswith("STFC") for key in plist):
             raise ValueError("incomplete existing STFC identity")
         base = plist.get("CFBundleShortVersionString")
-        if not isinstance(base, str) or not BASE_PATTERN.fullmatch(base) or plist.get("CFBundleVersion") != base:
+        if not isinstance(base, str) or not LEGACY_BASE.fullmatch(base) or plist.get("CFBundleVersion") != base:
             raise ValueError("legacy launcher must declare the same four-part numeric version in both version fields")
         reject_placeholders(plist)
         producing_revision = 0

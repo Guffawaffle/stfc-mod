@@ -1,11 +1,10 @@
 #pragma once
 
+#include "release_version.h"
+
 #include <nlohmann/json.hpp>
 
 #include <array>
-#include <charconv>
-#include <compare>
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -28,31 +27,22 @@ inline std::string_view ChannelKey(Channel channel)
   return {};
 }
 
-struct ReleaseVersion {
-  std::array<uint32_t, 6> parts{}; // Four base components, fork revision, DEV sequence.
-  auto                    operator<=>(const ReleaseVersion&) const = default;
-};
+using ReleaseVersion = mod_version::Version;
 
 inline std::optional<ReleaseVersion> ParseReleaseTag(std::string_view tag, Channel channel)
 {
   if (!tag.starts_with('v'))
     return {};
-  tag.remove_prefix(1);
-  ReleaseVersion                            version;
-  constexpr std::array<std::string_view, 5> separators{".", ".", ".", "-guffa.", "-dev."};
-  const size_t count = channel == Channel::Dev ? version.parts.size() : version.parts.size() - 1;
-  for (size_t i = 0; i < count; ++i) {
-    const auto separator = i + 1 == count ? std::string_view{} : separators[i];
-    const auto end       = separator.empty() ? tag.size() : tag.find(separator);
-    if (end == 0 || end == std::string_view::npos || (end > 1 && tag.front() == '0'))
-      return {};
-    const auto last   = tag.data() + end;
-    const auto parsed = std::from_chars(tag.data(), last, version.parts[i]);
-    if (parsed.ec != std::errc{} || parsed.ptr != last || (i >= 4 && version.parts[i] == 0))
-      return {};
-    tag.remove_prefix(end + separator.size());
-  }
-  return version;
+  const auto version = mod_version::Parse(tag.substr(1));
+  if (!version)
+    return {};
+  using mod_version::Family;
+  using mod_version::Stage;
+  const auto expected = channel == Channel::Release         ? Stage::Release
+                        : channel == Channel::Dev           ? Stage::Dev
+                        : version->family == Family::Legacy ? Stage::Release
+                                                            : Stage::Rc;
+  return version->stage == expected ? version : std::nullopt;
 }
 
 struct InstalledRelease {

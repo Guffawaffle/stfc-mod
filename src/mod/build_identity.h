@@ -2,10 +2,9 @@
 
 // Player-facing build labels are descriptive. Their presence is not signature or
 // publisher verification; source provenance and signing checks remain separate.
-#include <charconv>
-#include <cstdint>
+#include "release_version.h"
+
 #include <initializer_list>
-#include <limits>
 #include <string>
 #include <string_view>
 
@@ -14,32 +13,22 @@ namespace build_identity
 namespace detail
 {
   inline bool Number(std::string_view text, bool positive = true) noexcept
-  {
-    if (text.empty() || text.size() > 19 || (text.size() > 1 && text.front() == '0'))
-      return false;
-    for (const auto c : text)
-      if (c < '0' || c > '9')
-        return false;
-    uint64_t   value  = 0;
-    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
-    return result.ec == std::errc{} && result.ptr == text.data() + text.size()
-           && value <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) && (!positive || value != 0);
-  }
+  { return mod_version::Number(text, mod_version::max_build_number, positive).has_value(); }
   inline bool Run(std::string_view text) noexcept
   {
-    const auto dot = text.find('.');
-    return dot != std::string_view::npos && Number(text.substr(0, dot)) && Number(text.substr(dot + 1));
+    std::array<uint64_t, 2> run{};
+    return mod_version::Components(text, run, mod_version::max_build_number, true);
   }
-  inline bool Base(std::string_view text) noexcept
+  inline std::string_view DisplayBaseOrVersion(std::string_view version) noexcept
+  { return mod_version::DisplayBase(version).value_or(version); }
+  inline bool UnsignedChannel(std::string_view channel) noexcept
   {
-    for (int component = 0; component < 4; ++component) {
-      const auto dot = text.find('.');
-      if ((component < 3) != (dot != std::string_view::npos) || !Number(text.substr(0, dot), false))
-        return false;
-      if (dot != std::string_view::npos)
-        text.remove_prefix(dot + 1);
-    }
-    return true;
+    if (channel == " · DEV local" || channel == " · CI local")
+      return true;
+    for (const auto prefix : {std::string_view{" · DEV b"}, std::string_view{" · CI b"}, std::string_view{" · Pre b"}})
+      if (channel.starts_with(prefix))
+        return Run(channel.substr(prefix.size()));
+    return false;
   }
   inline char Hex(char value) noexcept
   {
@@ -53,31 +42,38 @@ namespace detail
 
 inline bool ValidDisplayVersion(std::string_view label, std::string_view base) noexcept
 {
-  constexpr std::string_view separator = " · ";
-  if (label.size() > 160 || !detail::Base(base) || !label.starts_with(base))
+  constexpr std::string_view separator    = " · ";
+  const auto                 display_base = mod_version::DisplayBase(base);
+  if (label.size() > 160 || !display_base)
     return false;
-  label.remove_prefix(base.size());
-  if (label.starts_with("-guffa.")) {
-    label.remove_prefix(7);
-    const auto space = label.find(separator);
-    if (space == std::string_view::npos)
-      return false;
-    const auto lineage = label.substr(0, space);
-    const auto dev     = lineage.find("-dev.");
-    if (dev != std::string_view::npos)
-      return detail::Number(lineage.substr(0, dev)) && detail::Number(lineage.substr(dev + 5))
-             && label.substr(space) == " · DEV";
-    if (!detail::Number(lineage))
-      return false;
-    label.remove_prefix(space);
-    if (label == " · Release" || label == " · Pre")
+  const auto space = label.find(separator);
+  if (space == std::string_view::npos)
+    return false;
+  const auto version_text = label.substr(0, space);
+  const auto channel      = label.substr(space);
+  const bool independent  = display_base->size() != base.size();
+  if (version_text == *display_base) {
+    if (detail::UnsignedChannel(channel))
       return true;
+    return independent && channel == " · Release";
   }
-  if (label == " · DEV local" || label == " · CI local")
-    return true;
-  for (const auto prefix : {std::string_view{" · DEV b"}, std::string_view{" · CI b"}, std::string_view{" · Pre b"}})
-    if (label.starts_with(prefix))
-      return detail::Run(label.substr(prefix.size()));
+  const auto version = mod_version::Parse(version_text, mod_version::max_build_number);
+  if (!version || (version->family == mod_version::Family::Independent) != independent
+      || version_text.substr(0, version_text.find('-')) != *display_base)
+    return false;
+  using mod_version::Stage;
+  if (!independent && version->stage == Stage::Release)
+    return channel == " · Release" || channel == " · Pre" || detail::UnsignedChannel(channel);
+  switch (version->stage) {
+    case Stage::Release:
+      return channel == " · Release";
+    case Stage::Rc:
+      return channel == " · Pre";
+    case Stage::Dev:
+      return channel == " · DEV";
+    case Stage::Ci:
+      return channel == " · CI";
+  }
   return false;
 }
 
@@ -109,7 +105,7 @@ inline bool MatchesUnsignedPackage(std::string_view label, bool development_pack
 {
   if (label.ends_with(" · DEV") || label.find(" · DEV ") != std::string_view::npos)
     return development_package;
-  if (label.find(" · CI ") != std::string_view::npos)
+  if (label.ends_with(" · CI") || label.find(" · CI ") != std::string_view::npos)
     return !development_package;
   return true;
 }
@@ -117,10 +113,13 @@ inline bool MatchesUnsignedPackage(std::string_view label, bool development_pack
 inline std::string FallbackVersion(std::string_view version, std::string_view invocation = {},
                                    bool development_package = false, std::string_view development_tag = {})
 {
+  version                      = detail::DisplayBaseOrVersion(version);
   const std::string prefix_tag = "v" + std::string(version) + "-dev.";
-  if (development_package && development_tag.starts_with(prefix_tag)
-      && detail::Number(development_tag.substr(prefix_tag.size())))
-    return std::string(development_tag.substr(1)) + " · DEV";
+  if (development_package && development_tag.starts_with(prefix_tag)) {
+    const auto parsed = mod_version::Parse(development_tag.substr(1), mod_version::max_build_number);
+    if (parsed && parsed->stage == mod_version::Stage::Dev)
+      return std::string(development_tag.substr(1)) + " · DEV";
+  }
   const std::string_view     channel = development_package ? " · DEV " : " · CI ";
   constexpr std::string_view prefix = "github:", suffix = ":windows";
   if (invocation.size() >= prefix.size() + suffix.size() && invocation.starts_with(prefix)
@@ -140,7 +139,7 @@ inline std::string HandoffVersion(std::string_view base, std::string_view label,
                                   bool handoff_present = false, std::string_view fork_version = {},
                                   bool development_package = false)
 {
-  const auto known_version = fork_version.empty() ? base : fork_version;
+  const auto known_version = detail::DisplayBaseOrVersion(fork_version.empty() ? base : fork_version);
   if (ValidDisplayVersion(label, base) && MatchesUnsignedPackage(label, development_package)
       && SourceMatches(source, compiled_source))
     return std::string(label);
@@ -157,7 +156,7 @@ inline std::string DescriptionVersion(std::string_view base, std::string_view de
                                       std::string_view invocation = {}, std::string_view fork_version = {},
                                       bool development_package = false, std::string_view development_tag = {})
 {
-  const auto                 known_version = fork_version.empty() ? base : fork_version;
+  const auto                 known_version = detail::DisplayBaseOrVersion(fork_version.empty() ? base : fork_version);
   constexpr std::string_view prefix        = "STFC Community Mod | ";
   if (state == SignatureState::Present && description.starts_with(prefix)) {
     const auto label = description.substr(prefix.size());

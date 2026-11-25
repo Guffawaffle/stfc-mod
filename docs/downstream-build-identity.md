@@ -1,5 +1,21 @@
 # Downstream build identity
 
+## Independent version transition
+
+The next independent release target is `2.2.0`. Named packages use `2.2.0 · Release`,
+`2.2.0-rc.1 · Pre`, or `2.2.0-dev.1 · DEV`. CI retains the run and attempt in
+its label. Each package records its source commit and producing run.
+
+The compatibility build keeps the legacy `1.1.9.5-guffa.12` version and accepts
+both formats. Its update checker uses the new feed described in the
+[release procedure](DOWNSTREAM-RELEASES.md#independent-versions).
+The examples below describe the legacy labels retained during this transition.
+
+Windows keeps four numeric file-version components, such as `2.2.0.0`, while
+the independent product version is `2.2.0`. Mac's short numeric version is
+`2.2.0`; its numeric build identifies the producing run and attempt.
+The full signed display identity retains the prerelease sequence and channel.
+
 The fork's Mac launcher uses the waffle icon with four channel labels:
 
 | Channel | Icon accent | Intended download |
