@@ -134,10 +134,12 @@ int main()
           "unknown signing metadata retains known fork lineage without claiming a channel");
   const std::string dev_tag   = "v" + std::string(VER_FORK_VERSION_STR) + "-dev.1";
   const std::string dev_label = std::string(VER_FORK_VERSION_STR) + "-dev.1 · DEV";
-  Require(ValidDisplayVersion(dev_label, base), "a named DEV label retains its package sequence");
-  Require(HandoffVersion(base, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR, true) == dev_label,
+  Require(ValidDisplayVersion(dev_label, VER_FILE_VERSION_STR), "a named DEV label retains its package sequence");
+  Require(HandoffVersion(VER_FILE_VERSION_STR, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR, true)
+              == dev_label,
           "the exact source-bound named DEV label reaches the selected Mac development payload");
-  Require(HandoffVersion(base, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR) == VER_FORK_VERSION_STR,
+  Require(HandoffVersion(VER_FILE_VERSION_STR, dev_label, source, "01234567", {}, true, VER_FORK_VERSION_STR)
+              == VER_FORK_VERSION_STR,
           "a named DEV label cannot relabel a core payload");
   Require(DescriptionVersion(base, {}, SignatureState::Absent, {}, VER_FORK_VERSION_STR, true, dev_tag) == dev_label,
           "the Windows compiled DEV tag supplies its complete unsigned display version");
