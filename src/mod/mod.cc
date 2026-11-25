@@ -224,6 +224,7 @@ constexpr const Feature* kFeatures[] = {
     // shop.cc
     &kGiftsAutoOpen,
     &kAllianceGamesStore,
+    &kRewardTooltipProgress,
     &kShopLimits,
 #if _WIN32
     &kDonationLimit,

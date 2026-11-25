@@ -365,6 +365,9 @@ abilitybuttonrecoveryhooks = true
 # Emergency hook switch; restart required. Use ui.show_alliance_games_research for the live button setting.
 alliancegamesstorehooks = true
 
+# Show owned counts and upgrade progress in reward item tooltips.
+rewardtooltipprogresshooks = true
+
 # Enable recovery of interrupted action queues.
 actionqueuerecoveryhooks = true
 artifactexchangehooks = true

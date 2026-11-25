@@ -73,6 +73,7 @@ constexpr std::pair<std::string_view, bool Config::Patches::*> kPatches[] = {
     {"pinnedshiphooks", &Config::Patches::pinnedshiphooks},
     {"queueaddressguardhooks", &Config::Patches::queueaddressguardhooks},
     {"revealconfirmhooks", &Config::Patches::revealconfirmhooks},
+    {"rewardtooltipprogresshooks", &Config::Patches::rewardtooltipprogresshooks},
     {"runtimeconfighooks", &Config::Patches::runtimeconfighooks},
     {"shiptechindicatorhooks", &Config::Patches::shiptechindicatorhooks},
     {"syncpatches", &Config::Patches::syncpatches},

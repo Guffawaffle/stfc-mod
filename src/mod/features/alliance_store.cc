@@ -1,8 +1,8 @@
 // ui.show_alliance_games_research controls native material research tooltips.
 // Currency and post-purchase refresh remain active independently of that setting.
-#include "game/alliance_store.h"
 #include "config.h"
 #include "features/features.h"
+#include "game/alliance_store_research.h"
 
 #include <il2cpp/hook.h>
 #include <spdlog/spdlog.h>
@@ -27,7 +27,8 @@ struct AllianceStoreWork {
   Clock::time_point research_due{}, notice_due{};
 };
 // Retained managed handles must not be freed by process static destructors after IL2CPP shuts down.
-auto& alliance_store_work = *new AllianceStoreWork;
+auto& alliance_store_work     = *new AllianceStoreWork;
+auto& alliance_research_index = *new store_game::ResearchMaterialIndex;
 
 enum class ResearchUpdate { Unchanged, Upgraded, Annotated, Restored, Unavailable, Failed };
 
@@ -240,7 +241,7 @@ ResearchUpdate AnnotateStoreTooltip(StoreInventoryTooltip* widget, StoreTooltipT
 }
 
 ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInventoryTooltip*& donor,
-                                     store_game::Roots& pass_roots)
+                                     store_game::Roots& pass_roots, store_game::ResearchChecks& checks)
 {
   auto owned = OwnedTooltip(tooltip);
   // Remove only our text before any eligibility decision or appearance copy.
@@ -279,18 +280,22 @@ ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInvent
   if (!roots.healthy || (old_action && (!owned || owned->action.Get() != old_action))
       || (old_action ? old_trigger != old_action : old_trigger != plain))
     return ResearchUpdate::Unchanged;
-  const auto eligible = store_game::Eligible(item);
-  if (!eligible) {
+  const auto research = store_game::ResearchForReward(item, checks);
+  if (!research) {
     if (owned && owned->bound && !RestoreStoreTooltip(*owned))
       return ResearchUpdate::Failed;
     return ResearchUpdate::Unavailable;
   }
   if (!same_item())
     return ResearchUpdate::Unavailable;
-  if (!eligible.value) {
+  if (research.value != store_game::ResearchAvailability::kAvailable) {
     if (owned && owned->bound && !RestoreStoreTooltip(*owned))
       return ResearchUpdate::Failed;
-    return same_item() ? AnnotateStoreTooltip(tooltip, plain, item, store, same_item) : ResearchUpdate::Unavailable;
+    if (!same_item())
+      return ResearchUpdate::Unavailable;
+    if (research.value == store_game::ResearchAvailability::kNoneAvailable)
+      return AnnotateStoreTooltip(tooltip, plain, item, store, same_item);
+    return ResearchUpdate::Unchanged;
   }
   if (!donor)
     donor = store_game::Template(pass_roots);
@@ -528,6 +533,7 @@ void AllianceStoreFrame()
     work.due = Clock::now() + std::chrono::milliseconds(250);
     return;
   }
+  store_game::ResearchChecks checks{alliance_research_index};
   if (notice_pass) {
     // Native calls can reenter store release/bind. Retain stable owner entries
     // and recheck source authority before touching the next changed card.
@@ -545,7 +551,7 @@ void AllianceStoreFrame()
         continue;
       store_game::Roots card_roots;
       if (auto* widget = card_roots.Keep(entry->widget.Get<StoreInventoryTooltip>()))
-        (void)ReconcileStoreTooltip(widget, donor, roots);
+        (void)ReconcileStoreTooltip(widget, donor, roots, checks);
       else if (card_roots.healthy)
         (void)RestoreStoreTooltip(*entry);
     }
@@ -581,7 +587,8 @@ void AllianceStoreFrame()
     if (!rect || !live || !live.value)
       continue;
     const auto tooltip = rect->TryCall<"GetComponentInChildren", StoreInventoryTooltip*>(tooltip_type, true);
-    switch (tooltip && tooltip.value ? ReconcileStoreTooltip(tooltip.value, donor, roots) : ResearchUpdate::Unchanged) {
+    switch (tooltip && tooltip.value ? ReconcileStoreTooltip(tooltip.value, donor, roots, checks)
+                                     : ResearchUpdate::Unchanged) {
       case ResearchUpdate::Upgraded:
         ++upgraded;
         break;

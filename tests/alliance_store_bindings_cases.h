@@ -3,7 +3,9 @@
 // Actual production consumers; only managed methods, Unity component creation
 // and the shared test runtime are substituted. No rendered UI or purchase.
 #include "../src/mod/features/alliance_store.cc"
+#include "../src/mod/game/reward_upgrade_progress.h"
 #include <functional>
+#include <span>
 
 namespace
 {
@@ -61,12 +63,39 @@ StoreFixtureArray   store_test_templates{};
 Il2CppObject store_test_item{}, store_test_other_item{}, store_test_spec{}, store_test_manager{}, store_test_loader{},
     store_test_search{}, store_test_locale{}, store_test_settings{}, store_test_object{}, store_test_context{},
     store_test_pool{}, store_test_currencies{}, store_test_soft{}, store_test_rect{};
-bool    store_test_added = false, store_test_eligible = true, store_test_eligibility_throws = false,
-        store_test_setup_throws = false, store_test_rebind = false, store_test_fetching = false,
-        store_test_shop_active = true, store_test_donor_available = true;
-int     store_test_adds = 0, store_test_setups = 0, store_test_currency = 0, store_test_original_releases = 0;
-int     store_test_pool_count = 0, store_test_pool_reads = 0, store_test_eligibility_calls = 0;
-int64_t store_test_seen_resource = 0;
+struct StoreTestResearchList {
+  Il2CppObject  header;
+  Il2CppObject* entry = nullptr;
+};
+StoreTestResearchList store_test_trees{}, store_test_reloaded_trees{}, store_test_levels{}, store_test_costs{};
+Il2CppObject          store_test_tree{}, store_test_tree_projects{}, store_test_projects{}, store_test_project{},
+    store_test_level{};
+constexpr int64_t store_test_research_resource = 9007199254740993LL;
+struct StoreTestResourceCost {
+  Il2CppObject header;
+  int64_t      resource = 0, amount = 0;
+} store_test_cost{{}, store_test_research_resource, 1};
+struct StoreTestResearchData {
+  Il2CppObject           header;
+  StoreTestResearchList* trees    = &store_test_trees;
+  Il2CppObject*          projects = &store_test_projects;
+} store_test_research_data{};
+struct StoreTestSpecService {
+  Il2CppObject           header;
+  StoreTestResearchData* data = &store_test_research_data;
+} store_test_spec_service{};
+struct StoreTestSpecManager {
+  Il2CppObject          header;
+  StoreTestSpecService* service = &store_test_spec_service;
+} store_test_spec_manager{};
+Il2CppClass* store_test_spec_manager_base = nullptr;
+bool         store_test_added = false, store_test_eligible = true, store_test_eligibility_throws = false,
+             store_test_setup_throws = false, store_test_rebind = false, store_test_fetching = false,
+             store_test_shop_active = true, store_test_donor_available = true;
+int          store_test_adds = 0, store_test_setups = 0, store_test_currency = 0, store_test_original_releases = 0;
+int          store_test_pool_count = 0, store_test_pool_reads = 0, store_test_eligibility_calls = 0;
+int64_t      store_test_seen_resource    = 0;
+int32_t      store_test_resource_subtype = 0;
 std::function<void()> store_test_on_setup, store_test_on_eligibility, store_test_on_enable, store_test_on_description;
 int                   store_test_context_reads = 0, store_test_release_at_context = 0;
 int                   store_test_notifications           = 0;
@@ -104,7 +133,11 @@ InventoryItem* StoreTestContext(StoreFixtureWidget* self, const MethodInfo*)
 ResourceSpec* StoreTestSpec(InventoryItem*, const MethodInfo*)
 { return reinterpret_cast<ResourceSpec*>(&store_test_spec); }
 int64_t StoreTestResource(ResourceSpec*, const MethodInfo*)
-{ return 9007199254740993LL; }
+{ return store_test_research_resource; }
+int32_t StoreTestResourceSubtype(ResourceSpec*, const MethodInfo*)
+{ return store_test_resource_subtype; }
+int32_t StoreTestItemType(InventoryItem*, const MethodInfo*)
+{ return static_cast<int32_t>(store_game::RewardType::Resource); }
 StoreResearchManager* StoreTestResearch(const MethodInfo*)
 { return reinterpret_cast<StoreResearchManager*>(&store_test_manager); }
 bool StoreTestEligible(StoreResearchManager*, int64_t id, store_game::ResearchTree tree, const MethodInfo*)
@@ -117,6 +150,236 @@ bool StoreTestEligible(StoreResearchManager*, int64_t id, store_game::ResearchTr
   if (auto callback = std::exchange(store_test_on_eligibility, {}))
     callback();
   return store_test_eligible;
+}
+
+bool StoreTestSpecSingleton(FieldInfo* field, void* result)
+{
+  if (field->parent != store_test_spec_manager_base)
+    return false;
+  if (std::string_view(field->name) == "s_initialized") {
+    const bool ready = true;
+    std::memcpy(result, &ready, sizeof(ready));
+    return true;
+  }
+  auto* value = &store_test_spec_manager.header;
+  std::memcpy(result, &value, sizeof(value));
+  return true;
+}
+
+template <typename T> struct StoreTestNativeList {
+  Il2CppObject header;
+  std::span<T> items;
+};
+
+template <typename Element> FakeClass& DefineStoreTestNativeList(const char* name, FakeClass& entry)
+{
+  auto& list = Define("Fixture", name, IL2CPP_TYPE_CLASS, &object_class);
+  AddMethod(list, "get_Count", reinterpret_cast<void*>(+[](StoreTestNativeList<Element>* self, const MethodInfo*) {
+              return static_cast<int32_t>(self->items.size());
+            }),
+            T(int_class), {});
+  AddMethod(list, "get_Item",
+            reinterpret_cast<void*>(+[](StoreTestNativeList<Element>* self, int32_t index, const MethodInfo*) {
+              Require(index >= 0 && static_cast<size_t>(index) < self->items.size(),
+                      "building catalog traversal stays within the native collection");
+              return self->items[index];
+            }),
+            T(entry), {T(int_class)});
+  return list;
+}
+
+struct StoreTestBuildingLevel {
+  Il2CppObject                        header;
+  StoreTestNativeList<Il2CppObject*>* resources;
+};
+struct StoreTestBuilding {
+  Il2CppObject                        header;
+  int64_t                             id;
+  int32_t                             section;
+  StoreTestNativeList<Il2CppObject*>* levels;
+};
+struct StoreTestBuildingCatalog {
+  Il2CppObject                  header;
+  StoreTestNativeList<int64_t>* keys;
+  std::span<StoreTestBuilding>  buildings;
+};
+
+void StoreTestBuildingMaterials(FakeClass& cost)
+{
+  auto& catalog  = Define("Fixture", "BuildingCatalog", IL2CPP_TYPE_CLASS, &object_class);
+  auto& ids      = Define("Fixture", "BuildingKeys", IL2CPP_TYPE_CLASS, &object_class);
+  auto& id_array = Define("System", "Int64[]", IL2CPP_TYPE_SZARRAY, &array_class);
+  auto& building = Define("Digit.PrimeServer.Models", "StarbaseSpec", IL2CPP_TYPE_CLASS, &object_class);
+  auto& types    = Define("", "Types", IL2CPP_TYPE_CLASS, &object_class);
+  auto& level    = Define("", "Level", IL2CPP_TYPE_CLASS, &object_class);
+  id_array.klass.byval_arg.data.type = T(long_class);
+  building.nested.push_back(&types.klass);
+  types.nested.push_back(&level.klass);
+  types.klass.declaringType = &building.klass;
+  level.klass.declaringType = &types.klass;
+  auto& levels              = DefineStoreTestNativeList<Il2CppObject*>("BuildingLevels", level);
+  auto& resources           = DefineStoreTestNativeList<Il2CppObject*>("BuildingResources", cost);
+  AddMethod(catalog, "get_Keys",
+            reinterpret_cast<void*>(+[](StoreTestBuildingCatalog* self, const MethodInfo*) { return self->keys; }),
+            T(ids), {});
+  AddMethod(catalog, "TryGetValue",
+            reinterpret_cast<void*>(
+                +[](StoreTestBuildingCatalog* self, int64_t id, StoreTestBuilding*& result, const MethodInfo*) {
+                  auto entry = std::ranges::find(self->buildings, id, &StoreTestBuilding::id);
+                  result     = entry == self->buildings.end() ? nullptr : &*entry;
+                  return result != nullptr;
+                }),
+            T(bool_class), {T(long_class), Ref(building)});
+  AddMethod(ids, "get_Count", reinterpret_cast<void*>(+[](StoreTestNativeList<int64_t>* self, const MethodInfo*) {
+              return static_cast<int32_t>(self->items.size());
+            }),
+            T(int_class), {});
+  AddMethod(ids, "CopyTo",
+            reinterpret_cast<void*>(+[](StoreTestNativeList<int64_t>* self, il2cpp::Array<int64_t>* array,
+                                        int32_t offset, const MethodInfo*) {
+              auto entries = il2cpp::Items(array);
+              Require(offset == 0 && entries.size() == self->items.size(),
+                      "building key copy fills the exact allocated Int64 vector from index zero");
+              std::ranges::copy(self->items, entries.begin());
+            }),
+            T(void_class), {T(id_array), T(int_class)});
+  AddMethod(building, "get_Id",
+            reinterpret_cast<void*>(+[](StoreTestBuilding* self, const MethodInfo*) { return self->id; }),
+            T(long_class), {});
+  AddMethod(building, "get_Section",
+            reinterpret_cast<void*>(+[](StoreTestBuilding* self, const MethodInfo*) { return self->section; }),
+            T(int_class), {});
+  AddMethod(building, "get_Levels",
+            reinterpret_cast<void*>(+[](StoreTestBuilding* self, const MethodInfo*) { return self->levels; }),
+            T(levels), {});
+  AddMethod(level, "get_Resources",
+            reinterpret_cast<void*>(+[](StoreTestBuildingLevel* self, const MethodInfo*) { return self->resources; }),
+            T(resources), {});
+
+  constexpr int64_t     shared = 9007199254740992LL, unique = 9007199254740993LL, unused = 4294967302LL;
+  StoreTestResourceCost shared_cost{{&cost.klass}, shared, 12}, unique_cost{{&cost.klass}, unique, 24},
+      zero_cost{{&cost.klass}, unused, 0};
+  Il2CppObject*                      op_costs[]{&shared_cost.header, &zero_cost.header};
+  Il2CppObject*                      war_costs[]{&shared_cost.header, &unique_cost.header, &unique_cost.header};
+  StoreTestNativeList<Il2CppObject*> op_resources{{&resources.klass}, op_costs},
+      war_resources{{&resources.klass}, war_costs}, empty_resources{{&resources.klass}, {}};
+  StoreTestBuildingLevel op_level{{&level.klass}, &op_resources}, war_level_one{{&level.klass}, &war_resources},
+      war_level_two{{&level.klass}, &empty_resources};
+  Il2CppObject* op_level_items[]{&op_level.header};
+  Il2CppObject* war_level_items[]{&war_level_one.header, &war_level_two.header, &war_level_one.header};
+  StoreTestNativeList<Il2CppObject*> op_levels{{&levels.klass}, op_level_items},
+      war_levels{{&levels.klass}, war_level_items};
+  StoreTestBuilding modules[]{
+      {{&building.klass}, 0, 0, &op_levels},
+      {{&building.klass}, 78, 1, &war_levels},
+      {{&building.klass}, 1000, 2, &war_levels},
+  };
+  int64_t                      module_ids[]{78, 0, 1000};
+  StoreTestNativeList<int64_t> module_list{{&ids.klass}, module_ids};
+  StoreTestBuildingCatalog     source{{&catalog.klass}, &module_list, modules};
+  auto*                        source_object = reinterpret_cast<il2cpp::Object*>(&source);
+  const auto                   read          = [&] {
+    store_game::Roots roots;
+    return reward_upgrade_progress::ReadBuildingMaterials(source_object, roots);
+  };
+  const auto index = read();
+  Require(index && index->size() == 2 && !index->contains(unused),
+          "positive building costs are indexed and zero costs stay out");
+  Require(index->contains(unique) && index->at(unique).size() == 1,
+          "a repeated resource across building levels yields one exact, full-width building match");
+  const auto& use = index->at(unique).front();
+  Require(use.module_id == 78 && use.levels == std::vector<int32_t>{1, 3},
+          "one-based target levels preserve empty gaps and deduplicate repeated costs");
+  Require(use.NextLevelAfter(0) == 1 && use.NextLevelAfter(1) == 3 && !use.NextLevelAfter(3),
+          "the next use skips earlier levels and empty gaps, with no future use at the final target level");
+  Require(index->contains(shared)
+              && std::ranges::equal(index->at(shared), std::array{0, 78}, {},
+                                    &reward_upgrade_progress::BuildingMaterialUse::module_id),
+          "shared material keeps both sorted player building IDs and excludes the alliance module");
+  source.keys = nullptr;
+  Require(!read(), "unavailable native catalog keys do not produce a partial building index");
+}
+
+void InstallStoreResearchCatalogFixture()
+{
+  auto& base     = Define("", "MonoSingleton`1", IL2CPP_TYPE_CLASS, &object_class);
+  auto& manager  = Define("Digit.Prime.Navigation.Managers", "SpecManager", IL2CPP_TYPE_CLASS, &base);
+  auto& cached   = Define("Digit.Client.UI", "CachedService`1", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(void*));
+  auto& service  = Define("Digit.PrimeServer.Services", "SpecService", IL2CPP_TYPE_CLASS, &object_class);
+  auto& data     = Define("Digit.PrimeServer.Services", "StaticSyncDataContainer", IL2CPP_TYPE_CLASS, &object_class);
+  auto& tree     = Define("Digit.PrimeServer.Models", "ResearchTreeSpec", IL2CPP_TYPE_CLASS, &object_class);
+  auto& project  = Define("Digit.PrimeServer.Models", "ResearchProjectSpec", IL2CPP_TYPE_CLASS, &object_class);
+  auto& level    = Define("Digit.PrimeServer.Models", "ResearchProjectLevel", IL2CPP_TYPE_CLASS, &object_class);
+  auto& cost     = Define("Digit.PrimeServer.Models", "Resource", IL2CPP_TYPE_CLASS, &object_class);
+  auto& projects = Define("Fixture", "ResearchProjectMap", IL2CPP_TYPE_CLASS, &object_class);
+  auto& ids      = Define("Fixture", "ResearchProjectIds", IL2CPP_TYPE_CLASS, &object_class);
+  auto  reference_list = [](const char* name, FakeClass& element, StoreTestResearchList& instance,
+                            Il2CppObject& entry) -> FakeClass& {
+    auto& list = Define("Fixture", name, IL2CPP_TYPE_CLASS, &object_class);
+    instance   = {{&list.klass}, &entry};
+    AddMethod(list, "get_Count", reinterpret_cast<void*>(+[](void*, const MethodInfo*) { return int32_t{1}; }),
+              T(int_class), {});
+    AddMethod(list, "get_Item", reinterpret_cast<void*>(+[](StoreTestResearchList* self, int32_t, const MethodInfo*) {
+                return self->entry;
+              }),
+              T(element), {T(int_class)});
+    return list;
+  };
+  auto& tree_list                = reference_list("ResearchTrees", tree, store_test_trees, store_test_tree);
+  auto& levels                   = reference_list("ResearchLevels", level, store_test_levels, store_test_level);
+  auto& costs                    = reference_list("ResearchCosts", cost, store_test_costs, store_test_cost.header);
+  store_test_reloaded_trees      = store_test_trees;
+  store_test_spec_manager_base   = &base.klass;
+  tow_static_field_read_override = StoreTestSpecSingleton;
+  AddField(base, "s_initialized", bool_class, 0, true);
+  AddField(base, "s_instance", manager, 0, true);
+  AddField(manager, "_specServiceCached", cached, offsetof(StoreTestSpecManager, service));
+  AddField(cached, "_cachedService", service, sizeof(Il2CppObject));
+  AddField(service, "_dataContainer", data, offsetof(StoreTestSpecService, data));
+  AddField(data, "ResearchTreeSpecs", tree_list, offsetof(StoreTestResearchData, trees));
+  AddField(data, "ResearchProjectSpecs", projects, offsetof(StoreTestResearchData, projects));
+  store_test_spec_manager.header.klass  = &manager.klass;
+  store_test_spec_service.header.klass  = &service.klass;
+  store_test_research_data.header.klass = &data.klass;
+  store_test_tree.klass                 = &tree.klass;
+  store_test_tree_projects.klass        = &ids.klass;
+  store_test_projects.klass             = &projects.klass;
+  store_test_project.klass              = &project.klass;
+  store_test_level.klass                = &level.klass;
+  store_test_cost.header.klass          = &cost.klass;
+  auto count_one                        = +[](void*, const MethodInfo*) { return int32_t{1}; };
+  AddMethod(tree, "get_Type", reinterpret_cast<void*>(+[](void*, const MethodInfo*) { return int32_t{0}; }),
+            T(int_class), {});
+  AddMethod(tree, "get_Projects",
+            reinterpret_cast<void*>(+[](void*, const MethodInfo*) { return &store_test_tree_projects; }), T(ids), {});
+  AddMethod(ids, "get_Count", reinterpret_cast<void*>(count_one), T(int_class), {});
+  AddMethod(ids, "get_Item", reinterpret_cast<void*>(+[](void*, int32_t, const MethodInfo*) { return int64_t{1}; }),
+            T(long_class), {T(int_class)});
+  AddMethod(projects, "get_Count", reinterpret_cast<void*>(count_one), T(int_class), {});
+  AddMethod(projects, "TryGetValue",
+            reinterpret_cast<void*>(+[](void*, int64_t, Il2CppObject*& result, const MethodInfo*) {
+              result = &store_test_project;
+              return true;
+            }),
+            T(bool_class), {T(long_class), Ref(project)});
+  AddMethod(project, "get_Levels",
+            reinterpret_cast<void*>(+[](void*, const MethodInfo*) { return &store_test_levels; }), T(levels), {});
+  AddMethod(level, "get_Costs", reinterpret_cast<void*>(+[](void*, const MethodInfo*) { return &store_test_costs; }),
+            T(costs), {});
+  AddMethod(cost, "get_ResourceId",
+            reinterpret_cast<void*>(+[](StoreTestResourceCost* self, const MethodInfo*) { return self->resource; }),
+            T(long_class), {});
+  AddMethod(cost, "get_Value",
+            reinterpret_cast<void*>(+[](StoreTestResourceCost* self, const MethodInfo*) { return self->amount; }),
+            T(long_class), {});
+  StoreTestBuildingMaterials(cost);
+}
+
+ResearchUpdate ReconcileStoreTooltip(StoreInventoryTooltip* tooltip, StoreInventoryTooltip*& donor,
+                                     store_game::Roots& roots)
+{
+  store_game::ResearchChecks checks{alliance_research_index};
+  return ReconcileStoreTooltip(tooltip, donor, roots, checks);
 }
 StoreTooltipTrigger* StoreTestPlain(StoreInventoryTooltip*, Il2CppReflectionType*, const MethodInfo*)
 { return reinterpret_cast<StoreTooltipTrigger*>(&store_test_plain); }
@@ -290,6 +553,22 @@ void AllianceStoreNativeCases(std::string_view mode)
   if (mode == "store-fields-mismatch")
     return;
 
+  InstallStoreResearchCatalogFixture();
+  auto& artifact_base = Define("Fixture", "MonoSingleton`1", IL2CPP_TYPE_CLASS, &object_class);
+  auto& artifact_hall = Define("Digit.Prime.ArtifactHall", "ArtifactHallManager", IL2CPP_TYPE_CLASS, &artifact_base);
+  AddField(artifact_base, "s_initialized", bool_class, 0, true);
+  AddField(artifact_base, "s_instance", artifact_hall, 0, true);
+  static bool called_instance_getter = false;
+  const auto& instance_getter =
+      AddMethod(artifact_base, "get_Instance", reinterpret_cast<void*>(+[](const MethodInfo*) -> Il2CppObject* {
+                  called_instance_getter = true;
+                  return nullptr;
+                }),
+                T(artifact_hall), {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddProperty(artifact_base, "Instance", &instance_getter);
+  (void)StoreArtifactHall::Class::Get<"Instance", StoreArtifactHall*>();
+  Require(called_instance_getter, "the fixture observes the creating getter through the native property");
+  called_instance_getter         = false;
   store_test_plain.header.klass  = &plain.klass;
   store_test_action.header.klass = &action.klass;
   store_test_widget.header.klass = store_test_donor.header.klass = &widget.klass;
@@ -338,8 +617,10 @@ void AllianceStoreNativeCases(std::string_view mode)
             {T(warp_locale_class), T(bool_class), T(bool_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
   AddMethod(behaviour, "set_enabled", reinterpret_cast<void*>(&StoreTestSetEnabled), T(void_class), {T(bool_class)});
   AddMethod(item, "get_ResourceSpec", reinterpret_cast<void*>(&StoreTestSpec), T(spec), {});
+  AddMethod(item, "get_ItemType", reinterpret_cast<void*>(&StoreTestItemType), T(int_class), {});
   AddMethod(spec, "get_Id", reinterpret_cast<void*>(&StoreTestResource),
             mode == "store-research-bad-id" ? T(int_class) : T(long_class), {});
+  AddMethod(spec, "get_Subtype", reinterpret_cast<void*>(&StoreTestResourceSubtype), T(int_class), {});
   AddMethod(hub, "get_ResearchManager", reinterpret_cast<void*>(&StoreTestResearch), T(manager), {},
             METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
   AddMethod(manager, "IsResourceRequiredByVisibleResearches", reinterpret_cast<void*>(&StoreTestEligible),
@@ -385,11 +666,31 @@ void AllianceStoreNativeCases(std::string_view mode)
     alliance_store_work.source.Reset();
     return;
   }
-  store_test_eligible = false;
+  store_test_eligible                          = false;
+  const auto research_calls_before_collectible = store_test_eligibility_calls;
+  store_test_resource_subtype                  = static_cast<int32_t>(store_game::RewardResourceSubtype::CosmeticShard);
+  Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Unchanged
+              && !store_test_plain.description_override && !store_test_widget.action
+              && store_test_eligibility_calls == research_calls_before_collectible,
+          "a collectible shard bypasses the research button and negative notice");
+  store_test_resource_subtype = static_cast<int32_t>(store_game::RewardResourceSubtype::Material);
+  store_test_cost.resource    = 1;
+  {
+    store_game::ResearchChecks checks{alliance_research_index};
+    const auto                 before = store_test_eligibility_calls;
+    Require(ReconcileStoreTooltip(tooltip, donor, roots, checks) == ResearchUpdate::Unchanged
+                && ReconcileStoreTooltip(tooltip, donor, roots, checks) == ResearchUpdate::Unchanged
+                && !store_test_plain.description_override && !store_test_widget.action
+                && store_test_eligibility_calls == before + 1,
+            "unrelated materials stay plain and duplicate offers share one native search per pass");
+  }
+  Require(!called_instance_getter, "a passive material lookup never calls the creating Artifact Hall getter");
+  store_test_cost.resource       = store_test_research_resource;
+  store_test_research_data.trees = &store_test_reloaded_trees;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Annotated && !store_test_added
               && !store_test_widget.action && store_test_plain.enabled
               && il2cpp::ToUtf8(store_test_plain.description_override) == "No Available Research",
-          "a confirmed empty research result annotates the plain tooltip without adding an action component");
+          "a replaced catalog confirms research use and annotates an unavailable material without adding an action");
   Config::Get().ui.show_alliance_games_research = false;
   Require(ReconcileStoreTooltip(tooltip, donor, roots) == ResearchUpdate::Restored
               && !store_test_plain.description_override && !store_test_widget.action && !store_test_adds,
@@ -862,6 +1163,10 @@ void AllianceStoreNativeCases(std::string_view mode)
   owned.reset();
   alliance_store_tooltips.clear();
   roots.values.clear();
-  Require(warp_roots.size() == before, "component and original-asset ownership is fully released by teardown");
+  Require(warp_roots.size() == before + 2 && alliance_research_index.trees.Get() == &store_test_reloaded_trees.header
+              && alliance_research_index.projects.Get() == &store_test_projects,
+          "store teardown releases all handles except the two weak catalog references");
+  alliance_research_index = {};
+  Require(warp_roots.size() == before, "discarding the catalog releases its weak references");
 }
 } // namespace
