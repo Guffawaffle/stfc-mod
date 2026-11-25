@@ -101,10 +101,16 @@ jobs:
         shell: pwsh
         run: |
           $context = Get-Content -LiteralPath .dev/dev-context.json -Raw | ConvertFrom-Json
-          $expected = if ($context.tag) { $context.tag.Substring(1) } else { "$($context.base)-guffa.$($context.fork_revision)" }
+          $expected = python scripts/dev-release.py product-version --context .dev/dev-context.json
+          if ($LASTEXITCODE -ne 0) { throw 'DEV ProductVersion validation failed' }
+          $fixedParts = $context.base.Split('.')
+          if ($fixedParts.Count -eq 3) { $fixedParts += '0' }
+          $expectedFileVersion = $fixedParts -join '.'
           $dll = (Resolve-Path -LiteralPath zig-out/bin/version.dll).Path
           $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($dll)
+          $actualFileVersion = '{0}.{1}.{2}.{3}' -f $version.FileMajorPart, $version.FileMinorPart, $version.FileBuildPart, $version.FilePrivatePart
           if ($version.ProductVersion -cne $expected) { throw "DEV ProductVersion differs from $expected" }
+          if ($actualFileVersion -cne $expectedFileVersion) { throw "DEV fixed FileVersion differs from $expectedFileVersion" }
           if ((Get-AuthenticodeSignature -LiteralPath $dll).Status -ne 'NotSigned') {
             throw 'DEV payload must remain unsigned'
           }

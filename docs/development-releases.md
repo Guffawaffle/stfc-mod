@@ -2,7 +2,7 @@
 
 The fork's `play-dev` branch builds the explicit AAI and Profiles development product. Every
 push runs the **Development package** workflow and retains a preview package.
-A tag such as `v1.1.9.5-guffa.6-dev.1` publishes the same product as a GitHub
+A tag such as `v2.2.0-dev.1` publishes the same product as a GitHub
 prerelease. DEV uses the blue waffle icon with a violet DEV badge and the complete tag in its display
 version. Core PR builds retain their CI identity and require no private source.
 
@@ -43,14 +43,17 @@ alongside the AAI pin. Mac account/browser isolation still requires actual playe
    product; **Development package** also offers an untagged AAI preview for testing.
    Every tagged run repeats the full native builds and tests before publication,
    including private source access, DEV metadata, icons, and packaging.
-2. Choose an unused `v<four-part-base>-guffa.<fork-revision>-dev.<sequence>` tag.
-   Its base and fork revision must match `src/mod/version.h`; the sequence must
-   be a positive canonical integer through 4294967295.
+2. Choose an unused `v<major>.<minor>.<patch>-dev.<sequence>` tag, such as
+   `v2.2.0-dev.1`. Its three-part base must match `src/mod/version.h`, with
+   `VERSION_PATCH` and `VERSION_FORK_REVISION` both zero. The sequence must be a
+   positive canonical integer through 4294967295. Legacy source still accepts
+   `v<four-part-base>-guffa.<fork-revision>-dev.<sequence>` with the exact compiled
+   base and fork revision; the two formats cannot select each other's source.
 3. Create and push a signed annotated tag on that exact `play-dev` tip:
 
    ```sh
-   git tag -s v1.1.9.5-guffa.6-dev.1 -m "DEV package 1.1.9.5-guffa.6-dev.1" <commit>
-   git push origin refs/tags/v1.1.9.5-guffa.6-dev.1
+   git tag -s v2.2.0-dev.1 -m "DEV package 2.2.0-dev.1" <commit>
+   git push origin refs/tags/v2.2.0-dev.1
    ```
 
 4. Wait for the tag's **Development package** run. It builds from the tag,
@@ -58,6 +61,13 @@ alongside the AAI pin. Mac account/browser isolation still requires actual playe
    checks SHA-256 digests before publishing. The release remains a prerelease
    and never becomes Latest. Its `dev-release.json` records source, AAI pin,
    build run, mode and payload hashes; `SHA256SUMS` also covers that manifest.
+
+An independent DEV manifest records the three-part base and `fork_revision: 0`.
+Windows keeps a four-part fixed FileVersion, such as `2.2.0.0`, and the complete
+DEV tag without `v` in ProductVersion. An untagged preview uses `2.2.0` there and
+shows `2.2.0 · DEV b<run>.<attempt>` in the mod. The Mac short version is `2.2.0`;
+its numeric build is `<run>.<attempt>.0`, independent of the DEV sequence. Its
+full display version retains the DEV tag and channel.
 
 The usual Mac DMG includes the complete DEV app, Profiles helper, notices and DEV icon.
 Packaging mounts it read-only and verifies the app's file hashes, executable modes,

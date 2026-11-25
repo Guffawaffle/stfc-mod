@@ -13,6 +13,8 @@ import tarfile
 import tempfile
 import zipfile
 
+from release_version import PE_COMPONENT_MAX, UINT32_MAX, canonical_base
+
 ROOT = Path(__file__).resolve().parent.parent
 REPOSITORY = "Guffawaffle/stfc-mod"
 SPEC = importlib.util.spec_from_file_location("mac_identity", ROOT / "scripts/mac-build-identity.py")
@@ -37,14 +39,18 @@ def source_version():
                            "VERSION_FORK_REVISION")]
     if any(len(value) != 1 for value in values):
         raise ValueError("missing or ambiguous compiled version")
-    return ".".join(value[0] for value in values[:4]), int(values[4][0])
+    base = canonical_base(".".join(value[0] for value in values[:4]), packaged=True)
+    if any(int(value[0]) > PE_COMPONENT_MAX for value in values[:4]):
+        raise ValueError("compiled version exceeds the Windows version-resource limit")
+    revision = IDENTITY.numeric(values[4][0], "fork revision", 0)
+    if revision > UINT32_MAX:
+        raise ValueError("compiled fork revision exceeds the native version limit")
+    validate_tag("", base, revision)
+    return base, revision
 
 
 def validate_tag(tag, base, revision):
-    fields = IDENTITY.build_metadata(base, channel="dev", release_tag=tag or None, fork_revision=revision)
-    if tag and int(tag.rsplit(".", 1)[1]) > 2**32 - 1:
-        raise ValueError("DEV sequence exceeds the native build limit")
-    return fields
+    return IDENTITY.build_metadata(base, channel="dev", release_tag=tag or None, fork_revision=revision)
 
 
 def resolve(ref, source, output):
@@ -79,6 +85,7 @@ def resolve(ref, source, output):
                    run_id=str(IDENTITY.numeric(os.environ["GITHUB_RUN_ID"], "run ID", 1)),
                    run_number=IDENTITY.numeric(os.environ["GITHUB_RUN_NUMBER"], "run number", 1),
                    run_attempt=IDENTITY.numeric(os.environ["GITHUB_RUN_ATTEMPT"], "run attempt", 1))
+    metadata(context)
     output.write_text(json.dumps(context, indent=2) + "\n", encoding="utf-8")
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
         for key in ("source", "aai_pin", "tag"):
@@ -91,6 +98,15 @@ def metadata(context):
         context["base"], channel="dev", release_tag=context["tag"] or None,
         fork_revision=context["fork_revision"], source=context["source"],
         run_id=context["run_id"], run_number=context["run_number"], run_attempt=context["run_attempt"])
+
+
+def product_version(context):
+    identity = metadata(context)
+    if identity["STFCReleaseTag"]:
+        return identity["STFCReleaseTag"][1:]
+    base = identity["STFCBaseVersion"]
+    revision = identity["STFCForkRevision"]
+    return f"{base}-guffa.{revision}" if revision else base
 
 
 def verify_mac(context, prefixes):
@@ -166,8 +182,7 @@ def verify_windows(context, dll):
     subprocess.run([os.sys.executable, str(ROOT / "scripts/verify-windows-binary.py"),
                     str(dll), "--profiles-host", "--identity", marker], check=True)
     data = dll.read_bytes()
-    product = context["tag"].removeprefix("v") if context["tag"] else (
-        f"{context['base']}-guffa.{context['fork_revision']}")
+    product = product_version(context)
     if (product + "\0").encode("utf-16le") not in data:
         raise ValueError("Windows ProductVersion does not match the DEV version")
     # The PE certificate table must be empty; DEV never passes through Authenticode signing.
@@ -244,6 +259,8 @@ def verify_assets(context, output):
     manifest = json.loads((output / "dev-release.json").read_text(encoding="utf-8"))
     if any(manifest.get(key) != value for key, value in context.items()):
         raise ValueError("release provenance differs from the selecting job")
+    if manifest.get("display_version") != metadata(context)["STFCDisplayVersion"]:
+        raise ValueError("release display version differs from the selected DEV identity")
     expected = payload_names(context["tag"])
     if set(manifest["assets"]) != expected or {p.name for p in output.iterdir()} != (
             expected | {"dev-release.json", "SHA256SUMS"}):
@@ -316,12 +333,12 @@ def main():
     select.add_argument("--ref", required=True)
     select.add_argument("--source", required=True)
     select.add_argument("--output", type=Path, required=True)
-    for name in ("verify-mac", "package", "verify", "publish"):
+    for name in ("product-version", "verify-mac", "package", "verify", "publish"):
         child = commands.add_parser(name)
         child.add_argument("--context", type=Path, required=True)
         if name == "verify-mac":
             child.add_argument("prefixes", type=Path, nargs="+")
-        else:
+        elif name != "product-version":
             child.add_argument("--output", type=Path, required=True)
         if name == "package":
             child.add_argument("--windows", type=Path, required=True)
@@ -331,6 +348,9 @@ def main():
     if "context" in arguments:
         arguments["context"] = json.loads(arguments["context"].read_text(encoding="utf-8"))
     try:
+        if name == "product-version":
+            print(product_version(**arguments))
+            return
         {"resolve": resolve, "verify-mac": verify_mac, "package": package,
          "verify": verify_assets, "publish": publish}[name](**arguments)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
