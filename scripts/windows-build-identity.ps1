@@ -30,7 +30,13 @@ if (-not $version.FileVersion) { throw 'Selected DLL has no fixed version resour
 $baseVersion = '{0}.{1}.{2}.{3}' -f $version.FileMajorPart, $version.FileMinorPart, $version.FileBuildPart, $version.FilePrivatePart
 $productVersion = [string]$version.ProductVersion
 $forkRevision = '0'
-if ($productVersion -cne $baseVersion) {
+$coreVersion = '{0}.{1}.{2}' -f $version.FileMajorPart, $version.FileMinorPart, $version.FileBuildPart
+if ($version.FileMajorPart -ge 2) {
+    if ($version.FilePrivatePart -ne 0 -or $productVersion -cne $coreVersion) {
+        throw 'Independent ProductVersion must match the three-part fixed version with a zero fourth component'
+    }
+    $baseVersion = $coreVersion
+} elseif ($productVersion -cne $baseVersion) {
     if ($productVersion -cnotmatch ('\A' + [regex]::Escape($baseVersion) + '-guffa\.([1-9][0-9]*)\z')) {
         throw 'ProductVersion must match the fixed base version and optional canonical fork revision'
     }

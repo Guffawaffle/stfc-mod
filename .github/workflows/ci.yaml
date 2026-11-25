@@ -85,6 +85,33 @@ jobs:
         run: >-
           python scripts/verify-windows-binary.py ${{ github.repository == 'Guffawaffle/stfc-mod' && '--profiles-host' || '' }} --identity
           "stfc-identity-v1;distribution=netniv.stfc-community-mod;source=git:${{ github.sha }};base=${{ github.sha }};build=github:${{ github.run_id }}:${{ github.run_attempt }}:windows;mode=release;channel=ci"
+      - name: Verify Windows version identity
+        shell: pwsh
+        run: |
+          $header = Get-Content -LiteralPath src/mod/version.h -Raw
+          $components = foreach ($key in @('MAJOR', 'MINOR', 'REVISION', 'PATCH')) {
+            if ($header -notmatch "(?m)^#define\s+VERSION_$key\s+(\d+)\s*$") {
+              throw "Missing VERSION_$key"
+            }
+            $Matches[1]
+          }
+          $fixedVersion = $components -join '.'
+          $productVersion = $fixedVersion
+          if ($header -match '(?m)^#define\s+VERSION_FORK_REVISION\s+(\d+)\s*$') {
+            $forkRevision = [uint32]$Matches[1]
+            $productVersion = if ($forkRevision) {
+              "$fixedVersion-guffa.$forkRevision"
+            } elseif ([uint32]$components[0] -ge 2) {
+              $components[0..2] -join '.'
+            } else {
+              $fixedVersion
+            }
+          }
+          $info = [Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path zig-out/bin/version.dll).Path)
+          $actualFixed = '{0}.{1}.{2}.{3}' -f $info.FileMajorPart, $info.FileMinorPart, $info.FileBuildPart, $info.FilePrivatePart
+          if ($actualFixed -cne $fixedVersion -or $info.ProductVersion -cne $productVersion) {
+            throw "DLL version does not match its producing source"
+          }
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: stfc-community-mod
@@ -131,6 +158,11 @@ jobs:
           version: ${{ env.ZIG_VERSION }}
       - name: Test
         run: python3 scripts/ci-build-retry.py --prefetch -- zig build test-toolchains test-codegen test-il2cpp test-mod test-sync test-launcher test-spud
+      - name: Check version and publication contract
+        run: |
+          python3 -m unittest discover -s tests -p mac_build_identity_test.py
+          python3 -m unittest discover -s tests -p mac_release_context_test.py
+          python3 -m unittest discover -s tests -p update_release_index_test.py
 
   build-mac:
     name: build-mac (${{ matrix.arch }})
@@ -167,6 +199,8 @@ jobs:
             -Dlauncher_run_id=${{ github.run_id }} \
             -Dlauncher_run_number=${{ github.run_number }} \
             -Dlauncher_run_attempt=${{ github.run_attempt }}
+      - name: Verify launcher version identity
+        run: python3 scripts/verify-version-substitution.py --channel ci --source "${{ github.sha }}"
       - name: Verify portable linkage
         run: |
           scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \
@@ -295,6 +329,8 @@ jobs:
         run: |
           scripts/assemble-mac-app.sh "zig-out/staging/STFC Community Mod.app" \
             zig-out/staging/arm64 zig-out/staging/x86_64
+          python3 scripts/verify-version-substitution.py "zig-out/staging/STFC Community Mod.app/Contents/Info.plist" \
+            --channel ci --source "${{ github.sha }}"
 
       - name: Verify universal binaries
         run: |

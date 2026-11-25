@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
 SCRIPT = ROOT / "scripts/mac-build-identity.py"
 SPEC = importlib.util.spec_from_file_location("mac_build_identity", SCRIPT)
 IDENTITY = importlib.util.module_from_spec(SPEC)
@@ -103,6 +104,66 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(release["CFBundleVersion"], "5.6")
         self.assertEqual(pre["CFBundleVersion"], "5.6")
         self.assertEqual(release["CFBundleShortVersionString"], "1.1.9")
+
+    def test_independent_channels_keep_numeric_producer_separate_from_package_tag(self):
+        for channel, tag in (("release", "v2.2.0"), ("pre", "v2.2.0-rc.10"),
+                             ("dev", "v2.2.0-dev.10")):
+            with self.subTest(channel=channel):
+                fields = IDENTITY.build_metadata("2.2.0", channel=channel, release_tag=tag,
+                                                 source=SOURCE, run_id=99, run_number=987, run_attempt=2)
+                self.assertEqual(fields["STFCBaseVersion"], "2.2.0")
+                self.assertEqual(fields["CFBundleShortVersionString"], "2.2.0")
+                self.assertEqual(fields["CFBundleVersion"], "987.2.0")
+                self.assertEqual(fields["STFCReleaseTag"], tag)
+                self.assertEqual(fields["STFCDisplayVersion"], f"{tag[1:]} · {IDENTITY.CHANNEL_LABELS[channel]}")
+                self.assertEqual(fields["STFCForkRevision"], 0)
+                self.assertEqual(fields["STFCSourceCommit"], SOURCE)
+                self.assertEqual(fields["STFCBuildRunID"], "99")
+
+    def test_independent_base_normalizes_the_pe_quad_and_strictly_matches_tags(self):
+        fields = IDENTITY.build_metadata("2.2.0.0", channel="release", release_tag="v2.2.0")
+        self.assertEqual(fields["STFCBaseVersion"], "2.2.0")
+        self.assertEqual(fields["CFBundleVersion"], "2.2.0")
+        for base, arguments in (
+            ("2.2.0", {"channel": "release", "release_tag": "v2.2.1"}),
+            ("2.2.0", {"channel": "release", "release_tag": "v2.2.0-rc.1"}),
+            ("2.2.0", {"channel": "pre", "release_tag": "v2.2.0"}),
+            ("2.2.0", {"channel": "pre", "release_tag": "v2.2.0-dev.1"}),
+            ("2.2.0", {"channel": "dev", "release_tag": "v2.2.0-rc.1"}),
+            ("2.2.0", {"channel": "ci", "release_tag": "v2.2.0"}),
+            ("2.2.0", {"fork_revision": 1}), ("2.2.0.1", {}),
+            ("2.65536.0", {}), ("2.2.0.0", {"fork_revision": 7}),
+        ):
+            with self.subTest(base=base, arguments=arguments), self.assertRaises(ValueError):
+                IDENTITY.build_metadata(base, **arguments)
+
+    def test_independent_stamp_uses_producer_base_and_preserves_all_binary_bytes(self):
+        initial = template()
+        initial["LSMinimumSystemVersion"] = "14.6"
+        initial.update(IDENTITY.build_metadata("2.2.0", source=SOURCE, run_id=99, run_number=987, run_attempt=2))
+        self.plist.write_bytes(plistlib.dumps(initial))
+        record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt, channel="pre",
+                                    release_tag="v2.2.0-rc.2", source=SOURCE, run_id=99,
+                                    run_number=987, run_attempt=2)
+        self.assertEqual(record["identity"]["STFCDisplayVersion"], "2.2.0-rc.2 · Pre")
+        self.assertEqual(record["identity"]["CFBundleVersion"], "987.2.0")
+        for name, payload in self.binaries.items():
+            self.assertEqual((self.contents / name).read_bytes(), payload)
+        before = self.snapshot()
+        with self.assertRaises(ValueError):
+            IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt, channel="release",
+                               release_tag="v2.3.0", source=SOURCE, run_id=99, run_number=987, run_attempt=2)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_independent_cli_verifies_pe_quad_input_and_zero_fork_revision(self):
+        output = self.root / "modern.plist"
+        IDENTITY.generate(self.input_template, output, base_version="2.2.0.0", macos_min="14.6",
+                           source=SOURCE, run_id=99, run_number=987, run_attempt=2)
+        command = [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"), str(output),
+                   "--base-version", "2.2.0.0", "--fork-revision", "0", "--channel", "ci", "--source", SOURCE]
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("2.2.0 · CI b987.2", result.stdout)
 
     def test_pr_pre_stamp_retains_the_merge_source_for_the_loaded_mod(self):
         head = "f" * 40
@@ -240,7 +301,8 @@ class IdentityTests(unittest.TestCase):
         fork_revision = source_fork_revision()
         output = self.generated(channel="pre", source=SOURCE, fork_revision=fork_revision,
                                 run_id=99, run_number=19, run_attempt=3)
-        self.assertEqual(output["STFCDisplayVersion"], f"{BASE}-guffa.{fork_revision} · Pre b19.3")
+        display_base = f"{BASE}-guffa.{fork_revision}" if fork_revision else BASE
+        self.assertEqual(output["STFCDisplayVersion"], f"{display_base} · Pre b19.3")
         IDENTITY.validate_plist(output)
         verified = subprocess.run(
             [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"),
@@ -256,7 +318,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         record = IDENTITY.stamp_app(self.app, icons_dir=self.icons, receipt=self.receipt,
                                     channel="pre", source=SOURCE, run_id=99, run_number=19, run_attempt=3)
-        self.assertEqual(record["identity"]["STFCDisplayVersion"], f"{BASE}-guffa.{fork_revision} · Pre b19.3")
+        self.assertEqual(record["identity"]["STFCDisplayVersion"], f"{display_base} · Pre b19.3")
         self.assertEqual(self.output_icon.read_bytes(), (self.icons / "launcher-pre.icns").read_bytes())
         for name, payload in self.binaries.items():
             self.assertEqual((self.contents / name).read_bytes(), payload)
@@ -412,7 +474,7 @@ class IdentityTests(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("CI b19.1", result.stdout)
-        self.assertIn(f"{BASE}-guffa.{fork_revision}", result.stdout)
+        self.assertIn(f"{BASE}-guffa.{fork_revision}" if fork_revision else BASE, result.stdout)
         verify = [sys.executable, str(ROOT / "scripts/verify-version-substitution.py"), str(output),
                   "--base-version", BASE, "--channel", "ci", "--source", SOURCE]
         result = subprocess.run(verify, capture_output=True, text=True)
