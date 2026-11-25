@@ -3,6 +3,7 @@
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -38,6 +39,8 @@ def main():
              "-Daai-host=true", "-Daai-ui-lab=true", f"-Daai-source={source}", "-Dprofiles=true",
              "--summary", "all"]
     if windows:
+        if sysroot := os.environ.get("STFC_WINDOWS_MSVC_SYSROOT"):
+            build.append(f"-Dmsvc-sysroot={Path(sysroot).resolve(strict=True)}")
         build += [f"-Dstfc_source_state_id=git:{context['source']}",
                   f"-Dstfc_base_commit={context['source']}",
                   f"-Dstfc_build_invocation_id=github:{context['run_id']}:{context['run_attempt']}:windows",

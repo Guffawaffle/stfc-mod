@@ -90,11 +90,21 @@ jobs:
         if: matrix.arch == 'windows'
         with:
           arch: x64
+          toolset: "14.44"
       - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
         if: matrix.arch == 'windows'
         with:
           xmake-version: "3.0.8"
+      - name: Provision Windows build sysroot
+        if: matrix.arch == 'windows'
+        id: windows_sysroot
+        shell: pwsh
+        env:
+          STFC_WINDOWS_TOOLCHAIN_URL: ${{ vars.STFC_WINDOWS_TOOLCHAIN_URL }}
+        run: ./scripts/provision-windows-sysroot.ps1
       - name: Build and test the explicit DEV product
+        env:
+          STFC_WINDOWS_MSVC_SYSROOT: ${{ steps.windows_sysroot.outputs.path }}
         run: ${{ matrix.python }} scripts/build-dev.py --context .dev/dev-context.json --aai-source ../private-aai --target ${{ matrix.target }}
       - name: Read native Windows version resource
         if: matrix.arch == 'windows'
