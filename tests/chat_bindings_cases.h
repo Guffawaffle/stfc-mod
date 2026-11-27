@@ -466,6 +466,7 @@ struct StreamerPreviewFixtureWidget {
   TextLocalizer* label;
   ChatMessage*   message = nullptr;
 };
+int streamer_chat_preview_refreshes = 0;
 struct StreamerPreviewFixtureGraphic {
   Il2CppObject header;
   bool         enabled = true;
@@ -593,6 +594,7 @@ void ChatNativeStreamerRows(FakeClass& label_class, FakeClass& colour_class, Fak
   auto& ui                          = Config::Get().ui;
   ui.streamer_mode                  = true;
   ui.streamer_hide_my_name = ui.streamer_hide_my_alliance = false;
+  ui.streamer_hide_chat_sender_names = ui.streamer_hide_chat_alliances = false;
   auto& model                                             = Fake(UserProfile::Class::Raw());
   auto& model_interface                                   = Fake(ChatProfile::Class::Raw());
   auto& message_model                                     = Fake(ChatMessage::Class::Raw());
@@ -630,14 +632,33 @@ void ChatNativeStreamerRows(FakeClass& label_class, FakeClass& colour_class, Fak
           "chat masks only requested identity slots and preserves native source arguments");
   };
   streamer_chat_sender.id = streamer_chat_other.id;
+  const auto off_refreshes = streamer_chat_name_refreshes;
+  for (const bool enabled : {false, true}) {
+    ui.streamer_mode = enabled; // Includes Player ID-only privacy with no chat protection selected.
+    int originals    = 0;
+    ChatMessageWidget_OnDidBindContext_StreamerHook([&](auto*) { ++originals; }, receiver);
+    Require(originals == 1 && state.views.size() == 1 && state.labels.empty()
+                && streamer_chat_name_refreshes == off_refreshes,
+            "disabled and ID-only privacy retain only the weak owner without refreshing native identity text");
+  }
+  ui.streamer_hide_chat_sender_names = true;
+  StreamerChatFrame();
+  Require(!state.labels.empty() && state.views.front()->healthy,
+          "enabling privacy discovers the label of an existing passively observed row without a native rebind");
   for (int32_t style = 1; style <= 7; ++style)
     for (const bool names : {false, true})
       for (const bool alliances : {false, true}) {
         profile.style                      = style;
         ui.streamer_hide_chat_sender_names = names;
         ui.streamer_hide_chat_alliances    = alliances;
+        StreamerChatFrame();
         int originals                      = 0;
-        ChatMessageWidget_OnDidBindContext_StreamerHook([&](auto*) { ++originals; }, receiver);
+        ChatMessageWidget_OnDidBindContext_StreamerHook(
+            [&](auto*) {
+              ++originals;
+              StreamerChatFixtureRefreshName(&profile, nullptr);
+            },
+            receiver);
         std::array<bool, 5> mask{};
         const size_t        name = style == 3 || style == 4 || style == 6 ? 1 : 0;
         mask[name]               = names;
@@ -775,8 +796,12 @@ void ChatNativeStreamerRows(FakeClass& label_class, FakeClass& colour_class, Fak
         for (size_t i = 0; i < count; ++i)
           header_args->Set(i, values[i]);
         streamer_chat_header_arguments = reinterpret_cast<il2cpp::ArrayObject*>(header_args);
-        FullScreenChatViewController_RefreshContent_Hook([](auto*) {},
-                                                         reinterpret_cast<FullScreenChatViewController*>(&header));
+        FullScreenChatViewController_RefreshContent_Hook(
+            [&](auto*) {
+              TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, header_label, false,
+                                                                    streamer_chat_header_arguments);
+            },
+            reinterpret_cast<FullScreenChatViewController*>(&header));
         std::array<bool, 2> mask{count == 1 ? names : alliances, names};
         expect(header_label, {mask.data(), count});
         Require(state.views.back()->healthy,
@@ -856,6 +881,12 @@ void ChatNativeStreamerPreview()
   AddField(colour_class, "_noneColourArgs", object_array_class, offsetof(StreamerColourFixtureLabel, original));
   StreamerChatIdentityRuntime(widget);
   AddField(widget, "_text", label, offsetof(StreamerPreviewFixtureWidget, label));
+  AddMethod(
+      widget, "SetWidgetData", reinterpret_cast<void*>(+[](StreamerPreviewFixtureWidget* self, const MethodInfo*) {
+        ++streamer_chat_preview_refreshes;
+        ChatPreviewMessageWidget_SetWidgetData_Hook([](auto*) {}, reinterpret_cast<ChatPreviewMessageWidget*>(self));
+      }),
+      T(void_class), {});
   auto& target =
       AddMethod(label, "get_Target",
                 reinterpret_cast<void*>(+[](ChatNativeReference* self, const MethodInfo*) { return self->value; }),
@@ -1040,8 +1071,17 @@ void ChatNativeStreamerPreview()
   row.label            = nullptr;
   Require(!bind([](auto*) {}), "a missing preview label cannot report verified privacy");
   row.label                      = original_label;
+  StreamerChatFrame();
+  const auto preview_refreshes   = streamer_chat_preview_refreshes;
   Config::Get().ui.streamer_mode = false;
-  Require(bind([](auto*) {}), "turning Streamer Mode off leaves native previews alone");
+  int off_originals              = 0;
+  ChatPreviewMessageWidget_SetWidgetData_Hook([&](auto*) { ++off_originals; }, receiver);
+  Require(off_originals == 1 && streamer_chat_preview_refreshes == preview_refreshes,
+          "turning Streamer Mode off leaves native previews alone");
+  StreamerChatFrame();
+  Require(state.views.front()->healthy && !state.last_policy.Any()
+              && streamer_chat_preview_refreshes == preview_refreshes + 1,
+          "the frame handler restores a previously degraded preview after its successful native Off refresh");
   state = StreamerChatState{};
   Require(warp_roots.empty(), "preview fixture releases all temporary roots");
   ChatNativeStreamerRows(label, colour_class, multi_class, row.label, reinterpret_cast<TextLocalizer*>(&unrelated));

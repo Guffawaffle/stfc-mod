@@ -584,8 +584,11 @@ bool ApplyStreamerChatNames(StreamerChatView& view, streamer_mode::ChatPolicy po
     return view.cover.Restore();
 
   // Rebind native presentation at every policy edge. Native models and their unmasked arguments stay intact.
-  if (view.kind == StreamerChatViewKind::Preview)
-    return owner.Get<ChatPreviewMessageWidget>()->TryCall<"SetWidgetData", void>() && view.healthy;
+  if (view.kind == StreamerChatViewKind::Preview) {
+    if (!owner.Get<ChatPreviewMessageWidget>()->TryCall<"SetWidgetData", void>())
+      return false;
+    return policy.Any() ? view.healthy : view.cover.Restore();
+  }
 
   auto           profile        = il2cpp::GcHandle::Strong(StreamerChatProfile(view.kind, owner.Get<il2cpp::Object>()));
   TextLocalizer* observed_label = profile ? profile.Get<UserProfileWidget>()->nameLabel() : nullptr;
@@ -650,7 +653,7 @@ bool ApplyStreamerChatNames(StreamerChatView& view, streamer_mode::ChatPolicy po
 std::shared_ptr<StreamerChatView> ObserveStreamerChatName(il2cpp::Object* owner, StreamerChatViewKind kind,
                                                           bool preview_healthy = true, bool refresh = true)
 {
-  if (!StreamerChatOnGameThread())
+  if (!owner || !StreamerChatOnGameThread())
     return {};
   auto& state = StreamerChat();
   auto  found = std::ranges::find_if(state.views, [owner](const auto& view) { return view->owner.Get() == owner; });
@@ -683,6 +686,9 @@ std::shared_ptr<StreamerChatView> ObserveStreamerChatName(il2cpp::Object* owner,
       }
     }
   }
+  // Keep weak owners for live enablement, but leave native identity rendering alone while chat masks are off.
+  if (!streamer_mode::ChatProtections().Any())
+    return view;
   if (!refresh) {
     auto* label = kind == StreamerChatViewKind::Preview  ? static_cast<ChatPreviewMessageWidget*>(owner)->messageText()
                   : kind == StreamerChatViewKind::Header ? nullptr
@@ -917,6 +923,11 @@ void ChatPreviewMessageWidget_SetWidgetData_Hook(auto original, ChatPreviewMessa
     return;
   }
   const auto policy = streamer_mode::ChatProtections();
+  if (!policy.Any()) {
+    ObserveStreamerChatName(_this, StreamerChatViewKind::Preview, true, false);
+    original(_this);
+    return;
+  }
   ObserveStreamerChatName(_this, StreamerChatViewKind::Preview, true, false);
   const auto             subject    = policy.Any() ? StreamerChatMessageSubject(_this) : streamer_mode::Subject::Other;
   const auto             visibility = policy.For(subject);
