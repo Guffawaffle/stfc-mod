@@ -930,6 +930,75 @@ void PanGlideLimits()
   }
 }
 
+void StreamerPrivacySettings()
+{
+  struct PrivacySetting {
+    const char* key;
+    bool Config::Ui::* member;
+  };
+  constexpr PrivacySetting settings[]{
+      {"streamer_hide_player_id", &Config::Ui::streamer_hide_player_id},
+      {"streamer_hide_account_id", &Config::Ui::streamer_hide_account_id},
+      {"streamer_hide_my_name", &Config::Ui::streamer_hide_my_name},
+      {"streamer_hide_my_alliance", &Config::Ui::streamer_hide_my_alliance},
+      {"streamer_hide_chat_sender_names", &Config::Ui::streamer_hide_chat_sender_names},
+      {"streamer_hide_chat_alliances", &Config::Ui::streamer_hide_chat_alliances},
+  };
+  toml::table effective;
+  const auto  verify = [&](const Config& config, const std::array<bool, std::size(settings)>& expected) {
+    for (size_t i = 0; i < std::size(settings); ++i) {
+      Check(config.ui.*settings[i].member == expected[i], "privacy choices parse independently");
+      Check(effective["ui"][settings[i].key].value<bool>() == expected[i],
+            "effective settings serialize the selected canonical privacy choice");
+    }
+    for (const auto* key : {"streamer_hide_account", "streamer_hide_chat_names", "streamer_hide_chat"})
+      Check(!effective["ui"][key], "aggregate privacy aliases are omitted from effective settings");
+  };
+  const auto defaults = Config::Parse({}, effective, false);
+  verify(*defaults, {true, true, true, true, false, false});
+  Check(!defaults->ui.streamer_mode && !defaults->ui.streamer_compact_player_ship_labels,
+        "the master and compact ship labels retain their default-off behavior");
+  for (bool selected : {false, true}) {
+    const auto legacy = Config::Parse(toml::table{{"ui", toml::table{{"streamer_hide_account", selected},
+                                                                     {"streamer_hide_chat", !selected},
+                                                                     {"streamer_hide_chat_names", selected}}}},
+                                      effective, false);
+    verify(*legacy, {selected, selected, selected, selected, selected, selected});
+    Check(!legacy->ui.streamer_mode, "legacy privacy selection never enables the default-off master switch");
+  }
+  for (size_t overridden = 0; overridden < std::size(settings); ++overridden) {
+    toml::table privacy{{"streamer_hide_account", true}, {"streamer_hide_chat_names", true}};
+    privacy.insert(settings[overridden].key, false);
+    const auto config = Config::Parse(toml::table{{"ui", std::move(privacy)}}, effective, false);
+    std::array<bool, std::size(settings)> expected{true, true, true, true, true, true};
+    expected[overridden] = false;
+    verify(*config, expected);
+  }
+  for (bool master : {false, true}) {
+    const auto mixed = Config::Parse(toml::table{{"ui", toml::table{{"streamer_mode", master},
+                                                                    {"streamer_hide_account", false},
+                                                                    {"streamer_hide_chat_names", false},
+                                                                    {"streamer_hide_chat", true},
+                                                                    {"streamer_hide_player_id", true},
+                                                                    {"streamer_hide_account_id", false},
+                                                                    {"streamer_hide_my_name", true},
+                                                                    {"streamer_hide_my_alliance", false},
+                                                                    {"streamer_hide_chat_sender_names", true},
+                                                                    {"streamer_compact_player_ship_labels", true}}}},
+                                     effective, false);
+    verify(*mixed, {true, false, true, false, true, false});
+    Check(mixed->ui.streamer_mode == master && mixed->ui.streamer_compact_player_ship_labels,
+          "the master switch preserves independently selected privacy and compact-label preferences");
+    toml::table round_trip_effective;
+    const auto  restored = Config::Parse(effective, round_trip_effective, false);
+    Check(restored->ui.streamer_mode == master && restored->ui.streamer_compact_player_ship_labels,
+          "canonical effective settings retain master and compact preferences on reread");
+    for (const auto& setting : settings)
+      Check(restored->ui.*setting.member == mixed->ui.*setting.member,
+            "rereading canonical settings preserves each privacy choice with either master state");
+  }
+}
+
 // Settings that were renamed still read their old names, and the new name wins when both are set.
 void RenamedSettings()
 {
@@ -967,6 +1036,12 @@ void RenamedSettings()
   check_alias("ui", "disable_exchange_all", "ui", "hide_artifact_exchange_all", false, true, false);
   check_alias("ui", "focus_search", "patches", "focussearch", true, false, true);
   check_alias("sync", "officers", "sync", "officer", false, true, false);
+  for (const auto* key :
+       {"streamer_hide_player_id", "streamer_hide_account_id", "streamer_hide_my_name", "streamer_hide_my_alliance"})
+    check_alias("ui", key, "ui", "streamer_hide_account", true, false, true);
+  for (const auto* key : {"streamer_hide_chat_sender_names", "streamer_hide_chat_alliances"})
+    for (const auto* alias : {"streamer_hide_chat_names", "streamer_hide_chat"})
+      check_alias("ui", key, "ui", alias, false, true, false);
   toml::table effective;
   const auto  old_names = Config::Parse(toml::parse(R"(
     [graphics]
@@ -1208,6 +1283,7 @@ int main()
   UpstreamSettings();
   FrozenSettingsDefaults();
   PanGlideLimits();
+  StreamerPrivacySettings();
   RenamedSettings();
   ParseDoesNotActivateSettings();
   LegacySyncTargets();

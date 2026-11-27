@@ -222,6 +222,10 @@ bool ChatNamesAvailable()
 { return false; }
 bool ChatNamesDegraded()
 { return false; }
+bool ChatAlliancesAvailable()
+{ return false; }
+bool ChatAlliancesDegraded()
+{ return false; }
 bool CompactPlayerShipLabelsAvailable()
 { return compact_player_ship_labels_available; }
 void RefreshGeneralAccountIds()
@@ -376,13 +380,36 @@ int main()
         "Streamer Mode defaults off and requires an available native adapter");
   const auto& pages        = catalog.RegisteredPages();
   const auto  privacy_page = std::ranges::find(pages, "community_mod.streamer", &PageCatalog::Page::id);
-  Check(privacy_page != pages.end() && privacy_page->ControlRows() == 4,
-        "Streamer Mode has one master switch plus three privacy options");
-  auto* streamer_account = Find<BooleanSetting>(catalog, "ui.streamer_hide_account");
-  Check(streamer_account && streamer_account->default_value() == true
-            && streamer_account->label() == "Hide my IDs, name, and alliance"
-            && registered.contains("ui.streamer_hide_account"),
-        "existing enabled configurations retain the original Player ID protection");
+  Check(privacy_page != pages.end() && privacy_page->ControlRows() == 8,
+        "Streamer Mode has one master, six independent personal-info choices and compact ship labels");
+  auto* streamer_player_id  = Find<BooleanSetting>(catalog, "ui.streamer_hide_player_id");
+  auto* streamer_account_id = Find<BooleanSetting>(catalog, "ui.streamer_hide_account_id");
+  struct PrivacyControl {
+    const char* key;
+    const char* label;
+    bool        default_value;
+  };
+  const PrivacyControl privacy_controls[]{
+      {"ui.streamer_hide_player_id", "Hide my player ID", true},
+      {"ui.streamer_hide_account_id", "Hide my account identifier", true},
+      {"ui.streamer_hide_my_name", "Hide my name", true},
+      {"ui.streamer_hide_my_alliance", "Hide my alliance", true},
+      {"ui.streamer_hide_chat_sender_names", "Hide chat sender names", false},
+      {"ui.streamer_hide_chat_alliances", "Hide chat alliance tags", false},
+  };
+  for (const auto& item : privacy_controls) {
+    const auto* control = Find<BooleanSetting>(catalog, item.key);
+    Check(control && control->label() == item.label && control->default_value() == item.default_value
+              && control->metadata().timing == ApplyTiming::Live && registered.contains(item.key),
+          "each split privacy choice has its exact canonical key, label, default and live save registration");
+    bool on_privacy_page = false;
+    for (auto* row : privacy_page->Controls<BooleanSetting>())
+      on_privacy_page |= row == control;
+    Check(on_privacy_page, "each split privacy choice stays on the Streamer Mode page");
+  }
+  for (const auto* key : {"ui.streamer_hide_account", "ui.streamer_hide_chat_names", "ui.streamer_hide_chat"})
+    Check(!Find<BooleanSetting>(catalog, key) && !registered.contains(key),
+          "legacy aggregate privacy keys are reader aliases, not menu controls or save keys");
   auto* compact_ship_labels = Find<BooleanSetting>(catalog, "ui.streamer_compact_player_ship_labels");
   Check(compact_ship_labels && compact_ship_labels->label() == "Compact player ship labels"
             && registered.contains("ui.streamer_compact_player_ship_labels"),
@@ -485,8 +512,30 @@ int main()
   Check(streamer_mode->SetFromUser(true, streamer_mode->Observe()).outcome == Outcome::AppliedVerified
             && streamer_refreshes == 1 && streamer_at_refresh && std::get<bool>(saved.at("ui.streamer_mode")),
         "enabling Streamer Mode refreshes the native row synchronously with masking active and persists the setting");
-  Check(::streamer_mode::HideAccount() && !::streamer_mode::HideChatNames(),
-        "chat sender names are opt-in while account ID protection stays selected");
+  Check(::streamer_mode::HidePlayerId() && ::streamer_mode::HideAccountId() && ::streamer_mode::HideMyName()
+            && ::streamer_mode::HideMyAlliance() && !::streamer_mode::HideChatNames()
+            && !::streamer_mode::HideChatAlliances(),
+        "the four personal masks retain their defaults while broader chat masks remain opt-in");
+  Check(streamer_player_id->SetFromUser(false, streamer_player_id->Observe()).outcome == Outcome::AppliedVerified
+            && !::streamer_mode::HidePlayerId() && ::streamer_mode::HideAccountId() && ::streamer_mode::HideMyName()
+            && ::streamer_mode::HideMyAlliance() && !std::get<bool>(saved.at("ui.streamer_hide_player_id")),
+        "the Player ID control leaves account identification, name and alliance protection selected");
+  Check(streamer_account_id->SetFromUser(false, streamer_account_id->Observe()).outcome == Outcome::AppliedVerified
+            && streamer_player_id->SetFromUser(true, streamer_player_id->Observe()).outcome == Outcome::AppliedVerified
+            && ::streamer_mode::HidePlayerId() && !::streamer_mode::HideAccountId()
+            && std::get<bool>(saved.at("ui.streamer_hide_player_id"))
+            && !std::get<bool>(saved.at("ui.streamer_hide_account_id")),
+        "the two ID menu controls save and activate independently in either direction");
+  Check(streamer_account_id->Reset(streamer_account_id->Observe()).outcome == Outcome::AppliedVerified
+            && ::streamer_mode::HidePlayerId() && ::streamer_mode::HideAccountId()
+            && !saved.contains("ui.streamer_hide_account"),
+        "reset restores only the account identifier preference under its canonical key");
+  Config::Get().ui.streamer_hide_my_name     = false;
+  Config::Get().ui.streamer_hide_my_alliance = false;
+  Check(::streamer_mode::HidePlayerId() && ::streamer_mode::HideAccountId() && !::streamer_mode::HideMyName()
+            && !::streamer_mode::HideMyAlliance() && !::streamer_mode::HideChatNames()
+            && !::streamer_mode::HideChatAlliances(),
+        "ID-only masking leaves names, alliances and broader chat preferences visible");
   const auto usual_player_detail = Config::Get().graphics.zoom_label_player.detail;
   Check(compact_ship_labels->Observe().state.value == false
             && compact_ship_labels->SetFromUser(true, compact_ship_labels->Observe()).outcome
@@ -496,12 +545,18 @@ int main()
             && Config::Get().graphics.zoom_label_player.detail == usual_player_detail
             && !saved.contains("graphics.zoom_label_player_detail"),
         "compact ship labels save their own preference and preserve graphics detail");
-  Config::Get().ui.streamer_hide_account = false;
+  Config::Get().ui.streamer_hide_player_id   = false;
+  Config::Get().ui.streamer_hide_account_id  = false;
+  Config::Get().ui.streamer_hide_my_name     = false;
+  Config::Get().ui.streamer_hide_my_alliance = false;
   Check(privacy_page->summary() == "On", "the available compact protection is ready");
   compact_player_ship_labels_available = false;
   Check(privacy_page->summary() == "On · Check protections", "selected unavailable compact protection is reported");
-  compact_player_ship_labels_available   = true;
-  Config::Get().ui.streamer_hide_account = true;
+  compact_player_ship_labels_available       = true;
+  Config::Get().ui.streamer_hide_player_id   = true;
+  Config::Get().ui.streamer_hide_account_id  = true;
+  Config::Get().ui.streamer_hide_my_name     = true;
+  Config::Get().ui.streamer_hide_my_alliance = true;
   toml::table       startup_output;
   const toml::table startup_input{{"ui", toml::table{{"streamer_mode", std::get<bool>(saved.at("ui.streamer_mode"))},
                                                      {"streamer_compact_player_ship_labels", true},
@@ -517,20 +572,22 @@ int main()
             && !effective_ui->contains("streamer_hide_locations") && !effective_ui->contains("streamer_hide_reports")
             && !effective_ui->contains("streamer_hide_balances"),
         "retired gameplay masks are omitted from effective settings");
-  Check(streamer_mode->Reset(streamer_mode->Observe()).outcome == Outcome::AppliedVerified && streamer_refreshes == 2
-            && !streamer_at_refresh && !std::get<bool>(saved.at("ui.streamer_mode"))
-            && Config::Get().ui.streamer_compact_player_ship_labels,
+  Config::Get().ui.streamer_hide_chat_sender_names = true;
+  Config::Get().ui.streamer_hide_chat_alliances    = true;
+  const auto refreshes_before_streamer_off         = streamer_refreshes;
+  Check(streamer_mode->Reset(streamer_mode->Observe()).outcome == Outcome::AppliedVerified
+            && streamer_refreshes == refreshes_before_streamer_off + 1 && !streamer_at_refresh
+            && !std::get<bool>(saved.at("ui.streamer_mode")) && Config::Get().ui.streamer_compact_player_ship_labels
+            && Config::Get().ui.streamer_hide_player_id && Config::Get().ui.streamer_hide_account_id
+            && Config::Get().ui.streamer_hide_my_name && Config::Get().ui.streamer_hide_my_alliance
+            && Config::Get().ui.streamer_hide_chat_sender_names && Config::Get().ui.streamer_hide_chat_alliances,
         "turning Streamer Mode off refreshes the native row and preserves the selected options");
-  const toml::table legacy_chat{{"ui", toml::table{{"streamer_hide_chat", true}}}};
-  const toml::table explicit_chat{
-      {"ui", toml::table{{"streamer_hide_chat", true}, {"streamer_hide_chat_names", false}}}};
-  Check(Config::Parse(legacy_chat, startup_output, false)->ui.streamer_hide_chat_names
-            && !Config::Parse(explicit_chat, startup_output, false)->ui.streamer_hide_chat_names,
-        "the chat name preference migrates the legacy toggle and honors an explicit new value");
-  Config::Get().ui.streamer_hide_chat_names = true;
-  Check(!::streamer_mode::HideChatNames() && !::streamer_mode::HideAccount(),
+  Check(!::streamer_mode::HidePlayerId() && !::streamer_mode::HideAccountId() && !::streamer_mode::HideMyName()
+            && !::streamer_mode::HideMyAlliance() && !::streamer_mode::HideChatNames()
+            && !::streamer_mode::HideChatAlliances(),
         "the master switch suspends selected protections without changing preferences");
-  Config::Get().ui.streamer_hide_chat_names = false;
+  Config::Get().ui.streamer_hide_chat_sender_names = false;
+  Config::Get().ui.streamer_hide_chat_alliances    = false;
 
   Check(!research->Observe().state.known(), "unrelated ready features cannot expose the Alliance Games control");
   Enable("AllianceGamesStore");

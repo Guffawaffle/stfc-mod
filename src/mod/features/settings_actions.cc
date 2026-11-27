@@ -76,7 +76,7 @@ struct NativeActionsState {
   uint64_t                                                                epoch               = 0;
   bool                                                                    active              = false;
   bool                                                                    streamer_hooks      = false;
-  bool                                                                    account_ids_hidden    = false;
+  streamer_mode::AccountPolicy                                            account_policy;
   bool                                                                    streamer_refreshing = false;
   bool                                                                    account_ids_untracked = false;
   bool                                                                    account_ids_warned    = false;
@@ -92,11 +92,19 @@ bool                         ActionsThread()
 
 constexpr std::string_view kHiddenPlayerId = "Hidden";
 
-bool MaskAccountIds()
-{ return !ActionsThread() || streamer_mode::HideAccount(); }
+streamer_mode::AccountPolicy AccountIdProtection()
+{ return ActionsThread() ? streamer_mode::AccountProtections() : streamer_mode::AccountPolicy{true, true}; }
+
+bool MaskAccountIds(AccountIdRowKind kind = AccountIdRowKind::None)
+{
+  const auto policy = AccountIdProtection();
+  return kind == AccountIdRowKind::Player    ? policy.player
+         : kind == AccountIdRowKind::Scopely ? policy.account
+                                             : policy.Any();
+}
 
 Il2CppString* SettingsSectionDirector_GetUserId_Hook(auto original, SettingsSectionDirector* _this)
-{ return MaskAccountIds() ? il2cpp::NewString(kHiddenPlayerId) : original(_this); }
+{ return MaskAccountIds(AccountIdRowKind::Player) ? il2cpp::NewString(kHiddenPlayerId) : original(_this); }
 
 std::optional<AccountIdRowKind> AccountIdRow(SettingsActionContext* context)
 {
@@ -212,7 +220,7 @@ void TrackAccountIdView(SettingsActionWidget* widget, bool verify = true)
     }
     state.account_id_views.emplace(widget, view);
   }
-  const bool complete = MaskAccountIds() ? HideAccountIdValue(widget, view) : view->cover.Restore();
+  const bool complete = MaskAccountIds(view->kind) ? HideAccountIdValue(widget, view) : view->cover.Restore();
   if (verify) {
     view->complete = complete;
     ReportAccountIdProtection(complete);
@@ -224,8 +232,9 @@ void RefreshAccountIdViews(bool retry = false)
   auto& state = Actions();
   if (!ActionsThread() || !state.streamer_hooks || state.streamer_refreshing)
     return;
-  const bool enabled = MaskAccountIds();
-  const bool changed = std::exchange(state.account_ids_hidden, enabled) != enabled;
+  const auto policy  = AccountIdProtection();
+  const bool enabled = policy.Any();
+  const bool changed = std::exchange(state.account_policy, policy) != policy;
   if (!changed && !retry)
     return;
 
@@ -276,7 +285,7 @@ void RefreshAccountIdViews(bool retry = false)
     if (current && widget->TryCall<"SetWidgetData", void>())
       continue;
     if (is_current()) {
-      if (current && enabled)
+      if (current && MaskAccountIds(view->kind))
         HideAccountIdValue(widget, view);
       view->complete = false;
       ReportAccountIdProtection(false);
@@ -1069,7 +1078,7 @@ bool streamer_mode::GeneralAccountIdsAvailable()
 bool streamer_mode::GeneralAccountIdsDegraded()
 {
   const auto& state = Actions();
-  return GeneralAccountIdsAvailable() && HideAccount()
+  return GeneralAccountIdsAvailable() && AccountProtections().Any()
          && (state.account_ids_untracked || !state.retired_account_id_views.empty()
              || std::ranges::any_of(state.account_id_views, [](const auto& entry) { return !entry.second->complete; }));
 }
