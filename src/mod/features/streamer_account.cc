@@ -94,7 +94,7 @@ void UpdateStreamerIdView(PlayerIdDisplay* owner)
     }
     views.rows.push_back(row);
   }
-  row->complete = ApplyStreamerIdView(*row, streamer_mode::HideAccount());
+  row->complete = ApplyStreamerIdView(*row, streamer_mode::HidePlayerId());
   ReportStreamerAccountCoverage(views);
 }
 
@@ -129,7 +129,7 @@ void PlayerIdDisplay_OnDisable_Hook(auto original, PlayerIdDisplay* _this)
 void StreamerAccountPrivacyFrame()
 {
   auto&      views   = StreamerIdViews();
-  const bool hidden  = streamer_mode::HideAccount();
+  const bool hidden  = streamer_mode::HidePlayerId();
   const bool changed = std::exchange(views.hidden, hidden) != hidden;
   if (!changed && (views.rows.empty() || !views.review.Due()))
     return;
@@ -171,7 +171,7 @@ bool streamer_mode::StandaloneIdAvailable()
 bool streamer_mode::StandaloneIdDegraded()
 {
   const auto& views = StreamerIdViews();
-  return StandaloneIdAvailable() && HideAccount() && (views.pending || views.untracked);
+  return StandaloneIdAvailable() && HidePlayerId() && (views.pending || views.untracked);
 }
 
 const Feature kStreamerAccountPrivacy{"StreamerAccountPrivacy", &Config::Patches::streamermodehooks,

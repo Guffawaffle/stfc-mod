@@ -506,12 +506,17 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("camera", graphics, system_camera_orbit, "System camera rotation", system_orbit, Live,
        "Rotate systems with middle-mouse drag; Alt + middle-mouse resets. Requires mod shortcuts.");
 
-  const Available account_privacy = [] {
-    return streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::SelfProfileAvailable()
-           || streamer_mode::StandaloneIdAvailable();
+  const Available player_id_privacy = [] {
+    return streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::StandaloneIdAvailable();
   };
-  const Available streamer = [account_privacy] {
-    return account_privacy() || streamer_mode::ChatNamesAvailable()
+  const Available my_name_privacy = [] {
+    return streamer_mode::SelfProfileAvailable() || streamer_mode::ChatNamesAvailable();
+  };
+  const Available my_alliance_privacy = [] {
+    return streamer_mode::SelfProfileAvailable() || streamer_mode::ChatAlliancesAvailable();
+  };
+  const Available streamer = [player_id_privacy, my_name_privacy, my_alliance_privacy] {
+    return player_id_privacy() || my_name_privacy() || my_alliance_privacy()
            || streamer_mode::CompactPlayerShipLabelsAvailable();
   };
   catalog.SetSummary("community_mod.streamer", [] {
@@ -519,11 +524,21 @@ void RegisterConfigSettings(PageCatalog& catalog)
     if (!ui.streamer_mode)
       return "Off";
     const bool incomplete =
-        (ui.streamer_hide_account
+        (ui.streamer_hide_player_id
          && (!streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::GeneralAccountIdsDegraded()
-             || !streamer_mode::SelfProfileAvailable() || streamer_mode::SelfProfileDegraded()
              || streamer_mode::StandaloneIdDegraded()))
-        || (ui.streamer_hide_chat_names && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()))
+        || (ui.streamer_hide_account_id
+            && (!streamer_mode::GeneralAccountIdsAvailable() || streamer_mode::GeneralAccountIdsDegraded()))
+        || (ui.streamer_hide_my_name
+            && (!streamer_mode::SelfProfileAvailable() || streamer_mode::SelfProfileDegraded()
+                || !streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()))
+        || (ui.streamer_hide_my_alliance
+            && (!streamer_mode::SelfProfileAvailable() || streamer_mode::SelfProfileDegraded()
+                || !streamer_mode::ChatAlliancesAvailable() || streamer_mode::ChatAlliancesDegraded()))
+        || (ui.streamer_hide_chat_sender_names
+            && (!streamer_mode::ChatNamesAvailable() || streamer_mode::ChatNamesDegraded()))
+        || (ui.streamer_hide_chat_alliances
+            && (!streamer_mode::ChatAlliancesAvailable() || streamer_mode::ChatAlliancesDegraded()))
         || (ui.streamer_compact_player_ship_labels && !streamer_mode::CompactPlayerShipLabelsAvailable());
     return incomplete ? "On · Check protections" : "On";
   });
@@ -534,12 +549,20 @@ void RegisterConfigSettings(PageCatalog& catalog)
   };
   privacy("streamer_mode", "Streamer Mode", ACCESS(ui, streamer_mode), streamer,
           "Apply the selected personal-info protections.", streamer_mode::RefreshGeneralAccountIds);
-  privacy("streamer_hide_account", "Hide my IDs, name, and alliance", ACCESS(ui, streamer_hide_account),
-          account_privacy,
-          "Hide account IDs and the name and alliance on your own Player Profile. Player ID Copy uses the real ID.",
+  privacy("streamer_hide_player_id", "Hide my player ID", ACCESS(ui, streamer_hide_player_id), player_id_privacy,
+          "Hide your displayed Player ID. Copy still uses the real ID.", streamer_mode::RefreshGeneralAccountIds);
+  privacy("streamer_hide_account_id", "Hide my account identifier", ACCESS(ui, streamer_hide_account_id),
+          streamer_mode::GeneralAccountIdsAvailable, "Hide the account value beside Signed into Scopely as.",
           streamer_mode::RefreshGeneralAccountIds);
-  privacy("streamer_hide_chat_names", "Hide chat sender names", ACCESS(ui, streamer_hide_chat_names),
+  privacy("streamer_hide_my_name", "Hide my name", ACCESS(ui, streamer_hide_my_name), my_name_privacy,
+          "Hide your Player Profile name and your chat sender names. Other players' chat names can stay visible.");
+  privacy("streamer_hide_my_alliance", "Hide my alliance", ACCESS(ui, streamer_hide_my_alliance), my_alliance_privacy,
+          "Hide your alliance name, tag and emblem on your Player Profile, and your alliance tags in chat.");
+  privacy("streamer_hide_chat_sender_names", "Hide chat sender names", ACCESS(ui, streamer_hide_chat_sender_names),
           streamer_mode::ChatNamesAvailable, "Hide sender names in supported chat views. Chat remains readable.");
+  privacy("streamer_hide_chat_alliances", "Hide chat alliance tags", ACCESS(ui, streamer_hide_chat_alliances),
+          streamer_mode::ChatAlliancesAvailable,
+          "Hide alliance tags independently of sender names in supported chat views.");
   privacy("streamer_compact_player_ship_labels", "Compact player ship labels",
           ACCESS(ui, streamer_compact_player_ship_labels), streamer_mode::CompactPlayerShipLabelsAvailable,
           "Use Compact for player ship labels in System view. The Compact layout omits names and alliance tags.");

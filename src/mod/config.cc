@@ -984,8 +984,15 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   // [ui]
   auto& u = ui;
   r.Read("ui", "streamer_mode", u.streamer_mode);
-  r.Read("ui", "streamer_hide_account", u.streamer_hide_account);
-  r.ReadRenamed("ui", "streamer_hide_chat_names", "streamer_hide_chat", u.streamer_hide_chat_names);
+  r.ReadRenamed("ui", "streamer_hide_player_id", "streamer_hide_account", u.streamer_hide_player_id);
+  r.ReadRenamed("ui", "streamer_hide_account_id", "streamer_hide_account", u.streamer_hide_account_id);
+  r.ReadRenamed("ui", "streamer_hide_my_name", "streamer_hide_account", u.streamer_hide_my_name);
+  r.ReadRenamed("ui", "streamer_hide_my_alliance", "streamer_hide_account", u.streamer_hide_my_alliance);
+  // The old chat switch hid names and alliance tags together. Each new choice inherits that protection
+  // independently until explicitly overridden; new configs can select either without coupling them again.
+  const auto old_chat = r.Node("ui", "streamer_hide_chat_names") ? "streamer_hide_chat_names" : "streamer_hide_chat";
+  r.ReadRenamed("ui", "streamer_hide_chat_sender_names", old_chat, u.streamer_hide_chat_sender_names);
+  r.ReadRenamed("ui", "streamer_hide_chat_alliances", old_chat, u.streamer_hide_chat_alliances);
   r.Read("ui", "streamer_compact_player_ship_labels", u.streamer_compact_player_ship_labels);
   r.Read("ui", "check_for_mod_updates", u.check_for_mod_updates);
   r.Read("ui", "disable_escape_exit", u.disable_escape_exit);

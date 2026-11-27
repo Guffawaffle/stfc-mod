@@ -253,6 +253,73 @@ namespace
     return transform && transform.value ? transform.value->As<unity::RectTransform>() : nullptr;
   }
 
+  class ProfileHorizontalAlignment
+  {
+  public:
+    bool Align(unity::RectTransform* target, unity::RectTransform* reference, unity::RectTransform* away_from = nullptr)
+    {
+      auto* space = unity::Alive(target) ? target->parent() : nullptr;
+      if ((!target || target_.Get() != target || parent_.Get() != space) && !Restore())
+        return false;
+      if (!unity::Alive(space))
+        return false;
+      const auto target_bounds = unity::RectTransformUtility::OwnBounds(space, target);
+      const auto name_bounds   = unity::RectTransformUtility::OwnBounds(space, reference);
+      if (!target_bounds || !name_bounds || target_bounds.value.extents.x <= 0 || name_bounds.value.extents.x <= 0)
+        return false;
+      const float target_x = target_bounds.value.center.x;
+      const float shift    = name_bounds.value.center.x - target_x;
+      if (!std::isfinite(shift))
+        return false;
+      if (std::abs(shift) < .25f)
+        return true;
+
+      if (away_from) {
+        const auto avoid_bounds = unity::RectTransformUtility::OwnBounds(space, away_from);
+        if (!avoid_bounds || shift * (avoid_bounds.value.center.x - target_x) >= 0)
+          return false;
+      }
+      const auto position = target->TryCall<"get_anchoredPosition", unity::Vector2>();
+      if (!position || !std::isfinite(position.value.x) || !std::isfinite(position.value.y))
+        return false;
+      auto       tracked  = il2cpp::GcHandle::Weak(target);
+      auto       parent   = il2cpp::GcHandle::Weak(space);
+      const auto adjusted = unity::Vector2{position.value.x + shift, position.value.y};
+      if (!tracked || !parent || !target->TryCall<"set_anchoredPosition", void(unity::Vector2)>(adjusted))
+        return false;
+      if (!target_ || position.value.x != applied_x_)
+        original_x_ = position.value.x;
+      applied_x_ = adjusted.x;
+      target_    = std::move(tracked);
+      parent_    = std::move(parent);
+      return true;
+    }
+
+    bool Restore()
+    {
+      auto* target = target_.Get<unity::RectTransform>();
+      auto* parent = parent_.Get<unity::Transform>();
+      if (unity::Alive(target) && unity::Alive(parent) && target->parent() == parent) {
+        auto position = target->TryCall<"get_anchoredPosition", unity::Vector2>();
+        if (!position)
+          return false;
+        // Another profile can reuse this widget. Restore only the x value we still own.
+        if (position.value.x == applied_x_) {
+          position.value.x = original_x_;
+          if (!target->TryCall<"set_anchoredPosition", void(unity::Vector2)>(position.value))
+            return false;
+        }
+      }
+      target_.Reset();
+      parent_.Reset();
+      return true;
+    }
+
+  private:
+    il2cpp::GcHandle target_, parent_;
+    float            original_x_ = 0, applied_x_ = 0;
+  };
+
   class ProfileAvatarAlignment
   {
   public:
@@ -261,62 +328,24 @@ namespace
       const auto local  = unity::Alive(owner) ? owner->TryIsLocalProfile() : il2cpp::CallResult<bool>{};
       auto*      info   = local && local.value ? owner->playerInfoWidget() : nullptr;
       auto*      avatar = unity::Alive(info) ? ProfileRect(info->profileFrameAndAvatar()) : nullptr;
-      auto*      space  = avatar ? avatar->parent() : nullptr;
-      if ((!avatar || avatar_.Get() != avatar || parent_.Get() != space) && !Restore())
+      auto*      name   = unity::Alive(info) ? ProfileRect(info->nameLabel()) : nullptr;
+      auto*      edit   = avatar ? ProfileRect(owner->avatarEditButton()) : nullptr;
+      if (!avatar || !edit) {
+        avatar_.Restore();
+        background_.Restore();
         return;
-      if (!unity::Alive(space))
+      }
+      // Keep the native edit button and its Mod Settings badge in place.
+      if (!avatar_.Align(avatar, name, edit))
         return;
-      const auto avatar_bounds = unity::RectTransformUtility::OwnBounds(space, avatar);
-      const auto name_bounds   = unity::RectTransformUtility::OwnBounds(space, ProfileRect(info->nameLabel()));
-      if (!avatar_bounds || !name_bounds || avatar_bounds.value.extents.x <= 0 || name_bounds.value.extents.x <= 0)
-        return;
-      const float avatar_x = avatar_bounds.value.center.x;
-      const float shift    = name_bounds.value.center.x - avatar_x;
-      if (std::abs(shift) < .25f)
-        return;
-
-      // Only move away from the edit button, whose anchor also owns the Mod Settings badge.
-      const auto edit_bounds = unity::RectTransformUtility::OwnBounds(space, ProfileRect(owner->avatarEditButton()));
-      if (!edit_bounds || shift * (edit_bounds.value.center.x - avatar_x) >= 0)
-        return;
-      const auto position = avatar->TryCall<"get_anchoredPosition", unity::Vector2>();
-      if (!position || !std::isfinite(position.value.x) || !std::isfinite(position.value.y))
-        return;
-      auto       target   = il2cpp::GcHandle::Weak(avatar);
-      auto       parent   = il2cpp::GcHandle::Weak(space);
-      const auto adjusted = unity::Vector2{position.value.x + shift, position.value.y};
-      if (!target || !parent || !avatar->TryCall<"set_anchoredPosition", void(unity::Vector2)>(adjusted))
-        return;
-      if (!avatar_ || position.value.x != applied_x_)
-        original_x_ = position.value.x;
-      applied_x_ = adjusted.x;
-      avatar_    = std::move(target);
-      parent_    = std::move(parent);
+      auto* details = ProfileRect(info);
+      // The decorative rings are a sibling of AvatarContainer, not part of AvatarWidget.
+      auto* icon = details ? details->Find("PlayerBG/Icon") : nullptr;
+      background_.Align(unity::Alive(icon) ? icon->As<unity::RectTransform>() : nullptr, name);
     }
 
   private:
-    bool Restore()
-    {
-      auto* avatar = avatar_.Get<unity::RectTransform>();
-      auto* parent = parent_.Get<unity::Transform>();
-      if (unity::Alive(avatar) && unity::Alive(parent) && avatar->parent() == parent) {
-        auto position = avatar->TryCall<"get_anchoredPosition", unity::Vector2>();
-        if (!position)
-          return false;
-        // Another profile can reuse this widget. Restore only the x value we still own.
-        if (position.value.x == applied_x_) {
-          position.value.x = original_x_;
-          if (!avatar->TryCall<"set_anchoredPosition", void(unity::Vector2)>(position.value))
-            return false;
-        }
-      }
-      avatar_.Reset();
-      parent_.Reset();
-      return true;
-    }
-
-    il2cpp::GcHandle avatar_, parent_;
-    float            original_x_ = 0, applied_x_ = 0;
+    ProfileHorizontalAlignment avatar_, background_;
   };
 
   void RefreshHudAndProfile(bool pending)
