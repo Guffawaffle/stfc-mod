@@ -221,7 +221,7 @@ public:
     bool  hide_haven_water = false;
     // System rotation is on by default; hook installation remains a separate restart-only compatibility switch.
     bool system_camera_orbit     = true;
-    bool station_camera_orbit = false;
+    bool station_camera_orbit = true;
     // A multiple of the station interior's own zoom-out distance, at least 1.
     float             interior_zoom_scale = 2.0f;
     float             fr_scale            = 2.0f;

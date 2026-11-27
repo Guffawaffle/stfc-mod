@@ -8,7 +8,7 @@
 
 ## Independent versions
 
-The next independent version is `2.2.0`. The fork has an existing 2.x history.
+The fork uses independent versions starting at `2.2.0`. It has an existing 2.x history.
 Its version advances with this product's changes. Record verified upstream
 coverage and the supported game client in release notes.
 
@@ -24,11 +24,15 @@ integration contracts. Keep released tags immutable. Prerelease sequences are
 positive integers. A tag must match its declared channel and producing version.
 CI keeps its producing run and attempt in the package identity.
 
-The compatibility release retains `v1.1.9.5-guffa.12` naming and accepts both
-version formats. It reads `releases/update-index-v2.json`. Existing installations
-continue reading `releases/update-index.json`; that feed must retain a discoverable
-compatibility release in each published channel. Publish a compatibility update
-on the relevant channel before advancing that channel to independent versions.
+Compatibility packages accept both version formats and read
+`releases/update-index-v2.json`. The Pre bridge is `v1.1.9.5-guffa.12`; the full
+Release bridge is `v1.1.9.5-guffa.13`. Older installations keep reading
+`releases/update-index.json`, so retain the matching legacy compatibility entry
+there after advancing the v2 feed. Do not relabel or move either published tag.
+
+Each channel needs its own compatibility package before moving to independent
+versions. DEV retains legacy numbering until its separate compatibility package
+is published.
 
 Roll out the updated identity helpers to the trusted signing controller before
 signing an independent version. Update the DEV publisher and its source/tag
