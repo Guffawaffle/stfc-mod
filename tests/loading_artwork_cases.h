@@ -24,10 +24,11 @@ namespace
 struct LoadingFixtureNode {
   Il2CppObject header{};
   LoadingFixtureNode *canvas = nullptr, *background = nullptr, *animator = nullptr, *image = nullptr;
-  LoadingFixtureNode *object = nullptr, *transform = nullptr, *parent = nullptr;
+  LoadingFixtureNode *object = nullptr, *transform = nullptr, *parent = nullptr, *label = nullptr;
+  Il2CppObject* font = nullptr;
   std::vector<LoadingFixtureNode*> children;
   std::string name, text;
-  bool        alive = true, enabled = true;
+  bool        alive = true, enabled = true, active = true, raycast_target = true;
   unity::Color color{1, 1, 1, 1};
   unity::Vector2 anchor_min{}, anchor_max{};
   unity::Sprite* sprite = nullptr;
@@ -39,10 +40,17 @@ struct LoadingFixtureType {
 std::deque<LoadingFixtureNode> loading_nodes;
 std::map<Il2CppClass*, LoadingFixtureType> loading_types;
 FakeClass *loading_transform_class, *loading_rect_class, *loading_image_class, *loading_canvas_class,
-    *loading_texture_class, *loading_sprite_class;
+    *loading_texture_class, *loading_sprite_class, *loading_text_class, *loading_text_ui_class;
+struct LoadingFixtureComponents {
+  Il2CppObject header{};
+  Il2CppArrayBounds* bounds = nullptr;
+  il2cpp_array_size_t size = 0;
+  std::array<Il2CppObject*, 1> elements{};
+} loading_components;
+LoadingFixtureNode* loading_font_donor = nullptr;
 std::set<const Il2CppObject*> loading_destroyed;
 bool loading_fail_image = false, loading_fail_decode = false, loading_fail_color = false,
-     loading_fail_parent = false, loading_fail_ctor = false;
+     loading_fail_parent = false, loading_fail_ctor = false, loading_fail_text = false;
 int loading_decodes = 0, loading_destroys = 0, loading_created = 0, loading_animation_sets = 0;
 uint8_t loading_decoded_first = 0;
 std::vector<uint8_t> loading_decode_inputs;
@@ -110,6 +118,26 @@ int32_t LoadingChildren(Il2CppObject* object, const MethodInfo*)
 { return static_cast<int32_t>(LoadingNative(object)->children.size()); }
 Il2CppObject* LoadingChild(Il2CppObject* object, int32_t index, const MethodInfo*)
 { return &LoadingNative(object)->children.at(index)->header; }
+Il2CppObject* LoadingFind(Il2CppObject* object, Il2CppString* name, const MethodInfo*)
+{
+  for (auto* child : LoadingNative(object)->children)
+    if (child->object && !loading_destroyed.contains(&child->object->header)
+        && child->object->name == il2cpp::ToUtf8(name))
+      return &child->header;
+  return nullptr;
+}
+Il2CppObject* LoadingComponentsInChildren(Il2CppObject* object, Il2CppReflectionType* type,
+                                         bool include_inactive, const MethodInfo*)
+{
+  Require(reinterpret_cast<LoadingFixtureType*>(type)->type == &loading_text_class->klass && include_inactive,
+          "welcome searches native TMP components including inactive font donors");
+  Require(!loading_font_donor || loading_font_donor->transform->parent == LoadingNative(object)->transform,
+          "the native font donor belongs to the requested login canvas");
+  loading_components.header.klass = &component_array_class.klass;
+  loading_components.size = loading_font_donor ? 1 : 0;
+  loading_components.elements[0] = loading_font_donor ? &loading_font_donor->header : nullptr;
+  return &loading_components.header;
+}
 Il2CppObject* LoadingGetComponent(Il2CppObject* object, Il2CppReflectionType* type, const MethodInfo*)
 {
   auto* node = LoadingNative(object);
@@ -122,15 +150,29 @@ Il2CppObject* LoadingGetComponent(Il2CppObject* object, Il2CppReflectionType* ty
     return node->transform && node->transform->header.klass == cls ? &node->transform->header : nullptr;
   if (cls == &loading_canvas_class->klass)
     return reinterpret_cast<Il2CppObject*>(node->canvas);
+  if (cls == &loading_text_class->klass || cls == &loading_text_ui_class->klass)
+    return reinterpret_cast<Il2CppObject*>(node->label);
   return nullptr;
 }
 Il2CppObject* LoadingAddComponent(Il2CppObject* object, Il2CppReflectionType* type, const MethodInfo*)
 {
+  auto* node = LoadingNative(object);
+  auto* cls = reinterpret_cast<LoadingFixtureType*>(type)->type;
+  if (cls == &loading_rect_class->klass) {
+    node->transform->header.klass = cls;
+    return &node->transform->header;
+  }
+  if (cls == &loading_text_ui_class->klass) {
+    if (loading_fail_text)
+      return nullptr;
+    node->label = LoadingNode(cls);
+    node->label->object = node;
+    node->label->transform = node->transform;
+    return &node->label->header;
+  }
+  Require(cls == &loading_image_class->klass, "loading overlays add only native image, rect or text components");
   if (loading_fail_image)
     return nullptr;
-  auto* node = LoadingNative(object);
-  Require(reinterpret_cast<LoadingFixtureType*>(type)->type == &loading_image_class->klass,
-          "loading overlay adds only its native Image component");
   node->image = LoadingNode(&loading_image_class->klass);
   node->image->object = node;
   node->image->transform = node->transform;
@@ -170,6 +212,16 @@ void LoadingEnabled(Il2CppObject* object, bool value, const MethodInfo*)
 }
 void LoadingText(Il2CppObject* object, Il2CppString* text, const MethodInfo*)
 { LoadingNative(object)->text = il2cpp::ToUtf8(text); }
+Il2CppObject* LoadingFont(Il2CppObject* object, const MethodInfo*)
+{ return LoadingNative(object)->font; }
+void LoadingSetFont(Il2CppObject* object, Il2CppObject* font, const MethodInfo*)
+{ LoadingNative(object)->font = font; }
+void LoadingSetActive(Il2CppObject* object, bool active, const MethodInfo*)
+{ LoadingNative(object)->active = active; }
+void LoadingRaycastTarget(Il2CppObject* object, bool value, const MethodInfo*)
+{ LoadingNative(object)->raycast_target = value; }
+void LoadingFloat(Il2CppObject*, float, const MethodInfo*) {}
+void LoadingInt(Il2CppObject*, int32_t, const MethodInfo*) {}
 void LoadingTextureCtor(Il2CppObject*, int32_t, int32_t, int32_t, bool, const MethodInfo*) {}
 int32_t LoadingWidth(Il2CppObject*, const MethodInfo*)
 { return 600; }
@@ -198,6 +250,8 @@ void LoadingArtworkConsumerCases(std::string_view mode)
   loading_canvas_class = &Define("UnityEngine", "Canvas", IL2CPP_TYPE_CLASS, &component_class);
   loading_texture_class = &Define("UnityEngine", "Texture2D", IL2CPP_TYPE_CLASS, &unity_object_class);
   loading_sprite_class = &Define("UnityEngine", "Sprite", IL2CPP_TYPE_CLASS, &unity_object_class);
+  loading_text_class = &Define("TMPro", "TMP_Text", IL2CPP_TYPE_CLASS, &behaviour);
+  loading_text_ui_class = &Define("TMPro", "TextMeshProUGUI", IL2CPP_TYPE_CLASS, loading_text_class);
   auto& byte = Define("System", "Byte", IL2CPP_TYPE_U1, nullptr, 1);
   auto& bytes = Define("System", "Byte[]", IL2CPP_TYPE_SZARRAY, &array_class);
   bytes.klass.byval_arg.data.type = T(byte);
@@ -225,11 +279,14 @@ void LoadingArtworkConsumerCases(std::string_view mode)
     changed->virtualMethodPointer = changed->methodPointer;
   }
   for (auto* method : game_object_class.methods)
-    if (std::string_view(method->name) == "GetComponent") {
+    if (std::string_view(method->name) == "GetComponent"
+        || std::string_view(method->name) == "GetComponentsInChildren") {
       auto* changed = const_cast<MethodInfo*>(method);
-      changed->methodPointer = reinterpret_cast<Il2CppMethodPointer>(&LoadingGetComponent);
+      const bool single = std::string_view(method->name) == "GetComponent";
+      changed->methodPointer = single ? reinterpret_cast<Il2CppMethodPointer>(&LoadingGetComponent)
+                                     : reinterpret_cast<Il2CppMethodPointer>(&LoadingComponentsInChildren);
       changed->virtualMethodPointer = changed->methodPointer;
-      changed->return_type = T(component_class);
+      changed->return_type = single ? T(component_class) : T(component_array_class);
     }
   AddMethod(unity_object_class, "Destroy", reinterpret_cast<void*>(&LoadingDestroy), T(void_class),
             {T(unity_object_class)}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
@@ -242,12 +299,15 @@ void LoadingArtworkConsumerCases(std::string_view mode)
   };
   add(game_object_class, ".ctor", &LoadingCtor, T(void_class), {T(string_class)});
   add(game_object_class, "AddComponent", &LoadingAddComponent, T(component_class), {T(type_class)});
+  add(game_object_class, "SetActive", &LoadingSetActive, T(void_class), {T(bool_class)});
   add(game_object_class, "get_transform", &LoadingTransform, T(*loading_transform_class), {}, true);
   add(component_class, "get_transform", &LoadingTransform, T(*loading_transform_class), {}, true);
+  add(component_class, "get_gameObject", &LoadingGameObject, T(game_object_class), {}, true);
   add(*loading_transform_class, "get_gameObject", &LoadingGameObject, T(game_object_class), {}, true);
   add(*loading_transform_class, "get_parent", &LoadingParent, T(*loading_transform_class), {}, true);
   add(*loading_transform_class, "get_childCount", &LoadingChildren, T(int_class), {}, true);
   add(*loading_transform_class, "GetChild", &LoadingChild, T(*loading_transform_class), {T(int_class)});
+  add(*loading_transform_class, "Find", &LoadingFind, T(*loading_transform_class), {T(string_class)});
   add(*loading_transform_class, "SetParent", &LoadingSetParent, T(void_class), {T(*loading_transform_class), T(bool_class)});
   add(*loading_transform_class, "SetAsFirstSibling", &LoadingFirst, T(void_class), {});
   add(*loading_transform_class, "set_localEulerAngles", &LoadingVector3, T(void_class), {T(vec3_class)});
@@ -263,7 +323,15 @@ void LoadingArtworkConsumerCases(std::string_view mode)
   add(*loading_image_class, "set_preserveAspect", &LoadingBool, T(void_class), {T(bool_class)});
   add(*loading_image_class, "set_raycastTarget", &LoadingBool, T(void_class), {T(bool_class)});
   add(*loading_image_class, "SetVerticesDirty", &LoadingFirst, T(void_class), {});
-  for (auto* cls : {loading_image_class, loading_rect_class, loading_transform_class})
+  add(*loading_text_class, "get_font", &LoadingFont, T(unity_object_class), {}, true);
+  add(*loading_text_class, "set_font", &LoadingSetFont, T(void_class), {T(unity_object_class)});
+  add(*loading_text_class, "set_fontSize", &LoadingFloat, T(void_class), {T(float_class)});
+  add(*loading_text_class, "set_alignment", &LoadingInt, T(void_class), {T(int_class)});
+  add(*loading_text_class, "set_color", &LoadingColor, T(void_class), {T(color)});
+  add(*loading_text_class, "set_raycastTarget", &LoadingRaycastTarget, T(void_class), {T(bool_class)});
+  add(*loading_text_class, "set_enableWordWrapping", &LoadingBool, T(void_class), {T(bool_class)});
+  add(*loading_text_class, "set_text", &LoadingText, T(void_class), {T(string_class)});
+  for (auto* cls : {loading_image_class, loading_rect_class, loading_transform_class, loading_text_class})
     for (auto* method : cls->methods)
       if (std::string_view(method->name).starts_with("set_"))
         AddProperty(*cls, method->name + 4, nullptr, method);
@@ -314,6 +382,9 @@ void LoadingArtworkConsumerCases(std::string_view mode)
   auto slide_original = [&](SlideShowViewController*) { ++originals; };
   screen_images = {};
   transition_screen = {};
+  login_artwork_installed = true;
+  login_welcome_installed = true;
+  config.loader_tip_enabled = false;
   if (mode == "loading-login-consumer") {
     config.loader_enabled = false;
     LoginSequence_Awake_Hook(login_original, login_view);
@@ -367,6 +438,64 @@ void LoadingArtworkConsumerCases(std::string_view mode)
     LoginSequence_Awake_Hook(login_original, login_view);
     Require(loading_created == creates && originals == 7,
             "decoder failure preserves the native login path without constructing empty overlays");
+
+    // The welcome uses the login canvas independently of optional background artwork.
+    config.loader_enabled = false;
+    config.loader_transition = false;
+    loading_fail_decode = false;
+    tip_picker.Reset();
+    auto* donor = LoadingGo("NativeLoadingText");
+    donor->active = false;
+    donor->transform->parent = canvas_go->transform;
+    canvas_go->transform->children.push_back(donor->transform);
+    const auto text_type = LoadingType(T(*loading_text_ui_class));
+    loading_font_donor = LoadingNative(LoadingAddComponent(
+        &donor->header, reinterpret_cast<Il2CppReflectionType*>(text_type), nullptr));
+    auto* native_font = LoadingNode(&unity_object_class.klass);
+    const auto welcome = [&]() -> LoadingFixtureNode* {
+      auto* found = LoadingFind(&canvas_go->transform->header, il2cpp::NewString("STFCModWelcome"), nullptr);
+      return found ? LoadingNative(found)->object : nullptr;
+    };
+    const auto before_welcome = loading_created;
+    const auto before_decodes = loading_decodes;
+    LoginSequence_Awake_Hook(login_original, login_view);
+    Require(!welcome() && tip_picker.first_screen && loading_created == before_welcome,
+            "disabled loading tips preserve native login and leave the first welcome pending");
+    config.loader_tip_enabled = true;
+    LoginSequence_Awake_Hook(login_original, login_view);
+    Require(!welcome() && tip_picker.first_screen && loading_created == before_welcome,
+            "a native label without a font leaves the welcome pending without constructing empty text");
+    loading_font_donor->font = &native_font->header;
+    const auto before_destroys = loading_destroys;
+    loading_fail_text = true;
+    LoginSequence_Awake_Hook(login_original, login_view);
+    Require(!welcome() && tip_picker.first_screen && loading_destroys == before_destroys + 1,
+            "failed TMP creation destroys the provisional login object without consuming the welcome");
+    loading_fail_text = false;
+    loading_fail_parent = true;
+    LoginSequence_Awake_Hook(login_original, login_view);
+    Require(!welcome() && tip_picker.first_screen && loading_destroys == before_destroys + 2,
+            "failed welcome parenting remains unpublished and retryable");
+    loading_fail_parent = false;
+    loading_fail_color = true;
+    LoginSequence_Awake_Hook(login_original, login_view);
+    Require(!welcome() && tip_picker.first_screen && loading_destroys == before_destroys + 3,
+            "a failed text configuration destroys its parented object and preserves the welcome");
+    loading_fail_color = false;
+    LoginSequence_Awake_Hook(login_original, login_view);
+    auto* notice = welcome();
+    Require(notice && notice->active && notice->label && notice->label->text == kLoadingWelcome
+                && notice->label->font == &native_font->header && !notice->label->raycast_target
+                && notice->transform->parent == canvas_go->transform && !tip_picker.first_screen,
+            "login publishes the noninteractive welcome in the native font even with custom backgrounds disabled");
+    const auto after_publish = loading_created;
+    LoginSequence_Awake_Hook(login_original, login_view);
+    Require(welcome() == notice && loading_created == after_publish
+                && std::ranges::count_if(loading_nodes, [](const auto& node) {
+                     return node.name == "STFCModWelcome" && !loading_destroyed.contains(&node.header);
+                   }) == 1 && originals == 14 && loading_decodes == before_decodes,
+            "repeated login observation keeps one welcome, preserves original delivery and decodes no artwork");
+    loading_font_donor = nullptr;
   } else {
     config.loader_transition = false;
     TransitionViewController_Awake_Hook(transition_original, transition_view);
