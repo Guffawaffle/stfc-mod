@@ -847,10 +847,11 @@ void FrozenSettingsDefaults()
     const auto mistyped = Config::Parse(toml::parse("[graphics]\nsystem_camera_orbit=[]"), parsed, false);
     Check(mistyped->graphics.system_camera_orbit, "mistyped system rotation preference retains its enabled default");
     const auto defaults = Config::Parse(toml::table{}, parsed, false);
-    Check(defaults->graphics.system_camera_orbit && defaults->patches.navigationorbithooks
+    Check(defaults->graphics.system_camera_orbit && defaults->graphics.station_camera_orbit
+              && defaults->patches.navigationorbithooks
               && defaults->patches.havenzoomhooks && defaults->control.hotkeys_enabled
               && !defaults->control.use_scopely_hotkeys,
-          "empty configuration enables the existing system and Haven rotation paths");
+          "empty configuration enables the existing system, Haven and station rotation paths");
     const auto disabled = Config::Parse(
         toml::parse(
             "[graphics]\nsystem_camera_orbit=false\n[patches]\nnavigationorbithooks=false\nhavenzoomhooks=false"),
@@ -858,7 +859,10 @@ void FrozenSettingsDefaults()
     Check(!disabled->graphics.system_camera_orbit && !disabled->patches.navigationorbithooks
               && !disabled->patches.havenzoomhooks,
           "explicit rotation opt-out and hook compatibility switches remain respected");
-    Check(!disabled->graphics.station_camera_orbit, "station camera orbit is opt-in for existing settings");
+    Check(disabled->graphics.station_camera_orbit, "missing station orbit preference uses the enabled default");
+    const auto station_disabled =
+        Config::Parse(toml::parse("[graphics]\nstation_camera_orbit=false"), parsed, false);
+    Check(!station_disabled->graphics.station_camera_orbit, "explicit saved station orbit opt-out remains respected");
     const auto station =
         Config::Parse(toml::parse("[graphics]\nstation_camera_orbit=true\ninterior_zoom_scale=4"), parsed, false);
     Check(station->graphics.station_camera_orbit && station->graphics.interior_zoom_scale == 4.0f,
