@@ -18,6 +18,9 @@ void LoadingTipsConsumerCases()
   tip->image = label;
   auto* view = reinterpret_cast<LoadingTipViewController*>(tip);
   auto& config = Config::Get().graphics;
+  constexpr std::string_view welcome =
+      "You're using Guffawaffle's fork of the STFC Community Mod. Report issues or request features at "
+      "github.com/Guffawaffle/stfc-mod/issues";
   int originals = 0;
   auto original = [&](LoadingTipViewController*) { ++originals; label->text = "native tip"; };
   tip_picker.Reset();
@@ -28,9 +31,8 @@ void LoadingTipsConsumerCases()
           "disabled tips preserve native text without consuming the first welcome line");
   config.loader_tip_enabled = true;
   LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
-  Require(originals == 2 && label->text.starts_with("Welcome to Star Trek Fleet Command")
-              && label->text.find(VER_FILE_VERSION_STR) != std::string::npos,
-          "the first enabled production tip writes the versioned welcome line after native handling");
+  Require(originals == 2 && label->text == welcome,
+          "the first enabled production tip writes the fork notice and support URL after native handling");
   std::string prior_custom;
   int custom = 0, native = 0;
   for (int index = 0; index < 200; ++index) {
@@ -51,7 +53,7 @@ void LoadingTipsConsumerCases()
   Require(tip_picker.first_screen && tip_picker.last == std::size(kTipTexts),
           "reload reset retires the previous session's tip selection");
   LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
-  Require(label->text.starts_with("Welcome to Star Trek Fleet Command") && originals == 203,
+  Require(label->text == welcome && originals == 203,
           "a reload makes the next enabled screen a fresh welcome");
   tip->image = nullptr;
   LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
