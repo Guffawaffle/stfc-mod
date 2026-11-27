@@ -6,7 +6,6 @@
 #include "features/features.h"
 #include "file.h"
 #include "frame.h"
-#include "version.h"
 
 #include "game/loading.h"
 #include "game/ui.h"
@@ -257,8 +256,8 @@ struct TipPicker {
   const char* Next()
   {
     if (std::exchange(first_screen, false))
-      return "Welcome to Star Trek Fleet Command, Supported by the Community Mod "
-             "v" VER_FILE_VERSION_STR VERSION_PATCH_STR "! Please check our discord for the latest information!";
+      return "You're using Guffawaffle's fork of the STFC Community Mod. Report issues or request features at "
+             "github.com/Guffawaffle/stfc-mod/issues";
     if (std::bernoulli_distribution(0.5)(random))
       return nullptr;
 
