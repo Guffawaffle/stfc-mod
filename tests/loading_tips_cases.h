@@ -58,6 +58,14 @@ void LoadingTipsConsumerCases()
   tip->image = nullptr;
   LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
   Require(originals == 204, "an unavailable native label preserves original delivery without dereferencing null");
+  ResetLoadingScreens();
+  LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
+  Require(originals == 205 && tip_picker.first_screen,
+          "a missing first label leaves the welcome pending without consuming a random choice");
+  tip->image = label;
+  LoadingTipViewController_SetRandomTipLocalisedText_Hook(original, view);
+  Require(originals == 206 && label->text == welcome && !tip_picker.first_screen,
+          "the welcome remains available when a later native label can receive it");
   std::cout << "Loading tips production consumer passed\n";
 }
 } // namespace
