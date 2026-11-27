@@ -805,6 +805,19 @@ void ChatNativeStreamerRows(FakeClass& label_class, FakeClass& colour_class, Fak
                                                         streamer_chat_header_arguments);
   expect(header_label, std::array{false, true});
   Require(state.views.back()->healthy, "a positively private async header render clears unavailable-context degradation");
+  StreamerChatFrame();
+  header.fails = true;
+  ui.streamer_mode = false;
+  StreamerChatFrame();
+  Require(!state.views.back()->healthy && state.last_policy.Any(),
+          "an unavailable private header keeps native restoration pending after privacy is disabled");
+  header.fails = false;
+  StreamerChatFrame();
+  expect(header_label, std::array{false, false});
+  Require(state.views.back()->healthy && !state.last_policy.Any(),
+          "a recovered header restores original identity arguments without another policy change or native refresh");
+  ui.streamer_mode = true;
+  StreamerChatFrame();
   header_context.channel = il2cpp::NewString("");
   auto* public_args = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 1));
   auto* category = reinterpret_cast<Il2CppObject*>(il2cpp::NewString("Alliance Chat"));

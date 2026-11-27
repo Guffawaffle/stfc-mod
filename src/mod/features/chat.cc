@@ -602,7 +602,10 @@ bool ApplyStreamerChatNames(StreamerChatView& view, streamer_mode::ChatPolicy po
         CoverStreamerChatLabel(view, target);
         return false;
       }
-      return view.cover.Restore();
+      view.cover.Restore();
+      // Removing the cover cannot restore arguments already rendered with redacted values.
+      // Retry the native refresh once its context is readable again.
+      return false;
     }
     if (private_header.value)
       observed_label = header->headerTitle();
