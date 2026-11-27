@@ -829,10 +829,18 @@ zoom_reset = "="
 [ui]
 # Apply the selected Streamer Mode privacy protections. Applies live.
 streamer_mode = false
-# Hide account IDs and the name and alliance on your own Player Profile. Player ID Copy uses the real ID.
-streamer_hide_account = true
+# Hide your displayed Player ID. Copy still uses the real ID.
+streamer_hide_player_id = true
+# Hide the account value beside Signed into Scopely as.
+streamer_hide_account_id = true
+# Hide your Player Profile name and your own chat sender names; other chat names can stay visible.
+streamer_hide_my_name = true
+# Hide your Player Profile alliance name, tag and emblem, and your own chat alliance tags.
+streamer_hide_my_alliance = true
 # Hide sender names in supported chat views. Chat remains readable.
-streamer_hide_chat_names = false
+streamer_hide_chat_sender_names = false
+# Hide chat alliance tags independently of sender names.
+streamer_hide_chat_alliances = false
 # Use compact player ship labels in System view while Streamer Mode is on. Your usual detail returns afterward.
 streamer_compact_player_ship_labels = false
 

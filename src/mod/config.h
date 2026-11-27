@@ -286,8 +286,12 @@ public:
 
   struct Ui {
     bool streamer_mode                       = false;
-    bool streamer_hide_account               = true;
-    bool streamer_hide_chat_names            = false;
+    bool streamer_hide_player_id             = true;
+    bool streamer_hide_account_id            = true;
+    bool streamer_hide_my_name               = true;
+    bool streamer_hide_my_alliance           = true;
+    bool streamer_hide_chat_sender_names     = false;
+    bool streamer_hide_chat_alliances        = false;
     bool streamer_compact_player_ship_labels = false;
     bool disable_escape_exit                 = true;
     // Maximum gap in milliseconds between two Escape presses that opens the exit prompt; 0 never opens it.

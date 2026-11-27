@@ -464,23 +464,395 @@ void ChatNativeNavigation()
 struct StreamerPreviewFixtureWidget {
   Il2CppObject   header;
   TextLocalizer* label;
+  ChatMessage*   message = nullptr;
 };
 struct StreamerPreviewFixtureGraphic {
   Il2CppObject header;
   bool         enabled = true;
 };
+struct StreamerColourFixtureLabel {
+  Il2CppObject header;
+  Il2CppObject* graphic = nullptr;
+  il2cpp::ArrayObject* colours = nullptr;
+  il2cpp::ArrayObject* original = nullptr;
+};
+
+struct StreamerChatFixtureIdentity {
+  Il2CppObject  header;
+  Il2CppString* id    = nullptr;
+  bool          fails = false;
+};
+StreamerChatFixtureIdentity streamer_chat_local{}, streamer_chat_sender{}, streamer_chat_other{};
+Il2CppObject                streamer_chat_profile_manager{};
+bool                        streamer_chat_manager_present = true;
+std::array<Il2CppClass*, 1> streamer_chat_profile_interfaces{};
+
+void StreamerChatIdentityRuntime(FakeClass& widget)
+{
+  auto& profile           = Define("Digit.PrimeServer.Models", "UserProfile", IL2CPP_TYPE_CLASS, &object_class);
+  auto& message           = Define("Digit.PrimeServer.Models", "Message", IL2CPP_TYPE_CLASS, &object_class);
+  auto& manager           = Define("Digit.Prime.PlayerProfile", "UserProfileManager", IL2CPP_TYPE_CLASS, &object_class);
+  auto& profile_interface = Define("Digit.PrimeServer.Models", "IUserProfile", IL2CPP_TYPE_CLASS, &object_class);
+  profile_interface.klass.flags |= TYPE_ATTRIBUTE_INTERFACE;
+  streamer_chat_profile_interfaces[0] = &profile_interface.klass;
+  profile.klass.implementedInterfaces = streamer_chat_profile_interfaces.data();
+  profile.klass.interfaces_count      = 1;
+  AddMethod(profile, "get_UserId", reinterpret_cast<void*>(+[](StreamerChatFixtureIdentity* self, const MethodInfo*) {
+              Require(ChatNativeRooted(self), "local profile remains rooted during ID classification");
+              if (self->fails)
+                throw Il2CppExceptionWrapper(&thrown);
+              return self->id;
+            }),
+            T(string_class), {});
+  AddMethod(message, "get_SenderId", reinterpret_cast<void*>(+[](StreamerChatFixtureIdentity* self, const MethodInfo*) {
+              Require(ChatNativeRooted(self), "bound message remains rooted while reading its sender ID");
+              if (self->fails)
+                throw Il2CppExceptionWrapper(&thrown);
+              return self->id;
+            }),
+            T(string_class), {});
+  AddMethod(manager, "get_Instance", reinterpret_cast<void*>(+[](const MethodInfo*) {
+              return streamer_chat_manager_present ? &streamer_chat_profile_manager : nullptr;
+            }),
+            T(manager), {}, METHOD_ATTRIBUTE_PUBLIC | METHOD_ATTRIBUTE_STATIC);
+  AddMethod(manager, "GetLocalUserProfile", reinterpret_cast<void*>(+[](Il2CppObject* self, const MethodInfo*) {
+              Require(ChatNativeRooted(self), "native profile manager is rooted while acquiring the local profile");
+              return &streamer_chat_local.header;
+            }),
+            T(profile), {});
+  AddMethod(widget, "get_Context", reinterpret_cast<void*>(+[](StreamerPreviewFixtureWidget* self, const MethodInfo*) {
+              return self->message;
+            }),
+            T(message), {});
+  streamer_chat_local.header.klass    = &profile.klass;
+  streamer_chat_other.header.klass    = &profile.klass;
+  streamer_chat_sender.header.klass   = &message.klass;
+  streamer_chat_profile_manager.klass = &manager.klass;
+  streamer_chat_local.id              = il2cpp::NewString("local-account-id");
+  streamer_chat_other.id              = il2cpp::NewString("other-account-id");
+  streamer_chat_sender.id             = il2cpp::NewString("other-account-id");
+  streamer_chat_manager_present       = true;
+}
+
+struct StreamerChatFixtureProfile {
+  Il2CppObject   header;
+  TextLocalizer* label   = nullptr;
+  int32_t        style   = 1;
+  ChatProfile*   profile = nullptr;
+};
+struct StreamerChatFixtureRow {
+  Il2CppObject       header;
+  UserProfileWidget* profile = nullptr;
+  ChatMessage*       message = nullptr;
+};
+struct StreamerChatFixtureHeaderContext {
+  Il2CppObject  header;
+  Il2CppString* channel = nullptr;
+  UserProfile*  profile = nullptr;
+};
+struct StreamerChatFixtureHeader {
+  Il2CppObject        header;
+  TextLocalizer*      label   = nullptr;
+  ChatSectionContext* context = nullptr;
+  bool fails = false;
+};
+il2cpp::ArrayObject*                                 streamer_chat_name_arguments   = nullptr;
+il2cpp::ArrayObject*                                 streamer_chat_transient_arguments = nullptr;
+il2cpp::ArrayObject*                                 streamer_chat_header_arguments = nullptr;
+std::map<TextLocalizer*, std::vector<Il2CppObject*>> streamer_chat_rendered;
+std::vector<TextLocalizer*> streamer_chat_cover_attempts;
+int                                                  streamer_chat_name_refreshes = 0;
+
+void StreamerChatFixtureRender(TextLocalizer* label, bool, il2cpp::ArrayObject* arguments)
+{
+  if (!arguments)
+    return;
+  auto* input = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(arguments);
+  streamer_chat_rendered[label].assign(input->data(), input->data() + input->size());
+}
+
+void StreamerChatFixtureRefreshName(StreamerChatFixtureProfile* self, const MethodInfo*)
+{
+  ++streamer_chat_name_refreshes;
+  // SetContext can first send empty parameters before the native final five-slot identity render.
+  TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, self->label, false, nullptr);
+  if (streamer_chat_transient_arguments)
+    TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, self->label, false,
+                                                          streamer_chat_transient_arguments);
+  TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, self->label, true,
+                                                        streamer_chat_name_arguments);
+}
+
+void ChatNativeStreamerRows(FakeClass& label_class, FakeClass& colour_class, FakeClass& multi_class,
+                           TextLocalizer* label, TextLocalizer* header_label)
+{
+  auto& state     = StreamerChat();
+  state           = StreamerChatState{};
+  state.installed = state.formatter = true;
+  state.game_thread                 = std::this_thread::get_id();
+  auto& ui                          = Config::Get().ui;
+  ui.streamer_mode                  = true;
+  ui.streamer_hide_my_name = ui.streamer_hide_my_alliance = false;
+  auto& model                                             = Fake(UserProfile::Class::Raw());
+  auto& model_interface                                   = Fake(ChatProfile::Class::Raw());
+  auto& message_model                                     = Fake(ChatMessage::Class::Raw());
+  AddField(chat_profile_class, "_name", label_class, offsetof(StreamerChatFixtureProfile, label));
+  AddField(chat_profile_class, "_nameStyle", int_class, offsetof(StreamerChatFixtureProfile, style));
+  AddMethod(chat_profile_class, "get_Context",
+            reinterpret_cast<void*>(+[](StreamerChatFixtureProfile* self, const MethodInfo*) { return self->profile; }),
+            T(model_interface), {});
+  AddMethod(chat_profile_class, "UpdatePlayerName", reinterpret_cast<void*>(&StreamerChatFixtureRefreshName),
+            T(void_class), {});
+  AddField(chat_message_class, "_userProfileWidget", chat_profile_class, offsetof(StreamerChatFixtureRow, profile));
+  AddMethod(chat_message_class, "get_Context",
+            reinterpret_cast<void*>(+[](StreamerChatFixtureRow* self, const MethodInfo*) { return self->message; }),
+            T(message_model), {});
+  StreamerChatFixtureProfile profile{
+      {&chat_profile_class.klass}, label, 3, reinterpret_cast<ChatProfile*>(&streamer_chat_other)};
+  StreamerChatFixtureRow row{{&chat_message_class.klass},
+                             reinterpret_cast<UserProfileWidget*>(&profile),
+                             reinterpret_cast<ChatMessage*>(&streamer_chat_sender)};
+  auto*                  receiver = reinterpret_cast<ChatMessageWidget*>(&row);
+  auto*                  args = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 5));
+  std::array<Il2CppObject*, 5> values{};
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] = reinterpret_cast<Il2CppObject*>(il2cpp::NewString("native identity parameter"));
+    args->Set(i, values[i]);
+  }
+  streamer_chat_name_arguments = reinterpret_cast<il2cpp::ArrayObject*>(args);
+  const auto expect            = [&](TextLocalizer* target, std::span<const bool> mask) {
+    const auto& output = streamer_chat_rendered.at(target);
+    Require(output.size() == mask.size(), "native rendering retains its parameter shape");
+    for (size_t i = 0; i < mask.size(); ++i)
+      Require(
+          (*args)[i] == values[i]
+              && (mask[i] ? il2cpp::Equals(reinterpret_cast<Il2CppString*>(output[i]), "") : output[i] == values[i]),
+          "chat masks only requested identity slots and preserves native source arguments");
+  };
+  streamer_chat_sender.id = streamer_chat_other.id;
+  for (int32_t style = 1; style <= 7; ++style)
+    for (const bool names : {false, true})
+      for (const bool alliances : {false, true}) {
+        profile.style                      = style;
+        ui.streamer_hide_chat_sender_names = names;
+        ui.streamer_hide_chat_alliances    = alliances;
+        int originals                      = 0;
+        ChatMessageWidget_OnDidBindContext_StreamerHook([&](auto*) { ++originals; }, receiver);
+        std::array<bool, 5> mask{};
+        const size_t        name = style == 3 || style == 4 || style == 6 ? 1 : 0;
+        mask[name]               = names;
+        if (style == 3 || style == 6)
+          mask[0] = mask[2] = alliances;
+        else if (style == 4)
+          mask[0] = alliances;
+        else if (style == 7)
+          mask[2] = mask[3] = alliances;
+        expect(label, mask);
+        Require(originals == 1 && state.views.size() == 1 && state.views.front()->healthy,
+                "all native name styles use one pooled row and run its original bind once");
+      }
+  profile.style                      = 3;
+  ui.streamer_hide_chat_sender_names = ui.streamer_hide_chat_alliances = false;
+  ui.streamer_hide_my_name                                             = true;
+  streamer_chat_sender.id                                              = il2cpp::NewString("local-account-id");
+  ChatMessageWidget_OnDidBindContext_StreamerHook([](auto*) {}, receiver);
+  expect(label, std::array{false, true, false, false, false});
+  Require(state.views.front()->healthy,
+          "matching ID content masks own messages even when names otherwise remain visible");
+  StreamerChatFrame();
+  const auto before            = streamer_chat_name_refreshes;
+  ui.streamer_hide_my_name     = false;
+  ui.streamer_hide_my_alliance = true;
+  StreamerChatFrame();
+  expect(label, std::array{true, false, true, false, false});
+  Require(streamer_chat_name_refreshes == before + 1,
+          "changing independent personal protections refreshes existing rows without the broad chat toggle changing");
+  streamer_chat_sender.id = streamer_chat_other.id;
+  ChatMessageWidget_OnDidBindContext_StreamerHook([](auto*) {}, receiver);
+  expect(label, std::array{false, false, false, false, false});
+  // Native asynchronous profile refreshes reuse the exact tracked label and read the current message again.
+  ui.streamer_hide_my_name     = true;
+  ui.streamer_hide_my_alliance = false;
+  streamer_chat_sender.id      = streamer_chat_local.id;
+  StreamerChatFixtureRefreshName(&profile, nullptr);
+  expect(label, std::array{false, true, false, false, false});
+  streamer_chat_sender.id = nullptr;
+  StreamerChatFixtureRefreshName(&profile, nullptr);
+  expect(label, std::array{false, true, false, false, false});
+  Require(!state.views.front()->healthy, "unknown current sender remains masked and reports degraded privacy");
+  streamer_chat_sender.id = streamer_chat_other.id;
+  StreamerChatFixtureRefreshName(&profile, nullptr);
+  expect(label, std::array{false, false, false, false, false});
+  Require(state.views.front()->healthy,
+          "a positively identified other sender restores native presentation on a reused label");
+  streamer_chat_sender.id   = streamer_chat_local.id;
+  streamer_chat_local.fails = true;
+  StreamerChatFixtureRefreshName(&profile, nullptr);
+  expect(label, std::array{false, true, false, false, false});
+  Require(!state.views.front()->healthy, "unreadable local ID is Unknown rather than permission to show the name");
+  streamer_chat_local.fails = false;
+  ui.streamer_mode          = false;
+  StreamerChatFrame();
+  expect(label, std::array{false, false, false, false, false});
+
+  auto* colours = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 2));
+  colours->Set(0, reinterpret_cast<Il2CppObject*>(il2cpp::NewString("native color A")));
+  colours->Set(1, reinterpret_cast<Il2CppObject*>(il2cpp::NewString("native color B")));
+  auto* expanded = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 7));
+  for (size_t i = 0; i < 7; ++i)
+    expanded->Set(i, i < 2 ? (*colours)[i] : values[i - 2]);
+  StreamerColourFixtureLabel colour_label{{&colour_class.klass}, nullptr,
+                                           reinterpret_cast<il2cpp::ArrayObject*>(colours),
+                                           streamer_chat_name_arguments};
+  auto* colour_target = reinterpret_cast<TextLocalizer*>(&colour_label);
+  profile.label = colour_target;
+  ui.streamer_mode = true;
+  ui.streamer_hide_chat_sender_names = false;
+  ui.streamer_hide_chat_alliances = true;
+  ui.streamer_hide_my_name = ui.streamer_hide_my_alliance = false;
+  streamer_chat_name_arguments = reinterpret_cast<il2cpp::ArrayObject*>(expanded);
+  ChatMessageWidget_OnDidBindContext_StreamerHook([](auto*) {}, receiver);
+  const auto& coloured = streamer_chat_rendered.at(colour_target);
+  for (size_t i = 0; i < 7; ++i)
+    Require((i == 2 || i == 4) ? il2cpp::Equals(reinterpret_cast<Il2CppString*>(coloured[i]), "")
+                               : coloured[i] == (*expanded)[i],
+            "Colour full-row masking shifts only native alliance slots and preserves prefix colors/name");
+  Require(state.views.front()->healthy, "qualified color-prefix and original-suffix references permit selective rendering");
+  colour_label.original = reinterpret_cast<il2cpp::ArrayObject*>(PresetArray(il2cpp::ObjectClass(), 5));
+  StreamerChatFixtureRefreshName(&profile, nullptr);
+  Require(!state.views.front()->healthy && streamer_chat_rendered.at(colour_target)[0] == (*expanded)[0],
+          "a stale non-color argument cache declines selective formatting and reports degradation");
+  // MultiTextLocalizer forwards the original arguments rather than adding a prefix.
+  ChatNativeReference multi_label{{&multi_class.klass}};
+  profile.label = reinterpret_cast<TextLocalizer*>(&multi_label);
+  streamer_chat_name_arguments = reinterpret_cast<il2cpp::ArrayObject*>(args);
+  ui.streamer_hide_chat_sender_names = true;
+  ui.streamer_hide_chat_alliances = false;
+  ChatMessageWidget_OnDidBindContext_StreamerHook([](auto*) {}, receiver);
+  expect(profile.label, std::array{false, true, false, false, false});
+  Require(state.views.front()->healthy, "Multi-like forwarding keeps the ordinary native five-slot schema");
+  profile.label = label;
+  ChatMessageWidget_OnDidBindContext_StreamerHook([](auto*) {}, receiver);
+  streamer_chat_transient_arguments = reinterpret_cast<il2cpp::ArrayObject*>(PresetArray(il2cpp::ObjectClass(), 2));
+  StreamerChatFixtureRefreshName(&profile, nullptr);
+  expect(label, std::array{false, true, false, false, false});
+  Require(state.views.front()->healthy,
+          "the final qualified render clears transient unsupported SetContext degradation on the same native update");
+  streamer_chat_transient_arguments = nullptr;
+
+  auto& context_class = Define("Digit.Prime.Chat", "ChatSectionContext", IL2CPP_TYPE_CLASS, &object_class);
+  auto& header_class =
+      Define("Digit.Prime.Chat", "FullScreenChatViewController", IL2CPP_TYPE_CLASS, &unity_object_class);
+  AddField(context_class, "ChannelID", string_class, offsetof(StreamerChatFixtureHeaderContext, channel));
+  AddField(context_class, "ChatUserProfile", model, offsetof(StreamerChatFixtureHeaderContext, profile));
+  AddField(header_class, "_headerTitle", label_class, offsetof(StreamerChatFixtureHeader, label));
+  AddMethod(header_class, "get_CanvasContext",
+            reinterpret_cast<void*>(+[](StreamerChatFixtureHeader* self, const MethodInfo*) {
+              if (self->fails)
+                throw Il2CppExceptionWrapper(&thrown);
+              return self->context;
+            }),
+            T(context_class), {});
+  AddMethod(header_class, "RefreshContent",
+            reinterpret_cast<void*>(+[](StreamerChatFixtureHeader* self, const MethodInfo*) {
+              TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, self->label, false,
+                                                                    streamer_chat_header_arguments);
+            }),
+            T(void_class), {});
+  StreamerChatFixtureHeaderContext header_context{{&context_class.klass},
+                                                  il2cpp::NewString("private-channel"),
+                                                  reinterpret_cast<UserProfile*>(&streamer_chat_other)};
+  StreamerChatFixtureHeader        header{
+      {&header_class.klass}, header_label, reinterpret_cast<ChatSectionContext*>(&header_context)};
+  ui.streamer_mode         = true;
+  ui.streamer_hide_my_name = ui.streamer_hide_my_alliance = false;
+  for (const size_t count : {1, 2})
+    for (const bool names : {false, true})
+      for (const bool alliances : {false, true}) {
+        ui.streamer_hide_chat_sender_names = names;
+        ui.streamer_hide_chat_alliances    = alliances;
+        auto* header_args = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), count));
+        for (size_t i = 0; i < count; ++i)
+          header_args->Set(i, values[i]);
+        streamer_chat_header_arguments = reinterpret_cast<il2cpp::ArrayObject*>(header_args);
+        FullScreenChatViewController_RefreshContent_Hook([](auto*) {},
+                                                         reinterpret_cast<FullScreenChatViewController*>(&header));
+        std::array<bool, 2> mask{count == 1 ? names : alliances, names};
+        expect(header_label, {mask.data(), count});
+        Require(state.views.back()->healthy,
+                "private header preserves independently selected name and alliance fields");
+      }
+  ui.streamer_hide_chat_sender_names = true;
+  ui.streamer_hide_chat_alliances = false;
+  auto* private_args = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 2));
+  private_args->Set(0, values[0]);
+  private_args->Set(1, values[1]);
+  streamer_chat_header_arguments = reinterpret_cast<il2cpp::ArrayObject*>(private_args);
+  header.fails = true;
+  streamer_chat_cover_attempts.clear();
+  FullScreenChatViewController_RefreshContent_Hook([&](auto*) {
+    TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, header_label, false,
+                                                          streamer_chat_header_arguments);
+  }, reinterpret_cast<FullScreenChatViewController*>(&header));
+  Require(!state.views.back()->healthy
+              && std::ranges::find(streamer_chat_cover_attempts, header_label) != streamer_chat_cover_attempts.end()
+              && streamer_chat_rendered.at(header_label)[0] == values[0]
+              && streamer_chat_rendered.at(header_label)[1] == values[1],
+          "unavailable header context covers the exact label and never guesses the private two-slot schema");
+  header.fails = false;
+  // A natural async render can recover with unchanged policy after native context becomes readable again.
+  TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, header_label, false,
+                                                        streamer_chat_header_arguments);
+  expect(header_label, std::array{false, true});
+  Require(state.views.back()->healthy, "a positively private async header render clears unavailable-context degradation");
+  header_context.channel = il2cpp::NewString("");
+  auto* public_args = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 1));
+  auto* category = reinterpret_cast<Il2CppObject*>(il2cpp::NewString("Alliance Chat"));
+  public_args->Set(0, category);
+  streamer_chat_header_arguments = reinterpret_cast<il2cpp::ArrayObject*>(public_args);
+  streamer_chat_cover_attempts.clear();
+  FullScreenChatViewController_RefreshContent_Hook([&](auto*) {
+    TextLocalizer_SetLocalTextParameters_StreamerChatHook(StreamerChatFixtureRender, header_label, false,
+                                                          streamer_chat_header_arguments);
+  }, reinterpret_cast<FullScreenChatViewController*>(&header));
+  Require(state.views.back()->healthy && streamer_chat_cover_attempts.empty()
+              && streamer_chat_rendered.at(header_label)[0] == category && !state.labels.contains(header_label),
+          "a confirmed non-private channel header restores native text and retires its privacy label index");
+  ChatNativeReference replacement{{&label_class.klass}};
+  auto&               pooled = *state.views.front();
+  pooled.label.Reset(); // The old managed wrapper may disappear before the native owner is rebound.
+  Require(RememberStreamerChatLabel(pooled, reinterpret_cast<TextLocalizer*>(&replacement))
+              && !state.labels.contains(label),
+          "an expired weak label cannot leave its old raw index key behind during pooled rebinding");
+  Require(RememberStreamerChatLabel(pooled, label)
+              && !state.labels.contains(reinterpret_cast<TextLocalizer*>(&replacement)),
+          "restoring a pooled native label removes the replacement index entry");
+  state = StreamerChatState{};
+  streamer_chat_rendered.clear();
+  Require(warp_roots.empty(), "chat ownership and rendering fixtures release their temporary roots");
+}
 
 void ChatNativeStreamerPreview()
 {
   auto& widget  = Define("Digit.Prime.Chat", "ChatPreviewMessageWidget", IL2CPP_TYPE_CLASS, &unity_object_class);
   auto& label   = Define("Digit.Client.UI", "TextLocalizer", IL2CPP_TYPE_CLASS, &unity_object_class);
   auto& graphic = Define("Fixture", "StreamerPreviewGraphic", IL2CPP_TYPE_CLASS, &unity_object_class);
+  auto& colour_class = Define("Digit.Client.UI", "ColourTextLocalizer", IL2CPP_TYPE_CLASS, &label);
+  auto& multi_class = Define("Digit.Client.UI", "MultiTextLocalizer", IL2CPP_TYPE_CLASS, &label);
+  AddField(colour_class, "_colorHexes", object_array_class, offsetof(StreamerColourFixtureLabel, colours));
+  AddField(colour_class, "_noneColourArgs", object_array_class, offsetof(StreamerColourFixtureLabel, original));
+  StreamerChatIdentityRuntime(widget);
   AddField(widget, "_text", label, offsetof(StreamerPreviewFixtureWidget, label));
   auto& target =
       AddMethod(label, "get_Target",
                 reinterpret_cast<void*>(+[](ChatNativeReference* self, const MethodInfo*) { return self->value; }),
                 T(graphic), {});
   AddProperty(label, "Target", &target);
+  AddMethod(label, "get_gameObject", reinterpret_cast<void*>(+[](TextLocalizer* self, const MethodInfo*) {
+              streamer_chat_cover_attempts.push_back(self);
+              return static_cast<unity::GameObject*>(nullptr);
+            }), T(game_object_class), {});
+
   AddMethod(
       graphic, "get_enabled",
       reinterpret_cast<void*>(+[](StreamerPreviewFixtureGraphic* self, const MethodInfo*) { return self->enabled; }),
@@ -488,11 +860,15 @@ void ChatNativeStreamerPreview()
   StreamerPreviewFixtureGraphic rendered{{&graphic.klass}};
   ChatNativeReference           text{{&label.klass}, &rendered.header}, unrelated{{&label.klass}, &rendered.header};
   StreamerPreviewFixtureWidget  row{{&widget.klass}, reinterpret_cast<TextLocalizer*>(&text)};
+  row.message                            = reinterpret_cast<ChatMessage*>(&streamer_chat_sender);
   auto*                         receiver = reinterpret_cast<ChatPreviewMessageWidget*>(&row);
   auto&                         state    = StreamerChat();
   state.installed                        = true;
   state.game_thread                      = std::this_thread::get_id();
-  Config::Get().ui.streamer_mode = Config::Get().ui.streamer_hide_chat_names = true;
+  auto& ui                               = Config::Get().ui;
+  ui.streamer_mode                       = true;
+  ui.streamer_hide_chat_sender_names = ui.streamer_hide_chat_alliances = true;
+  ui.streamer_hide_my_name = ui.streamer_hide_my_alliance                    = false;
   const auto bind                                                            = [&](auto original) {
     ChatPreviewMessageWidget_SetWidgetData_Hook(original, receiver);
     return state.views.front()->healthy;
@@ -508,14 +884,15 @@ void ChatNativeStreamerPreview()
     }
     int formats = 0;
     Require(bind([&](auto*) {
-              TextLocalizer_SetTextParameters_StreamerChatHook(
-                  [&](auto*, auto* output) {
+              TextLocalizer_SetLocalTextParameters_StreamerChatHook(
+                  [&](auto*, bool parse_id, auto* output) {
                     Require(output == input, "unrelated native formatting passes through unchanged");
                   },
-                  reinterpret_cast<TextLocalizer*>(&unrelated), input);
-              TextLocalizer_SetTextParameters_StreamerChatHook(
-                  [&](auto*, auto* output) {
+                  reinterpret_cast<TextLocalizer*>(&unrelated), true, input);
+              TextLocalizer_SetLocalTextParameters_StreamerChatHook(
+                  [&](auto*, bool parse_id, auto* output) {
                     ++formats;
+                    Require(parse_id, "shared formatter preserves the native parse-ID flag");
                     Require(output != input, "streamer preview never mutates the original native array");
                     auto* masked = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(output);
                     for (size_t index = 0; index < count; ++index) {
@@ -526,13 +903,125 @@ void ChatNativeStreamerPreview()
                               "preview replaces only its sender and optional alliance, keeping the color and body");
                     }
                   },
-                  row.label, input);
+                  row.label, true, input);
             }) && formats == 1,
             "native preview reports success after rewriting the exact formatter inputs");
   }
+  for (const auto subject :
+       {streamer_mode::Subject::Self, streamer_mode::Subject::Other, streamer_mode::Subject::Unknown})
+    for (const bool names : {false, true})
+      for (const bool alliances : {false, true})
+        for (const bool my_name : {false, true})
+          for (const bool my_alliance : {false, true}) {
+            ui.streamer_hide_chat_sender_names = names;
+            ui.streamer_hide_chat_alliances    = alliances;
+            ui.streamer_hide_my_name           = my_name;
+            ui.streamer_hide_my_alliance       = my_alliance;
+            streamer_chat_sender.id = subject == streamer_mode::Subject::Self    ? streamer_chat_local.id
+                                      : subject == streamer_mode::Subject::Other ? il2cpp::NewString("other-account-id")
+                                                                                 : nullptr;
+            const bool hide_name    = names || (my_name && subject != streamer_mode::Subject::Other);
+            const bool hide_alliance = alliances || (my_alliance && subject != streamer_mode::Subject::Other);
+            auto*      input = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 5));
+            std::array<Il2CppObject*, 5> values{};
+            for (size_t i = 0; i < 5; ++i) {
+              values[i] = reinterpret_cast<Il2CppObject*>(il2cpp::NewString("native parameter"));
+              input->Set(i, values[i]);
+            }
+            int        originals = 0;
+            const bool healthy   = bind([&](auto*) {
+              TextLocalizer_SetLocalTextParameters_StreamerChatHook(
+                  [&](auto*, bool parse_id, auto* output) {
+                    ++originals;
+                    auto* result = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(output);
+                    for (size_t i = 0; i < 5; ++i) {
+                      const bool masked = (i == 1 && hide_alliance) || (i == 2 && hide_name);
+                      Require((*input)[i] == values[i]
+                                  && (masked ? il2cpp::Equals(reinterpret_cast<Il2CppString*>((*result)[i]), "")
+                                             : (*result)[i] == values[i]),
+                              "independent native preview masks preserve every unselected name, tag, color and body");
+                    }
+                  },
+                  row.label, true, reinterpret_cast<il2cpp::ArrayObject*>(input));
+            });
+            Require(originals == 1, "each native preview formatter is called exactly once");
+            Require(healthy == (subject != streamer_mode::Subject::Unknown || (!my_name && !my_alliance)),
+                    "unknown ownership conservatively masks selected personal fields and reports degradation");
+          }
+  streamer_chat_sender.id            = il2cpp::NewString("other-account-id");
+  ui.streamer_hide_chat_sender_names = ui.streamer_hide_chat_alliances = true;
+  ui.streamer_hide_my_name = ui.streamer_hide_my_alliance = false;
+  auto* bare = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 4));
+  auto* prefix = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 1));
+  auto* expanded = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(PresetArray(il2cpp::ObjectClass(), 5));
+  prefix->Set(0, reinterpret_cast<Il2CppObject*>(il2cpp::NewString("native prefix color")));
+  expanded->Set(0, (*prefix)[0]);
+  for (size_t i = 0; i < 4; ++i) {
+    bare->Set(i, reinterpret_cast<Il2CppObject*>(il2cpp::NewString("native preview parameter")));
+    expanded->Set(i + 1, (*bare)[i]);
+  }
+  StreamerColourFixtureLabel coloured{{&colour_class.klass}, &rendered.header,
+                                       reinterpret_cast<il2cpp::ArrayObject*>(prefix),
+                                       reinterpret_cast<il2cpp::ArrayObject*>(bare)};
+  auto* plain_label = row.label;
+  row.label = reinterpret_cast<TextLocalizer*>(&coloured);
+  ui.streamer_hide_chat_sender_names = false;
+  ui.streamer_hide_chat_alliances = true;
+  Require(bind([&](auto*) {
+    TextLocalizer_SetLocalTextParameters_StreamerChatHook([&](auto*, bool parse_id, auto* output) {
+      Require(!parse_id, "Colour preview forwarding preserves the native false parse-ID flag");
+      auto* result = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(output);
+      for (size_t i = 0; i < 5; ++i)
+        Require((*result)[i] == (*expanded)[i],
+                "four preview arguments plus one color cannot be mistaken for a bare five-argument alliance preview");
+    }, row.label, false, reinterpret_cast<il2cpp::ArrayObject*>(expanded));
+  }), "the qualified Colour prefix is decoded before choosing the native preview arity");
+  ui.streamer_hide_chat_sender_names = true;
+  ui.streamer_hide_chat_alliances = false;
+  Require(bind([&](auto*) {
+    TextLocalizer_SetLocalTextParameters_StreamerChatHook([&](auto*, bool, auto* output) {
+      auto* result = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(output);
+      for (size_t i = 0; i < 5; ++i)
+        Require(i == 2 ? il2cpp::Equals(reinterpret_cast<Il2CppString*>((*result)[i]), "")
+                       : (*result)[i] == (*expanded)[i],
+                "prefixed preview name masking preserves every color and the native message body");
+    }, row.label, false, reinterpret_cast<il2cpp::ArrayObject*>(expanded));
+  }), "Colour previews retain selective name masking");
+  expanded->Set(0, reinterpret_cast<Il2CppObject*>(il2cpp::NewString("foreign prefix")));
+  Require(!bind([&](auto*) {
+    TextLocalizer_SetLocalTextParameters_StreamerChatHook([&](auto*, bool, auto* output) {
+      Require(output == reinterpret_cast<il2cpp::ArrayObject*>(expanded),
+              "malformed prefix fallback does not rewrite native arguments using a guessed bare schema");
+    }, row.label, false, reinterpret_cast<il2cpp::ArrayObject*>(expanded));
+  }), "malformed color-prefix references retain coarse protection and degraded status");
+  expanded->Set(0, (*prefix)[0]);
+  coloured.original = reinterpret_cast<il2cpp::ArrayObject*>(PresetArray(il2cpp::ObjectClass(), 4));
+  Require(!bind([&](auto*) {
+    TextLocalizer_SetLocalTextParameters_StreamerChatHook([](auto*, bool, auto*) {}, row.label, false,
+                                                         reinterpret_cast<il2cpp::ArrayObject*>(expanded));
+  }), "a stale original-suffix cache cannot qualify the overlapping four-plus-one shape");
+  for (auto* colors : {static_cast<il2cpp::ArrayObject*>(nullptr),
+                       reinterpret_cast<il2cpp::ArrayObject*>(PresetArray(il2cpp::ObjectClass(), 0))}) {
+    coloured.colours = colors;
+    Require(bind([&](auto*) {
+      TextLocalizer_SetLocalTextParameters_StreamerChatHook([&](auto*, bool, auto* output) {
+        auto* result = reinterpret_cast<il2cpp::Array<Il2CppObject*>*>(output);
+        Require(il2cpp::Equals(reinterpret_cast<Il2CppString*>((*result)[1]), "")
+                    && (*result)[3] == (*bare)[3],
+                "an unexpanded Colour preview masks its name and preserves the body");
+      }, row.label, false, reinterpret_cast<il2cpp::ArrayObject*>(bare));
+    }), "null and empty color arrays skip their stale original-argument cache");
+  }
+  row.label = plain_label;
+  ui.streamer_hide_chat_sender_names = ui.streamer_hide_chat_alliances = true;
   Require(!bind([](auto*) {}), "a visible preview with no intercepted formatter is degraded");
   rendered.enabled = false;
   Require(bind([](auto*) {}), "the disabled native preview graphic needs no formatter");
+  streamer_chat_sender.id = nullptr;
+  ui.streamer_hide_my_name = true;
+  Require(bind([](auto*) {}), "a disabled native preview contains no visible identity even when its sender is unknown");
+  streamer_chat_sender.id = streamer_chat_other.id;
+  ui.streamer_hide_my_name = false;
   rendered.enabled     = true;
   auto* original_label = row.label;
   row.label            = nullptr;
@@ -542,6 +1031,7 @@ void ChatNativeStreamerPreview()
   Require(bind([](auto*) {}), "turning Streamer Mode off leaves native previews alone");
   state = StreamerChatState{};
   Require(warp_roots.empty(), "preview fixture releases all temporary roots");
+  ChatNativeStreamerRows(label, colour_class, multi_class, row.label, reinterpret_cast<TextLocalizer*>(&unrelated));
   std::cout << "Streamer Mode: exact preview formatting, visible failure and disabled preview passed\n";
 }
 

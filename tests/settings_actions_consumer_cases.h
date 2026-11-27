@@ -3,12 +3,14 @@
 // Exercise the actual post-bind command callback; publication and Unity rendering
 // are controlled boundaries, not a native game reproduction.
 #include "../src/mod/features/settings_actions.cc"
+#include "../src/mod/features/streamer_self_profile.cc"
 #include "game/player_profile.h"
 
 namespace
 {
 bool streamer_fixture_frame_ready = false;
-}
+int  streamer_account_rebinds     = 0;
+} // namespace
 
 bool FrameDeliveryAvailable() noexcept
 { return streamer_fixture_frame_ready; }
@@ -27,8 +29,10 @@ struct StreamerProfileFixtureUser {
 };
 
 struct StreamerProfileFixtureView {
-  Il2CppObject header;
-  UserProfile* user;
+  Il2CppObject                     header;
+  UserProfile*                     user;
+  UserProfileWidget*               info     = nullptr;
+  PlayerProfileAllianceAreaWidget* alliance = nullptr;
 };
 
 bool StreamerProfileFixtureIsLocal(StreamerProfileFixtureUser* user, const MethodInfo*)
@@ -40,9 +44,15 @@ bool StreamerProfileFixtureIsLocal(StreamerProfileFixtureUser* user, const Metho
 
 void StreamerModeSelfProfileCases()
 {
-  auto& user_class = ValuesClass("Digit.PrimeServer.Models", "UserProfile");
-  auto& view_class = ValuesClass("Digit.Prime.PlayerProfile", "PlayerProfileViewController", &unity_object_class);
+  auto& user_class     = ValuesClass("Digit.PrimeServer.Models", "UserProfile");
+  auto& view_class     = ValuesClass("Digit.Prime.PlayerProfile", "PlayerProfileViewController", &unity_object_class);
+  auto& info_class     = ValuesClass("Digit.Prime.PlayerProfile", "UserProfileWidget", &component_class);
+  auto& alliance_class = ValuesClass("Digit.Prime.PlayerProfile", "PlayerProfileAllianceAreaWidget", &component_class);
+  // Cached bindings retain FieldInfo pointers; finish this fake class before its first ownership read.
+  view_class.klass.instance_size = sizeof(StreamerProfileFixtureView);
   ValuesField(view_class, "_userProfile", user_class, offsetof(StreamerProfileFixtureView, user));
+  ValuesField(view_class, "_playerInfoWidget", info_class, offsetof(StreamerProfileFixtureView, info));
+  ValuesField(view_class, "_profileAllianceWidget", alliance_class, offsetof(StreamerProfileFixtureView, alliance));
   AddMethod(user_class, "get_IsLocalPlayer", reinterpret_cast<void*>(&StreamerProfileFixtureIsLocal), T(bool_class),
             {});
   StreamerProfileFixtureUser local{{&user_class.klass}, true, false}, other{{&user_class.klass}, false, false};
@@ -62,18 +72,22 @@ void StreamerModeSelfProfileCases()
 
 void StreamerModePlayerIdCases()
 {
-  auto&      state         = Actions();
-  auto&      enabled       = Config::Get().ui.streamer_mode;
-  const auto saved_enabled = enabled;
-  const auto saved_thread  = state.thread;
-  state.active             = true;
-  state.thread             = std::this_thread::get_id();
+  auto&      state           = Actions();
+  auto&      enabled         = Config::Get().ui.streamer_mode;
+  const auto saved_enabled   = enabled;
+  auto&      player_id       = Config::Get().ui.streamer_hide_player_id;
+  auto&      account_id      = Config::Get().ui.streamer_hide_account_id;
+  const auto saved_player_id = player_id, saved_account_id = account_id;
+  const auto saved_thread                 = state.thread;
+  state.active                            = true;
+  state.thread                            = std::this_thread::get_id();
   const auto saved_patch_enabled          = Config::Get().patches.streamermodehooks;
   Config::Get().patches.streamermodehooks = false;
   enabled                                 = true;
+  player_id = account_id = true;
   Require(!InstallStreamerModeHooks(), "the startup patch switch declines the General Settings ID hook");
   Config::Get().patches.streamermodehooks = saved_patch_enabled;
-  state.streamer_hooks     = true;
+  state.streamer_hooks                    = true;
   Require(!streamer_mode::GeneralAccountIdsAvailable(), "account masking requires the pre-render refresh path");
   streamer_fixture_frame_ready = true;
   Require(streamer_mode::GeneralAccountIdsAvailable(),
@@ -95,10 +109,26 @@ void StreamerModePlayerIdCases()
   Require(il2cpp::ToUtf8(SettingsSectionDirector_GetUserId_Hook(get_id, director)) == "Hidden" && reads == 1,
           "the first protected value binds as Hidden before evaluating the native getter");
 
-  enabled = false;
-  Require(SettingsSectionDirector_GetUserId_Hook(get_id, director) == fake_id && reads == 2,
+  player_id = false;
+  Require(SettingsSectionDirector_GetUserId_Hook(get_id, director) == fake_id && reads == 2
+              && !MaskAccountIds(AccountIdRowKind::Player) && MaskAccountIds(AccountIdRowKind::Scopely),
+          "account-only masking leaves the Player ID getter and Player row visible");
+  player_id  = true;
+  account_id = false;
+  Require(il2cpp::ToUtf8(SettingsSectionDirector_GetUserId_Hook(get_id, director)) == "Hidden" && reads == 2
+              && MaskAccountIds(AccountIdRowKind::Player) && !MaskAccountIds(AccountIdRowKind::Scopely),
+          "Player ID-only masking leaves the Scopely account row visible");
+  player_id = false;
+  Require(SettingsSectionDirector_GetUserId_Hook(get_id, director) == fake_id && reads == 3 && !MaskAccountIds(),
+          "no selected ID protection preserves the native display getter while the master stays on");
+
+  enabled   = false;
+  player_id = account_id = true;
+  Require(SettingsSectionDirector_GetUserId_Hook(get_id, director) == fake_id && reads == 4,
           "disabling Streamer Mode restores native reads");
   enabled                      = saved_enabled;
+  player_id                    = saved_player_id;
+  account_id                   = saved_account_id;
   state.thread                 = saved_thread;
   state.active                 = false;
   state.streamer_hooks         = false;
@@ -173,6 +203,192 @@ void StreamerModeCoverCases(SettingsActionWidget* receiver)
   Config::Get().ui.streamer_mode = false;
   state.active = state.streamer_hooks = streamer_fixture_frame_ready = false;
   std::cout << "Streamer Mode: pooled label restore and recoverable account health passed\n";
+}
+
+void StreamerModeAccountPolicyRefreshCases(SettingsActionWidget* receiver)
+{
+  auto& widget_class = ValuesClass("Digit.Prime.GameSettings", "ButtonAndTextOptionWidget");
+  AddMethod(widget_class, "SetWidgetData",
+            reinterpret_cast<void*>(+[](SettingsActionWidget*, const MethodInfo*) { ++streamer_account_rebinds; }),
+            T(void_class), {});
+  const auto context = receiver->TryCall<"get_Context", SettingsActionContext*>();
+  Require(context && context.value, "the policy refresh fixture retains the actual consumer row context");
+  auto&      state      = Actions();
+  auto&      ui         = Config::Get().ui;
+  const auto saved_mode = ui.streamer_mode, saved_player = ui.streamer_hide_player_id,
+             saved_account = ui.streamer_hide_account_id;
+  const auto saved_policy  = state.account_policy;
+  const auto saved_thread  = state.thread;
+  Require(state.account_id_views.empty(), "the policy refresh fixture starts after prior row cleanup");
+  const auto roots_before = warp_roots.size();
+  state.active = state.streamer_hooks = streamer_fixture_frame_ready = true;
+  state.thread                                                       = std::this_thread::get_id();
+  ui.streamer_mode = ui.streamer_hide_player_id = true;
+  ui.streamer_hide_account_id                   = false;
+  state.account_policy                          = streamer_mode::AccountProtections();
+  auto view                                     = std::make_shared<StreamerAccountIdView>();
+  view->widget                                  = il2cpp::GcHandle::Weak(receiver);
+  view->context                                 = il2cpp::GcHandle::Weak(context.value);
+  view->kind                                    = AccountIdRowKind::Player;
+  state.account_id_views.emplace(receiver, view);
+  streamer_account_rebinds = 0;
+  RefreshAccountIdViews();
+  Require(streamer_account_rebinds == 0, "an unchanged complete ID policy does not rebind native rows");
+  ui.streamer_hide_player_id  = false;
+  ui.streamer_hide_account_id = true;
+  RefreshAccountIdViews();
+  Require(streamer_account_rebinds == 1 && state.account_policy == streamer_mode::AccountPolicy{false, true},
+          "switching Player ID-only to account-only refreshes even though protection Any remains true");
+  ui.streamer_hide_player_id  = true;
+  ui.streamer_hide_account_id = false;
+  RefreshAccountIdViews();
+  Require(streamer_account_rebinds == 2 && state.account_policy == streamer_mode::AccountPolicy{true, false},
+          "the reverse ID policy switch also refreshes the enrolled row");
+  ui.streamer_mode = false;
+  RefreshAccountIdViews();
+  Require(streamer_account_rebinds == 3 && !state.account_policy.Any(),
+          "master Off refreshes native ID rows without clearing the selected Player ID preference");
+  state.account_id_views.clear();
+  view.reset();
+  Require(warp_roots.size() == roots_before, "policy refresh releases the row's exact managed roots");
+  ui.streamer_mode            = saved_mode;
+  ui.streamer_hide_player_id  = saved_player;
+  ui.streamer_hide_account_id = saved_account;
+  state.account_policy        = saved_policy;
+  state.thread                = saved_thread;
+  state.active = state.streamer_hooks = streamer_fixture_frame_ready = false;
+  std::cout << "Streamer Mode: independent ID policy transitions refresh native rows passed\n";
+}
+
+struct StreamerProfileInfoFixture {
+  Il2CppObject   header;
+  Il2CppObject*  avatar = nullptr;
+  TextLocalizer* name;
+};
+
+struct StreamerProfileAllianceFixture {
+  Il2CppObject      header;
+  TextLocalizer *   name, *tag;
+  unity::Component* icon;
+};
+
+void StreamerModeSelfProfileMaskCases()
+{
+  auto& user_class     = ValuesClass("Digit.PrimeServer.Models", "UserProfile");
+  auto& view_class     = ValuesClass("Digit.Prime.PlayerProfile", "PlayerProfileViewController", &unity_object_class);
+  auto& info_class     = ValuesClass("Digit.Prime.PlayerProfile", "UserProfileWidget", &component_class);
+  auto& alliance_class = ValuesClass("Digit.Prime.PlayerProfile", "PlayerProfileAllianceAreaWidget", &component_class);
+  auto& text_class     = ValuesClass("Digit.Client.UI", "TextLocalizer", &component_class);
+  auto& icon_class     = ValuesClass("Fixture.StreamerProfile", "AllianceIcon", &component_class);
+  auto& group_class    = ValuesClass("UnityEngine", "CanvasGroup", &component_class);
+  view_class.klass.instance_size = sizeof(StreamerProfileFixtureView);
+  info_class.klass.instance_size = sizeof(StreamerProfileInfoFixture);
+  text_class.klass.instance_size = icon_class.klass.instance_size = sizeof(ValuesRefObject);
+  alliance_class.klass.instance_size                              = sizeof(StreamerProfileAllianceFixture);
+  ValuesField(info_class, "_name", text_class, offsetof(StreamerProfileInfoFixture, name));
+  ValuesField(alliance_class, "_allianceName", text_class, offsetof(StreamerProfileAllianceFixture, name));
+  ValuesField(alliance_class, "_allianceTag", text_class, offsetof(StreamerProfileAllianceFixture, tag));
+  ValuesField(alliance_class, "_allianceIcon", component_class, offsetof(StreamerProfileAllianceFixture, icon));
+  const auto game_object = +[](ValuesRefObject* component, const MethodInfo*) {
+    return reinterpret_cast<unity::GameObject*>(component->reference);
+  };
+  AddMethod(text_class, "get_gameObject", reinterpret_cast<void*>(game_object), T(game_object_class), {});
+  AddMethod(icon_class, "get_gameObject", reinterpret_cast<void*>(game_object), T(game_object_class), {});
+  std::array<StreamerCoverFixtureGroup, 2>                name_groups{};
+  std::array<std::array<StreamerCoverFixtureGroup, 3>, 3> alliance_groups{};
+  for (auto& group : name_groups)
+    group.header.klass = &group_class.klass;
+  for (auto& groups : alliance_groups)
+    for (auto& group : groups)
+      group.header.klass = &group_class.klass;
+  std::array<StreamerCoverFixtureObject, 4> objects{};
+  std::array<ValuesRefObject, 4>            components{};
+  for (size_t index = 0; index < objects.size(); ++index) {
+    objects[index].header.klass    = &game_object_class.klass;
+    objects[index].next            = index ? &alliance_groups[0][index - 1] : &name_groups[0];
+    components[index].header.klass = index == 3 ? &icon_class.klass : &text_class.klass;
+    components[index].reference    = &objects[index].header;
+  }
+  StreamerProfileInfoFixture     info{{&info_class.klass}, nullptr, reinterpret_cast<TextLocalizer*>(&components[0])};
+  StreamerProfileAllianceFixture alliance{{&alliance_class.klass},
+                                          reinterpret_cast<TextLocalizer*>(&components[1]),
+                                          reinterpret_cast<TextLocalizer*>(&components[2]),
+                                          reinterpret_cast<unity::Component*>(&components[3])};
+  StreamerProfileFixtureUser     local{{&user_class.klass}, true, false}, other{{&user_class.klass}, false, false};
+  StreamerProfileFixtureView     view{{&view_class.klass},
+                                      reinterpret_cast<UserProfile*>(&local),
+                                      reinterpret_cast<UserProfileWidget*>(&info),
+                                      reinterpret_cast<PlayerProfileAllianceAreaWidget*>(&alliance)};
+  auto*                          owner      = reinterpret_cast<PlayerProfileViewController*>(&view);
+  auto&                          state      = StreamerSelfProfile();
+  auto&                          ui         = Config::Get().ui;
+  const auto                     saved_mode = ui.streamer_mode, saved_name = ui.streamer_hide_my_name,
+                                 saved_alliance = ui.streamer_hide_my_alliance;
+  Require(state.views.empty(), "the self-profile fixture starts with no tracked controller");
+  const auto roots_before = warp_roots.size();
+  state.installed = streamer_fixture_frame_ready = true;
+  state.game_thread                              = std::this_thread::get_id();
+  ui.streamer_mode = ui.streamer_hide_my_name = true;
+  ui.streamer_hide_my_alliance                = false;
+  int        originals                        = 0;
+  const auto original                         = [&](PlayerProfileViewController*) { ++originals; };
+  PlayerProfileViewController_AboutToShow_Hook(original, owner);
+  StreamerSelfProfileFrame();
+  Require(name_groups[0].alpha == 0.0f
+              && std::ranges::all_of(alliance_groups[0],
+                                     [](const auto& group) { return group.alpha == 1.0f && !group.destroyed; }),
+          "name-only protection covers no alliance name, tag or emblem");
+  ui.streamer_hide_my_name     = false;
+  ui.streamer_hide_my_alliance = true;
+  StreamerSelfProfileFrame();
+  Require(name_groups[0].alpha == 1.0f && name_groups[0].destroyed
+              && std::ranges::all_of(alliance_groups[0], [](const auto& group) { return group.alpha == 0.0f; }),
+          "an Any-preserving name-to-alliance switch restores the name and covers all three alliance surfaces");
+  view.user = reinterpret_cast<UserProfile*>(&other);
+  PlayerProfileViewController_AboutToShow_Hook(original, owner);
+  Require(originals == 2
+              && std::ranges::all_of(alliance_groups[0],
+                                     [](const auto& group) { return group.alpha == 1.0f && group.destroyed; }),
+          "rebinding the same controller to another player restores its exact alliance groups");
+  for (size_t index = 0; index < 3; ++index)
+    objects[index + 1].next = &alliance_groups[1][index];
+  view.user = reinterpret_cast<UserProfile*>(&local);
+  PlayerProfileViewController_AboutToShow_Hook(original, owner);
+  Require(std::ranges::all_of(alliance_groups[1], [](const auto& group) { return group.alpha == 0.0f; })
+              && name_groups[0].alpha == 1.0f,
+          "reopening the local profile under alliance-only protection leaves its name visible");
+  ui.streamer_hide_my_alliance = false;
+  StreamerSelfProfileFrame();
+  Require(
+      std::ranges::all_of(alliance_groups[1], [](const auto& group) { return group.alpha == 1.0f && group.destroyed; }),
+      "selecting no profile masks restores its exact groups while the master remains on");
+  objects[0].next = &name_groups[1];
+  for (size_t index = 0; index < 3; ++index)
+    objects[index + 1].next = &alliance_groups[2][index];
+  ui.streamer_hide_my_name = ui.streamer_hide_my_alliance = true;
+  StreamerSelfProfileFrame();
+  Require(name_groups[1].alpha == 0.0f
+              && std::ranges::all_of(alliance_groups[2], [](const auto& group) { return group.alpha == 0.0f; }),
+          "both personal choices can protect the name and all alliance surfaces together");
+  ui.streamer_mode = false;
+  StreamerSelfProfileFrame();
+  Require(name_groups[1].alpha == 1.0f && name_groups[1].destroyed && ui.streamer_hide_my_name
+              && ui.streamer_hide_my_alliance
+              && std::ranges::all_of(alliance_groups[2],
+                                     [](const auto& group) { return group.alpha == 1.0f && group.destroyed; }),
+          "master Off restores all owned profile groups without clearing either selected preference");
+  int hides = 0;
+  PlayerProfileViewController_DidHideCanvasEventHandler_Hook(
+      [&](PlayerProfileViewController*, IVisibilityHandler*, il2cpp::Object*) { ++hides; }, owner, nullptr, nullptr);
+  Require(hides == 1 && state.views.empty() && warp_roots.size() == roots_before,
+          "native profile hide runs once and retires every managed mask root");
+  state.installed = streamer_fixture_frame_ready = false;
+  state.game_thread                              = {};
+  state.policy                                   = {};
+  ui.streamer_mode                               = saved_mode;
+  ui.streamer_hide_my_name                       = saved_name;
+  ui.streamer_hide_my_alliance                   = saved_alliance;
+  std::cout << "Streamer Mode: production profile split, live selection and pooled restoration passed\n";
 }
 
 struct SettingsActionConsumerContext {
@@ -340,5 +556,7 @@ void SettingsActionConsumerCases()
   StreamerModePlayerIdCases();
   StreamerModeSelfProfileCases();
   StreamerModeCoverCases(native_widget);
+  StreamerModeAccountPolicyRefreshCases(native_widget);
+  StreamerModeSelfProfileMaskCases();
 }
 } // namespace

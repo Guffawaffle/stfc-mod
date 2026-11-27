@@ -1,4 +1,4 @@
-// Streamer Mode: mask the local Player Profile's name and alliance with streamer_hide_account.
+// Streamer Mode: independently mask the local Player Profile's name and alliance.
 #include "features/features.h"
 #include "features/streamer_mode.h"
 #include "features/streamer_surface_cover.h"
@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <span>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -29,7 +30,7 @@ struct StreamerSelfProfileState {
   Throttle                                              retry{std::chrono::milliseconds(250)};
   std::thread::id                                       game_thread;
   bool                                                  installed = false;
-  bool                                                  hidden    = false;
+  streamer_mode::ProfilePolicy                          policy;
   bool                                                  untracked = false;
   bool                                                  warned    = false;
 };
@@ -49,10 +50,11 @@ il2cpp::GcHandle StreamerProfileTarget(il2cpp::Object* component)
   return object && unity::Alive(object.value) ? il2cpp::GcHandle::Strong(object.value) : il2cpp::GcHandle{};
 }
 
-bool CoverSelfProfile(StreamerSelfProfileView& view, PlayerProfileViewController* owner)
+bool CoverSelfProfile(StreamerSelfProfileView& view, PlayerProfileViewController* owner,
+                      streamer_mode::ProfilePolicy policy)
 {
-  const auto info     = il2cpp::GcHandle::Strong(owner->playerInfoWidget());
-  const auto alliance = il2cpp::GcHandle::Strong(owner->profileAllianceWidget());
+  const auto info     = il2cpp::GcHandle::Strong(policy.name ? owner->playerInfoWidget() : nullptr);
+  const auto alliance = il2cpp::GcHandle::Strong(policy.alliance ? owner->profileAllianceWidget() : nullptr);
   auto*      profile  = unity::Alive(info.Get()) ? info.Get<UserProfileWidget>() : nullptr;
   auto*      area     = unity::Alive(alliance.Get()) ? alliance.Get<PlayerProfileAllianceAreaWidget>() : nullptr;
   // TextLocalizer and ImageSelector resolve their graphics on the same authored GameObjects.
@@ -60,15 +62,21 @@ bool CoverSelfProfile(StreamerSelfProfileView& view, PlayerProfileViewController
                            StreamerProfileTarget(area ? area->allianceName() : nullptr),
                            StreamerProfileTarget(area ? area->allianceTag() : nullptr),
                            StreamerProfileTarget(area ? area->allianceIcon() : nullptr)};
-  const std::array objects{targets[0].Get<unity::GameObject>(), targets[1].Get<unity::GameObject>(),
-                           targets[2].Get<unity::GameObject>(), targets[3].Get<unity::GameObject>()};
-  const bool       covered = view.covers.Apply(objects);
-  return covered && std::ranges::all_of(objects, [](auto* object) { return object != nullptr; });
+  std::array<unity::GameObject*, 4> objects{};
+  size_t                            count = 0;
+  if (policy.name)
+    objects[count++] = targets[0].Get<unity::GameObject>();
+  if (policy.alliance)
+    for (size_t index = 1; index < targets.size(); ++index)
+      objects[count++] = targets[index].Get<unity::GameObject>();
+  const auto selected = std::span(objects.data(), count);
+  const bool covered  = view.covers.Apply(selected);
+  return covered && std::ranges::all_of(selected, [](auto* object) { return object != nullptr; });
 }
 
-bool ApplyStreamerSelfProfile(StreamerSelfProfileView& view, bool hide)
+bool ApplyStreamerSelfProfile(StreamerSelfProfileView& view, streamer_mode::ProfilePolicy policy)
 {
-  if (!hide || !view.showing)
+  if (!policy.Any() || !view.showing)
     return view.covers.Apply();
 
   auto* observed = view.owner.Get();
@@ -86,15 +94,15 @@ bool ApplyStreamerSelfProfile(StreamerSelfProfileView& view, bool hide)
   auto*      profile = owner.Get<PlayerProfileViewController>();
   const auto local   = profile->TryIsLocalProfile();
   if (local && local.value)
-    return CoverSelfProfile(view, profile);
+    return CoverSelfProfile(view, profile, policy);
   // A reused controller may now hold another player's profile or have no proven local owner.
   const bool restored = view.covers.Apply();
   return local.succeeded && restored;
 }
 
-void RefreshStreamerSelfProfileView(StreamerSelfProfileView& view, bool hide)
+void RefreshStreamerSelfProfileView(StreamerSelfProfileView& view, streamer_mode::ProfilePolicy policy)
 {
-  view.complete = ApplyStreamerSelfProfile(view, hide);
+  view.complete = ApplyStreamerSelfProfile(view, policy);
   if (!view.complete && !std::exchange(StreamerSelfProfile().warned, true))
     spdlog::warn("[StreamerSelfProfile] could not verify Player Profile privacy");
 }
@@ -122,14 +130,14 @@ void PlayerProfileViewController_AboutToShow_Hook(auto original, PlayerProfileVi
     view->owner = il2cpp::GcHandle::Weak(_this);
     if (!view->owner) {
       state.untracked = true;
-      if (streamer_mode::HideAccount() && !std::exchange(state.warned, true))
+      if (streamer_mode::SelfProfileProtections().Any() && !std::exchange(state.warned, true))
         spdlog::warn("[StreamerSelfProfile] could not track the Player Profile view");
       return;
     }
     state.views.push_back(view);
   }
   view->showing = true;
-  RefreshStreamerSelfProfileView(*view, streamer_mode::HideAccount());
+  RefreshStreamerSelfProfileView(*view, streamer_mode::SelfProfileProtections());
 }
 
 void PlayerProfileViewController_DidHideCanvasEventHandler_Hook(auto original, PlayerProfileViewController* _this,
@@ -141,7 +149,7 @@ void PlayerProfileViewController_DidHideCanvasEventHandler_Hook(auto original, P
     if (found != state.views.end()) {
       const auto view = *found;
       view->showing   = false;
-      RefreshStreamerSelfProfileView(*view, false);
+      RefreshStreamerSelfProfileView(*view, {});
       PruneStreamerSelfProfiles(state);
     }
   }
@@ -151,8 +159,8 @@ void PlayerProfileViewController_DidHideCanvasEventHandler_Hook(auto original, P
 void StreamerSelfProfileFrame()
 {
   auto&      state   = StreamerSelfProfile();
-  const bool hide    = streamer_mode::HideAccount();
-  const bool changed = std::exchange(state.hidden, hide) != hide;
+  const auto policy  = streamer_mode::SelfProfileProtections();
+  const bool changed = std::exchange(state.policy, policy) != policy;
   if (state.views.empty() || (!changed && !state.retry.Due()))
     return;
 
@@ -161,7 +169,7 @@ void StreamerSelfProfileFrame()
     if (!view->owner.Get())
       view->showing = false;
     if (changed || !view->complete || !view->showing)
-      RefreshStreamerSelfProfileView(*view, hide);
+      RefreshStreamerSelfProfileView(*view, policy);
   }
   PruneStreamerSelfProfiles(state);
 }
@@ -206,7 +214,7 @@ bool SelfProfileAvailable()
 bool SelfProfileDegraded()
 {
   const auto& state = StreamerSelfProfile();
-  return state.installed && HideAccount()
+  return state.installed && SelfProfileProtections().Any()
          && (state.untracked || std::ranges::any_of(state.views, [](const auto& view) { return !view->complete; }));
 }
 } // namespace streamer_mode

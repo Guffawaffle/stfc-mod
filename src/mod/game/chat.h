@@ -2,6 +2,7 @@
 
 // The chat manager, the full-screen and side chat views, and the chat message rows.
 
+#include "server.h"
 #include "ui.h"
 #include "ui_pointer.h"
 
@@ -76,11 +77,73 @@ struct ChatPreviewController : il2cpp::Object {
   { return Field<"_isSectionChangedCompleted", bool>(); }
 };
 
+// Identity comes from the bound native model, never the rendered name or a chat-body substring.
+struct ChatMessage : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "Message">;
+
+  il2cpp::CallResult<Il2CppString*> TrySenderId()
+  { return TryCall<"get_SenderId", Il2CppString*>(); }
+};
+
+struct ChatProfile : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "IUserProfile">;
+
+  il2cpp::CallResult<Il2CppString*> TryUserId()
+  { return static_cast<il2cpp::Object*>(this)->TryCall<"get_UserId", Il2CppString*>(); }
+};
+
+namespace chat_identity_binding
+{
+template <class Context, class Owner> il2cpp::CallResult<Context*> ContextOf(Owner* owner)
+{
+  const auto observed = owner->template TryCall<"get_Context", Context*>();
+  return observed && (!observed.value || observed.value->template Is<Context>()) ? observed
+                                                                                 : il2cpp::CallResult<Context*>{};
+}
+
+// ColourTextLocalizer forwards into the same base formatter after prepending its native color arguments.
+// Qualify that exact subclass and copied references; null/empty color arrays leave ordinary arguments unchanged.
+inline il2cpp::CallResult<size_t> ColourPrefix(TextLocalizer* label, il2cpp::Array<Il2CppObject*>* incoming)
+{
+  if (!label->Is<ColourTextLocalizer>())
+    return {true, 0};
+  static const bool available = ColourTextLocalizer::Class::HasField<"_colorHexes", il2cpp::ArrayObject*>()
+                                && ColourTextLocalizer::Class::HasField<"_noneColourArgs", il2cpp::ArrayObject*>();
+  if (!available)
+    return {};
+  auto* colour = static_cast<ColourTextLocalizer*>(label);
+  auto prefix = il2cpp::GcHandle::Strong(colour->Field<"_colorHexes", il2cpp::ArrayObject*>());
+  if (!prefix)
+    return {true, 0};
+  const auto checked_prefix = il2cpp::TryReferenceArray<Il2CppObject*>(prefix.Get());
+  if (!checked_prefix || !checked_prefix.value)
+    return {};
+  const auto count = checked_prefix.value->size();
+  if (count == 0)
+    return {true, 0};
+  auto original = il2cpp::GcHandle::Strong(colour->Field<"_noneColourArgs", il2cpp::ArrayObject*>());
+  const auto checked_original = original ? il2cpp::TryReferenceArray<Il2CppObject*>(original.Get())
+                                        : il2cpp::CallResult<il2cpp::Array<Il2CppObject*>*>{};
+  if (!checked_original || !checked_original.value || count > incoming->size()
+      || checked_original.value->size() != incoming->size() - count)
+    return {};
+  for (size_t index = 0; index < count; ++index)
+    if ((*incoming)[index] != (*checked_prefix.value)[index])
+      return {};
+  for (size_t index = 0; index < checked_original.value->size(); ++index)
+    if ((*incoming)[index + count] != (*checked_original.value)[index])
+      return {};
+  return {true, count};
+}
+} // namespace chat_identity_binding
+
 struct ChatPreviewMessageWidget : unity::Component {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Chat", "ChatPreviewMessageWidget">;
 
   TextLocalizer* messageText()
   { return Field<"_text", TextLocalizer*>(); }
+  il2cpp::CallResult<ChatMessage*> TryMessage()
+  { return chat_identity_binding::ContextOf<ChatMessage>(this); }
 };
 
 struct ChatMessageListLocalViewController : il2cpp::Object {
@@ -112,6 +175,14 @@ struct ChatSectionContext : il2cpp::Object {
     auto* channel = Field<"ChannelID", Il2CppString*>();
     return channel && !il2cpp::Equals(channel, "") && Field<"ChatUserProfile", il2cpp::Object*>();
   }
+  il2cpp::CallResult<bool> TryHasPrivateHeader()
+  {
+    static const bool available = Class::HasField<"ChannelID", Il2CppString*>()
+                                  && Class::HasField<"ChatUserProfile", UserProfile*>();
+    return available ? il2cpp::CallResult<bool>{true, HasPrivateHeader()} : il2cpp::CallResult<bool>{};
+  }
+  UserProfile* headerProfile()
+  { return Field<"ChatUserProfile", UserProfile*>(); }
 };
 
 struct FullScreenChatViewController : il2cpp::Object {
@@ -125,6 +196,12 @@ struct FullScreenChatViewController : il2cpp::Object {
   { return Field<"_headerTitle", TextLocalizer*>(); }
   il2cpp::CallResult<ChatSectionContext*> TryChatContext()
   { return TryCall<"get_CanvasContext", ChatSectionContext*>(); }
+  il2cpp::CallResult<bool> TryPrivateHeader()
+  {
+    const auto found = TryChatContext();
+    auto context = il2cpp::GcHandle::Strong(found ? found.value : nullptr);
+    return context ? context.Get<ChatSectionContext>()->TryHasPrivateHeader() : il2cpp::CallResult<bool>{};
+  }
 };
 
 namespace chat_submit_binding
@@ -284,6 +361,16 @@ struct UserProfileWidget : unity::Component {
 
   TextLocalizer* nameLabel()
   { return Field<"_name", TextLocalizer*>(); }
+  il2cpp::CallResult<ChatProfile*> TryProfile()
+  { return chat_identity_binding::ContextOf<ChatProfile>(this); }
+  il2cpp::CallResult<int32_t> TryNameStyle()
+  {
+    static const bool available = Class::HasField<"_nameStyle", int32_t>();
+    return available ? il2cpp::CallResult<int32_t>{true, Field<"_nameStyle", int32_t>()}
+                     : il2cpp::CallResult<int32_t>{};
+  }
+  il2cpp::CallResult<void> TryRefreshName()
+  { return TryCall<"UpdatePlayerName", void>(); }
   FrameAndAvatarWidget* profileFrameAndAvatar()
   { return Field<"_profileFrameAndAvatar", FrameAndAvatarWidget*>(); }
   PlayerTitleWidget* playerTitleWidget()
@@ -309,6 +396,8 @@ struct ChatMessageWidget : unity::Component {
 
   UserProfileWidget* profile()
   { return Field<"_userProfileWidget", UserProfileWidget*>(); }
+  il2cpp::CallResult<ChatMessage*> TryMessage()
+  { return chat_identity_binding::ContextOf<ChatMessage>(this); }
 
   enum class RetentionStatus { Unavailable, NativeBehavior, Ready };
   static RetentionStatus AvatarRetentionStatus();
