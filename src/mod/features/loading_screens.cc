@@ -168,6 +168,9 @@ struct ScreenLogos {
 
 // --- Login sequence ---
 
+void ShowLoginWelcome(LoginSequence* sequence);
+bool login_artwork_installed = false, login_welcome_installed = false;
+
 // The login screen's background image: the first child Image with a known background name, or else the first
 // Image found at all, searching four levels deep.
 unity::Image* FindLoginBackground(unity::Transform* transform, int depth, unity::Image*& first)
@@ -195,7 +198,8 @@ unity::Image* FindLoginBackground(unity::Transform* transform, int depth, unity:
 void LoginSequence_Awake_Hook(auto original, LoginSequence* _this)
 {
   original(_this);
-  if (!Config::Get().graphics.loader_enabled)
+  ShowLoginWelcome(_this);
+  if (!login_artwork_installed || !Config::Get().graphics.loader_enabled)
     return;
 
   // The next login generation must observe changed files and discard the old
@@ -228,6 +232,10 @@ struct LoadingTip {
   int         weight;
 };
 
+constexpr char kLoadingWelcome[] =
+    "You're using Guffawaffle's fork of the STFC Community Mod. Report issues or request features at "
+    "github.com/Guffawaffle/stfc-mod/issues";
+
 constexpr LoadingTip kTipTexts[] = {
     {"Did you know? You can customize zoom presets, hotkeys, and UI scale in the community mod settings file to suit "
      "your playstyle.",
@@ -256,8 +264,7 @@ struct TipPicker {
   const char* Next()
   {
     if (std::exchange(first_screen, false))
-      return "You're using Guffawaffle's fork of the STFC Community Mod. Report issues or request features at "
-             "github.com/Guffawaffle/stfc-mod/issues";
+      return kLoadingWelcome;
     if (std::bernoulli_distribution(0.5)(random))
       return nullptr;
 
@@ -275,14 +282,66 @@ struct TipPicker {
   }
 } tip_picker;
 
+void ShowLoginWelcome(LoginSequence* sequence)
+{
+  if (!login_welcome_installed || !Config::Get().graphics.loader_tip_enabled)
+    return;
+  auto*          canvas = sequence->mainCanvas();
+  auto*          parent = canvas ? canvas->transform() : nullptr;
+  auto*          owner  = parent ? parent->gameObject() : nullptr;
+  constexpr auto name   = "STFCModWelcome";
+  if (!owner || parent->Find(name))
+    return;
+  // Reuse the login screen's native font, including donors hidden at this login stage.
+  const auto       observed   = owner->TryComponentsInChildren(unity::TMP_Text::Class::TypeObject(), true);
+  auto             components = il2cpp::GcHandle::Strong(observed ? observed.value : nullptr);
+  const auto       checked    = il2cpp::TryReferenceArray<unity::Component*>(components.Get());
+  il2cpp::GcHandle font;
+  if (checked && checked.value)
+    for (auto* component : *checked.value) {
+      auto  donor = il2cpp::GcHandle::Strong(component ? component->As<unity::TMP_Text>() : nullptr);
+      auto* text  = donor.Get<unity::TMP_Text>();
+      font        = il2cpp::GcHandle::Strong(text ? text->font() : nullptr);
+      if (font && unity::Alive(font.Get()))
+        break;
+      font.Reset();
+    }
+  if (!font)
+    return;
+  struct ProvisionalWelcome {
+    il2cpp::GcHandle object;
+    bool             published = false;
+    ~ProvisionalWelcome()
+    {
+      if (!published && unity::Alive(object.Get()))
+        unity::Destroy(object.Get());
+    }
+  } provisional;
+  auto* rect   = unity::CreateUiObject(name, parent, provisional.object);
+  auto* object = provisional.object.Get<unity::GameObject>();
+  auto* label  = rect && object ? object->AddComponent<unity::TextMeshProUGUI>() : nullptr;
+  if (!label || rect->parent() != parent)
+    return;
+  rect->Place({0.12f, 0.22f}, {0.88f, 0.30f}, {0.5f, 0.5f}, {0, 0}, {0, 0});
+  if (!label->TryCall<"set_font">(font.Get<il2cpp::Object>()) || !label->TryCall<"set_fontSize">(20.0f)
+      || !label->TryCall<"set_alignment">(unity::TMP_Text::Alignment::Center)
+      || !label->TryCall<"set_color">(unity::Color{1, 1, 1, 1}) || !label->TryCall<"set_raycastTarget">(false)
+      || !label->TryCall<"set_enableWordWrapping">(true)
+      || !label->TryCall<"set_text">(il2cpp::NewString(kLoadingWelcome)) || !object->TryCall<"SetActive">(true))
+    return;
+  provisional.published   = true;
+  tip_picker.first_screen = false;
+}
+
 void LoadingTipViewController_SetRandomTipLocalisedText_Hook(auto original, LoadingTipViewController* _this)
 {
   original(_this);
   if (!Config::Get().graphics.loader_tip_enabled)
     return;
   auto* label = _this->textMeshPro();
-  if (const char* tip = tip_picker.Next(); tip && label)
-    label->SetText(tip);
+  if (label)
+    if (const char* tip = tip_picker.Next())
+      label->SetText(tip);
 }
 
 // --- Transition screen ---
@@ -444,13 +503,20 @@ void ResetLoadingScreens()
   tip_picker.Reset();
 }
 
+bool EnsureLoginSequenceHook()
+{
+  static const bool installed = [] {
+    il2cpp::HookSet hooks("LoginScreen");
+    IL2CPP_STAGE(hooks, LoginSequence::Class::Method("Awake"), LoginSequence_Awake_Hook);
+    return hooks.Commit();
+  }();
+  return installed;
+}
+
 bool InstallLoginScreen()
 {
-  if (!EnsureReloadGuards())
-    return false;
-  il2cpp::HookSet hooks("LoginScreen");
-  IL2CPP_STAGE(hooks, LoginSequence::Class::Method("Awake"), LoginSequence_Awake_Hook);
-  return hooks.Commit();
+  login_artwork_installed = EnsureReloadGuards() && EnsureLoginSequenceHook();
+  return login_artwork_installed;
 }
 
 bool InstallTransitionScreen()
@@ -475,7 +541,11 @@ bool InstallLoadingTips()
   il2cpp::HookSet hooks("LoadingTips");
   IL2CPP_STAGE(hooks, LoadingTipViewController::Class::Method("SetRandomTipLocalisedText"),
                LoadingTipViewController_SetRandomTipLocalisedText_Hook);
-  return hooks.Commit();
+  const bool installed    = hooks.Commit();
+  login_welcome_installed = installed && EnsureLoginSequenceHook();
+  if (installed && !login_welcome_installed)
+    spdlog::warn("[LoadingTips] login welcome unavailable; keeping the native tip callback");
+  return installed;
 }
 } // namespace
 
