@@ -63,7 +63,7 @@ The [shortcut reference](KEYMAPPING.md) lists the defaults.
 - Hide Galaxy or Veil Chat, and player titles under chat names. Set supported HUD buttons to automatic, always shown, or always hidden.
 - Open alliance side chat once per login with `ui.auto_open_chat`, and choose its initial width with
   `ui.default_chat_width`. Both preserve the game's behavior by default. These controls are also in Mod Settings → Chat.
-- Hide **Exchange All** in the artifact-shards popup while retaining single exchanges.
+- Hide **Exchange All** and its footer in the artifact-shards popup while retaining single exchanges.
 
 The supported HUD buttons are Field Training, Missions, Outposts, and Q Trials.
 Other options show the newest Haven help-history entries first, limit ads to the first popup each session, and confirm Discovery prompts.
