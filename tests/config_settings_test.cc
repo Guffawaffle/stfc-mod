@@ -779,6 +779,12 @@ int main()
   Check(canonical->SetFromUser(1.175f, canonical->Observe()).outcome == Outcome::AppliedVerified
             && std::get<double>(saved.at("graphics.ui_scale")) == 1.175,
         "numeric writes use short TOML values that preserve the float on reload");
+  auto* menu = Number<float>("graphics.ui_scale_menu");
+  Check(menu && menu->Observe().state.value == 0.0f
+            && menu->SetFromUser(1.125f, menu->Observe()).outcome == Outcome::AppliedVerified
+            && std::get<double>(saved.at("graphics.ui_scale_menu")) == 1.125
+            && Config::Get().graphics.ui_scale == 1.175f,
+        "menu scaling has an independent native default and saves without changing HUD scaling");
   auto* ship = Number<float>("graphics.ui_scale_ship");
   Check(ship && ship->SetFromUser(1.5f, ship->Observe()).outcome == Outcome::AppliedVerified && ship_rescales == 1,
         "ship scale calls its loaded-model owner");

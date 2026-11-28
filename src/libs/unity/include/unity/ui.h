@@ -20,6 +20,11 @@ struct CanvasScaler : Behaviour {
   // Canvas.scaleFactor at once.
   void SetScaleFactor(float value)
   { Set<"scaleFactor">(value); }
+  float scaleFactor()
+  { return Get<"scaleFactor", float>(); }
+  // Apply the cached factor to the Canvas now, before dependent layouts use its dimensions.
+  void ApplyScaleFactor(float value)
+  { Call<"SetScaleFactor", void(float)>(value); }
 };
 
 // UnityEngine.UI.Image; color and raycastTarget come from Graphic.

@@ -871,6 +871,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   // [graphics]
   auto& g = graphics;
   r.Read("graphics", "ui_scale", g.ui_scale);
+  r.Read("graphics", "ui_scale_menu", g.ui_scale_menu);
   r.ReadRenamed("graphics", "ui_scale_step", "ui_scale_adjust", g.ui_scale_step);
   r.Read("graphics", "ui_scale_ship", g.ui_scale_ship);
   r.Read("graphics", "ui_scale_viewer", g.ui_scale_viewer);

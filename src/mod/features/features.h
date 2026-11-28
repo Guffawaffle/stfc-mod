@@ -296,8 +296,7 @@ extern const Feature kObjectTracker;
 
 // ui_scale.cc
 extern const Feature kUiScale;
-// Steps the interface, ship or viewer scale by ui_scale_step (the viewer by a quarter of it), until the next
-// settings reload.
+// Steps and saves the HUD, ship or viewer scale by ui_scale_step (the viewer by a quarter of it).
 void AdjustUiScale(bool up);
 void AdjustUiShipScale(bool up);
 void AdjustUiViewerScale(bool up);
