@@ -202,6 +202,7 @@ public:
 
   struct Graphics {
     float ui_scale        = 0.0f;
+    float ui_scale_menu   = 0.0f;
     float ui_scale_step   = 0.05f;
     float ui_scale_ship   = 1.0f;
     float ui_scale_viewer = 1.2f;

@@ -1,6 +1,5 @@
-// [graphics] ui_scale, ui_scale_viewer and ui_scale_ship: the interface, object viewer and system ship scales, and the
-// shortcuts that adjust them during play. A ui_scale or ui_scale_viewer of 0 leaves the game's own scale alone, and
-// the shortcuts do not switch it on.
+// [graphics] ui_scale and ui_scale_menu independently size the HUD and menus. Zero uses native scaling.
+// Ship models and object viewers retain their separate overrides. HUD shortcuts start at the observed native size.
 
 #include "config.h"
 #include "features/features.h"
@@ -17,7 +16,10 @@
 #include <unity/ui.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <utility>
+#include <vector>
 
 #if _WIN32
 #include <Windows.h>
@@ -25,6 +27,299 @@
 
 namespace
 {
+struct CanvasUiScaleState {
+  il2cpp::GcHandle owner, rect;
+  unity::Vector3   native_scale{}, applied_scale{};
+  unity::Vector2   native_delta{}, applied_delta{};
+  float            ratio       = 1.0f;
+  bool             initialized = false;
+  bool             hud = false, side_chat = false;
+  int32_t          depth = 0;
+};
+std::vector<CanvasUiScaleState> ui_scale_canvases;
+float                           ui_scale_native_factor = 0.0f, ui_scale_menu_factor = 0.0f, ui_scale_hud_factor = 0.0f;
+
+struct CanvasUiScaleScrollerRefresh {
+  il2cpp::GcHandle                        owner;
+  std::vector<il2cpp::GcHandle>           scrollers;
+  std::vector<ui_scroller_game::Snapshot> previous;
+  std::chrono::steady_clock::time_point   deadline;
+  bool                                    discovered = false, sampled = false;
+};
+std::vector<CanvasUiScaleScrollerRefresh> ui_scale_scroller_refreshes;
+
+void QueueCanvasUiScaleScrollerRefresh(CanvasController* canvas)
+{
+  const auto found =
+      std::ranges::find_if(ui_scale_canvases, [canvas](const auto& entry) { return entry.owner.Get() == canvas; });
+  if (found == ui_scale_canvases.end() || found->hud
+      || (ui_scale_menu_factor == ui_scale_hud_factor && found->ratio == 1.0f))
+    return;
+  for (auto& work : ui_scale_scroller_refreshes)
+    if (work.owner.Get() == canvas) {
+      work.sampled  = false;
+      work.deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      return;
+    }
+  auto owner = il2cpp::GcHandle::Weak(canvas);
+  if (owner)
+    ui_scale_scroller_refreshes.push_back(
+        {std::move(owner), {}, {}, std::chrono::steady_clock::now() + std::chrono::seconds(5)});
+}
+
+bool UiScaleScrollerNear(const ui_scroller_game::Snapshot& a, const ui_scroller_game::Snapshot& b)
+{
+  const auto same = [](float x, float y) { return std::abs(x - y) < 0.0001f; };
+  return same(a.viewport_rect.x, b.viewport_rect.x) && same(a.viewport_rect.y, b.viewport_rect.y)
+         && same(a.viewport_rect.width, b.viewport_rect.width) && same(a.viewport_rect.height, b.viewport_rect.height)
+         && same(a.content_position.x, b.content_position.x) && same(a.content_position.y, b.content_position.y)
+         && same(a.normalized_position.x, b.normalized_position.x)
+         && same(a.normalized_position.y, b.normalized_position.y) && same(a.screen_width, b.screen_width)
+         && same(a.screen_height, b.screen_height);
+}
+
+void RefreshCanvasUiScaleScrollers()
+{
+  if (ui_scale_scroller_refreshes.empty())
+    return;
+  // Recycler callbacks can reopen/rebind screens. Own this batch independently of the live queue and canvas vector.
+  auto pending = std::exchange(ui_scale_scroller_refreshes, {});
+  for (auto& work : pending) {
+    auto  owner  = il2cpp::GcHandle::Strong(work.owner.Get());
+    auto* canvas = owner.Get<CanvasController>();
+    if (!unity::Alive(canvas) || std::chrono::steady_clock::now() >= work.deadline)
+      continue;
+    // Show can retain yesterday's Hidden state until LateUpdate; the request is the cancellation authority.
+    if (!canvas->Field<"m_visible", bool>())
+      continue;
+    const auto transition = canvas->TryCall<"get_InTransition", bool>();
+    if (!transition)
+      continue;
+    bool waiting = !canvas->Visible() || transition.value;
+    if (!waiting && !work.discovered) {
+      auto       object_owner = il2cpp::GcHandle::Strong(canvas->gameObject());
+      auto*      object       = object_owner.Get<unity::GameObject>();
+      auto       array_owner  = object
+                                    ? il2cpp::GcHandle::Strong(
+                                          object->TryComponentsInChildren(SmartScrollerBase::Class::TypeObject(), false).value)
+                                    : il2cpp::GcHandle{};
+      const auto array        = il2cpp::TryReferenceArray<unity::Component*>(array_owner.Get<il2cpp::ArrayObject>());
+      if (!array)
+        continue;
+      if (array.value)
+        for (auto* component : *array.value) {
+          auto* scroller = component ? component->As<SmartScrollerBase>() : nullptr;
+          if (!scroller || CanvasController::Of(scroller) != canvas)
+            continue;
+          if (auto weak = il2cpp::GcHandle::Weak(scroller))
+            work.scrollers.push_back(std::move(weak));
+        }
+      work.discovered = true;
+      work.previous.resize(work.scrollers.size());
+    }
+    std::vector<ui_scroller_game::Snapshot> snapshots;
+    std::vector<il2cpp::GcHandle>           roots;
+    bool                                    unavailable = false;
+    if (!waiting) {
+      for (auto& weak : work.scrollers) {
+        roots.push_back(il2cpp::GcHandle::Strong(weak.Get()));
+        auto* scroller = roots.back().Get<SmartScrollerBase>();
+        if (!unity::Alive(scroller)) {
+          unavailable = true;
+          break;
+        }
+        const auto observed = ui_scroller_game::ReadReady(scroller);
+        if (!observed) {
+          unavailable = true;
+          break;
+        }
+        snapshots.push_back(observed.value);
+        waiting |= !observed.value.Idle()
+                   || std::abs(observed.value.screen_width - observed.value.viewport_rect.width) > 0.01f
+                   || std::abs(observed.value.screen_height - observed.value.viewport_rect.height) > 0.01f;
+      }
+    }
+    if (unavailable)
+      continue;
+    bool stable = work.sampled && snapshots.size() == work.previous.size();
+    for (size_t i = 0; stable && i < snapshots.size(); ++i)
+      stable &= UiScaleScrollerNear(snapshots[i], work.previous[i]);
+    if (waiting || !stable) {
+      work.previous = std::move(snapshots);
+      work.sampled  = !waiting;
+      ui_scale_scroller_refreshes.push_back(std::move(work));
+      continue;
+    }
+    // Native restoration can put the content back without a scroll event. Notify once at the unchanged position
+    // after spawning/layout settles, so the recycler positions the cards for the viewport it will actually render.
+    for (size_t i = 0; i < roots.size(); ++i) {
+      if (!unity::Alive(canvas) || !canvas->Visible()
+          || std::ranges::any_of(ui_scale_scroller_refreshes,
+                                 [canvas](const auto& next) { return next.owner.Get() == canvas; }))
+        break;
+      auto* scroller = roots[i].Get<SmartScrollerBase>();
+      if (CanvasController::Of(scroller) != canvas)
+        break;
+      const auto current = ui_scroller_game::ReadReady(scroller);
+      if (!current || !current.value.Idle() || !UiScaleScrollerNear(current.value, snapshots[i]))
+        break;
+      (void)ui_scroller_game::NotifyPosition(scroller, current.value.normalized_position);
+    }
+  }
+}
+
+bool UiScaleNear(float a, float b)
+{ return std::abs(a - b) < 0.0001f; }
+bool UiScaleNear(unity::Vector2 a, unity::Vector2 b)
+{ return UiScaleNear(a.x, b.x) && UiScaleNear(a.y, b.y); }
+bool UiScaleNear(unity::Vector3 a, unity::Vector3 b)
+{ return UiScaleNear(a.x, b.x) && UiScaleNear(a.y, b.y) && UiScaleNear(a.z, b.z); }
+
+float UiScaleRenderFactor(float setting, float native, float dpi)
+{
+  if (setting == 0.0f)
+    return native;
+  const auto factor = setting * dpi;
+  return std::isnan(factor) ? 1.0f : std::clamp(factor, 0.1f, 5.0f);
+}
+
+// Increasing the logical viewport as its content shrinks preserves the native edge anchors and click geometry.
+unity::Vector2 UiScaleViewportDelta(unity::Vector2 native_delta, unity::Vector2 parent_size, unity::Vector2 anchor_min,
+                                    unity::Vector2 anchor_max, float ratio)
+{
+  const auto inverse = 1.0f / ratio - 1.0f;
+  return {native_delta.x + ((anchor_max.x - anchor_min.x) * parent_size.x + native_delta.x) * inverse,
+          native_delta.y + ((anchor_max.y - anchor_min.y) * parent_size.y + native_delta.y) * inverse};
+}
+
+bool IsHudScaleCanvas(CanvasController* canvas, unity::RectTransform* rect)
+{
+  const auto name = il2cpp::ToUtf8(canvas->name());
+  if (name.starts_with("HUD") || name.starts_with("Hud"))
+    return true;
+  auto* context = canvas->Context();
+  if (context && il2cpp::ClassName(context->klass).starts_with("Digit.Prime.HUD."))
+    return true;
+  // The same chat screen is used fullscreen and docked. Only its native side-frame placement is part of the HUD.
+  if (name == "MainChatScreen_Canvas") {
+    auto* parent = rect->parent();
+    auto* object = parent ? parent->gameObject() : nullptr;
+    return object && object->NameIs("SideFrame");
+  }
+  return false;
+}
+
+void ApplyCanvasUiScale(CanvasUiScaleState& state, bool opening = false)
+{
+  auto* canvas = state.owner.Get<CanvasController>();
+  auto* rect   = state.rect.Get<unity::RectTransform>();
+  if (!unity::Alive(canvas) || !unity::Alive(rect) || (!opening && !canvas->Visible()) || ui_scale_menu_factor <= 0.0f
+      || ui_scale_hud_factor <= 0.0f)
+    return;
+  auto* parent      = rect->parent();
+  auto* parent_rect = parent ? parent->As<unity::RectTransform>() : nullptr;
+  if (!parent_rect)
+    return;
+  float inherited = 1.0f;
+  for (auto* ancestor = parent; ancestor; ancestor = ancestor->parent())
+    for (const auto& other : ui_scale_canvases)
+      if (&other != &state && other.rect.Get() == ancestor)
+        inherited *= other.ratio;
+  auto*      parent_object = state.side_chat ? parent->gameObject() : nullptr;
+  const auto hud           = state.side_chat ? parent_object && parent_object->NameIs("SideFrame") : state.hud;
+  const auto desired       = hud ? ui_scale_hud_factor : ui_scale_menu_factor;
+  const auto ratio         = desired / ui_scale_hud_factor / inherited;
+  if (!std::isfinite(ratio) || ratio <= 0.0f || (ratio == 1.0f && state.ratio == 1.0f))
+    return;
+  const auto scale  = rect->TryCall<"get_localScale", unity::Vector3>();
+  const auto delta  = rect->TryCall<"get_sizeDelta", unity::Vector2>();
+  const auto bounds = parent_rect->TryCall<"get_rect", unity::Rect>();
+  const auto min    = rect->TryCall<"get_anchorMin", unity::Vector2>();
+  const auto max    = rect->TryCall<"get_anchorMax", unity::Vector2>();
+  if (!scale || !delta || !bounds || !min || !max || bounds.value.width <= 0 || bounds.value.height <= 0)
+    return;
+  const auto first = !state.initialized;
+  // Native layout/animation may update only one axis. Keep untouched axes on their unmodified baseline.
+  const auto baseline = [first](float current, float applied, float& native) {
+    if (first || !UiScaleNear(current, applied))
+      native = current;
+  };
+  baseline(scale.value.x, state.applied_scale.x, state.native_scale.x);
+  baseline(scale.value.y, state.applied_scale.y, state.native_scale.y);
+  baseline(scale.value.z, state.applied_scale.z, state.native_scale.z);
+  baseline(delta.value.x, state.applied_delta.x, state.native_delta.x);
+  baseline(delta.value.y, state.applied_delta.y, state.native_delta.y);
+  state.initialized = true;
+
+  const auto next_scale = state.native_scale * ratio;
+  const auto next_delta =
+      UiScaleViewportDelta(state.native_delta, {bounds.value.width, bounds.value.height}, min.value, max.value, ratio);
+  if (!std::isfinite(next_delta.x) || !std::isfinite(next_delta.y))
+    return;
+  if (!UiScaleNear(scale.value, next_scale) || !UiScaleNear(delta.value, next_delta))
+    QueueCanvasUiScaleScrollerRefresh(canvas);
+  if (!UiScaleNear(scale.value, next_scale))
+    rect->SetLocalScale(next_scale);
+  if (!UiScaleNear(delta.value, next_delta))
+    rect->Set<"sizeDelta">(next_delta);
+  state.applied_scale = next_scale;
+  state.applied_delta = next_delta;
+  state.ratio         = ratio;
+}
+
+void RefreshCanvasUiScales(CanvasController* opening = nullptr)
+{
+  if (ui_scale_hud_factor <= 0.0f || ui_scale_menu_factor <= 0.0f)
+    return;
+  if (UiScaleNear(ui_scale_hud_factor, ui_scale_menu_factor)
+      && std::ranges::all_of(ui_scale_canvases, [](const CanvasUiScaleState& state) { return state.ratio == 1.0f; }))
+    return;
+  std::erase_if(ui_scale_canvases, [](const CanvasUiScaleState& state) {
+    return !unity::Alive(state.owner.Get<CanvasController>()) || !unity::Alive(state.rect.Get<unity::RectTransform>());
+  });
+  for (auto& state : ui_scale_canvases)
+    ApplyCanvasUiScale(state, opening && state.owner.Get() == opening);
+}
+
+void ObserveCanvasUiScale(CanvasController* canvas)
+{
+  // Also retire closed screens when both scales are native and the regular refresh is a no-op.
+  std::erase_if(ui_scale_canvases, [](const CanvasUiScaleState& state) {
+    return !unity::Alive(state.owner.Get<CanvasController>()) || !unity::Alive(state.rect.Get<unity::RectTransform>());
+  });
+  auto* transform = canvas->transform();
+  auto* rect      = transform ? transform->As<unity::RectTransform>() : nullptr;
+  if (!rect)
+    return;
+  const auto found = std::ranges::find_if(
+      ui_scale_canvases, [canvas](const CanvasUiScaleState& state) { return state.owner.Get() == canvas; });
+  int32_t depth = 0;
+  for (auto* parent = rect->parent(); parent; parent = parent->parent())
+    ++depth;
+  if (found == ui_scale_canvases.end()) {
+    CanvasUiScaleState state;
+    state.owner     = il2cpp::GcHandle::Weak(canvas);
+    state.rect      = il2cpp::GcHandle::Weak(rect);
+    state.hud       = IsHudScaleCanvas(canvas, rect);
+    state.side_chat = il2cpp::Equals(canvas->name(), "MainChatScreen_Canvas");
+    state.depth     = depth;
+    if (state.owner && state.rect)
+      ui_scale_canvases.push_back(std::move(state));
+  } else {
+    found->hud   = IsHudScaleCanvas(canvas, rect);
+    found->depth = depth;
+  }
+  std::ranges::stable_sort(ui_scale_canvases, {}, &CanvasUiScaleState::depth);
+  RefreshCanvasUiScales(canvas);
+}
+
+void ResetUiScaleState()
+{
+  ui_scale_canvases.clear();
+  ui_scale_scroller_refreshes.clear();
+  ui_scale_native_factor = ui_scale_menu_factor = ui_scale_hud_factor = 0.0f;
+}
+
 // Ships already in the system keep the scale they were loaded with, so rescale them by the change.
 void RescaleLoadedShips(float old_multiplier, float new_multiplier)
 {
@@ -68,15 +363,22 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager
     SetCursor(cursor);
 #endif
 
-  const auto ui_scale = Config::Get().graphics.ui_scale;
-  if (ui_scale == 0.0f)
+  auto* scaler = _this->canvasRootScaler();
+  if (!scaler)
     return;
-
-  // The canvas scale factor counts physical pixels per UI unit. Multiplying by the monitor's display scale keeps
-  // ui_scale meaning the same size on a 100% and a 150% monitor.
-  const auto factor = ui_scale * WindowDpiScale();
-  if (auto* scaler = _this->canvasRootScaler())
-    scaler->SetScaleFactor(std::isnan(factor) ? 1.0f : std::clamp(factor, 0.1f, 5.0f));
+  const auto native = scaler->scaleFactor();
+  if (!std::isfinite(native) || native <= 0.0f)
+    return;
+  const auto& graphics   = Config::Get().graphics;
+  const auto  dpi        = WindowDpiScale();
+  ui_scale_native_factor = native;
+  ui_scale_menu_factor   = UiScaleRenderFactor(graphics.ui_scale_menu, native, dpi);
+  ui_scale_hud_factor    = UiScaleRenderFactor(graphics.ui_scale, native, dpi);
+  // Retain the native frame widths and HUD coordinate space. Menus compensate inside their own canvases.
+  scaler->SetScaleFactor(ui_scale_hud_factor);
+  scaler->ApplyScaleFactor(ui_scale_hud_factor);
+  RefreshCanvasUiScales();
+  RefreshCanvasUiScaleScrollers();
 }
 
 void CanvasController_Show_Hook(auto original, CanvasController* _this, int32_t entry_point, bool instant)
@@ -85,7 +387,12 @@ void CanvasController_Show_Hook(auto original, CanvasController* _this, int32_t 
   if (viewer_scale != 0.0f && il2cpp::Equals(_this->name(), "ObjectViewerTemplate_Canvas"))
     if (auto* transform = _this->transform())
       transform->SetLocalScale({viewer_scale, viewer_scale, viewer_scale});
+  // Native AboutToShow can build a grid from this viewport while Visible still describes its previous state.
+  // Set the geometry before that setup, then reconcile any native layout changes made during Show.
+  ObserveCanvasUiScale(_this);
   original(_this, entry_point, instant);
+  RefreshCanvasUiScales(_this);
+  QueueCanvasUiScaleScrollerRefresh(_this);
 }
 
 bool InstallUiScale()
@@ -95,15 +402,20 @@ bool InstallUiScale()
                SystemViewShip_TryGetShipAssetBundleResource_Hook);
   IL2CPP_STAGE(hooks, ScreenManager::Class::Method("UpdateCanvasRootScaleFactor"),
                ScreenManager_UpdateCanvasRootScaleFactor_Hook);
-  IL2CPP_STAGE(hooks, CanvasController::Class::Method<void(int32_t, bool)>("Show"),
-               CanvasController_Show_Hook);
+  IL2CPP_STAGE(hooks, CanvasController::Class::Method<void(int32_t, bool)>("Show"), CanvasController_Show_Hook);
   return hooks.Commit();
 }
 } // namespace
 
 void AdjustUiScale(bool up)
 {
-  auto&      graphics = Config::Get().graphics;
+  auto& graphics = Config::Get().graphics;
+  if (graphics.ui_scale == 0.0f) {
+    const auto dpi = WindowDpiScale();
+    if (ui_scale_native_factor <= 0.0f || !std::isfinite(dpi) || dpi <= 0.0f)
+      return;
+    graphics.ui_scale = ui_scale_native_factor / dpi;
+  }
   const auto change =
       gameplay_settings::AdjustScale(graphics.ui_scale, graphics.ui_scale_step, up, gameplay_settings::Scale::Interface,
                                      [](const gameplay_settings::Key& key, double value) {
@@ -111,8 +423,8 @@ void AdjustUiScale(bool up)
                                      });
   if (!change.applied)
     return;
-  spdlog::info("[UiScale] interface scale {} -> {} (asked {}), DPI scale {}", change.previous, change.value,
-               change.requested, WindowDpiScale(true));
+  spdlog::info("[UiScale] HUD scale {} -> {} (asked {}), DPI scale {}", change.previous, change.value, change.requested,
+               WindowDpiScale(true));
 }
 
 void AdjustUiViewerScale(bool up)
@@ -151,4 +463,5 @@ bool SetUiShipScale(float value)
   return true;
 }
 
-const Feature kUiScale{"UiScale", &Config::Patches::uiscalehooks, InstallUiScale};
+const Feature kUiScale{"UiScale", &Config::Patches::uiscalehooks, InstallUiScale,
+                       nullptr,   InstallRequirement::kOptional,  ResetUiScaleState};
