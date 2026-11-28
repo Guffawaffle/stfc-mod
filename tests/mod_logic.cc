@@ -861,6 +861,7 @@ void FrozenSettingsDefaults()
     [graphics]
     ui_scale = 0.0
     galactic_anomaly_timer = true
+    mirror_space_timer = true
     galaxy_extended_selection = true
     galaxy_station_housing = true
     galaxy_starbase_systems = true
@@ -906,12 +907,15 @@ void FrozenSettingsDefaults()
     Check(!candidate->graphics.galaxy_overlays[1] && candidate->graphics.galaxy_overlays[0]
               && candidate->patches.navigationorbithooks && candidate->graphics.system_camera_orbit,
           "source overlay fallback and default-enabled system rotation stay distinct");
+    Check(candidate->graphics.mirror_space_timer, "Mirror timer defaults on for missing or mistyped settings");
   }
   {
     auto saved = legacy;
     saved["graphics"].as_table()->insert_or_assign("galaxy_starbase_systems", false);
+    saved["graphics"].as_table()->insert_or_assign("mirror_space_timer", false);
     toml::table effective;
-    (void)Config::Parse(saved, effective, false);
+    const auto candidate = Config::Parse(saved, effective, false);
+    Check(!candidate->graphics.mirror_space_timer, "an explicit Mirror timer opt-out survives the new default");
     for (const auto& [section, values] : downstream)
       for (const auto& [key, value] : *values.as_table())
         Check(matches(*saved[section][key].node(), effective[section][key].node()),
