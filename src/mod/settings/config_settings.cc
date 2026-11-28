@@ -609,6 +609,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Enable focus search on supported game screens.");
   BOOL("travel", graphics, galactic_anomaly_timer, "Galactic Anomaly timer", Owner("AnomalyTimer"), Live,
        "Show the remaining lifetime on supported anomalies.");
+  BOOL("travel", graphics, mirror_space_timer, "Mirror Space timer", Owner("AnomalyTimer"), Live,
+       "Show the earliest active ship countdown in the viewed Mirror system. Uses the same panel as the "
+       "Galactic Anomaly timer and takes priority while a Mirror countdown is active.");
   BOOL("travel", ui, system_player_ship_counter, "Known player ships in system", Owner("SystemShipCounter"), Live,
        "Show player ships known to this client in the viewed system. Ships not received from the server are not "
        "counted.");

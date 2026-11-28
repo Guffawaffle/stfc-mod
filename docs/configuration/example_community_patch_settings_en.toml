@@ -298,6 +298,10 @@ free_resize = true
 # Show the remaining Galactic Anomaly time below Help All, Engage, and Claim
 galactic_anomaly_timer = true
 
+# Show the earliest active ship countdown in the viewed Mirror system in the same panel.
+# Mirror countdowns take priority; both timers use [patches] galacticanomalytimerhooks.
+mirror_space_timer = false
+
 # After using a zoom preset it will be set as default zoom
 use_presets_as_default = true
 
