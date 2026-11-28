@@ -352,6 +352,33 @@ void AllianceGamesResearchSetting()
     }
 }
 
+void MiningTargetOpcSetting()
+{
+  toml::table effective;
+  const auto  defaults = Config::Parse({}, effective, false);
+  Check(!defaults->ui.mining_target_opc && defaults->ui.highlight_opc_fleets && defaults->ui.fleet_hud_opc_eta
+            && effective["ui"]["mining_target_opc"].value<bool>() == false,
+        "opponent mining indicators default off while own fleet cargo indicators remain enabled");
+  for (const auto invalid : {"[]", "'true'"}) {
+    const auto parsed =
+        Config::Parse(toml::parse(std::string("[ui]\nmining_target_opc=") + invalid), effective, false);
+    Check(!parsed->ui.mining_target_opc && effective["ui"]["mining_target_opc"].value<bool>() == false,
+          "mistyped opponent mining preferences retain the explicit opt-in default");
+  }
+  for (bool target : {false, true})
+    for (bool highlight : {false, true}) {
+      const auto parsed =
+          Config::Parse(toml::table{{"ui", toml::table{{"mining_target_opc", target},
+                                                       {"highlight_opc_fleets", highlight}}}},
+                        effective, false);
+      Check(parsed->ui.mining_target_opc == target && parsed->ui.highlight_opc_fleets == highlight
+                && parsed->ui.fleet_hud_opc_eta
+                && effective["ui"]["mining_target_opc"].value<bool>() == target
+                && effective["ui"]["highlight_opc_fleets"].value<bool>() == highlight,
+            "opponent opt-in and own fleet highlighting parse independently without changing fleet ETA");
+    }
+}
+
 void MiningPreviewControls()
 {
   toml::table effective;
@@ -1291,6 +1318,7 @@ int main()
   Loading();
   AbilityRecoveryPatch();
   AllianceGamesResearchSetting();
+  MiningTargetOpcSetting();
   MiningPreviewControls();
   LoadingArtworkPolicy();
   HudMenuScaleSettings();

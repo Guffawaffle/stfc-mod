@@ -115,7 +115,8 @@ bool MiningBegin()
   return false;
 }
 
-// --- Selected mining view OPC indicator ---
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
+// --- Selected mining view OPC indicator (DEV opt-in) ---
 
 constexpr unity::Color kMiningOpcAmber{1.0f, 0.66f, 0.12f, 1.0f};
 
@@ -331,7 +332,7 @@ void ShowMiningIndicator(const binding::Viewer& selected, const il2cpp::GcHandle
 void MiningTargetOpcFrame()
 {
   auto& indicator = MiningIndicator();
-  if (!Config::Get().ui.highlight_opc_fleets || !MiningSystemMap()) {
+  if (!Config::Get().ui.mining_target_opc || !MiningSystemMap()) {
     HideMiningIndicator();
     indicator.next = {};
     return;
@@ -395,6 +396,7 @@ bool InstallMiningTargetOpc()
   spdlog::warn("[MiningTargetOpc] native mining target cargo contract unavailable");
   return false;
 }
+#endif
 
 bool InstallMiningPreview()
 {
@@ -504,5 +506,7 @@ std::optional<bool> mining_preview::AutomaticCargo(RewardsButtonWidget* widget)
 
 const Feature kMiningPreview{"MiningPreview", &Config::Patches::hotkeyhooks, InstallMiningPreview, MiningPreviewFrame};
 
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
 const Feature kMiningTargetOpc{"MiningTargetOpc", &Config::Patches::opcindicatorhooks, InstallMiningTargetOpc,
                                MiningTargetOpcFrame};
+#endif

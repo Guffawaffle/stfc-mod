@@ -45,7 +45,8 @@ The [shortcut reference](KEYMAPPING.md) lists the defaults.
 | Kir'Shara fixes | Keep a queue moving when its target vanishes mid-course or the watchdog prunes it (Windows), and keep it from being cleared when moving another ship briefly misreports the fleet's position. `control.kirshara_fixes = false` turns all three off. |
 | Instant warp | Show the confirmation, use regular warp, or jump automatically. Ship-name filters can override the choice. |
 | Target previews | Show cargo by target type, toggle cargo view, and close viewers with Escape. Locate and recall can remain enabled while previews are open. |
-| Unprotected cargo | **Highlight unprotected cargo** marks your fleet tiles. A fresh game scan that confirms lootable resources shows **OPC** beside **Occupied** on the Resource Mining panel and outlines the selected miner's ship card. |
+| Unprotected cargo | **Highlight unprotected cargo** marks your own fleet tiles and selected fleet panel. **Time until unprotected cargo** estimates when your mining cargo will exceed protection. |
+| Opponent mining OPC (DEV only) | Standard builds exclude opponent mining-node badges and ship-card outlines. DEV packages offer a separate, default-off **DEV: Opponent mining OPC indicator** setting (`ui.mining_target_opc`). It uses fresh game scan data for the selected miner; no indicator does not confirm protected cargo. |
 | Cargo numbers | Choose decimal places for abbreviated totals. Supported Windows clients can skip the count-up animation. |
 | Ship assignment | Select adjacent ships with arrow keys, double-click to assign, and pin named ships while preserving sort order. Shift+click a ship tile to pin or unpin it; only the `pinned_ships` line of the settings file changes. |
 | Officer sorting | Restore **Below Deck Ability** in roster and assignment screens. |

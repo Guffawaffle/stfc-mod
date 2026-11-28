@@ -642,12 +642,15 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Keep the base card open after supported actions.");
   BOOL("previews", ui, keep_player_ship_card_open, "Keep player ship card open after attack", Owner("BaseCard"), Live,
        "Keep the player ship card open after attacks. For miners, switch to the ship card.");
-  BOOL("previews", ui, highlight_opc_fleets, "Highlight unprotected cargo",
-       Either(Owner("OpcIndicators"), Owner("MiningTargetOpc")), Live,
-       "Highlight your fleet tiles and mark selected mining nodes and player ship cards when the game confirms "
-       "unprotected cargo.");
+  BOOL("previews", ui, highlight_opc_fleets, "Highlight unprotected cargo", Owner("OpcIndicators"), Live,
+       "Highlight your own fleet tiles and selected fleet panel when cargo exceeds protection.");
   BOOL("previews", ui, fleet_hud_opc_eta, "Time until unprotected cargo", Owner("OpcIndicators"), Live,
        "Estimate time until cargo exceeds protection.");
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
+  BOOL("previews", ui, mining_target_opc, "DEV: Opponent mining OPC indicator", Owner("MiningTargetOpc"), Live,
+       "Opt in to selected opponent mining-node badges and ship-card outlines using fresh game scan data. "
+       "Off by default; unavailable in standard builds. No indicator does not confirm protected cargo.");
+#endif
   BOOL("previews", ui, show_ship_tech_indicators, "Ship technology indicators", Owner("ShipTechIndicators"), Live,
        "Show equipped ship technology in ship selection.");
   BOOL("previews", ui, show_ship_tech_indicator_backgrounds, "Technology indicator backgrounds",
