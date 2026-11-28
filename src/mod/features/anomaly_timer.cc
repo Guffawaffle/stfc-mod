@@ -128,12 +128,11 @@ unity::Image* AddPanelImage(unity::GameObject* object, unity::Color tint, unity:
 class AnomalyTimer
 {
 public:
-  void Update()
+  void Update(AnomalyClock::time_point now = AnomalyClock::now())
   {
-    const auto now = AnomalyClock::now();
     if (now < next_update_)
       return;
-    next_update_ = now + std::chrono::milliseconds(250);
+    next_update_               = now + std::chrono::milliseconds(250);
     const bool anomaly_enabled = Config::Get().graphics.galactic_anomaly_timer;
     const bool mirror_enabled  = Config::Get().graphics.mirror_space_timer;
     if (!anomaly_enabled && !mirror_enabled) {
@@ -143,8 +142,12 @@ public:
     }
 
     auto* nav = Navigation(now);
-    int64_t ticks = nav && mirror_enabled ? MirrorRemainingTicks(nav) : 0;
-    if (ticks <= 0 && nav && anomaly_enabled && nav->CanShowGalacticAnomaly())
+    // Target cards temporarily hide native HUD canvases. Keep the mounted panel's own visibility unchanged so
+    // it reappears with its parent, without waiting for the next countdown or owner-discovery tick.
+    if (!nav)
+      return;
+    int64_t ticks = mirror_enabled ? MirrorRemainingTicks(nav) : 0;
+    if (ticks <= 0 && anomaly_enabled && nav->CanShowGalacticAnomaly())
       ticks = RemainingTicks(nav);
     auto* label = Label();
     if (ticks <= 0) {
@@ -191,7 +194,7 @@ private:
       return navigation_hud::Active(nav) ? nav : nullptr;
     next_discovery_ = now + std::chrono::seconds(1);
     auto current    = navigation_hud::FindNavigation();
-    if (current.Get() != navigation_.Get()) {
+    if ((current && current.Get() != nav) || !unity::Alive(nav)) {
       DestroyPanel();
       navigation_ = std::move(current);
     } else if (label_ && !PanelOwnerCurrent()) {
@@ -203,10 +206,14 @@ private:
 
   bool PanelOwnerCurrent()
   {
-    auto current = navigation_hud::FindAllianceDrawer();
-    if (!unity::Alive(current.Get()) || current.Get() != drawer_.Get())
+    auto* drawer = drawer_.Get<HudAllianceAndNewsViewController>();
+    if (!unity::Alive(drawer))
       return false;
-    auto anchor = navigation_hud::FindDrawerAnchor(current.Get<HudAllianceAndNewsViewController>());
+    auto current = navigation_hud::FindAllianceDrawer();
+    if (current && current.Get() != drawer)
+      return false;
+    // A hidden registered canvas is unavailable to discovery, but its live mount remains ours.
+    auto anchor = navigation_hud::FindDrawerAnchor(drawer);
     return unity::Alive(anchor.parent.Get()) && anchor.parent.Get() == drawer_parent_.Get();
   }
 
@@ -295,7 +302,7 @@ private:
     label->SetEnableWordWrapping(false);
     text.Get<unity::GameObject>()->SetActive(true);
     // The hierarchy owns the children; keep the label and drawer mount to detect owner replacement.
-    label_ = il2cpp::GcHandle::Strong(label);
+    label_         = il2cpp::GcHandle::Strong(label);
     drawer_        = std::move(drawer);
     drawer_parent_ = std::move(anchor.parent);
     return label;
