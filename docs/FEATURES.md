@@ -19,7 +19,7 @@ Features depend on the game client. A client update can break a hook until the m
 | Fleet labels | Choose native, expanded, compact, or zoom-threshold detail separately for player and non-player fleets. |
 | Window and cursor | Resize the game window freely on Windows and control whether the game replaces the system cursor. |
 | Anomaly timer | Show the remaining time in a Galactic Anomaly system. Enabled by default. |
-| Mirror Space timer | Show the earliest active ship countdown in the viewed Mirror system below Help All, Engage and Claim. Enable `graphics.mirror_space_timer` in Settings or TOML. Disabled by default; a Mirror countdown takes priority over the Anomaly timer in their shared panel. |
+| Mirror Space timer | Show the earliest active ship countdown in the viewed Mirror system below Help All, Engage and Claim. Enabled by default; change `graphics.mirror_space_timer` in Settings or TOML. A Mirror countdown takes priority over the Anomaly timer in their shared panel. |
 
 `fr_scale` scales system-view backdrop renderables.
 The code reads `transition_time`, `system_pan_momentum`, and `borderless_fullscreen`, but does not currently apply them.
