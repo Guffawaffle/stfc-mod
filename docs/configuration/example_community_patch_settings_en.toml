@@ -122,7 +122,9 @@ primary_requires_visible_target = false
 # Queue action, Clear action queue, and other shortcuts stay available.
 primary_protects_queue = false
 
-# Double-tap window in ms for 1-8 ship select/locate. Lower = faster, higher = slower. Default 500
+# Ship selection is immediate. Press the same selected ship again strictly before this many ms to locate it.
+# 0 disables repeated-press locate; legacy negative values also mean 0. Default 500.
+# Larger values permit slower presses, but may make ordinary repeat selections recenter; values above 1000 are allowed.
 select_timer = 500
 
 # Subgroup: Hotkeys
@@ -879,7 +881,9 @@ check_for_mod_updates = false
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
 
-# Maximum gap in milliseconds between Escape presses that opens the exit prompt; 0 disables double-tap exit
+# With disable_escape_exit=true, two distinct Escape presses up to and including this many ms apart may open exit.
+# 0 keeps Escape exit blocked; legacy negative values also mean 0. Larger values permit slower presses.
+# A completed pair is consumed, so a third press starts a new pair. Changing input ownership resets a pending pair.
 disable_escape_exit_timer = 0
 
 

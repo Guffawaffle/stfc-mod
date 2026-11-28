@@ -26,8 +26,12 @@
 namespace
 {
 // The frame tick dispatches shortcuts whether or not this feature installed; this says whether it did.
-bool                                                 hotkeys_installed = false;
-std::optional<std::chrono::steady_clock::time_point> escape_first_press;
+bool hotkeys_installed = false;
+struct EscapePress {
+  std::chrono::steady_clock::time_point when;
+  int                                   window_ms;
+};
+std::optional<EscapePress> escape_first_press;
 
 // A debug-only scalar sample helps distinguish text ownership, capture and stuck modifiers in intermittent
 // reports. Reuse the dispatcher's focus observation; do not move focus queries ahead of native callbacks.
@@ -115,30 +119,48 @@ bool SettingShortcuts()
 
 // --- Escape exit ---
 
-// With disable_escape_exit, Escape no longer reaches the game's exit prompt. disable_escape_exit_timer > 0 lets
-// a double tap within that many milliseconds through. Returns true when Escape is swallowed.
+void ResetHotkeys()
+{ escape_first_press.reset(); }
+
+// Only eligible fresh Escape presses reach this comparison; idle/held frames do not sample the clock.
+// Unlike ship locate's strict window, Escape accepts its inclusive endpoint and consumes a completed pair.
+bool EscapeDoubleTapAt(std::chrono::steady_clock::time_point now, int window_ms)
+{
+  if (window_ms <= 0) {
+    ResetHotkeys();
+    return false;
+  }
+  if (!escape_first_press || escape_first_press->window_ms != window_ms || now < escape_first_press->when
+      || now - escape_first_press->when > std::chrono::milliseconds(window_ms)) {
+    escape_first_press = EscapePress{now, window_ms};
+    return false;
+  }
+  // Consume the pair so a quick third press starts a new one.
+  ResetHotkeys();
+  return true;
+}
+
+// With the block enabled, only an eligible pair of distinct presses may reach the native exit handling.
 bool SwallowEscape()
 {
   const auto& config = Config::Get();
-  if (!config.ui.disable_escape_exit || !unity::Key::Pressed(unity::KeyCode::Escape))
+  if (!config.ui.disable_escape_exit) {
+    ResetHotkeys();
+    return false;
+  }
+  if (config.ui.disable_escape_exit_timer <= 0) {
+    ResetHotkeys();
+    return unity::Key::Pressed(unity::KeyCode::Escape);
+  }
+  if (escape_first_press && escape_first_press->window_ms != config.ui.disable_escape_exit_timer)
+    ResetHotkeys();
+  if (!unity::Key::Pressed(unity::KeyCode::Escape))
     return false;
   // A held key stays swallowed; only distinct presses count towards a double tap.
-  if (config.ui.disable_escape_exit_timer <= 0 || !unity::Key::Down(unity::KeyCode::Escape))
+  if (!unity::Key::Down(unity::KeyCode::Escape))
     return true;
-
-  const auto now = std::chrono::steady_clock::now();
-  if (!escape_first_press
-      || now - *escape_first_press > std::chrono::milliseconds(config.ui.disable_escape_exit_timer)) {
-    escape_first_press = now;
-    return true;
-  }
-  // Consume the pair so a quick third press starts a new one.
-  escape_first_press.reset();
-  return false;
+  return !EscapeDoubleTapAt(std::chrono::steady_clock::now(), config.ui.disable_escape_exit_timer);
 }
-
-void ResetHotkeys()
-{ escape_first_press.reset(); }
 
 // --- Scopely hotkeys ---
 
@@ -192,13 +214,17 @@ bool HandleShortcuts()
 {
   // Capture also owns mode toggles, awaited buttons, ship selection and Escape. Let native UI keep its Update.
   if (Shortcut::CaptureBlocksShortcuts()) {
+    ResetHotkeys();
     TraceHotkeyInput(std::nullopt);
     CancelAwaitedButton();
     return false;
   }
-  if (!hotkeys_installed)
+  if (!hotkeys_installed) {
+    ResetHotkeys();
     return false;
+  }
   if (Shortcut::IsDown(Action::kDisableHotKeys)) {
+    ResetHotkeys();
     HideKeybindBadges();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, false, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
@@ -208,6 +234,7 @@ bool HandleShortcuts()
     return true;
   }
   if (Shortcut::IsDown(Action::kEnableHotKeys)) {
+    ResetHotkeys();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, true, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
                                     runtime_config::SaveSetting(key.section, key.name, value, key.delay);
@@ -223,8 +250,10 @@ bool HandleShortcuts()
   // here would skip the game's ScreenManager.Update, which also runs the back button, orientation and the rest of
   // the UI's per-frame work.
   // Awaited native button callbacks can reload (and replace) Config.
-  if (!Config::Get().control.hotkeys_enabled || Config::Get().control.use_scopely_hotkeys)
+  if (!Config::Get().control.hotkeys_enabled || Config::Get().control.use_scopely_hotkeys) {
+    ResetHotkeys();
     return false;
+  }
 
   // Keys typed into a text field (chat, search) are text, not shortcuts.
   const auto focus  = unity::Key::TryIsInputFocused();
@@ -256,6 +285,8 @@ bool HandleShortcuts()
 
   // The game only clears a focused text field from its back button; Escape should too.
   const bool in_chat = Hub::IsInChat();
+  if (typing || in_chat)
+    ResetHotkeys();
   if (unity::Key::Pressed(unity::KeyCode::Escape) && (typing || in_chat)) {
     const auto cleared = unity::Key::ClearInputFocus();
     // Unknown focus or a failed clear must leave native Escape recovery available. Keep the existing full-chat

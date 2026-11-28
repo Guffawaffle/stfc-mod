@@ -245,6 +245,98 @@ void HotkeyFocusRecoveryNativeCases(std::string_view mode)
   });
   std::cout << "Actual shortcut dispatcher: raw Escape focus recovery passed " << mode << '\n';
 }
+void EscapeTimingNativeCases()
+{
+  using Clock   = std::chrono::steady_clock;
+  const auto at = Clock::time_point{} + std::chrono::seconds(100);
+  for (const auto gap : {std::chrono::milliseconds(499), std::chrono::milliseconds(500)}) {
+    ResetHotkeys();
+    Require(!EscapeDoubleTapAt(at, 500) && EscapeDoubleTapAt(at + gap, 500) && !escape_first_press,
+            "Escape accepts an inside or exact-endpoint pair and consumes its first press");
+  }
+  ResetHotkeys();
+  Require(!EscapeDoubleTapAt(at, 500) && !EscapeDoubleTapAt(at + std::chrono::milliseconds(501), 500)
+              && EscapeDoubleTapAt(at + std::chrono::milliseconds(1001), 500),
+          "an expired second press starts a fresh inclusive Escape window");
+  Require(!EscapeDoubleTapAt(at + std::chrono::milliseconds(1002), 500)
+              && EscapeDoubleTapAt(at + std::chrono::milliseconds(1003), 500),
+          "the third press starts a new pair rather than reusing the already consumed first press");
+  ResetHotkeys();
+  Require(!EscapeDoubleTapAt(at, 500) && !EscapeDoubleTapAt(at - std::chrono::milliseconds(1), 500)
+              && EscapeDoubleTapAt(at, 500),
+          "a backwards injected clock begins a new Escape pair instead of completing the old pair");
+  Require(!EscapeDoubleTapAt(at, 500) && !EscapeDoubleTapAt(at + std::chrono::milliseconds(1), 1500)
+              && EscapeDoubleTapAt(at + std::chrono::milliseconds(1501), 1500),
+          "changing the Escape window cannot complete a pair armed under the previous setting");
+  Require(!EscapeDoubleTapAt(at, std::numeric_limits<int>::max())
+              && EscapeDoubleTapAt(at + std::chrono::hours(1), std::numeric_limits<int>::max()),
+          "large nonnegative accessibility windows are preserved without a one-second cap");
+
+  const auto sample = [](bool held, bool down = false) {
+    held_keys.fill(false);
+    down_keys.fill(false);
+    held_keys[std::to_underlying(unity::KeyCode::Escape)] = held;
+    down_keys[std::to_underlying(unity::KeyCode::Escape)] = down;
+    any_held                                              = held;
+    any_down                                              = down;
+    ++input_frame;
+    unity::Key::Poll();
+  };
+  Config::Get().ui.disable_escape_exit = true;
+  for (const int window : {0, -1}) {
+    Require(!EscapeDoubleTapAt(at, 500) && escape_first_press.has_value(), "arm a pair before disabling its window");
+    Config::Get().ui.disable_escape_exit_timer = window;
+    sample(true, true);
+    Require(SwallowEscape() && !escape_first_press, "a nonpositive window swallows Escape and retires old pair state");
+  }
+  Config::Get().ui.disable_escape_exit_timer = 500000;
+  sample(true, true);
+  Require(SwallowEscape() && escape_first_press.has_value(), "the first real fresh Escape press is swallowed");
+  sample(true);
+  Require(SwallowEscape() && escape_first_press.has_value(), "held Escape is not a second press");
+  sample(false);
+  Require(!SwallowEscape() && escape_first_press.has_value(), "normal key release preserves the pending pair");
+  sample(true, true);
+  Require(!SwallowEscape() && !escape_first_press, "a second distinct fresh press reaches native exit handling");
+
+  Require(!EscapeDoubleTapAt(at, 500), "arm before changing the block master");
+  Config::Get().ui.disable_escape_exit = false;
+  sample(false);
+  Require(!SwallowEscape() && !escape_first_press, "turning the block off retires a pending pair on an idle frame");
+  Config::Get().ui.disable_escape_exit = true;
+  Require(!EscapeDoubleTapAt(at, 500), "arm before changing the positive window");
+  Config::Get().ui.disable_escape_exit_timer = 1500;
+  Require(!SwallowEscape() && !escape_first_press,
+          "changing the positive window retires its previous pair without a key");
+
+  for (int barrier = 0; barrier != 6; ++barrier) {
+    ResetHotkeys();
+    Require(!EscapeDoubleTapAt(at, 1500), "arm a pair before an input ownership barrier");
+    fleet_native_keys.clear();
+    Config::Get().control.hotkeys_enabled     = barrier != 1;
+    Config::Get().control.use_scopely_hotkeys = barrier == 2;
+    fleet_native_capture                      = barrier == 0;
+    has_event_system = has_input_field = true;
+    selected                           = &selected_object;
+    input_field_focused                = barrier == 3;
+    event_system_lookup_throws         = barrier == 4;
+    selected_lookup_throws = component_lookup_throws = input_focus_throws = false;
+    input_focus_throw_at                                                  = 0;
+    screen_actions_section = barrier == 5 ? SectionID::Chat_Main : SectionID::Navigation_System;
+    sample(false);
+    Require(!HandleShortcuts() && !escape_first_press,
+            "capture, disabled/native hotkeys, typing, unknown focus and full chat retire an old Escape pair");
+  }
+  fleet_native_capture                       = false;
+  Config::Get().control.hotkeys_enabled      = true;
+  Config::Get().control.use_scopely_hotkeys  = false;
+  Config::Get().ui.disable_escape_exit_timer = 0;
+  input_field_focused = event_system_lookup_throws = false;
+  screen_actions_section                           = SectionID::Navigation_System;
+  sample(false);
+  ResetHotkeys();
+}
+
 void HotkeyOrderNativeCases()
 {
   ScreenActionsNativeCases("screen-actions-dispatch", [] {
@@ -266,6 +358,7 @@ void HotkeyOrderNativeCases()
             "native-hotkey mode leaves mod setting and late screen routes inactive");
     Config::Get().control.use_scopely_hotkeys = false;
     fleet_native_keys.clear();
+    EscapeTimingNativeCases();
   });
   std::cout << "Actual shortcut dispatcher: setting/Manage precedence, native Update and capture passed\n";
 }

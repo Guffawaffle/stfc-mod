@@ -459,8 +459,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Require a visible target for the primary action shortcut.");
   BOOL("controls", control, primary_protects_queue, "Protect queue from primary action", hotkeys, Live,
        "Block primary-action shortcuts while the selected ship has queued targets. Queueing and clearing still work.");
-  INT("controls", control, select_timer, "Ship selection interval", hotkeys, Live,
-      "Maximum interval between repeated ship-selection shortcuts.", "ms", 0, integer);
+  INT("controls", control, select_timer, "Ship locate double-press window", hotkeys, Live,
+      "Select a ship immediately. Press the same selected ship again before this window expires to locate it. "
+      "Zero disables repeated-press locate. Larger values allow slower presses but may recenter ordinary repeats.",
+      "ms", 0, integer);
 
   FLOAT("camera", graphics, keyboard_zoom_speed, "Keyboard zoom speed", zoom, Live, "Speed of keyboard zoom.",
         "distance/s", 0, largest, 1000, 25);
@@ -599,8 +601,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Requires an AAI-enabled build and battle-log hooks; reopen the report after enabling it.");
   BOOL("interface", ui, disable_escape_exit, "Block Escape exit prompt", hotkeys, Live,
        "Block the exit prompt except for an enabled double-tap.");
-  INT("interface", ui, disable_escape_exit_timer, "Escape double-tap interval", hotkeys, Live,
-      "Zero disables double-tap exit.", "ms", 0, integer);
+  INT("interface", ui, disable_escape_exit_timer, "Escape exit double-press window", hotkeys, Live,
+      "With Block Escape exit prompt on, two distinct Escape presses up to this many milliseconds apart may open "
+      "the exit prompt. Zero keeps Escape exit blocked. Larger values allow slower presses.",
+      "ms", 0, integer);
   BOOL("interface", ui, disable_move_keys, "Disable keyboard movement", pan, Live,
        "Disable configured movement shortcuts.");
   BOOL("interface", ui, only_show_first_popup, "Show only the first startup popup", Owner("SkipRevealSequence"), Live,
