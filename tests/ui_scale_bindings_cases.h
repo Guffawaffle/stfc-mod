@@ -77,17 +77,21 @@ struct UiScaleCanvasObject {
   Il2CppObject      header;
   Il2CppString*     name      = nullptr;
   unity::Transform* transform = nullptr;
+  bool              visible   = true;
 };
 struct UiScaleRectObject {
   UiScaleTransformObject transform;
   unity::Transform*      parent = nullptr;
   unity::Vector2         delta{}, anchor_min{}, anchor_max{1, 1};
   unity::Rect            bounds{0, 0, 1600, 900};
-  int                    delta_writes = 0;
+  int                    delta_writes   = 0;
+  bool                   dynamic_rect   = false;
+  float*                 applied_factor = nullptr;
 };
 struct UiScaleScalerObject {
   Il2CppObject header;
   float        factor           = 0.75f;
+  float        applied_factor   = 0.75f;
   int          writes           = 0;
   int          immediate_writes = 0;
 };
@@ -99,8 +103,8 @@ unity::Transform* UiScaleCanvasTransform(unity::Component* canvas, const MethodI
 { return reinterpret_cast<UiScaleCanvasObject*>(canvas)->transform; }
 Il2CppString* UiScaleCanvasName(CanvasController* canvas, const MethodInfo*)
 { return reinterpret_cast<UiScaleCanvasObject*>(canvas)->name; }
-bool UiScaleCanvasVisible(CanvasController*, const MethodInfo*)
-{ return true; }
+bool UiScaleCanvasVisible(CanvasController* canvas, const MethodInfo*)
+{ return reinterpret_cast<UiScaleCanvasObject*>(canvas)->visible; }
 il2cpp::Object* UiScaleCanvasContext(CanvasController*, const MethodInfo*)
 { return nullptr; }
 unity::Transform* UiScaleParent(unity::Transform* transform, const MethodInfo*)
@@ -114,7 +118,19 @@ void UiScaleSetDelta(unity::RectTransform* transform, unity::Vector2 delta, cons
   ++value->delta_writes;
 }
 unity::Rect UiScaleBounds(unity::RectTransform* transform, const MethodInfo*)
-{ return reinterpret_cast<UiScaleRectObject*>(transform)->bounds; }
+{
+  auto* value  = reinterpret_cast<UiScaleRectObject*>(transform);
+  auto  bounds = value->bounds;
+  if (value->applied_factor) {
+    bounds.width /= *value->applied_factor;
+    bounds.height /= *value->applied_factor;
+  } else if (value->dynamic_rect && value->parent) {
+    const auto parent = UiScaleBounds(reinterpret_cast<unity::RectTransform*>(value->parent), nullptr);
+    bounds.width      = parent.width * (value->anchor_max.x - value->anchor_min.x) + value->delta.x;
+    bounds.height     = parent.height * (value->anchor_max.y - value->anchor_min.y) + value->delta.y;
+  }
+  return bounds;
+}
 unity::Vector2 UiScaleAnchorMin(unity::RectTransform* transform, const MethodInfo*)
 { return reinterpret_cast<UiScaleRectObject*>(transform)->anchor_min; }
 unity::Vector2 UiScaleAnchorMax(unity::RectTransform* transform, const MethodInfo*)
@@ -144,7 +160,8 @@ void UiScaleApplyFactor(unity::CanvasScaler* scaler, float factor, const MethodI
 {
   auto* value = reinterpret_cast<UiScaleScalerObject*>(scaler);
   ++value->immediate_writes;
-  value->factor = factor;
+  value->factor         = factor;
+  value->applied_factor = factor;
 }
 
 void UiScaleNativeCases(std::string_view mode)
@@ -408,6 +425,83 @@ void UiScaleNativeCases(std::string_view mode)
           "matching menu and HUD scales restores the native transform and offsets");
   ResetUiScaleState();
   Require(warp_roots.size() == roots, "layout reset releases both observed canvas handles");
+
+  const auto opening_graphics = Config::Get().graphics;
+  const auto opening_dpi      = ui_scale_fixture_dpi;
+  ui_scale_fixture_dpi        = 1.0f;
+  for (const bool instant : {false, true}) {
+    UiScaleRectObject opening_frame{{{&rect_transform_class.klass}}}, opening_rect{{{&rect_transform_class.klass}}};
+    opening_frame.applied_factor = &scaler.applied_factor;
+    opening_rect.dynamic_rect    = true;
+    opening_rect.transform.scale = {1, 1, 1};
+    opening_rect.parent          = reinterpret_cast<unity::Transform*>(&opening_frame);
+    UiScaleCanvasObject opening{{&canvas_class.klass},
+                                InstantWarpString("OfficerAssignment_Canvas"),
+                                reinterpret_cast<unity::Transform*>(&opening_rect),
+                                false};
+    auto*               canvas           = reinterpret_cast<CanvasController*>(&opening);
+    Config::Get().graphics.ui_scale      = 1.0f;
+    Config::Get().graphics.ui_scale_menu = 1.08f;
+    ScreenManager_UpdateCanvasRootScaleFactor_Hook(canvas_original, reinterpret_cast<ScreenManager*>(&screen));
+    int        opening_calls = 0, measured_columns = 0;
+    float      measured_width   = 0;
+    const auto opening_original = [&](auto* receiver, int32_t entry, bool requested_instant) {
+      ++opening_calls;
+      Require(receiver == canvas && entry == 9 && requested_instant == instant,
+              "first-open and reopen preserve native Show arguments");
+      Require(!opening.visible, "native Show can return before the visibility transition is evaluated");
+      // AboutToShow can generate the native grid from its local viewport before Show returns.
+      measured_width   = UiScaleBounds(reinterpret_cast<unity::RectTransform*>(&opening_rect), nullptr).width;
+      measured_columns = std::max(1, int(std::floor(measured_width / 160.0f)));
+    };
+    const auto check_displayed_grid = [&] {
+      const auto rect            = UiScaleBounds(reinterpret_cast<unity::RectTransform*>(&opening_rect), nullptr);
+      const auto pixels_per_unit = opening_rect.transform.scale.x * scaler.applied_factor;
+      Require(std::abs(rect.width * pixels_per_unit - 1600.0f) < .001f,
+              "the independently sized viewport still reaches both physical screen edges");
+      const auto offset = (measured_width - measured_columns * 160.0f) / 2;
+      Require((offset + measured_columns * 160.0f) * pixels_per_unit <= 1600.001f,
+              "the row measured during Show fits its rightmost whole card inside the displayed viewport");
+      const auto displayed_center = (offset + (measured_columns - .5f) * 160.0f) * pixels_per_unit;
+      const auto selected_column  = int(std::floor((displayed_center / pixels_per_unit - offset) / 160.0f));
+      Require(selected_column == measured_columns - 1, "displayed card centers retain their logical hit coordinates");
+    };
+    CanvasController_Show_Hook(opening_original, canvas, 9, instant);
+    Require(!opening.visible && measured_columns == 9,
+            "first opening measures the independent menu viewport before native late visibility");
+    check_displayed_grid();
+    const auto first_frame_writes = opening_rect.transform.writes + opening_rect.delta_writes;
+    ScreenManager_UpdateCanvasRootScaleFactor_Hook(canvas_original, reinterpret_cast<ScreenManager*>(&screen));
+    opening.visible = true;
+    check_displayed_grid();
+    ScreenManager_UpdateCanvasRootScaleFactor_Hook(canvas_original, reinterpret_cast<ScreenManager*>(&screen));
+    Require(opening_rect.transform.writes + opening_rect.delta_writes == first_frame_writes,
+            "the next visible refresh does not produce a delayed resize");
+
+    opening.visible                 = false;
+    Config::Get().graphics.ui_scale = .5f;
+    ScreenManager_UpdateCanvasRootScaleFactor_Hook(canvas_original, reinterpret_cast<ScreenManager*>(&screen));
+    Require(opening_rect.transform.writes + opening_rect.delta_writes == first_frame_writes,
+            "ordinary root refresh still leaves hidden canvases alone");
+    // ScreenManager resets the root and safe area before calling CanvasController.Show on reopen.
+    opening_rect.transform.scale = {1, 1, 1};
+    opening_rect.delta           = {};
+    CanvasController_Show_Hook(opening_original, canvas, 9, instant);
+    Require(opening_calls == 2 && measured_columns == 9,
+            "reopening keeps the same menu columns after HUD size changes the parent's logical viewport");
+    check_displayed_grid();
+    const auto native_layout_original = [&](auto* receiver, int32_t entry, bool requested_instant) {
+      opening_original(receiver, entry, requested_instant);
+      opening_rect.transform.scale = {1, 1, 1};
+      opening_rect.delta           = {};
+    };
+    CanvasController_Show_Hook(native_layout_original, canvas, 9, instant);
+    check_displayed_grid();
+    ResetUiScaleState();
+    Require(warp_roots.size() == roots, "first-open and reopen observation releases its weak handles on reset");
+  }
+  Config::Get().graphics = opening_graphics;
+  ui_scale_fixture_dpi   = opening_dpi;
 
   const auto saved                       = fleet_native_save_calls;
   ui_scale_native_factor                 = 0;

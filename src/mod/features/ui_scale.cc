@@ -78,11 +78,11 @@ bool IsHudScaleCanvas(CanvasController* canvas, unity::RectTransform* rect)
   return false;
 }
 
-void ApplyCanvasUiScale(CanvasUiScaleState& state)
+void ApplyCanvasUiScale(CanvasUiScaleState& state, bool opening = false)
 {
   auto* canvas = state.owner.Get<CanvasController>();
   auto* rect   = state.rect.Get<unity::RectTransform>();
-  if (!unity::Alive(canvas) || !unity::Alive(rect) || !canvas->Visible() || ui_scale_menu_factor <= 0.0f
+  if (!unity::Alive(canvas) || !unity::Alive(rect) || (!opening && !canvas->Visible()) || ui_scale_menu_factor <= 0.0f
       || ui_scale_hud_factor <= 0.0f)
     return;
   auto* parent      = rect->parent();
@@ -134,7 +134,7 @@ void ApplyCanvasUiScale(CanvasUiScaleState& state)
   state.ratio         = ratio;
 }
 
-void RefreshCanvasUiScales()
+void RefreshCanvasUiScales(CanvasController* opening = nullptr)
 {
   if (ui_scale_hud_factor <= 0.0f || ui_scale_menu_factor <= 0.0f)
     return;
@@ -145,7 +145,7 @@ void RefreshCanvasUiScales()
     return !unity::Alive(state.owner.Get<CanvasController>()) || !unity::Alive(state.rect.Get<unity::RectTransform>());
   });
   for (auto& state : ui_scale_canvases)
-    ApplyCanvasUiScale(state);
+    ApplyCanvasUiScale(state, opening && state.owner.Get() == opening);
 }
 
 void ObserveCanvasUiScale(CanvasController* canvas)
@@ -177,7 +177,7 @@ void ObserveCanvasUiScale(CanvasController* canvas)
     found->depth = depth;
   }
   std::ranges::stable_sort(ui_scale_canvases, {}, &CanvasUiScaleState::depth);
-  RefreshCanvasUiScales();
+  RefreshCanvasUiScales(canvas);
 }
 
 void ResetUiScaleState()
@@ -252,8 +252,11 @@ void CanvasController_Show_Hook(auto original, CanvasController* _this, int32_t 
   if (viewer_scale != 0.0f && il2cpp::Equals(_this->name(), "ObjectViewerTemplate_Canvas"))
     if (auto* transform = _this->transform())
       transform->SetLocalScale({viewer_scale, viewer_scale, viewer_scale});
-  original(_this, entry_point, instant);
+  // Native AboutToShow can build a grid from this viewport while Visible still describes its previous state.
+  // Set the geometry before that setup, then reconcile any native layout changes made during Show.
   ObserveCanvasUiScale(_this);
+  original(_this, entry_point, instant);
+  RefreshCanvasUiScales(_this);
 }
 
 bool InstallUiScale()
