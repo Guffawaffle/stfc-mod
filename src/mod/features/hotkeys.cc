@@ -161,14 +161,14 @@ bool SwallowEscape()
   // A held key stays swallowed; only distinct presses count towards a double tap.
   if (!unity::Key::Down(unity::KeyCode::Escape))
     return true;
-  const auto frame = unity::Time::Class::TryCall<"get_frameCount", int32_t>();
-  if (!frame || frame.value < 0) {
+  const auto frame = unity::Time::frameCount();
+  if (frame < 0) {
     ResetHotkeys();
     return true;
   }
-  if (frame.value == escape_down_frame)
+  if (frame == escape_down_frame)
     return true;
-  escape_down_frame = frame.value;
+  escape_down_frame = frame;
   return !EscapeDoubleTapAt(std::chrono::steady_clock::now(), config.ui.disable_escape_exit_timer);
 }
 
