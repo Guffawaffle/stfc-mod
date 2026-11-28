@@ -189,6 +189,9 @@ void MigrateLegacyFiles() {}
 } // namespace File
 namespace unity::Key
 {
+void ClearNavigationMouse() noexcept {}
+bool IsInputFocused()
+{ return false; }
 bool Pressed(KeyCode key)
 {
   ++raw_queries;
@@ -202,6 +205,10 @@ bool Down(KeyCode key)
 bool IsModified()
 { return false; }
 } // namespace unity::Key
+#if __APPLE__
+bool MacNavigationMouseAvailable() noexcept
+{ return false; }
+#endif
 std::span<const FeatureInstallation> FeatureInstallations()
 { return features; }
 namespace streamer_mode

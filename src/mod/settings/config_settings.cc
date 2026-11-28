@@ -444,12 +444,23 @@ void RegisterConfigSettings(PageCatalog& catalog)
   Number<int>(catalog, "community_mod." page, #group, #key, label, ACCESS(group, key), owner, Timing::timing, help,    \
               unit, low, high)
 
-  BOOL("controls", control, hotkeys_enabled, "Enable mod shortcuts", controls, Live,
-       "Use configured mod keyboard and mouse shortcuts.");
+  Boolean(catalog, "community_mod.controls", "control", "hotkeys_enabled", "Enable mod shortcuts",
+          ACCESS(control, hotkeys_enabled), controls, Timing::Live, "Use configured mod keyboard and mouse shortcuts.",
+          unity::Key::ClearNavigationMouse);
   BOOL("controls", control, hotkeys_extended, "Extended shortcut actions", extended, Restart,
        "Change extended action availability after restart.");
   BOOL("controls", control, use_scopely_hotkeys, "Use native game shortcuts", controls, Restart,
        "Use the game's shortcuts instead of mod bindings.");
+#if __APPLE__
+  const Available mac_navigation = [owner = Owner("MacNavigationMouse")] {
+    return owner() && MacNavigationMouseAvailable();
+  };
+  Boolean(catalog, "community_mod.controls", "control", "macos_navigation_mouse", "Mac horizontal swipe shortcuts",
+          ACCESS(control, macos_navigation_mouse), mac_navigation, Timing::Live,
+          "Map app-local horizontal Back/Forward swipes to configured MOUSE3/MOUSE4 actions. Requires mod shortcuts; "
+          "this does not add physical side-button support.",
+          unity::Key::ClearNavigationMouse);
+#endif
   Boolean(catalog, "community_mod.controls", "control", "queue_enabled", "Enable action queue",
           ACCESS(control, queue_enabled), queue, Timing::Live, "Allow queued actions.", ResetQueueRecoveryTracking);
   Boolean(catalog, "community_mod.controls", "control", "kirshara_fixes", "Kirshara queue protections",
@@ -459,8 +470,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Require a visible target for the primary action shortcut.");
   BOOL("controls", control, primary_protects_queue, "Protect queue from primary action", hotkeys, Live,
        "Block primary-action shortcuts while the selected ship has queued targets. Queueing and clearing still work.");
-  INT("controls", control, select_timer, "Ship selection interval", hotkeys, Live,
-      "Maximum interval between repeated ship-selection shortcuts.", "ms", 0, integer);
+  INT("controls", control, select_timer, "Ship locate double-press window", hotkeys, Live,
+      "Select a ship immediately. Press the same selected ship again before this window expires to locate it. "
+      "Zero disables repeated-press locate. Larger values allow slower presses but may recenter ordinary repeats.",
+      "ms", 0, integer);
 
   FLOAT("camera", graphics, keyboard_zoom_speed, "Keyboard zoom speed", zoom, Live, "Speed of keyboard zoom.",
         "distance/s", 0, largest, 1000, 25);
@@ -599,8 +612,10 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Requires an AAI-enabled build and battle-log hooks; reopen the report after enabling it.");
   BOOL("interface", ui, disable_escape_exit, "Block Escape exit prompt", hotkeys, Live,
        "Block the exit prompt except for an enabled double-tap.");
-  INT("interface", ui, disable_escape_exit_timer, "Escape double-tap interval", hotkeys, Live,
-      "Zero disables double-tap exit.", "ms", 0, integer);
+  INT("interface", ui, disable_escape_exit_timer, "Escape exit double-press window", hotkeys, Live,
+      "With Block Escape exit prompt on, two distinct Escape presses up to this many milliseconds apart may open "
+      "the exit prompt. Zero keeps Escape exit blocked. Larger values allow slower presses.",
+      "ms", 0, integer);
   BOOL("interface", ui, disable_move_keys, "Disable keyboard movement", pan, Live,
        "Disable configured movement shortcuts.");
   BOOL("interface", ui, only_show_first_popup, "Show only the first startup popup", Owner("SkipRevealSequence"), Live,
@@ -609,6 +624,9 @@ void RegisterConfigSettings(PageCatalog& catalog)
        "Enable focus search on supported game screens.");
   BOOL("travel", graphics, galactic_anomaly_timer, "Galactic Anomaly timer", Owner("AnomalyTimer"), Live,
        "Show the remaining lifetime on supported anomalies.");
+  BOOL("travel", graphics, mirror_space_timer, "Mirror Space timer", Owner("AnomalyTimer"), Live,
+       "Show the earliest active ship countdown in the viewed Mirror system. Uses the same panel as the "
+       "Galactic Anomaly timer and takes priority while a Mirror countdown is active.");
   BOOL("travel", ui, system_player_ship_counter, "Known player ships in system", Owner("SystemShipCounter"), Live,
        "Show player ships known to this client in the viewed system. Ships not received from the server are not "
        "counted.");
@@ -670,7 +688,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("claims", ui, auto_confirm_reveal_ability, "Automatically confirm Excelsior reveal", Owner("RevealConfirm"),
        Live, "Skip the Excelsior Decloaking Deflector confirmation.");
   BOOL("claims", ui, disable_exchange_all, "Hide artifact Exchange All", Owner("ArtifactExchange"), ReopenView,
-       "Reopen the artifact popup to refresh this button.");
+       "Hide the button and its footer; individual exchanges stay available. Reopen the artifact popup to apply.");
   INT("claims", ui, extend_chest_purchase_max, "Maximum chest quantity", misc, ReopenView,
       "Reopen the chest dialog; zero disables extension and the effective extension is capped at 160.", "chests", 0,
       integer);

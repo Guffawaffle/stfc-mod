@@ -23,6 +23,19 @@ def default_index(tag: str, channel: str) -> Path:
     return Path(__file__).resolve().parents[1] / "releases" / name
 
 
+def validate_index(index: dict, legacy_feed: bool) -> dict:
+    """Validate the shared feed schema and every channel's tag grammar."""
+    if (not isinstance(index, dict) or type(index.get("schema")) is not int or index["schema"] != 1
+            or not isinstance(index.get("channels"), dict) or set(index["channels"]) != set(CHANNELS)):
+        raise ValueError("Expected a schema-1 index with Release, Pre, and DEV entries")
+    channels = index["channels"]
+    for entry_channel in CHANNELS:
+        version(channels[entry_channel], entry_channel)
+        if legacy_feed and not parse_tag(channels[entry_channel], entry_channel).legacy:
+            raise ValueError("the legacy feed must contain only legacy tags")
+    return channels
+
+
 def advance_index(path: Path, channel: str, tag: str) -> None:
     """Validate all entries and publication before writing one selected feed."""
     candidate = version(tag, channel)
@@ -30,16 +43,9 @@ def advance_index(path: Path, channel: str, tag: str) -> None:
     if legacy_feed and not parse_tag(tag, channel).legacy:
         raise ValueError("independent tags must use update-index-v2.json; the legacy feed stays legacy")
     index = json.loads(path.read_text(encoding="utf-8"))
-    if (not isinstance(index, dict) or type(index.get("schema")) is not int or index["schema"] != 1
-            or not isinstance(index.get("channels"), dict) or set(index["channels"]) != set(CHANNELS)):
-        raise ValueError("Expected a schema-1 index with Release, Pre, and DEV entries")
-    channels = index["channels"]
-    for entry_channel in CHANNELS:
-        previous = version(channels[entry_channel], entry_channel)
-        if legacy_feed and not parse_tag(channels[entry_channel], entry_channel).legacy:
-            raise ValueError("the legacy feed must contain only legacy tags")
-        if entry_channel == channel and candidate < previous:
-            raise ValueError(f"{tag} is older than {channels[entry_channel]} in the {channel} channel")
+    channels = validate_index(index, legacy_feed)
+    if candidate < version(channels[channel], channel):
+        raise ValueError(f"{tag} is older than {channels[channel]} in the {channel} channel")
     verify_published(tag, channel)
     channels[channel] = tag
     path.write_bytes((json.dumps(index, indent=2) + "\n").encode("utf-8"))

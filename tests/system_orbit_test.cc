@@ -6,6 +6,7 @@
 #undef STFC_ORBIT_FIXTURE
 #undef main
 
+#include "features/mouse_navigation.h"
 #include "game/navigation_orbit.h"
 
 namespace orbit_fixture
@@ -175,11 +176,35 @@ namespace Shortcut
 bool HasBinding(Action)
 { return orbit_fixture::binding_present; }
 } // namespace Shortcut
+namespace orbit_fixture_shortcuts
+{
+using Shortcut::HasBinding;
+using Shortcut::IsPressed;
+bool mouse_reset = false;
+bool IsDown(Action action)
+{
+  return mouse_reset && action == Action::kNavigationOrbitReset ? unity::Key::Down(unity::KeyCode::Mouse3)
+                                                                : Shortcut::IsDown(action);
+}
+MouseNavigation::Stage swipes;
+bool                   publish_swipes = false;
+int                    swipe_polls    = 0;
+void                   PollSwipes() noexcept
+{
+  if (!publish_swipes)
+    return;
+  ++swipe_polls;
+  swipes.Publish(true, unity::Key::NavigationMouseRevision());
+  unity::Key::PublishNavigationMouse(swipes.Take(), unity::Key::NavigationMouseRevision());
+}
+} // namespace orbit_fixture_shortcuts
 // The isolated orbit fixture has no installed Pan descriptor; shared movement must retain orbit behavior.
 std::span<const FeatureInstallation> FeatureInstallations()
 { return {}; }
 #define navigation_orbit_binding orbit_fixture_binding
+#define Shortcut orbit_fixture_shortcuts
 #include "../src/mod/features/navigation_orbit.cc"
+#undef Shortcut
 #undef navigation_orbit_binding
 namespace orbit_under_test = navigation_orbit;
 
@@ -412,6 +437,28 @@ void RunOrbitCases()
   camera_mouse = {40, 20, 0};
   frame();
   OrbitCheck(NavigationOrbit().overridden && camera.clip > 100, "rotation can resume after reset");
+  OrbitCheck(unity::Key::RegisterNavigationMousePoll(orbit_fixture_shortcuts::PollSwipes),
+             "orbit fixture owns the actual input snapshot's navigation producer");
+  orbit_fixture_shortcuts::swipes.Publish(true, unity::Key::NavigationMouseRevision());
+  orbit_fixture_shortcuts::swipes.Observe(3, MouseNavigation::Phase::kDiscrete);
+  orbit_fixture_shortcuts::mouse_reset = orbit_fixture_shortcuts::publish_swipes = true;
+  fleet_native_keys.clear();
+  frame(); // The native camera hook polls before any ScreenManager frame services can run.
+  OrbitCheck(!NavigationOrbit().overridden && Near(transform.angles, {45, 0, 0}) && camera.clip == 100
+                 && orbit_fixture_shortcuts::swipe_polls == 1,
+             "a staged Mouse3 reset reaches the real orbit consumer on its first native-hook sample");
+  const auto reset_view_sets = view_sets;
+  unity::Key::Poll();
+  NavigationOrbitTick();
+  OrbitCheck(view_sets == reset_view_sets && orbit_fixture_shortcuts::swipe_polls == 1,
+             "later same-frame orbit reads do not repeat publication or reset");
+  orbit_fixture_shortcuts::mouse_reset = orbit_fixture_shortcuts::publish_swipes = false;
+  fleet_native_keys                                                              = {Action::kNavigationOrbitDrag};
+  camera_mouse                                                                   = {10, 20, 0};
+  frame();
+  camera_mouse = {40, 20, 0};
+  frame();
+  OrbitCheck(NavigationOrbit().overridden, "native drag still resumes after a swipe reset");
   config.graphics.system_camera_orbit = false;
   frame();
   OrbitCheck(!NavigationOrbit().zoom && !NavigationOrbit().overridden && Near(transform.angles, {45, 0, 0})

@@ -244,8 +244,96 @@ struct ForbiddenTechManager : MonoSingleton<ForbiddenTechManager> {
   }
 };
 
+// Client status effects, including the per-fleet Mirror space countdown.
+enum class StatusEffectType : int32_t {
+  Invalid                      = 0,
+  Cloaked                      = 1,
+  Supported                    = 2,
+  Debuffed                     = 3,
+  WarShieldActivated           = 4,
+  ArmadaSupported              = 5,
+  WeaponDamageActivated        = 6,
+  WeaponPenetrationActivated   = 7,
+  WeaponShotsActivated         = 8,
+  CriticalDamageActivated      = 9,
+  Detected                     = 10,
+  SystemWideBuffed             = 11,
+  SystemWideSupremeBuffed      = 12,
+  IsoDamageBoosted             = 14,
+  DamageToExplorersBoosted     = 15,
+  DamageToBattleshipsBoosted   = 16,
+  DamageToInterceptorsBoosted  = 17,
+  CuttingBeamHit               = 18,
+  SystemPeek                   = 19,
+  WormholeInstaRecallAvailable = 20,
+  MirrorUniverseTimer          = 21,
+  Indestructible               = 22,
+  PostWormholeBuff             = 70001,
+  TauntAsaActivated            = 71001,
+  Static                       = 75001,
+  Charged                      = 75002,
+  Weakened                     = 77001,
+  ChainShotImmunityActivated   = 78001,
+  AutoHuntingActivated         = 83001,
+  Enhanced                     = 86001,
+  BorgProtocolActivated        = 89001,
+  Amplified                    = 91001,
+  TempAutoHuntingActivated     = 96001,
+  NoEffect                     = -1,
+};
+
+struct StatusEffect : il2cpp::Object {
+  using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "StatusEffect">;
+
+  il2cpp::CallResult<bool> TryIsStatusActive()
+  { return planned_warp_binding::Scalar<"get_IsStatusActive", bool>(this); }
+  il2cpp::CallResult<unity::TimeSpan> TryRemainingTimespan()
+  {
+    static const auto* method = [] {
+      const auto* candidate =
+          il2cpp::detail::MethodCall<unity::TimeSpan()>::Resolve(Class::Raw(), "GetRemainingTimespan", false);
+      using TimeSpan = il2cpp::Class<"mscorlib", "System", "TimeSpan">;
+      if (candidate
+          && !il2cpp::detail::ValueClassMatches(candidate->return_type, TimeSpan::Raw(), sizeof(unity::TimeSpan))) {
+        il2cpp::Report("[IL2CPP] StatusEffect.GetRemainingTimespan requires an exact TimeSpan return");
+        return static_cast<const MethodInfo*>(nullptr);
+      }
+      return candidate;
+    }();
+    return il2cpp::detail::TryInvoke<unity::TimeSpan>(method, this);
+  }
+};
+
 struct FleetPlayerData : il2cpp::Object {
   using Class = il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "FleetPlayerData">;
+
+  il2cpp::CallResult<bool> TryIsInMirrorUniverse()
+  { return planned_warp_binding::Scalar<"get_IsInMirrorUniverse", bool>(this); }
+  il2cpp::CallResult<bool> TryGetStatusEffectData(StatusEffectType type, StatusEffect*& effect)
+  {
+    effect                    = nullptr;
+    static const auto* method = [] {
+      const auto* candidate = il2cpp::detail::MethodCall<bool(StatusEffectType, StatusEffect*&)>::Resolve(
+          Class::Raw(), "TryGetStatusEffectData", false);
+      using ManagedType =
+          il2cpp::Class<"Digit.Client.PrimeLib.Runtime", "Digit.PrimeServer.Models", "StatusEffectType">;
+      if (candidate
+          && (!il2cpp::detail::ExactScalarMatches(candidate->return_type, IL2CPP_TYPE_BOOLEAN)
+              || !il2cpp::detail::ValueClassMatches(candidate->parameters[0], ManagedType::Raw(),
+                                                    sizeof(StatusEffectType))
+              || !il2cpp::detail::ExactScalarMatches(candidate->parameters[0], IL2CPP_TYPE_I4)
+              || !candidate->parameters[1]->byref
+              || il2cpp_class_from_type(candidate->parameters[1]) != StatusEffect::Class::Raw())) {
+        il2cpp::Report("[IL2CPP] FleetPlayerData.TryGetStatusEffectData signature is unavailable");
+        return static_cast<const MethodInfo*>(nullptr);
+      }
+      return candidate;
+    }();
+    const auto result = il2cpp::detail::TryInvoke<bool>(method, this, type, std::ref(effect));
+    if (!result || !result.value)
+      effect = nullptr;
+    return result;
+  }
 
   int32_t Index()
   { return Get<"Index", int32_t>(); }

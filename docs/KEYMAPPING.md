@@ -4,6 +4,17 @@ Set bindings under `[shortcuts]` in `community_patch_settings.toml`.
 Names are case-insensitive. The mod writes the parsed bindings and their source to
 `[shortcuts]` and `[shortcuts_source]` in `community_patch_runtime.vars`.
 
+## macOS swipe gestures
+
+Enable **Mac horizontal swipe shortcuts** under **Mod Settings > Controls**, or set
+`control.macos_navigation_mouse = true`, to map app-local horizontal Back/Forward swipes to `MOUSE3`/`MOUSE4`.
+This is off by default and requires mod shortcuts. Trackpads and mouse drivers must emit AppKit swipe events;
+it does not add support for every physical side button. Wheel click remains `MOUSE2`.
+
+Existing bindings decide the action: by default, `MOUSE3` recalls or repairs and `MOUSE4` performs the alternate
+action. Vertical and cancelled gestures do nothing. Gestures do not carry across shortcut capture, focus loss,
+settings changes or reload. Mouse alternatives keep their existing text-field interaction rules.
+
 ## Binding format
 
 | Value | Meaning |
@@ -33,7 +44,10 @@ Escape's close and focus behavior is fixed, even though `ESCAPE` is also a valid
 ## Default controls
 
 These are mod hotkeys. `[control].use_scopely_hotkeys = true` selects the game's controls instead.
-Most actions wait while you type in a text field.
+Keyboard shortcuts wait while you type in a text field, except chat-channel switching and the hotkey on/off
+controls. Mouse bindings keep the current view's interaction rules, including when an action also has a keyboard
+binding. Escape can still clear text focus. Opening Settings with its shortcut during a tutorial temporarily releases the
+tutorial mask and input restrictions until Settings closes. Typing and shortcut capture keep their normal priority.
 
 ### Camera and scale
 
@@ -72,7 +86,19 @@ Actions depend on the selected ship and target.
 | Cycle instant-warp confirmation | `ALT-I` | `toggle_instant_warp` |
 
 The Kir'Shara queue requires the artifact.
-`[control].select_timer` sets the ship-selection double-tap interval in milliseconds.
+`[control].select_timer` sets the **Ship locate double-press window** in milliseconds, defaulting to 500.
+The first press selects immediately. A repeat of the same selected ship strictly before the window expires locates
+it, subject to the preview-locate setting. Zero disables repeat locate; legacy negative values are treated as zero.
+Each successful ship-selection press starts the next window, including a successful locate.
+
+The separate **Escape exit double-press window**, `[ui].disable_escape_exit_timer`, defaults to zero and matters
+only while **Block Escape exit prompt** (`disable_escape_exit`) is on. Two distinct Escape presses up to and
+including that interval may reach the exit prompt. Zero keeps Escape exit blocked; legacy negatives mean zero.
+Holding Escape is not a second press. An accepted pair is consumed, so the third press starts a new pair. Changing
+the block/window setting or handing input to chat, a text field, shortcut capture or native hotkeys resets the pair.
+
+Both windows accept nonnegative whole milliseconds, including values above one second for slower presses. Larger
+windows can make ordinary repeat presses trigger locate or exit; neither setting delays the first input.
 
 ### Screens and chat
 

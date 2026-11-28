@@ -1,7 +1,8 @@
 // Settings parsing and shortcut matching, run against production code with Unity input replaced by a fake.
 #include "config.h"
-#include "features/hyperthermic_decay_state.h"
 #include "features/chat_startup.h"
+#include "features/hyperthermic_decay_state.h"
+#include "features/mouse_navigation.h"
 #include "features/notification_audio.h"
 #include "features/ship_shortcut_hint.h"
 #include "features/toast_text.h"
@@ -323,6 +324,41 @@ void AbilityRecoveryPatch()
       Check(effective["patches"]["abilitybuttonrecoveryhooks"].value<bool>() == recovery,
             "effective settings retain the independent recovery patch request");
     }
+}
+
+void DoublePressTimingSettings()
+{
+  toml::table effective;
+  const auto  defaults = Config::Parse({}, effective, false);
+  Check(defaults->control.select_timer == 500 && defaults->ui.disable_escape_exit_timer == 0
+            && defaults->ui.disable_escape_exit,
+        "ship locate and blocked Escape keep their independent 500/0 ms defaults");
+  for (const int configured : {std::numeric_limits<int>::min(), -1, 0, 500, 1500, std::numeric_limits<int>::max()}) {
+    const auto parsed   = Config::Parse(toml::table{{"control", toml::table{{"select_timer", configured}}},
+                                                    {"ui", toml::table{{"disable_escape_exit_timer", configured}}}},
+                                        effective, false);
+    const auto expected = std::max(configured, 0);
+    Check(parsed->control.select_timer == expected && parsed->ui.disable_escape_exit_timer == expected
+              && effective["control"]["select_timer"].value<int>() == expected
+              && effective["ui"]["disable_escape_exit_timer"].value<int>() == expected,
+          "legacy negative timing values stay disabled while nonnegative accessibility values and vars agree");
+  }
+  for (const auto invalid : {"[]", "'500'", "1.5", "2147483648"}) {
+    const auto source =
+        std::string("[control]\nselect_timer=") + invalid + "\n[ui]\ndisable_escape_exit_timer=" + invalid;
+    const auto parsed = Config::Parse(toml::parse(source), effective, false);
+    Check(parsed->control.select_timer == 500 && parsed->ui.disable_escape_exit_timer == 0
+              && effective["control"]["select_timer"].value<int>() == 500
+              && effective["ui"]["disable_escape_exit_timer"].value<int>() == 0,
+          "mistyped or overflowing timing settings retain each setting's own default");
+  }
+  const auto independent = Config::Parse(
+      toml::table{{"control", toml::table{{"select_timer", 0}}},
+                  {"ui", toml::table{{"disable_escape_exit", false}, {"disable_escape_exit_timer", 1500}}}},
+      effective, false);
+  Check(independent->control.select_timer == 0 && independent->ui.disable_escape_exit_timer == 1500
+            && !independent->ui.disable_escape_exit,
+        "ship locate, Escape window and Escape blocking parse independently");
 }
 
 void AllianceGamesResearchSetting()
@@ -1248,6 +1284,9 @@ void Matching()
 // The fake Unity input that the shortcut code reads.
 namespace unity::Key
 {
+void ClearNavigationMouse() noexcept {}
+bool IsInputFocused()
+{ return false; }
 bool Pressed(unity::KeyCode key)
 { return held[std::to_underlying(key)]; }
 bool Down(unity::KeyCode key)
@@ -1303,8 +1342,55 @@ void ChatStartupOptions()
   Check(!reload.Tick(true, 42) && reload.Tick(true, 45), "a nested teardown restarts readiness sampling");
 }
 
+void MouseNavigationGestures()
+{
+  using namespace MouseNavigation;
+  Check(Button(1, 0) == 3 && Button(-1, 0) == 4, "horizontal direction maps to existing mouse alternatives");
+  Check(Button(0, 1) == -1 && Button(1, 1) == -1 && Button(0, 0) == -1
+            && Button(std::numeric_limits<double>::infinity(), 0) == -1,
+        "vertical, ambiguous and nonfinite gestures stay native");
+  Stage stage;
+  stage.Observe(3, Phase::kBegan); // Began under an ineligible owner.
+  stage.Publish(true, 1);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "enabling never acquires a gesture that began while disabled");
+  Check(stage.Observe(4, Phase::kBegan) && stage.Take() == std::array<bool, 2>{},
+        "a phased gesture waits for completion");
+  stage.Observe(4, Phase::kChanged);
+  stage.Observe(-1, Phase::kEnded);
+  Check(stage.Take() == std::array{false, true} && stage.Take() == std::array<bool, 2>{},
+        "a zero-delta ending emits once");
+  stage.Observe(3, Phase::kBegan);
+  stage.Observe(-1, Phase::kCancelled);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "cancelled and unmatched endings never become actions");
+  stage.Observe(3, Phase::kBegan);
+  stage.Publish(false, 2);
+  stage.Publish(true, 2);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "capture/focus handoff cannot revive a pending gesture");
+  stage.Observe(3, Phase::kDiscrete);
+  stage.Publish(true, 3);
+  Check(stage.Take() == std::array<bool, 2>{}, "a binding/settings revision drops completed pending pulses");
+  stage.Observe(3, Phase::kDiscrete);
+  stage.Observe(4, Phase::kDiscrete);
+  Check(stage.Take() == std::array{true, true}, "pending work stays bounded to one pulse per button");
+  stage.Observe(3, Phase::kBegan);
+  stage.Retire();
+  stage.Publish(true, 4);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "reload retirement leaves no gesture to finish after re-entry");
+  toml::table effective;
+  Check(!Config::Parse(toml::table{}, effective, false)->control.macos_navigation_mouse,
+        "Mac swipe translation defaults off");
+  Check(Config::Parse(toml::parse("[control]\nmacos_navigation_mouse=true"), effective, false)
+            ->control.macos_navigation_mouse,
+        "Mac swipe translation parses independently of platform");
+}
+
 int main()
 {
+  MouseNavigationGestures();
   ShipHints();
   HyperthermicDecay();
   ChatStartupOptions();
@@ -1317,6 +1403,7 @@ int main()
   DefaultBindings();
   Loading();
   AbilityRecoveryPatch();
+  DoublePressTimingSettings();
   AllianceGamesResearchSetting();
   MiningTargetOpcSetting();
   MiningPreviewControls();

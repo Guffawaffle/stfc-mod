@@ -122,7 +122,9 @@ primary_requires_visible_target = false
 # Queue action, Clear action queue, and other shortcuts stay available.
 primary_protects_queue = false
 
-# Double-tap window in ms for 1-8 ship select/locate. Lower = faster, higher = slower. Default 500
+# Ship selection is immediate. Press the same selected ship again strictly before this many ms to locate it.
+# 0 disables repeated-press locate; legacy negative values also mean 0. Default 500.
+# Larger values permit slower presses, but may make ordinary repeat selections recenter; values above 1000 are allowed.
 select_timer = 500
 
 # Subgroup: Hotkeys
@@ -139,6 +141,10 @@ queue_enabled = true
 
 # If you prefer to use Scopely's hotkeys set this to true
 use_scopely_hotkeys = false
+
+# macOS: app-local horizontal Back/Forward swipe events become configured MOUSE3/MOUSE4 actions.
+# Default off. Requires mod hotkeys; wheel click remains MOUSE2. Separate from physical side-button support.
+macos_navigation_mouse = false
 keyboard_layout_mode = "physical" # "layout" follows supported printable characters on the active Windows layout.
 
 # Subgroup: Options
@@ -297,6 +303,10 @@ free_resize = true
 
 # Show the remaining Galactic Anomaly time below Help All, Engage, and Claim
 galactic_anomaly_timer = true
+
+# Show the earliest active ship countdown in the viewed Mirror system in the same panel.
+# Mirror countdowns take priority; both timers use [patches] galacticanomalytimerhooks.
+mirror_space_timer = false
 
 # After using a zoom preset it will be set as default zoom
 use_presets_as_default = true
@@ -879,7 +889,9 @@ check_for_mod_updates = false
 # Prevent "escape" from prompting to exit the game
 disable_escape_exit = true
 
-# Maximum gap in milliseconds between Escape presses that opens the exit prompt; 0 disables double-tap exit
+# With disable_escape_exit=true, two distinct Escape presses up to and including this many ms apart may open exit.
+# 0 keeps Escape exit blocked; legacy negative values also mean 0. Larger values permit slower presses.
+# A completed pair is consumed, so a third press starts a new pair. Changing input ownership resets a pending pair.
 disable_escape_exit_timer = 0
 
 
@@ -1032,7 +1044,7 @@ hud_q_trials = "auto"
 # Subgroup: Options
 # -----------------
 
-# Hide the Exchange All button in the Artifact Gallery
+# Hide the Exchange All button and its footer in the Artifact Gallery; individual exchanges stay available.
 disable_exchange_all = false
 
 # Hide damaged ships' Instant Repair button. Normal Repair and in-progress repair speedups remain available.

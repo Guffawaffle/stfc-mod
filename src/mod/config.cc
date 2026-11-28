@@ -863,9 +863,16 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("control", "hotkeys_enabled", control.hotkeys_enabled);
   r.Read("control", "hotkeys_extended", control.hotkeys_extended);
   r.Read("control", "use_scopely_hotkeys", control.use_scopely_hotkeys);
+  r.Read("control", "macos_navigation_mouse", control.macos_navigation_mouse);
   r.ReadValid("control", "keyboard_layout_mode", control.keyboard_layout_mode,
               [](const std::string& mode) { return mode == "physical" || mode == "layout"; });
   r.Read("control", "select_timer", control.select_timer);
+  if (control.select_timer < 0) {
+    spdlog::warn("config control.select_timer: '{}' treated as 0 (repeated-press locate disabled)",
+                 control.select_timer);
+    control.select_timer = 0;
+    r.Record("control", "select_timer", control.select_timer);
+  }
   r.Read("control", "enable_experimental", control.enable_experimental);
 
   // [graphics]
@@ -955,6 +962,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("graphics", "loader_logo_scale", g.loader_logo_scale);
   r.Read("graphics", "loader_tip_enabled", g.loader_tip_enabled);
   r.Read("graphics", "galactic_anomaly_timer", g.galactic_anomaly_timer);
+  r.Read("graphics", "mirror_space_timer", g.mirror_space_timer);
 
   // [buffs]
   r.Read("buffs", "use_out_of_dock_power", buffs.use_out_of_dock_power);
@@ -997,6 +1005,12 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "check_for_mod_updates", u.check_for_mod_updates);
   r.Read("ui", "disable_escape_exit", u.disable_escape_exit);
   r.Read("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);
+  if (u.disable_escape_exit_timer < 0) {
+    spdlog::warn("config ui.disable_escape_exit_timer: '{}' treated as 0 (double-press exit disabled)",
+                 u.disable_escape_exit_timer);
+    u.disable_escape_exit_timer = 0;
+    r.Record("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);
+  }
   r.Read("ui", "disable_preview_locate", u.disable_preview_locate);
   r.Read("ui", "disable_preview_recall", u.disable_preview_recall);
   r.Read("ui", "keep_base_card_open", u.keep_base_card_open);
