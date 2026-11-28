@@ -17,6 +17,7 @@
 #include <spdlog/spdlog.h>
 #include <unity/input.h>
 
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <optional>
@@ -206,6 +207,13 @@ struct SettingsTutorialCall {
 bool SettingsTutorialCurrent(const std::shared_ptr<SettingsTutorialRequest>& request)
 { return settings_tutorial_request == request && !ModSessionSuspended(); }
 
+bool SettingsTutorialDelivery()
+{
+  return std::ranges::any_of(FeatureInstallations(), [](const auto& feature) {
+    return feature.name && std::string_view(feature.name) == "SettingsTutorialInput" && feature.frame_ready;
+  });
+}
+
 void ForgetSettingsTutorialInput()
 { settings_tutorial_request.reset(); }
 
@@ -319,8 +327,15 @@ bool TutorialManager_get_IsBlockingInput_Hook(auto original)
   const auto           section = request->sections.Get<SectionManager>()->TryCall<"get_CurrentSection", SectionID>();
   const auto           owners  = SettingsTutorialOwners(request);
   if (SettingsTutorialCurrent(request) && section && owners && owners.value
-      && (section.value == SectionID::GameSettings || (!request->entered && section.value == request->origin)))
+      && (section.value == SectionID::GameSettings || (!request->entered && section.value == request->origin))) {
+    // Managed owner observations can reassert a gate between frame delivery and this getter.
+    if (TutorialManager::Active() || TutorialManager::BlockingInput() || TouchKit::BlockTouch()) {
+      request->released  = false;
+      request->restoring = true;
+      return original();
+    }
     return false;
+  }
   return original();
 }
 
@@ -386,7 +401,7 @@ void ShowSettings()
 {
   if (settings_tutorial_busy || ModSessionSuspended())
     return;
-  if (!settings_tutorial_installed) {
+  if (!settings_tutorial_installed || !SettingsTutorialDelivery()) {
     Hub::GotoSection(SectionID::GameSettings);
     return;
   }

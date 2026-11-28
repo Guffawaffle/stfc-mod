@@ -6,7 +6,16 @@
 #define HOTKEY_FIXTURE_DEFINED_MODDBG
 #define _MODDBG 1
 #endif
+#include "../src/mod/features/features.h"
+namespace
+{
+FeatureInstallation hotkey_tutorial_installation{"SettingsTutorialInput", InstallState::kInstalled, true, true};
+std::span<const FeatureInstallation> HotkeyFixtureInstallations()
+{ return {&hotkey_tutorial_installation, 1}; }
+} // namespace
+#define FeatureInstallations HotkeyFixtureInstallations
 #include "../src/mod/features/hotkeys.cc"
+#undef FeatureInstallations
 #ifdef HOTKEY_FIXTURE_DEFINED_MODDBG
 #undef _MODDBG
 #undef HOTKEY_FIXTURE_DEFINED_MODDBG
@@ -463,6 +472,7 @@ void SettingsTutorialNativeCases()
   };
   const auto fresh = [&] {
     kSettingsTutorialInput.reset();
+    hotkey_tutorial_installation.frame_ready = true;
     settings_tutorial_native_flags = {};
     settings_tutorial_native_touch = true;
     mask.active = replacement_mask.active = true;
@@ -492,6 +502,36 @@ void SettingsTutorialNativeCases()
               && settings_tutorial_native_flags.active && mask.active,
           "native Settings navigation does not acquire tutorial gates or override its input getter");
 
+  fresh();
+  hotkey_tutorial_installation.frame_ready = false;
+  const auto unavailable_navigations       = screen_actions_navigations;
+  Require(dispatch() && screen_actions_navigations == unavailable_navigations + 1 && !settings_tutorial_request
+              && settings_tutorial_native_flags.active && settings_tutorial_native_flags.blocking
+              && settings_tutorial_native_touch && mask.active,
+          "installed hooks without restoration delivery leave tutorial gates untouched during ordinary navigation");
+
+  for (int gate = 0; gate != 3; ++gate) {
+    fresh();
+    Require(dispatch() && settings_tutorial_request, "acquire tutorial input before a native gate reassertion");
+    settings_tutorial_controller_callback = [gate] {
+      if (gate == 0)
+        settings_tutorial_native_flags.active = true;
+      else if (gate == 1)
+        settings_tutorial_native_flags.blocking = true;
+      else
+        settings_tutorial_native_touch = true;
+    };
+    const auto calls_before_gate = original_calls;
+    Require(TutorialManager_get_IsBlockingInput_Hook(original) && original_calls == calls_before_gate + 1
+                && settings_tutorial_request && !settings_tutorial_request->released,
+            "a native gate reasserted during owner observation wins before the next feature frame");
+    settings_tutorial_controller_callback = {};
+    kSettingsTutorialInput.frame();
+    Require(!settings_tutorial_request && mask.active && settings_tutorial_native_flags.active
+                && settings_tutorial_native_flags.blocking && settings_tutorial_native_touch,
+            "the next frame restores remaining owned gates without clearing the native reassertion");
+  }
+  original_calls = 1;
   fresh();
   const auto navigations = screen_actions_navigations;
   selected               = &selected_object;
