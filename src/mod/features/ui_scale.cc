@@ -16,7 +16,9 @@
 #include <unity/ui.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 #if _WIN32
@@ -36,6 +38,135 @@ struct CanvasUiScaleState {
 };
 std::vector<CanvasUiScaleState> ui_scale_canvases;
 float                           ui_scale_native_factor = 0.0f, ui_scale_menu_factor = 0.0f, ui_scale_hud_factor = 0.0f;
+
+struct CanvasUiScaleScrollerRefresh {
+  il2cpp::GcHandle                        owner;
+  std::vector<il2cpp::GcHandle>           scrollers;
+  std::vector<ui_scroller_game::Snapshot> previous;
+  std::chrono::steady_clock::time_point   deadline;
+  bool                                    discovered = false, sampled = false;
+};
+std::vector<CanvasUiScaleScrollerRefresh> ui_scale_scroller_refreshes;
+
+void QueueCanvasUiScaleScrollerRefresh(CanvasController* canvas)
+{
+  const auto found =
+      std::ranges::find_if(ui_scale_canvases, [canvas](const auto& entry) { return entry.owner.Get() == canvas; });
+  if (found == ui_scale_canvases.end() || found->hud
+      || (ui_scale_menu_factor == ui_scale_hud_factor && found->ratio == 1.0f))
+    return;
+  for (auto& work : ui_scale_scroller_refreshes)
+    if (work.owner.Get() == canvas) {
+      work.sampled  = false;
+      work.deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+      return;
+    }
+  auto owner = il2cpp::GcHandle::Weak(canvas);
+  if (owner)
+    ui_scale_scroller_refreshes.push_back(
+        {std::move(owner), {}, {}, std::chrono::steady_clock::now() + std::chrono::seconds(5)});
+}
+
+bool UiScaleScrollerNear(const ui_scroller_game::Snapshot& a, const ui_scroller_game::Snapshot& b)
+{
+  const auto same = [](float x, float y) { return std::abs(x - y) < 0.0001f; };
+  return same(a.viewport_rect.x, b.viewport_rect.x) && same(a.viewport_rect.y, b.viewport_rect.y)
+         && same(a.viewport_rect.width, b.viewport_rect.width) && same(a.viewport_rect.height, b.viewport_rect.height)
+         && same(a.content_position.x, b.content_position.x) && same(a.content_position.y, b.content_position.y)
+         && same(a.normalized_position.x, b.normalized_position.x)
+         && same(a.normalized_position.y, b.normalized_position.y) && same(a.screen_width, b.screen_width)
+         && same(a.screen_height, b.screen_height);
+}
+
+void RefreshCanvasUiScaleScrollers()
+{
+  if (ui_scale_scroller_refreshes.empty())
+    return;
+  // Recycler callbacks can reopen/rebind screens. Own this batch independently of the live queue and canvas vector.
+  auto pending = std::exchange(ui_scale_scroller_refreshes, {});
+  for (auto& work : pending) {
+    auto  owner  = il2cpp::GcHandle::Strong(work.owner.Get());
+    auto* canvas = owner.Get<CanvasController>();
+    if (!unity::Alive(canvas) || std::chrono::steady_clock::now() >= work.deadline)
+      continue;
+    // Show can retain yesterday's Hidden state until LateUpdate; the request is the cancellation authority.
+    if (!canvas->Field<"m_visible", bool>())
+      continue;
+    const auto transition = canvas->TryCall<"get_InTransition", bool>();
+    if (!transition)
+      continue;
+    bool waiting = !canvas->Visible() || transition.value;
+    if (!waiting && !work.discovered) {
+      auto       object_owner = il2cpp::GcHandle::Strong(canvas->gameObject());
+      auto*      object       = object_owner.Get<unity::GameObject>();
+      auto       array_owner  = object
+                                    ? il2cpp::GcHandle::Strong(
+                                          object->TryComponentsInChildren(SmartScrollerBase::Class::TypeObject(), false).value)
+                                    : il2cpp::GcHandle{};
+      const auto array        = il2cpp::TryReferenceArray<unity::Component*>(array_owner.Get<il2cpp::ArrayObject>());
+      if (!array)
+        continue;
+      if (array.value)
+        for (auto* component : *array.value) {
+          auto* scroller = component ? component->As<SmartScrollerBase>() : nullptr;
+          if (!scroller || CanvasController::Of(scroller) != canvas)
+            continue;
+          if (auto weak = il2cpp::GcHandle::Weak(scroller))
+            work.scrollers.push_back(std::move(weak));
+        }
+      work.discovered = true;
+      work.previous.resize(work.scrollers.size());
+    }
+    std::vector<ui_scroller_game::Snapshot> snapshots;
+    std::vector<il2cpp::GcHandle>           roots;
+    bool                                    unavailable = false;
+    if (!waiting) {
+      for (auto& weak : work.scrollers) {
+        roots.push_back(il2cpp::GcHandle::Strong(weak.Get()));
+        auto* scroller = roots.back().Get<SmartScrollerBase>();
+        if (!unity::Alive(scroller)) {
+          unavailable = true;
+          break;
+        }
+        const auto observed = ui_scroller_game::ReadReady(scroller);
+        if (!observed) {
+          unavailable = true;
+          break;
+        }
+        snapshots.push_back(observed.value);
+        waiting |= !observed.value.Idle()
+                   || std::abs(observed.value.screen_width - observed.value.viewport_rect.width) > 0.01f
+                   || std::abs(observed.value.screen_height - observed.value.viewport_rect.height) > 0.01f;
+      }
+    }
+    if (unavailable)
+      continue;
+    bool stable = work.sampled && snapshots.size() == work.previous.size();
+    for (size_t i = 0; stable && i < snapshots.size(); ++i)
+      stable &= UiScaleScrollerNear(snapshots[i], work.previous[i]);
+    if (waiting || !stable) {
+      work.previous = std::move(snapshots);
+      work.sampled  = !waiting;
+      ui_scale_scroller_refreshes.push_back(std::move(work));
+      continue;
+    }
+    // Native restoration can put the content back without a scroll event. Notify once at the unchanged position
+    // after spawning/layout settles, so the recycler positions the cards for the viewport it will actually render.
+    for (size_t i = 0; i < roots.size(); ++i) {
+      if (!unity::Alive(canvas) || !canvas->Visible()
+          || std::ranges::any_of(ui_scale_scroller_refreshes,
+                                 [canvas](const auto& next) { return next.owner.Get() == canvas; }))
+        break;
+      auto* scroller = roots[i].Get<SmartScrollerBase>();
+      if (CanvasController::Of(scroller) != canvas)
+        break;
+      const auto current = ui_scroller_game::ReadReady(scroller);
+      if (!current || !current.value.Idle() || !UiScaleScrollerNear(current.value, snapshots[i]))
+        break;
+      (void)ui_scroller_game::NotifyPosition(scroller, current.value.normalized_position);
+    }
+  }
+}
 
 bool UiScaleNear(float a, float b)
 { return std::abs(a - b) < 0.0001f; }
@@ -125,6 +256,8 @@ void ApplyCanvasUiScale(CanvasUiScaleState& state, bool opening = false)
       UiScaleViewportDelta(state.native_delta, {bounds.value.width, bounds.value.height}, min.value, max.value, ratio);
   if (!std::isfinite(next_delta.x) || !std::isfinite(next_delta.y))
     return;
+  if (!UiScaleNear(scale.value, next_scale) || !UiScaleNear(delta.value, next_delta))
+    QueueCanvasUiScaleScrollerRefresh(canvas);
   if (!UiScaleNear(scale.value, next_scale))
     rect->SetLocalScale(next_scale);
   if (!UiScaleNear(delta.value, next_delta))
@@ -183,6 +316,7 @@ void ObserveCanvasUiScale(CanvasController* canvas)
 void ResetUiScaleState()
 {
   ui_scale_canvases.clear();
+  ui_scale_scroller_refreshes.clear();
   ui_scale_native_factor = ui_scale_menu_factor = ui_scale_hud_factor = 0.0f;
 }
 
@@ -244,6 +378,7 @@ void ScreenManager_UpdateCanvasRootScaleFactor_Hook(auto original, ScreenManager
   scaler->SetScaleFactor(ui_scale_hud_factor);
   scaler->ApplyScaleFactor(ui_scale_hud_factor);
   RefreshCanvasUiScales();
+  RefreshCanvasUiScaleScrollers();
 }
 
 void CanvasController_Show_Hook(auto original, CanvasController* _this, int32_t entry_point, bool instant)
@@ -257,6 +392,7 @@ void CanvasController_Show_Hook(auto original, CanvasController* _this, int32_t 
   ObserveCanvasUiScale(_this);
   original(_this, entry_point, instant);
   RefreshCanvasUiScales(_this);
+  QueueCanvasUiScaleScrollerRefresh(_this);
 }
 
 bool InstallUiScale()

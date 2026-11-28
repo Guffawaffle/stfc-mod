@@ -62,8 +62,9 @@ struct UiScaleTransformObject {
   bool           fail_read = false;
 };
 struct UiScaleGameObject {
-  Il2CppObject      header;
-  unity::Transform* transform = nullptr;
+  Il2CppObject         header;
+  unity::Transform*    transform = nullptr;
+  il2cpp::ArrayObject* scrollers = nullptr;
 };
 struct UiScaleSelectorObject {
   Il2CppObject       header;
@@ -74,10 +75,14 @@ struct UiScaleScreenObject {
   unity::CanvasScaler* scaler = nullptr;
 };
 struct UiScaleCanvasObject {
-  Il2CppObject      header;
-  Il2CppString*     name      = nullptr;
-  unity::Transform* transform = nullptr;
-  bool              visible   = true;
+  Il2CppObject       header;
+  Il2CppString*      name              = nullptr;
+  unity::Transform*  transform         = nullptr;
+  bool               visible           = true;
+  unity::GameObject* object            = nullptr;
+  bool               in_transition     = false;
+  VisibilityState    state             = VisibilityState::Visible;
+  bool               requested_visible = true;
 };
 struct UiScaleRectObject {
   UiScaleTransformObject transform;
@@ -87,6 +92,7 @@ struct UiScaleRectObject {
   int                    delta_writes   = 0;
   bool                   dynamic_rect   = false;
   float*                 applied_factor = nullptr;
+  unity::Vector2         position{};
 };
 struct UiScaleScalerObject {
   Il2CppObject header;
@@ -95,6 +101,65 @@ struct UiScaleScalerObject {
   int          writes           = 0;
   int          immediate_writes = 0;
 };
+struct UiScaleScrollerObject {
+  Il2CppObject          header;
+  bool                  initialized = true, ready = true, regenerating = false;
+  Il2CppObject *        spawning = nullptr, *initializing = nullptr;
+  unity::RectTransform *viewport = nullptr, *content = nullptr;
+  float                 screen_width = 1425, screen_height = 1109;
+  int                   notifications = 0, current_index = 0, first_row = 0;
+  CanvasController*     canvas = nullptr;
+};
+struct UiScaleScrollerArray {
+  Il2CppObject        header;
+  Il2CppArrayBounds*  bounds = nullptr;
+  il2cpp_array_size_t length = 1;
+  Il2CppObject*       values[1]{};
+};
+struct UiScaleVector2Box {
+  Il2CppObject   header;
+  unity::Vector2 value{};
+} ui_scale_position_box;
+const MethodInfo *ui_scale_normalized_method = nullptr, *ui_scale_notify_method = nullptr;
+int               ui_scale_scroller_scans = 0, ui_scale_position_reads = 0;
+
+Il2CppObject* UiScaleScrollerInvoke(const MethodInfo* method, void* target, void** args, Il2CppException**,
+                                    bool& handled)
+{
+  handled = method == ui_scale_normalized_method || method == ui_scale_notify_method;
+  if (!handled)
+    return nullptr;
+  auto* smart   = static_cast<UiScaleScrollerObject*>(target);
+  auto* content = reinterpret_cast<UiScaleRectObject*>(smart->content);
+  if (method == ui_scale_normalized_method) {
+    ++ui_scale_position_reads;
+    ui_scale_position_box.value = {1, 1 - content->position.y / 3435.58545f};
+    return &ui_scale_position_box.header;
+  }
+  const auto position = *static_cast<unity::Vector2*>(args[0]);
+  Require(UiScaleNear(position, {1, 1 - content->position.y / 3435.58545f}),
+          "recycling notification uses the actual current normalized position");
+  ++smart->notifications;
+  // Controlled native recycler: notifying a bottom viewport replaces the stale top pool rows.
+  smart->current_index = std::min(7, std::max(0, int(content->position.y / 345)));
+  smart->first_row     = std::max(0, smart->current_index - 2);
+  return nullptr;
+}
+il2cpp::ArrayObject* UiScaleScrollerChildren(unity::GameObject* object, Il2CppReflectionType* type, bool inactive,
+                                             const MethodInfo*)
+{
+  ++ui_scale_scroller_scans;
+  Require(type && !inactive, "settled recycling discovery observes the active typed descendants");
+  return reinterpret_cast<UiScaleGameObject*>(object)->scrollers;
+}
+unity::GameObject* UiScaleCanvasGameObject(unity::Component* canvas, const MethodInfo*)
+{ return reinterpret_cast<UiScaleCanvasObject*>(canvas)->object; }
+bool UiScaleCanvasInTransition(CanvasController* canvas, const MethodInfo*)
+{ return reinterpret_cast<UiScaleCanvasObject*>(canvas)->in_transition; }
+unity::Vector2 UiScaleAnchoredPosition(unity::RectTransform* rect, const MethodInfo*)
+{ return reinterpret_cast<UiScaleRectObject*>(rect)->position; }
+CanvasController* UiScaleScrollerCanvas(SmartScrollerBase* smart, Il2CppReflectionType*, const MethodInfo*)
+{ return reinterpret_cast<UiScaleScrollerObject*>(smart)->canvas; }
 unity::GameObject* UiScaleLoadedObject(FleetMeshSelector* selector, const MethodInfo*)
 { return reinterpret_cast<UiScaleSelectorObject*>(selector)->object; }
 unity::Transform* UiScaleObjectTransform(unity::GameObject* object, const MethodInfo*)
@@ -229,6 +294,44 @@ void UiScaleNativeCases(std::string_view mode)
   auto& canvas_transform = AddMethod(component_class, "get_transform", reinterpret_cast<void*>(&UiScaleCanvasTransform),
                                      T(transform_class), {});
   AddProperty(component_class, "transform", &canvas_transform);
+  auto& canvas_object = AddMethod(component_class, "get_gameObject", reinterpret_cast<void*>(&UiScaleCanvasGameObject),
+                                  T(game_object_class), {});
+  AddProperty(component_class, "gameObject", &canvas_object);
+  AddMethod(canvas_class, "get_InTransition", reinterpret_cast<void*>(&UiScaleCanvasInTransition), T(bool_class), {});
+  auto& visibility_class   = Define("Digit.Client.UI", "VisibilityState", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  visibility_class.is_enum = true;
+  AddField(canvas_class, "_state", visibility_class, offsetof(UiScaleCanvasObject, state));
+  AddField(canvas_class, "m_visible", bool_class, offsetof(UiScaleCanvasObject, requested_visible));
+  auto& anchored_get = AddMethod(rect_transform_class, "get_anchoredPosition",
+                                 reinterpret_cast<void*>(&UiScaleAnchoredPosition), T(vector2_class), {});
+  AddProperty(rect_transform_class, "anchoredPosition", &anchored_get);
+  auto& smart_class = Define("Digit.Client.UI", "SmartScrollerBase", IL2CPP_TYPE_CLASS, &component_class);
+  auto& grid_class  = Define("Digit.Client.UI", "SmartScrollerGrid", IL2CPP_TYPE_CLASS, &smart_class);
+  AddField(smart_class, "_isInitialized", bool_class, offsetof(UiScaleScrollerObject, initialized));
+  AddField(smart_class, "_isReadyForInitialization", bool_class, offsetof(UiScaleScrollerObject, ready));
+  AddField(smart_class, "_regeneratingContent", bool_class, offsetof(UiScaleScrollerObject, regenerating));
+  AddField(smart_class, "_spawnerCoroutine", object_class, offsetof(UiScaleScrollerObject, spawning));
+  AddField(smart_class, "_dataHeldWhilstInitializing", object_class, offsetof(UiScaleScrollerObject, initializing));
+  AddField(smart_class, "_viewport", rect_transform_class, offsetof(UiScaleScrollerObject, viewport));
+  AddField(smart_class, "_content", rect_transform_class, offsetof(UiScaleScrollerObject, content));
+  AddField(smart_class, "_screenWidth", float_class, offsetof(UiScaleScrollerObject, screen_width));
+  AddField(smart_class, "_screenHeight", float_class, offsetof(UiScaleScrollerObject, screen_height));
+  AddMethod(component_class, "GetComponentInParent", reinterpret_cast<void*>(&UiScaleScrollerCanvas), T(canvas_class),
+            {T(type_class)});
+  auto& normalized =
+      AddMethod(smart_class, "get_NormalizedPosition", reinterpret_cast<void*>(&NativeTarget), T(vector2_class), {});
+  auto& notify = AddMethod(smart_class, "OnValueChangedCallback", reinterpret_cast<void*>(&NativeTarget), T(void_class),
+                           {T(vector2_class)});
+  normalized.invoker_method = notify.invoker_method = &WarpInvokerSentinel;
+  ui_scale_normalized_method                        = &normalized;
+  ui_scale_notify_method                            = &notify;
+  ui_scale_position_box.header.klass                = &vector2_class.klass;
+  for (auto* method : game_object_class.methods)
+    if (std::string_view(method->name) == "GetComponentsInChildren") {
+      auto* mutable_method                 = const_cast<MethodInfo*>(method);
+      mutable_method->methodPointer        = reinterpret_cast<Il2CppMethodPointer>(&UiScaleScrollerChildren);
+      mutable_method->virtualMethodPointer = mutable_method->methodPointer;
+    }
 
   UiScaleTransformObject model{{&transform_class.klass}}, empty{{&transform_class.klass}},
       failed{{&transform_class.klass}};
@@ -499,6 +602,126 @@ void UiScaleNativeCases(std::string_view mode)
     check_displayed_grid();
     ResetUiScaleState();
     Require(warp_roots.size() == roots, "first-open and reopen observation releases its weak handles on reset");
+  }
+
+  // Reproduces the observed purchase return: native setup rebuilds pooled cards at row zero, then restores the
+  // existing bottom scroll position without emitting a change event. Exercise the real feature callbacks.
+  {
+    const auto invoke_before    = tow_runtime_invoke_override;
+    const auto box_before       = std::exchange(extra_value_box, &ui_scale_position_box.header);
+    const auto payload_before   = std::exchange(extra_value_payload, &ui_scale_position_box.value);
+    tow_runtime_invoke_override = &UiScaleScrollerInvoke;
+    UiScaleRectObject list_frame{{{&rect_transform_class.klass}}}, list_rect{{{&rect_transform_class.klass}}},
+        viewport{{{&rect_transform_class.klass}}}, content{{{&rect_transform_class.klass}}};
+    list_frame.applied_factor = &scaler.applied_factor;
+    list_rect.dynamic_rect    = true;
+    list_rect.transform.scale = {1, 1, 1};
+    list_rect.parent          = reinterpret_cast<unity::Transform*>(&list_frame);
+    viewport.bounds           = {0, 0, 1425, 1109};
+    content.bounds            = {0, -4545, 1425, 4545};
+    UiScaleScrollerObject smart{{&grid_class.klass}};
+    smart.viewport = reinterpret_cast<unity::RectTransform*>(&viewport);
+    smart.content  = reinterpret_cast<unity::RectTransform*>(&content);
+    UiScaleScrollerArray children{{&component_array_class.klass}, nullptr, 1, {&smart.header}};
+    UiScaleGameObject    list_object{{&game_object_class.klass},
+                                     reinterpret_cast<unity::Transform*>(&list_rect),
+                                     reinterpret_cast<il2cpp::ArrayObject*>(&children)};
+    UiScaleCanvasObject  list_canvas{{&canvas_class.klass},
+                                     InstantWarpString("ReusableList_Canvas"),
+                                     reinterpret_cast<unity::Transform*>(&list_rect),
+                                     false,
+                                     reinterpret_cast<unity::GameObject*>(&list_object),
+                                     true};
+    list_canvas.state           = VisibilityState::Hidden;
+    auto* list_owner            = reinterpret_cast<CanvasController*>(&list_canvas);
+    smart.canvas                = list_owner;
+    const auto native_list_show = [&](auto*, int32_t, bool) {
+      list_canvas.requested_visible = true;
+      smart.current_index = smart.first_row = 0;
+      content.position.y                    = 0;
+      content.position.y                    = 3435.58545f;
+    };
+    const auto root_pass = [&] {
+      ScreenManager_UpdateCanvasRootScaleFactor_Hook(canvas_original, reinterpret_cast<ScreenManager*>(&screen));
+    };
+    Config::Get().graphics.ui_scale      = 1.2f;
+    Config::Get().graphics.ui_scale_menu = 1.08f;
+    root_pass();
+    ui_scale_scroller_scans = ui_scale_position_reads = 0;
+    CanvasController_Show_Hook(native_list_show, list_owner, 0, false);
+    const auto shown_scale  = list_rect.transform.scale;
+    const auto shown_delta  = list_rect.delta;
+    const auto shown_writes = list_rect.transform.writes + list_rect.delta_writes;
+    Require(smart.current_index == 0 && content.position.y > 3000 && smart.notifications == 0,
+            "native preserved-position return can leave the bottom viewport with the top pooled rows");
+    root_pass();
+    root_pass();
+    Require(ui_scale_scroller_scans == 0 && smart.notifications == 0,
+            "pooled hidden state retains a requested show while recycling waits for appearance");
+    list_canvas.visible = true;
+    list_canvas.state   = VisibilityState::Show;
+    root_pass();
+    Require(ui_scale_scroller_scans == 0 && smart.notifications == 0,
+            "requested show does not discover recycled rows during the native appearance transition");
+    list_canvas.state         = VisibilityState::Visible;
+    list_canvas.in_transition = false;
+    root_pass();
+    Require(smart.notifications == 0, "recycling waits for a second settled root observation");
+    root_pass();
+    Require(smart.notifications == 1 && smart.current_index == 7 && smart.first_row == 5
+                && UiScaleNear(content.position, {0, 3435.58545f}),
+            "settled native position notification recycles bottom rows without moving the player's viewport");
+    Require(UiScaleNear(list_rect.transform.scale, shown_scale) && UiScaleNear(list_rect.delta, shown_delta)
+                && list_rect.transform.writes + list_rect.delta_writes == shown_writes,
+            "purchase recycling correction preserves already-correct independent menu geometry");
+    const auto scans_done = ui_scale_scroller_scans, reads_done = ui_scale_position_reads;
+    for (int pass = 0; pass < 8; ++pass)
+      root_pass();
+    Require(ui_scale_scroller_scans == scans_done && ui_scale_position_reads == reads_done && smart.notifications == 1,
+            "completed recycling correction stops descendant scans, readiness polling and repeated notifications");
+
+    Il2CppObject spawning{&object_class.klass};
+    smart.spawning      = &spawning;
+    smart.current_index = smart.first_row = 0;
+    QueueCanvasUiScaleScrollerRefresh(list_owner);
+    QueueCanvasUiScaleScrollerRefresh(list_owner);
+    for (int pass = 0; pass < 3; ++pass)
+      root_pass();
+    Require(smart.notifications == 1, "duplicate refresh requests cannot notify during native lazy spawning");
+    smart.spawning        = nullptr;
+    viewport.bounds.width = 1415;
+    root_pass();
+    root_pass();
+    Require(smart.notifications == 1, "stale native dimensions defer recycling until the native rebuild settles");
+    smart.screen_width = 1415;
+    root_pass();
+    root_pass();
+    Require(smart.notifications == 2 && smart.first_row == 5,
+            "coalesced refreshes notify once after spawning and viewport metrics settle");
+
+    QueueCanvasUiScaleScrollerRefresh(list_owner);
+    list_canvas.requested_visible = false;
+    list_canvas.visible           = false;
+    list_canvas.state             = VisibilityState::Hidden;
+    root_pass();
+    list_canvas.requested_visible = true;
+    list_canvas.visible           = true;
+    list_canvas.state             = VisibilityState::Visible;
+    root_pass();
+    root_pass();
+    Require(smart.notifications == 2, "hiding a canvas cancels its pending correction instead of reviving it later");
+    QueueCanvasUiScaleScrollerRefresh(list_owner);
+    visual_dead_object = &list_canvas.header;
+    root_pass();
+    visual_dead_object = nullptr;
+    root_pass();
+    root_pass();
+    Require(smart.notifications == 2, "destroyed canvas ownership cancels queued recycling");
+    ResetUiScaleState();
+    tow_runtime_invoke_override = invoke_before;
+    extra_value_box             = box_before;
+    extra_value_payload         = payload_before;
+    Require(warp_roots.size() == roots, "completed and cancelled recycling work releases its weak owners");
   }
   Config::Get().graphics = opening_graphics;
   ui_scale_fixture_dpi   = opening_dpi;
