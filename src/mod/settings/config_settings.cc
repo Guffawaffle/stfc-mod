@@ -674,7 +674,7 @@ void RegisterConfigSettings(PageCatalog& catalog)
   BOOL("claims", ui, auto_confirm_reveal_ability, "Automatically confirm Excelsior reveal", Owner("RevealConfirm"),
        Live, "Skip the Excelsior Decloaking Deflector confirmation.");
   BOOL("claims", ui, disable_exchange_all, "Hide artifact Exchange All", Owner("ArtifactExchange"), ReopenView,
-       "Reopen the artifact popup to refresh this button.");
+       "Hide the button and its footer; individual exchanges stay available. Reopen the artifact popup to apply.");
   INT("claims", ui, extend_chest_purchase_max, "Maximum chest quantity", misc, ReopenView,
       "Reopen the chest dialog; zero disables extension and the effective extension is capped at 160.", "chests", 0,
       integer);

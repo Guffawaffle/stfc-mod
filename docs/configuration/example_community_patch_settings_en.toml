@@ -1036,7 +1036,7 @@ hud_q_trials = "auto"
 # Subgroup: Options
 # -----------------
 
-# Hide the Exchange All button in the Artifact Gallery
+# Hide the Exchange All button and its footer in the Artifact Gallery; individual exchanges stay available.
 disable_exchange_all = false
 
 # Hide damaged ships' Instant Repair button. Normal Repair and in-progress repair speedups remain available.
