@@ -68,11 +68,15 @@ def example(path: str) -> bool:
 
 
 def portable(path: str) -> bool:
+    # Unusual/new path spellings remain eligible for ordinary native CI instead of guessing platform rules.
+    if len(path) > 180:
+        return False
     for part in path.split("/"):
-        if not part or part.endswith((".", " ")) or any(char in '<>:"|?*' for char in part):
+        if (not re.fullmatch(r"[A-Za-z0-9_. -]{1,100}", part) or part.endswith((".", " "))
+                or part.casefold() == ".git"):
             return False
         stem = part.split(".", 1)[0].rstrip(" ").upper()
-        if stem in {"CON", "PRN", "AUX", "NUL", "CLOCK$"} or re.fullmatch(r"(?:COM|LPT)[1-9¹²³]", stem):
+        if stem in {"CON", "PRN", "AUX", "NUL"} or re.fullmatch(r"(?:COM|LPT)[0-9]", stem):
             return False
     return True
 

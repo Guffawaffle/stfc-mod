@@ -57,6 +57,9 @@ class Scope(unittest.TestCase):
                      change("docs/../README.md"), change("docs/x\n.md"), change("docs\\x.md"),
                      change("docs/AUX.md"), change("docs/guide?.md"), change("docs/NUL/new.md"),
                      change("docs/COM1.md"), change("docs/LPT².md"), change("docs/AUX .md"),
+                     change("docs/CONIN$.md"), change("docs/CONOUT$.md"), change("docs/LPT0.md"),
+                     change("docs/COM0.md"), change("docs/GIT~1/new.md"), change("docs/.git/new.md"),
+                     change("docs/" + "x" * 101 + ".md"), change("docs/" + "folder/" * 30 + "new.md"),
                      change("docs/folder./new.md"), change("docs/folder /new.md"),
                      change("docs/x:stream.md"), change("docs/guide*.md"),
                      change("releases/update-index-v2.json", "A", old="000000")):
