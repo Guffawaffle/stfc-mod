@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <optional>
 #include <utility>
@@ -13,6 +14,8 @@ namespace unity
 {
 namespace
 {
+  std::atomic<uint64_t> navigation_mouse_revision{1};
+  std::atomic<Key::NavigationMousePoll> navigation_mouse_poll{nullptr};
   // On an idle frame anyKey is false and no key is asked about at all; otherwise each key is one internal call.
   // The optional members cache a read for the rest of the frame.
   struct Frame {
@@ -21,11 +24,17 @@ namespace
     bool                                    any_down = false;
     std::optional<il2cpp::CallResult<bool>> focused;
     std::optional<bool>                     modified;
+    std::array<bool, 2>                     navigation_mouse{};
+    uint64_t                                navigation_revision = 0;
     // Indexed [down][key].
     std::array<std::array<std::optional<bool>, std::to_underlying(KeyCode::Max)>, 2> keys{};
 
     bool Read(KeyCode key, bool down)
     {
+      const auto button = std::to_underlying(key) - std::to_underlying(KeyCode::Mouse3);
+      if (button >= 0 && button < 2 && navigation_mouse[button]
+          && navigation_revision == navigation_mouse_revision.load(std::memory_order_acquire))
+        return true;
       if (!(down ? any_down : any_held))
         return false;
       auto& value = keys[down][std::to_underlying(key)];
@@ -69,9 +78,44 @@ namespace Key
   {
     // Without the frame count nothing is ever read: no key counts as pressed.
     const int32_t number = Time::frameCount();
-    if (number < 0 || number == frame.number)
+    if (number < 0) {
+      ClearNavigationMouse();
+      return;
+    }
+    if (number == frame.number)
       return;
     frame = {.number = number, .any_held = Input::anyKey(), .any_down = Input::anyKeyDown()};
+    if (const auto producer = navigation_mouse_poll.load(std::memory_order_acquire))
+      producer();
+  }
+
+  bool RegisterNavigationMousePoll(NavigationMousePoll producer) noexcept
+  {
+    if (!producer)
+      return false;
+    NavigationMousePoll expected = nullptr;
+    return navigation_mouse_poll.compare_exchange_strong(expected, producer, std::memory_order_acq_rel)
+           || expected == producer;
+  }
+
+  void PublishNavigationMouse(const std::array<bool, 2>& buttons, uint64_t revision)
+  {
+    if (frame.number < 0)
+      return;
+    frame.navigation_mouse    = buttons;
+    frame.navigation_revision = revision;
+  }
+
+  void RetireNavigationMouse() noexcept
+  { navigation_mouse_revision.fetch_add(1, std::memory_order_acq_rel); }
+
+  uint64_t NavigationMouseRevision() noexcept
+  { return navigation_mouse_revision.load(std::memory_order_acquire); }
+
+  void ClearNavigationMouse() noexcept
+  {
+    RetireNavigationMouse();
+    frame.navigation_mouse = {};
   }
 
   bool Pressed(KeyCode key)

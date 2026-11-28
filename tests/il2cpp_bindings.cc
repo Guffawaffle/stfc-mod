@@ -43,6 +43,15 @@ void Require(bool condition, const char* what)
 
 int  input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
 bool any_held = false, any_down = false;
+std::array<bool, 2> snapshot_navigation_pulses{};
+int                 snapshot_navigation_calls = 0;
+void                SnapshotNavigationPoll() noexcept
+{
+  ++snapshot_navigation_calls;
+  unity::Key::PublishNavigationMouse(std::exchange(snapshot_navigation_pulses, {}),
+                                     unity::Key::NavigationMouseRevision());
+}
+void CompetingNavigationPoll() noexcept {}
 bool instant_mouse_held = false, instant_mouse_released = false;
 Il2CppMethodPointer (*input_icall_override)(const char*, bool& handled) = nullptr;
 const MethodInfo* camera_world_method                                   = nullptr;
@@ -91,6 +100,52 @@ void KeyboardSnapshot()
   Key::Poll();
   Require(!Key::Pressed(KeyCode::A) && !Key::Down(KeyCode::A), "return to idle clears held keys");
   Require(held_reads == 3 && down_reads == 3, "idle frame stays query-free");
+  Key::PublishNavigationMouse({true, false}, Key::NavigationMouseRevision());
+  Require(Key::Down(KeyCode::Mouse3) && Key::Pressed(KeyCode::Mouse3), "idle snapshot sees a synthetic mouse pulse");
+  Key::Poll();
+  Require(Key::Down(KeyCode::Mouse3), "same-frame Poll preserves the current pulse");
+  ++input_frame;
+  Key::Poll();
+  Require(!Key::Down(KeyCode::Mouse3), "a later frame never holds the pulse");
+  const auto stale_navigation = Key::NavigationMouseRevision();
+  Key::RetireNavigationMouse();
+  Key::PublishNavigationMouse({true, false}, stale_navigation);
+  Require(!Key::Down(KeyCode::Mouse3), "publication cannot revive events retired by an asynchronous callback");
+  ++input_frame;
+  any_held = any_down                            = true;
+  held_keys[std::to_underlying(KeyCode::Mouse4)] = true;
+  down_keys[std::to_underlying(KeyCode::Mouse4)] = true;
+  Key::Poll();
+  Key::PublishNavigationMouse({true, false}, Key::NavigationMouseRevision());
+  Key::ClearNavigationMouse();
+  Require(!Key::Down(KeyCode::Mouse3) && Key::Down(KeyCode::Mouse4),
+          "ownership retirement clears synthetic input without clearing physical mouse buttons");
+  held_keys[std::to_underlying(KeyCode::Mouse4)] = false;
+  down_keys[std::to_underlying(KeyCode::Mouse4)] = false;
+  ++input_frame;
+  any_held = any_down = false;
+  Key::Poll();
+  Require(Key::RegisterNavigationMousePoll(SnapshotNavigationPoll)
+              && Key::RegisterNavigationMousePoll(SnapshotNavigationPoll)
+              && !Key::RegisterNavigationMousePoll(CompetingNavigationPoll)
+              && !Key::RegisterNavigationMousePoll(nullptr),
+          "one snapshot producer retains process-lifetime ownership without a competing replacement");
+  snapshot_navigation_pulses        = {false, true};
+  const auto before_navigation_poll = snapshot_navigation_calls;
+  ++input_frame;
+  Key::Poll();
+  Require(Key::Down(KeyCode::Mouse4) && snapshot_navigation_calls == before_navigation_poll + 1,
+          "the first input reader sees the producer pulse even before the host frame callback pass");
+  Key::Poll();
+  Require(Key::Down(KeyCode::Mouse4) && snapshot_navigation_calls == before_navigation_poll + 1,
+          "another same-frame consumer shares the pulse without draining or publishing again");
+  const auto valid_navigation_frame = input_frame;
+  input_frame                       = -1;
+  Key::Poll();
+  Require(!Key::Down(KeyCode::Mouse4), "unavailable frame identity retires the synthetic overlay");
+  input_frame = valid_navigation_frame + 1;
+  Key::Poll();
+  Require(!Key::Down(KeyCode::Mouse4), "the next frame cannot replay the producer's pulse");
 }
 
 struct FakeClass {

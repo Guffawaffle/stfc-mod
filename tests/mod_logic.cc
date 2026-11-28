@@ -1,7 +1,8 @@
 // Settings parsing and shortcut matching, run against production code with Unity input replaced by a fake.
 #include "config.h"
-#include "features/hyperthermic_decay_state.h"
 #include "features/chat_startup.h"
+#include "features/hyperthermic_decay_state.h"
+#include "features/mouse_navigation.h"
 #include "features/notification_audio.h"
 #include "features/ship_shortcut_hint.h"
 #include "features/toast_text.h"
@@ -1283,6 +1284,7 @@ void Matching()
 // The fake Unity input that the shortcut code reads.
 namespace unity::Key
 {
+void ClearNavigationMouse() noexcept {}
 bool IsInputFocused()
 { return false; }
 bool Pressed(unity::KeyCode key)
@@ -1340,8 +1342,55 @@ void ChatStartupOptions()
   Check(!reload.Tick(true, 42) && reload.Tick(true, 45), "a nested teardown restarts readiness sampling");
 }
 
+void MouseNavigationGestures()
+{
+  using namespace MouseNavigation;
+  Check(Button(1, 0) == 3 && Button(-1, 0) == 4, "horizontal direction maps to existing mouse alternatives");
+  Check(Button(0, 1) == -1 && Button(1, 1) == -1 && Button(0, 0) == -1
+            && Button(std::numeric_limits<double>::infinity(), 0) == -1,
+        "vertical, ambiguous and nonfinite gestures stay native");
+  Stage stage;
+  stage.Observe(3, Phase::kBegan); // Began under an ineligible owner.
+  stage.Publish(true, 1);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "enabling never acquires a gesture that began while disabled");
+  Check(stage.Observe(4, Phase::kBegan) && stage.Take() == std::array<bool, 2>{},
+        "a phased gesture waits for completion");
+  stage.Observe(4, Phase::kChanged);
+  stage.Observe(-1, Phase::kEnded);
+  Check(stage.Take() == std::array{false, true} && stage.Take() == std::array<bool, 2>{},
+        "a zero-delta ending emits once");
+  stage.Observe(3, Phase::kBegan);
+  stage.Observe(-1, Phase::kCancelled);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "cancelled and unmatched endings never become actions");
+  stage.Observe(3, Phase::kBegan);
+  stage.Publish(false, 2);
+  stage.Publish(true, 2);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "capture/focus handoff cannot revive a pending gesture");
+  stage.Observe(3, Phase::kDiscrete);
+  stage.Publish(true, 3);
+  Check(stage.Take() == std::array<bool, 2>{}, "a binding/settings revision drops completed pending pulses");
+  stage.Observe(3, Phase::kDiscrete);
+  stage.Observe(4, Phase::kDiscrete);
+  Check(stage.Take() == std::array{true, true}, "pending work stays bounded to one pulse per button");
+  stage.Observe(3, Phase::kBegan);
+  stage.Retire();
+  stage.Publish(true, 4);
+  Check(!stage.Observe(3, Phase::kEnded) && stage.Take() == std::array<bool, 2>{},
+        "reload retirement leaves no gesture to finish after re-entry");
+  toml::table effective;
+  Check(!Config::Parse(toml::table{}, effective, false)->control.macos_navigation_mouse,
+        "Mac swipe translation defaults off");
+  Check(Config::Parse(toml::parse("[control]\nmacos_navigation_mouse=true"), effective, false)
+            ->control.macos_navigation_mouse,
+        "Mac swipe translation parses independently of platform");
+}
+
 int main()
 {
+  MouseNavigationGestures();
   ShipHints();
   HyperthermicDecay();
   ChatStartupOptions();

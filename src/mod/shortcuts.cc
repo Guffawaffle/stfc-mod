@@ -523,6 +523,7 @@ Bindings Parse(const toml::table& config, toml::table& parsed, bool extended, bo
 
 void Set(Bindings next) noexcept
 {
+  unity::Key::ClearNavigationMouse();
   PruneReleasedKeys();
   bindings = std::move(next);
   if (++binding_generation == 0)
@@ -534,7 +535,10 @@ void Set(Bindings next) noexcept
 }
 
 CaptureToken ClaimCapture() noexcept
-{ return capture_guard.Claim(); }
+{
+  unity::Key::ClearNavigationMouse();
+  return capture_guard.Claim();
+}
 
 bool CaptureOwnedBy(CaptureToken token) noexcept
 { return capture_guard.Owns(token); }
@@ -550,6 +554,8 @@ bool CaptureBlocksShortcuts() noexcept
 
 void UpdateCapture(bool focused, bool held) noexcept
 {
+  if (!focused)
+    unity::Key::ClearNavigationMouse();
   // Capture skips matching, but released keys must still retire their ordinary shortcut ownership.
   PruneReleasedKeys();
   capture_guard.BeforeDispatch(focused, held);

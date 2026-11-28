@@ -4,6 +4,17 @@ Set bindings under `[shortcuts]` in `community_patch_settings.toml`.
 Names are case-insensitive. The mod writes the parsed bindings and their source to
 `[shortcuts]` and `[shortcuts_source]` in `community_patch_runtime.vars`.
 
+## macOS swipe gestures
+
+Enable **Mac horizontal swipe shortcuts** under **Mod Settings > Controls**, or set
+`control.macos_navigation_mouse = true`, to map app-local horizontal Back/Forward swipes to `MOUSE3`/`MOUSE4`.
+This is off by default and requires mod shortcuts. Trackpads and mouse drivers must emit AppKit swipe events;
+it does not add support for every physical side button. Wheel click remains `MOUSE2`.
+
+Existing bindings decide the action: by default, `MOUSE3` recalls or repairs and `MOUSE4` performs the alternate
+action. Vertical and cancelled gestures do nothing. Gestures do not carry across shortcut capture, focus loss,
+settings changes or reload. Mouse alternatives keep their existing text-field interaction rules.
+
 ## Binding format
 
 | Value | Meaning |
