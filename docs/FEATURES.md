@@ -11,7 +11,7 @@ Features depend on the game client. A client update can break a hook until the m
 
 | Area | Controls |
 | --- | --- |
-| UI scale | The main interface uses the game's scale by default (`ui_scale = 0.0`). A positive override enables mod scaling and its shortcuts. Object viewers and system-view ship models have separate scales. |
+| UI scale | HUD and menus have separate scales: `graphics.ui_scale` controls the map HUD and docked chat; `graphics.ui_scale_menu` controls menus, Settings and store cards. Both default to `0.0`, the game's normal size. Page Up and Page Down adjust only HUD scale, starting from the native size when no override is set. A wider chat panel can change the space available for store columns. Object viewers and system-view ship models retain their separate scales. |
 | System zoom | Set the maximum range, entry zoom, keyboard speed, and five presets. Save a preset or the current zoom as the default. |
 | Camera movement | Pan with configurable keys and set momentum falloff. Keyboard panning can be disabled. The camera can also stop following a selected target, so you can pan away from it. |
 | Station interior | Zoom further out inside the station. `graphics.interior_zoom_scale` multiplies the native distance; `1.0` keeps it. |
