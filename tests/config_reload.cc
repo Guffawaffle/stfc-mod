@@ -77,6 +77,7 @@ void MigrateLegacyFiles() {}
 
 namespace unity::Key
 {
+void ClearNavigationMouse() noexcept {}
 bool IsInputFocused()
 { return false; }
 bool Pressed(KeyCode)

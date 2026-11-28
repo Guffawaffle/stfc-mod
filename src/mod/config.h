@@ -194,6 +194,7 @@ public:
     bool        hotkeys_enabled                 = true;
     bool        hotkeys_extended                = true;
     bool        use_scopely_hotkeys             = false;
+    bool        macos_navigation_mouse          = false;
     std::string keyboard_layout_mode            = "physical";
     // A repeated selection of the same ship locates it strictly before this many milliseconds.
     // Zero disables only repeated-press locate.

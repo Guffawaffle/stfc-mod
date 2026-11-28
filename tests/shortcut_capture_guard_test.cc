@@ -44,6 +44,7 @@ Config& Config::Get()
 
 namespace unity::Key
 {
+void ClearNavigationMouse() noexcept {}
 bool Pressed(KeyCode key)
 { return held_keys[std::to_underlying(key)]; }
 bool Down(KeyCode key)

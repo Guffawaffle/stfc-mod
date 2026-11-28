@@ -91,6 +91,31 @@ void KeyboardSnapshot()
   Key::Poll();
   Require(!Key::Pressed(KeyCode::A) && !Key::Down(KeyCode::A), "return to idle clears held keys");
   Require(held_reads == 3 && down_reads == 3, "idle frame stays query-free");
+  Key::PublishNavigationMouse({true, false}, Key::NavigationMouseRevision());
+  Require(Key::Down(KeyCode::Mouse3) && Key::Pressed(KeyCode::Mouse3), "idle snapshot sees a synthetic mouse pulse");
+  Key::Poll();
+  Require(Key::Down(KeyCode::Mouse3), "same-frame Poll preserves the current pulse");
+  ++input_frame;
+  Key::Poll();
+  Require(!Key::Down(KeyCode::Mouse3), "a later frame never holds the pulse");
+  const auto stale_navigation = Key::NavigationMouseRevision();
+  Key::RetireNavigationMouse();
+  Key::PublishNavigationMouse({true, false}, stale_navigation);
+  Require(!Key::Down(KeyCode::Mouse3), "publication cannot revive events retired by an asynchronous callback");
+  ++input_frame;
+  any_held = any_down                            = true;
+  held_keys[std::to_underlying(KeyCode::Mouse4)] = true;
+  down_keys[std::to_underlying(KeyCode::Mouse4)] = true;
+  Key::Poll();
+  Key::PublishNavigationMouse({true, false}, Key::NavigationMouseRevision());
+  Key::ClearNavigationMouse();
+  Require(!Key::Down(KeyCode::Mouse3) && Key::Down(KeyCode::Mouse4),
+          "ownership retirement clears synthetic input without clearing physical mouse buttons");
+  held_keys[std::to_underlying(KeyCode::Mouse4)] = false;
+  down_keys[std::to_underlying(KeyCode::Mouse4)] = false;
+  ++input_frame;
+  any_held = any_down = false;
+  Key::Poll();
 }
 
 struct FakeClass {

@@ -27,6 +27,9 @@ F11 does not toggle borderless mode in this build.
 ## Keyboard controls
 
 - Choose mod hotkeys or the game's native hotkeys. Remap actions, including alternatives for the same action.
+- On macOS, optionally map app-local horizontal swipe gestures to existing `MOUSE3`/`MOUSE4` actions with
+  `control.macos_navigation_mouse`. It is off by default and requires mod hotkeys; physical mouse-button support
+  is separate.
 - Open screens, select chat tabs, and focus a search field by shortcut.
 - Select ships 1 through 8. Configure the double-tap interval that locates a selected ship.
 - Use context-sensitive attack, warp, recall, repair, cancel, and cargo actions. The primary action also joins a wave

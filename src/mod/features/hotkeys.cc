@@ -243,6 +243,7 @@ bool HandleShortcuts()
   }
   if (Shortcut::IsDown(Action::kDisableHotKeys, Shortcut::TextInputPolicy::AllowKeyboard)) {
     RetireEscapeInput();
+    unity::Key::ClearNavigationMouse();
     HideKeybindBadges();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, false, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
@@ -253,6 +254,7 @@ bool HandleShortcuts()
   }
   if (Shortcut::IsDown(Action::kEnableHotKeys, Shortcut::TextInputPolicy::AllowKeyboard)) {
     RetireEscapeInput();
+    unity::Key::ClearNavigationMouse();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, true, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
                                     runtime_config::SaveSetting(key.section, key.name, value, key.delay);

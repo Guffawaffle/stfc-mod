@@ -1,3 +1,4 @@
+#include "features/mouse_navigation.h"
 #include "keyboard_layout_test_host.h"
 #include "shortcuts.h"
 
@@ -10,6 +11,9 @@
 namespace
 {
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held{};
+std::array<bool, 2>                                       navigation_buttons{};
+uint64_t                                                  navigation_revision = 1;
+bool                                                      text_focused        = false;
 void                                                      Check(bool value, const char* message)
 {
   if (!value) {
@@ -33,10 +37,18 @@ void Bind(const char* values)
 
 namespace unity::Key
 {
+void ClearNavigationMouse() noexcept
+{
+  navigation_buttons = {};
+  ++navigation_revision;
+}
 bool IsInputFocused()
-{ return false; }
+{ return text_focused; }
 bool Pressed(KeyCode key)
-{ return held[std::to_underlying(key)]; }
+{
+  const auto button = std::to_underlying(key) - std::to_underlying(KeyCode::Mouse3);
+  return (button >= 0 && button < 2 && navigation_buttons[button]) || held[std::to_underlying(key)];
+}
 bool Down(KeyCode key)
 { return Pressed(key); }
 bool IsModified()
@@ -219,5 +231,33 @@ int main()
   Hold({KeyCode::Mouse1});
   Check(!Shortcut::IsDown(Action::kActionPrimary, false) && Shortcut::IsDown(Action::kActionPrimary, true),
         "mouse primary is retained outside UI ownership");
+  Bind("[shortcuts]\naction_recall='MOUSE3|R'\naction_secondary='MOUSE4'\n");
+  MouseNavigation::Stage gestures;
+  gestures.Publish(true, navigation_revision);
+  gestures.Observe(3, MouseNavigation::Phase::kDiscrete);
+  navigation_buttons = gestures.Take();
+  text_focused       = true;
+  Check(Shortcut::IsDown(Action::kActionRecall), "staged mouse alternatives retain shared typing policy");
+  unity::Key::ClearNavigationMouse();
+  Hold({KeyCode::R});
+  Check(!Shortcut::IsDown(Action::kActionRecall), "keyboard alternatives still yield to typing");
+  Hold({});
+  text_focused = false;
+  gestures.Publish(true, navigation_revision);
+  gestures.Observe(3, MouseNavigation::Phase::kBegan);
+  const auto swipe_capture = Shortcut::ClaimCapture();
+  Check(navigation_buttons == std::array<bool, 2>{} && !Shortcut::IsDown(Action::kActionRecall),
+        "capture immediately clears the staged matcher overlay");
+  gestures.Publish(false, navigation_revision);
+  Check(Shortcut::ReleaseCapture(swipe_capture), "swipe fixture releases capture");
+  Shortcut::UpdateCapture(true, false);
+  Shortcut::UpdateCapture(true, false);
+  Shortcut::UpdateCapture(true, false);
+  gestures.Publish(true, navigation_revision);
+  gestures.Observe(3, MouseNavigation::Phase::kEnded);
+  navigation_buttons = gestures.Take();
+  Check(!Shortcut::IsDown(Action::kActionRecall), "late completion after capture produces no matcher action");
+  Hold({KeyCode::Mouse4});
+  Check(Shortcut::IsDown(Action::kActionSecondary), "physical mouse alternatives remain independent of swipes");
   std::cout << "Keyboard shortcut adapter passed: mapping, towing, capture, mouse eligibility and atomic editing\n";
 }

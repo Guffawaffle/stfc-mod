@@ -444,12 +444,23 @@ void RegisterConfigSettings(PageCatalog& catalog)
   Number<int>(catalog, "community_mod." page, #group, #key, label, ACCESS(group, key), owner, Timing::timing, help,    \
               unit, low, high)
 
-  BOOL("controls", control, hotkeys_enabled, "Enable mod shortcuts", controls, Live,
-       "Use configured mod keyboard and mouse shortcuts.");
+  Boolean(catalog, "community_mod.controls", "control", "hotkeys_enabled", "Enable mod shortcuts",
+          ACCESS(control, hotkeys_enabled), controls, Timing::Live, "Use configured mod keyboard and mouse shortcuts.",
+          unity::Key::ClearNavigationMouse);
   BOOL("controls", control, hotkeys_extended, "Extended shortcut actions", extended, Restart,
        "Change extended action availability after restart.");
   BOOL("controls", control, use_scopely_hotkeys, "Use native game shortcuts", controls, Restart,
        "Use the game's shortcuts instead of mod bindings.");
+#if __APPLE__
+  const Available mac_navigation = [owner = Owner("MacNavigationMouse")] {
+    return owner() && MacNavigationMouseAvailable();
+  };
+  Boolean(catalog, "community_mod.controls", "control", "macos_navigation_mouse", "Mac horizontal swipe shortcuts",
+          ACCESS(control, macos_navigation_mouse), mac_navigation, Timing::Live,
+          "Map app-local horizontal Back/Forward swipes to configured MOUSE3/MOUSE4 actions. Requires mod shortcuts; "
+          "this does not add physical side-button support.",
+          unity::Key::ClearNavigationMouse);
+#endif
   Boolean(catalog, "community_mod.controls", "control", "queue_enabled", "Enable action queue",
           ACCESS(control, queue_enabled), queue, Timing::Live, "Allow queued actions.", ResetQueueRecoveryTracking);
   Boolean(catalog, "community_mod.controls", "control", "kirshara_fixes", "Kirshara queue protections",

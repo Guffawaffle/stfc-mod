@@ -863,6 +863,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("control", "hotkeys_enabled", control.hotkeys_enabled);
   r.Read("control", "hotkeys_extended", control.hotkeys_extended);
   r.Read("control", "use_scopely_hotkeys", control.use_scopely_hotkeys);
+  r.Read("control", "macos_navigation_mouse", control.macos_navigation_mouse);
   r.ReadValid("control", "keyboard_layout_mode", control.keyboard_layout_mode,
               [](const std::string& mode) { return mode == "physical" || mode == "layout"; });
   r.Read("control", "select_timer", control.select_timer);
