@@ -43,6 +43,15 @@ void Require(bool condition, const char* what)
 
 int  input_frame = 0, held_reads = 0, down_reads = 0, frame_reads = 0;
 bool any_held = false, any_down = false;
+std::array<bool, 2> snapshot_navigation_pulses{};
+int                 snapshot_navigation_calls = 0;
+void                SnapshotNavigationPoll() noexcept
+{
+  ++snapshot_navigation_calls;
+  unity::Key::PublishNavigationMouse(std::exchange(snapshot_navigation_pulses, {}),
+                                     unity::Key::NavigationMouseRevision());
+}
+void CompetingNavigationPoll() noexcept {}
 bool instant_mouse_held = false, instant_mouse_released = false;
 Il2CppMethodPointer (*input_icall_override)(const char*, bool& handled) = nullptr;
 const MethodInfo* camera_world_method                                   = nullptr;
@@ -91,6 +100,52 @@ void KeyboardSnapshot()
   Key::Poll();
   Require(!Key::Pressed(KeyCode::A) && !Key::Down(KeyCode::A), "return to idle clears held keys");
   Require(held_reads == 3 && down_reads == 3, "idle frame stays query-free");
+  Key::PublishNavigationMouse({true, false}, Key::NavigationMouseRevision());
+  Require(Key::Down(KeyCode::Mouse3) && Key::Pressed(KeyCode::Mouse3), "idle snapshot sees a synthetic mouse pulse");
+  Key::Poll();
+  Require(Key::Down(KeyCode::Mouse3), "same-frame Poll preserves the current pulse");
+  ++input_frame;
+  Key::Poll();
+  Require(!Key::Down(KeyCode::Mouse3), "a later frame never holds the pulse");
+  const auto stale_navigation = Key::NavigationMouseRevision();
+  Key::RetireNavigationMouse();
+  Key::PublishNavigationMouse({true, false}, stale_navigation);
+  Require(!Key::Down(KeyCode::Mouse3), "publication cannot revive events retired by an asynchronous callback");
+  ++input_frame;
+  any_held = any_down                            = true;
+  held_keys[std::to_underlying(KeyCode::Mouse4)] = true;
+  down_keys[std::to_underlying(KeyCode::Mouse4)] = true;
+  Key::Poll();
+  Key::PublishNavigationMouse({true, false}, Key::NavigationMouseRevision());
+  Key::ClearNavigationMouse();
+  Require(!Key::Down(KeyCode::Mouse3) && Key::Down(KeyCode::Mouse4),
+          "ownership retirement clears synthetic input without clearing physical mouse buttons");
+  held_keys[std::to_underlying(KeyCode::Mouse4)] = false;
+  down_keys[std::to_underlying(KeyCode::Mouse4)] = false;
+  ++input_frame;
+  any_held = any_down = false;
+  Key::Poll();
+  Require(Key::RegisterNavigationMousePoll(SnapshotNavigationPoll)
+              && Key::RegisterNavigationMousePoll(SnapshotNavigationPoll)
+              && !Key::RegisterNavigationMousePoll(CompetingNavigationPoll)
+              && !Key::RegisterNavigationMousePoll(nullptr),
+          "one snapshot producer retains process-lifetime ownership without a competing replacement");
+  snapshot_navigation_pulses        = {false, true};
+  const auto before_navigation_poll = snapshot_navigation_calls;
+  ++input_frame;
+  Key::Poll();
+  Require(Key::Down(KeyCode::Mouse4) && snapshot_navigation_calls == before_navigation_poll + 1,
+          "the first input reader sees the producer pulse even before the host frame callback pass");
+  Key::Poll();
+  Require(Key::Down(KeyCode::Mouse4) && snapshot_navigation_calls == before_navigation_poll + 1,
+          "another same-frame consumer shares the pulse without draining or publishing again");
+  const auto valid_navigation_frame = input_frame;
+  input_frame                       = -1;
+  Key::Poll();
+  Require(!Key::Down(KeyCode::Mouse4), "unavailable frame identity retires the synthetic overlay");
+  input_frame = valid_navigation_frame + 1;
+  Key::Poll();
+  Require(!Key::Down(KeyCode::Mouse4), "the next frame cannot replay the producer's pulse");
 }
 
 struct FakeClass {
@@ -1300,6 +1355,12 @@ API(void, il2cpp_field_static_get_value, (FieldInfo * field, void* value))
 {
   if (tow_static_field_read_override && tow_static_field_read_override(field, value))
     return;
+  if (field->parent->static_fields) {
+    const auto size = Fake(il2cpp_class_from_type(field->type)).value_size;
+    std::memcpy(value, static_cast<const char*>(field->parent->static_fields) + field->offset,
+                size ? size : sizeof(void*));
+    return;
+  }
   if (std::string_view(field->name) == "s_initialized")
     std::memcpy(value, &settings_singleton_initialized, sizeof(settings_singleton_initialized));
   else if (std::string_view(field->name) == "s_instance")
@@ -1308,8 +1369,15 @@ API(void, il2cpp_field_static_get_value, (FieldInfo * field, void* value))
     std::memcpy(value, &static_flag, sizeof(static_flag));
 }
 END_API
-API(void, il2cpp_field_static_set_value, (FieldInfo*, void* value))
-{ std::memcpy(&static_flag, value, sizeof(static_flag)); }
+API(void, il2cpp_field_static_set_value, (FieldInfo * field, void* value))
+{
+  if (field->parent->static_fields) {
+    const auto size = Fake(il2cpp_class_from_type(field->type)).value_size;
+    std::memcpy(static_cast<char*>(field->parent->static_fields) + field->offset, value, size ? size : sizeof(void*));
+    return;
+  }
+  std::memcpy(&static_flag, value, sizeof(static_flag));
+}
 END_API
 
 namespace
@@ -1909,6 +1977,135 @@ void CheckedUnityVisualObservations()
   visual_active = true;
 }
 
+// Exercise the production Mirror bindings with the controlled runtime, including
+// same-size metadata drift that ordinary slot matching deliberately permits.
+struct MirrorEffectFixture {
+  Il2CppObject header;
+  bool         active = true;
+  int64_t      ticks  = 0x123456789abcdefLL;
+};
+struct MirrorFleetFixture {
+  Il2CppObject         header;
+  MirrorEffectFixture* effect;
+  bool                 mirror = true;
+};
+bool mirror_fixture_found = true, mirror_fixture_lookup_throws = false, mirror_fixture_time_throws = false;
+int  mirror_fixture_lookups = 0, mirror_fixture_times = 0;
+
+bool MirrorFixtureInUniverse(MirrorFleetFixture* fleet, const MethodInfo*)
+{
+  Require(RepairRooted(&fleet->header), "Mirror getter receives the rooted fleet owner");
+  return fleet->mirror;
+}
+bool MirrorFixtureLookup(MirrorFleetFixture* fleet, StatusEffectType type, StatusEffect** effect, const MethodInfo*)
+{
+  ++mirror_fixture_lookups;
+  Require(RepairRooted(&fleet->header) && type == StatusEffectType::MirrorUniverseTimer && effect && !*effect,
+          "Mirror lookup keeps its owner, passes the int32 enum and initializes the managed out-reference");
+  *effect = reinterpret_cast<StatusEffect*>(fleet->effect);
+  if (mirror_fixture_lookup_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return mirror_fixture_found;
+}
+bool MirrorFixtureActive(MirrorEffectFixture* effect, const MethodInfo*)
+{
+  Require(RepairRooted(&effect->header), "Mirror active-state read retains the effect owner");
+  return effect->active;
+}
+unity::TimeSpan MirrorFixtureTime(MirrorEffectFixture* effect, const MethodInfo*)
+{
+  ++mirror_fixture_times;
+  Require(RepairRooted(&effect->header), "Mirror TimeSpan read retains the effect owner");
+  if (mirror_fixture_time_throws)
+    throw Il2CppExceptionWrapper(&thrown);
+  return {effect->ticks};
+}
+
+void MirrorTimerBindingObservations(std::string_view mode)
+{
+  auto& effect_class = Define("Digit.PrimeServer.Models", "StatusEffect", IL2CPP_TYPE_CLASS, &object_class);
+  auto& kind         = Define("Digit.PrimeServer.Models", "StatusEffectType", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  auto& wrong_kind   = Define("Other", "StatusEffectType", IL2CPP_TYPE_VALUETYPE, nullptr, 4);
+  auto& time         = Define("System", "TimeSpan", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(unity::TimeSpan));
+  auto& wrong_time   = Define("Other", "SameSizeTime", IL2CPP_TYPE_VALUETYPE, nullptr, sizeof(unity::TimeSpan));
+  kind.is_enum = wrong_kind.is_enum = true;
+  AddField(kind, "value__", mode == "mirror-bindings-unsigned-enum" ? unsigned_int_class : int_class, 0);
+  AddField(wrong_kind, "value__", int_class, 0);
+  AddMethod(fleet_data_class, "get_IsInMirrorUniverse", reinterpret_cast<void*>(&MirrorFixtureInUniverse),
+            T(bool_class), {});
+  const bool  reject_lookup    = mode == "mirror-bindings-wrong-enum" || mode == "mirror-bindings-unsigned-enum"
+                                 || mode == "mirror-bindings-byvalue-status" || mode == "mirror-bindings-wrong-status"
+                                 || mode == "mirror-bindings-nonbool";
+  const auto* status_parameter = mode == "mirror-bindings-byvalue-status" ? T(effect_class)
+                                 : mode == "mirror-bindings-wrong-status" ? Ref(other_class)
+                                                                          : Ref(effect_class);
+  AddMethod(fleet_data_class, "TryGetStatusEffectData", reinterpret_cast<void*>(&MirrorFixtureLookup),
+            mode == "mirror-bindings-nonbool" ? T(int_class) : T(bool_class),
+            {mode == "mirror-bindings-wrong-enum" ? T(wrong_kind) : T(kind), status_parameter});
+  AddMethod(effect_class, "get_IsStatusActive", reinterpret_cast<void*>(&MirrorFixtureActive), T(bool_class), {});
+  AddMethod(effect_class, "GetRemainingTimespan", reinterpret_cast<void*>(&MirrorFixtureTime),
+            mode == "mirror-bindings-wrong-time" ? T(wrong_time)
+            : mode == "mirror-bindings-ref-time" ? Ref(time)
+                                                 : T(time),
+            {});
+
+  MirrorEffectFixture native_effect{{&effect_class.klass}};
+  MirrorFleetFixture  native_fleet{{&fleet_data_class.klass}, &native_effect};
+  const auto          roots_before = warp_roots.size();
+  {
+    auto  fleet_root = il2cpp::GcHandle::Strong(&native_fleet.header);
+    auto* fleet      = fleet_root.Get<FleetPlayerData>();
+    Require(fleet, "Mirror fixture acquires the fleet owner");
+    const auto mirror = fleet->TryIsInMirrorUniverse();
+    Require(mirror && mirror.value, "production Mirror getter observes true");
+    native_fleet.mirror = false;
+    const auto ordinary = fleet->TryIsInMirrorUniverse();
+    Require(ordinary && !ordinary.value, "known non-Mirror is distinct from failed observation");
+    native_fleet.mirror  = true;
+    StatusEffect* effect = reinterpret_cast<StatusEffect*>(&native_effect);
+    const auto    found  = fleet->TryGetStatusEffectData(StatusEffectType::MirrorUniverseTimer, effect);
+    if (reject_lookup) {
+      Require(!found && !effect && mirror_fixture_lookups == 0,
+              "drifted enum/return/out metadata refuses before invoking the native lookup and clears the output");
+    } else {
+      Require(found && found.value && effect == reinterpret_cast<StatusEffect*>(&native_effect)
+                  && mirror_fixture_lookups == 1,
+              "production lookup returns the exact managed effect through its by-reference output");
+      auto       effect_root = il2cpp::GcHandle::Strong(effect);
+      auto*      status      = effect_root.Get<StatusEffect>();
+      const auto active      = status->TryIsStatusActive();
+      Require(active && active.value, "production active-state getter observes true");
+      native_effect.active = false;
+      const auto inactive  = status->TryIsStatusActive();
+      Require(inactive && !inactive.value, "inactive is an observed false rather than a missing binding");
+      native_effect.active = true;
+      const auto remaining = status->TryRemainingTimespan();
+      if (mode == "mirror-bindings-wrong-time" || mode == "mirror-bindings-ref-time") {
+        Require(!remaining && mirror_fixture_times == 0,
+                "a same-size foreign struct or by-ref TimeSpan is refused before its native call");
+      } else {
+        Require(remaining && remaining.value.ticks == native_effect.ticks && mirror_fixture_times == 1,
+                "production TimeSpan return preserves all 64 tick bits");
+        mirror_fixture_time_throws = true;
+        Require(!status->TryRemainingTimespan(), "throwing clock read remains unavailable rather than observed zero");
+        mirror_fixture_time_throws = false;
+      }
+      mirror_fixture_found = false;
+      effect               = reinterpret_cast<StatusEffect*>(&native_effect);
+      const auto missing   = fleet->TryGetStatusEffectData(StatusEffectType::MirrorUniverseTimer, effect);
+      Require(missing && !missing.value && !effect, "known missing effect clears a native out-value on false");
+      mirror_fixture_found         = true;
+      mirror_fixture_lookup_throws = true;
+      effect                       = reinterpret_cast<StatusEffect*>(&native_effect);
+      Require(!fleet->TryGetStatusEffectData(StatusEffectType::MirrorUniverseTimer, effect) && !effect,
+              "throwing lookup clears its partial out-value and cannot retain a stale effect");
+      mirror_fixture_lookup_throws = false;
+    }
+  }
+  Require(warp_roots.size() == roots_before, "Mirror binding observations release all temporary roots");
+  std::cout << "IL2CPP Mirror timer binding fixture passed: " << mode << '\n';
+}
+
 void PlannedWarpBindingObservations()
 {
   using Position    = il2cpp::Nullable<unity::Vector3>;
@@ -2110,6 +2307,10 @@ int main(int argc, char** argv)
 try {
   BuildRuntime();
   il2cpp::SetErrorHandler([](std::string_view message) { errors.emplace_back(message); });
+  if (argc == 2 && std::string_view(argv[1]).starts_with("mirror-bindings-")) {
+    MirrorTimerBindingObservations(argv[1]);
+    return 0;
+  }
 #if _WIN32
   if (argc == 2 && std::string_view(argv[1]).starts_with("donation-policy-")) {
     DonationPolicyCases(argv[1]);
@@ -2897,6 +3098,7 @@ try {
   SettingsPageBindingObservations();
   SettingsValuesBindingObservations();
   OfficerPresetNativeObservations();
+  MirrorTimerBindingObservations("mirror-bindings-valid");
   std::cout << "IL2CPP binding tests passed\n";
 } catch (const std::exception& error) {
   std::cerr << "IL2CPP binding fixture failed: " << error.what() << '\n';

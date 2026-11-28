@@ -95,6 +95,9 @@ bool         CaptureBlocksShortcuts() noexcept;
 void UpdateCapture(bool focused, bool held) noexcept;
 
 bool HasBinding(Action action);
+// Keyboard alternatives normally yield to text entry. Exceptions are explicit at their UI-owning caller;
+// mouse-primary alternatives retain the caller's interaction rules under either policy.
+enum class TextInputPolicy { SuppressKeyboard, AllowKeyboard };
 // Printable chord identities follow keyboard_layout_mode; the input snapshot
 // and ownership remain physical. Displayed/configured chord text is unchanged.
 // Any binding of `action` is held with its modifiers. A binding without modifiers needs none held; one with
@@ -102,6 +105,7 @@ bool HasBinding(Action action);
 bool IsPressed(Action action);
 // Any binding of `action` went down this frame with its modifiers held.
 bool IsDown(Action action);
+bool IsDown(Action action, TextInputPolicy policy);
 // Keep keyboard alternatives eligible when native UI owns a mouse press.
 bool IsDown(Action action, bool allow_mouse);
 // Ship towing reuses a configured selection chord with an additional held Shift.

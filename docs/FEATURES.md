@@ -19,6 +19,7 @@ Features depend on the game client. A client update can break a hook until the m
 | Fleet labels | Choose native, expanded, compact, or zoom-threshold detail separately for player and non-player fleets. |
 | Window and cursor | Resize the game window freely on Windows and control whether the game replaces the system cursor. |
 | Anomaly timer | Show the remaining time in a Galactic Anomaly system. Enabled by default. |
+| Mirror Space timer | Show the earliest active ship countdown in the viewed Mirror system below Help All, Engage and Claim. Enable `graphics.mirror_space_timer` in Settings or TOML. Disabled by default; a Mirror countdown takes priority over the Anomaly timer in their shared panel. |
 
 `fr_scale` scales system-view backdrop renderables.
 The code reads `transition_time`, `system_pan_momentum`, and `borderless_fullscreen`, but does not currently apply them.
@@ -27,6 +28,9 @@ F11 does not toggle borderless mode in this build.
 ## Keyboard controls
 
 - Choose mod hotkeys or the game's native hotkeys. Remap actions, including alternatives for the same action.
+- On macOS, optionally map app-local horizontal swipe gestures to existing `MOUSE3`/`MOUSE4` actions with
+  `control.macos_navigation_mouse`. It is off by default and requires mod hotkeys; physical mouse-button support
+  is separate.
 - Open screens, select chat tabs, and focus a search field by shortcut.
 - Select ships 1 through 8. Configure the double-tap interval that locates a selected ship.
 - Use context-sensitive attack, warp, recall, repair, cancel, and cargo actions. The primary action also joins a wave
@@ -45,7 +49,8 @@ The [shortcut reference](KEYMAPPING.md) lists the defaults.
 | Kir'Shara fixes | Keep a queue moving when its target vanishes mid-course or the watchdog prunes it (Windows), and keep it from being cleared when moving another ship briefly misreports the fleet's position. `control.kirshara_fixes = false` turns all three off. |
 | Instant warp | Show the confirmation, use regular warp, or jump automatically. Ship-name filters can override the choice. |
 | Target previews | Show cargo by target type, toggle cargo view, and close viewers with Escape. Locate and recall can remain enabled while previews are open. |
-| Unprotected cargo | **Highlight unprotected cargo** marks your fleet tiles. A fresh game scan that confirms lootable resources shows **OPC** beside **Occupied** on the Resource Mining panel and outlines the selected miner's ship card. |
+| Unprotected cargo | **Highlight unprotected cargo** marks your own fleet tiles and selected fleet panel. **Time until unprotected cargo** estimates when your mining cargo will exceed protection. |
+| Opponent mining OPC (DEV only) | Standard builds exclude opponent mining-node badges and ship-card outlines. DEV packages offer a separate, default-off **DEV: Opponent mining OPC indicator** setting (`ui.mining_target_opc`). It uses fresh game scan data for the selected miner; no indicator does not confirm protected cargo. |
 | Cargo numbers | Choose decimal places for abbreviated totals. Supported Windows clients can skip the count-up animation. |
 | Ship assignment | Select adjacent ships with arrow keys, double-click to assign, and pin named ships while preserving sort order. Shift+click a ship tile to pin or unpin it; only the `pinned_ships` line of the settings file changes. |
 | Officer sorting | Restore **Below Deck Ability** in roster and assignment screens. |
@@ -62,7 +67,7 @@ The [shortcut reference](KEYMAPPING.md) lists the defaults.
 - Hide Galaxy or Veil Chat, and player titles under chat names. Set supported HUD buttons to automatic, always shown, or always hidden.
 - Open alliance side chat once per login with `ui.auto_open_chat`, and choose its initial width with
   `ui.default_chat_width`. Both preserve the game's behavior by default. These controls are also in Mod Settings → Chat.
-- Hide **Exchange All** in the artifact-shards popup while retaining single exchanges.
+- Hide **Exchange All** and its footer in the artifact-shards popup while retaining single exchanges.
 
 The supported HUD buttons are Field Training, Missions, Outposts, and Q Trials.
 Other options show the newest Haven help-history entries first, limit ads to the first popup each session, and confirm Discovery prompts.

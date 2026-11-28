@@ -19,34 +19,82 @@ env:
   ZIG_VERSION: "0.16.0"
 
 jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    outputs:
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      # Execute only the base branch's validator; candidate files are read as data.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Classify and validate PR scope
+        id: scope
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" != pull_request || ! -f scripts/ci-scope.py ]]; then
+            # A branch adopting this workflow runs full CI once before fast paths exist.
+            echo "mode=native" >> "$GITHUB_OUTPUT"
+          else
+            [[ "$BASE" =~ ^[0-9a-f]{40}$ && "$HEAD" =~ ^[0-9a-f]{40}$ ]]
+            git fetch --no-tags --depth=1 origin "$HEAD"
+            python3 scripts/ci-scope.py --event "$EVENT" --base "$BASE" --head "$HEAD" \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+
   build-win:
-    runs-on: windows-2025-vs2026
+    needs: scope
+    if: ${{ always() }}
+    runs-on: ${{ github.event_name == 'pull_request' && (needs.scope.outputs.mode == 'docs' || needs.scope.outputs.mode == 'index') && 'ubuntu-24.04' || 'windows-2025-vs2026' }}
     outputs:
       run_attempt: ${{ steps.build_identity.outputs.run_attempt }}
     steps:
+      # Always produce a conclusive required check when scope validation fails.
+      - name: Require successful scope validation
+        shell: bash
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          CI_SCOPE: ${{ needs.scope.outputs.mode }}
+        run: |
+          set -euo pipefail
+          [[ "$SCOPE_RESULT" == success && "$CI_SCOPE" =~ ^(native|docs|index)$ ]]
+          echo "Scope validation succeeded: $CI_SCOPE"
       - uses: actions/checkout@v7
+        if: needs.scope.outputs.mode == 'native'
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        if: needs.scope.outputs.mode == 'native'
         with:
           version: ${{ env.ZIG_VERSION }}
           cache-size-limit: 6144
       - uses: ilammy/msvc-dev-cmd@v1
+        if: needs.scope.outputs.mode == 'native'
         with:
           arch: x64
           # Zig 0.16 uses Clang 21. The runner's newer MSVC STL requires Clang 22.
           toolset: "14.44"
       - uses: xmake-io/github-action-setup-xmake@3a1a5dddfc7fa625d9a698738334bf55655a861a # v1
-        if: github.repository == 'Guffawaffle/stfc-mod'
+        if: ${{ needs.scope.outputs.mode == 'native' && (github.repository == 'Guffawaffle/stfc-mod') }}
         with:
           xmake-version: "3.0.8"
       - name: Stamp commit hash
+        if: needs.scope.outputs.mode == 'native'
         run: python scripts/stamp-version-hash.py "${{ github.sha }}"
       - name: Provision Windows build sysroot
+        if: needs.scope.outputs.mode == 'native'
         id: windows_sysroot
         shell: pwsh
         env:
           STFC_WINDOWS_TOOLCHAIN_URL: ${{ vars.STFC_WINDOWS_TOOLCHAIN_URL }}
         run: ./scripts/provision-windows-sysroot.ps1
       - name: Build and test
+        if: needs.scope.outputs.mode == 'native'
         id: build_identity
         shell: pwsh
         env:
@@ -63,10 +111,12 @@ jobs:
             -Dstfc_build_channel=ci -Dprofiles=${{ github.repository == 'Guffawaffle/stfc-mod' }} @sysrootArgs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify proxy binary contract
+        if: needs.scope.outputs.mode == 'native'
         run: >-
           python scripts/verify-windows-binary.py ${{ github.repository == 'Guffawaffle/stfc-mod' && '--profiles-host' || '' }} --identity
           "stfc-identity-v1;distribution=netniv.stfc-community-mod;source=git:${{ github.sha }};base=${{ github.sha }};build=github:${{ github.run_id }}:${{ github.run_attempt }}:windows;mode=release;channel=ci"
       - name: Verify Windows version identity
+        if: needs.scope.outputs.mode == 'native'
         shell: pwsh
         run: |
           $header = Get-Content -LiteralPath src/mod/version.h -Raw
@@ -94,27 +144,29 @@ jobs:
             throw "DLL version does not match its producing source"
           }
       - uses: actions/upload-artifact@v7.0.1
+        if: needs.scope.outputs.mode == 'native'
         with:
           name: stfc-community-mod
           path: zig-out/bin/version.dll
           if-no-files-found: error
       - name: Stage matching Profiles helper and notices
-        if: github.repository == 'Guffawaffle/stfc-mod'
+        if: ${{ needs.scope.outputs.mode == 'native' && (github.repository == 'Guffawaffle/stfc-mod') }}
         shell: pwsh
         run: |
           python scripts/windows-profiles-package.py stage --prefix zig-out --output profiles-windows `
             --source "${{ github.sha }}" --base "${{ github.sha }}" --run "${{ github.run_id }}:${{ github.run_attempt }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v7.0.1
-        if: github.repository == 'Guffawaffle/stfc-mod'
+        if: ${{ needs.scope.outputs.mode == 'native' && (github.repository == 'Guffawaffle/stfc-mod') }}
         with:
           name: stfc-community-mod-profiles-windows
           path: profiles-windows
           if-no-files-found: error
 
   cross-win:
+    needs: scope
     # Enable this by configuring a hosted sysroot URL; no temporary URL is committed.
-    if: ${{ vars.STFC_WINDOWS_TOOLCHAIN_URL != '' }}
+    if: ${{ needs.scope.outputs.mode == 'native' && vars.STFC_WINDOWS_TOOLCHAIN_URL != '' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -131,6 +183,8 @@ jobs:
 
   # The native fixtures need no SDK, so they run on Linux too, where they are cheapest.
   test-linux:
+    needs: scope
+    if: needs.scope.outputs.mode == 'native'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -151,6 +205,8 @@ jobs:
           python3 -m unittest discover -s tests -p update_release_index_test.py
 
   build-mac:
+    needs: scope
+    if: ${{ always() }}
     name: build-mac (${{ matrix.arch }})
     strategy:
       fail-fast: false
@@ -167,15 +223,29 @@ jobs:
             runner: macos-26-intel
             artifact: macos-x86_64-build
             tests: test-sync test-launcher test-spud
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ github.event_name == 'pull_request' && (needs.scope.outputs.mode == 'docs' || needs.scope.outputs.mode == 'index') && 'ubuntu-24.04' || matrix.runner }}
     steps:
+      # Always produce a conclusive required check when scope validation fails.
+      - name: Require successful scope validation
+        shell: bash
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          CI_SCOPE: ${{ needs.scope.outputs.mode }}
+        run: |
+          set -euo pipefail
+          [[ "$SCOPE_RESULT" == success && "$CI_SCOPE" =~ ^(native|docs|index)$ ]]
+          echo "Scope validation succeeded: $CI_SCOPE"
       - uses: actions/checkout@v7
+        if: needs.scope.outputs.mode == 'native'
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        if: needs.scope.outputs.mode == 'native'
         with:
           version: ${{ env.ZIG_VERSION }}
       - name: Stamp commit hash
+        if: needs.scope.outputs.mode == 'native'
         run: python3 scripts/stamp-version-hash.py "${{ github.sha }}"
       - name: Build and test
+        if: needs.scope.outputs.mode == 'native'
         run: |
           python3 scripts/ci-build-retry.py --prefetch -- zig build install launcher test-toolchains test-codegen test-deps test-il2cpp test-mod ${{ matrix.tests }} \
             -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dtest-optimize=Debug --summary all \
@@ -186,8 +256,10 @@ jobs:
             -Dlauncher_run_number=${{ github.run_number }} \
             -Dlauncher_run_attempt=${{ github.run_attempt }}
       - name: Verify launcher version identity
+        if: needs.scope.outputs.mode == 'native'
         run: python3 scripts/verify-version-substitution.py --channel ci --source "${{ github.sha }}"
       - name: Verify portable linkage
+        if: needs.scope.outputs.mode == 'native'
         run: |
           scripts/check-mac-linkage.sh zig-out/macOSLauncher.app/Contents/MacOS/macOSLauncher \
             zig-out/bin/stfc-community-mod-loader zig-out/lib/libstfc-community-mod.dylib
@@ -195,7 +267,7 @@ jobs:
             scripts/check-mac-linkage.sh zig-out/bin/stfc-profiles
           fi
       - name: Retain native-detour fixture for architecture qualification
-        if: ${{ always() }}
+        if: ${{ always() && needs.scope.outputs.mode == 'native' }}
         uses: actions/upload-artifact@v7.0.1
         with:
           name: macos-detour-fixture-${{ matrix.arch }}
@@ -207,6 +279,7 @@ jobs:
           if-no-files-found: warn
       # The install prefix as scripts/assemble-mac-app.sh expects it.
       - name: Package intermediate build
+        if: needs.scope.outputs.mode == 'native'
         run: |
           payload=(macOSLauncher.app bin/stfc-community-mod-loader lib/libstfc-community-mod.dylib)
           if [[ "$GITHUB_REPOSITORY" == Guffawaffle/stfc-mod ]]; then
@@ -214,6 +287,7 @@ jobs:
           fi
           tar -cf macos-${{ matrix.arch }}-build.tar -C zig-out "${payload[@]}"
       - uses: actions/upload-artifact@v7.0.1
+        if: needs.scope.outputs.mode == 'native'
         with:
           name: ${{ matrix.artifact }}
           path: macos-${{ matrix.arch }}-build.tar
@@ -281,7 +355,8 @@ jobs:
 
   package-mac:
     name: package-mac
-    needs: build-mac
+    needs: [scope, build-mac]
+    if: needs.scope.outputs.mode == 'native'
     runs-on: macos-26
 
     steps:

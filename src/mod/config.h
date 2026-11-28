@@ -195,8 +195,10 @@ public:
     bool        hotkeys_enabled                 = true;
     bool        hotkeys_extended                = true;
     bool        use_scopely_hotkeys             = false;
+    bool        macos_navigation_mouse          = false;
     std::string keyboard_layout_mode            = "physical";
-    // Milliseconds within which pressing a ship's number again flies the camera to it.
+    // A repeated selection of the same ship locates it strictly before this many milliseconds.
+    // Zero disables only repeated-press locate.
     int  select_timer        = 500;
     bool enable_experimental = false;
   } control;
@@ -260,6 +262,7 @@ public:
     float       loader_logo_scale      = 1.0f;
     bool        loader_tip_enabled     = true;
     bool        galactic_anomaly_timer = true;
+    bool        mirror_space_timer     = false;
   } graphics;
 
   struct Buffs {
@@ -296,7 +299,7 @@ public:
     bool streamer_hide_chat_alliances        = false;
     bool streamer_compact_player_ship_labels = false;
     bool disable_escape_exit                 = true;
-    // Maximum gap in milliseconds between two Escape presses that opens the exit prompt; 0 never opens it.
+    // With Escape exit blocked, distinct presses up to this many ms apart may open it; zero keeps exit blocked.
     int   disable_escape_exit_timer       = 0;
     bool  disable_preview_locate          = false;
     bool  disable_preview_recall          = false;
@@ -338,6 +341,8 @@ public:
     bool format_cargo_values  = true;
     bool highlight_opc_fleets = true;
     bool fleet_hud_opc_eta    = true;
+    // Opponent mining indicators are available only in development packages.
+    bool mining_target_opc = false;
     // Restores the Below Deck Ability officer sort option.
     bool officer_sort                         = true;
     bool show_ship_tech_indicators            = true;

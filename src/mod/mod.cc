@@ -170,7 +170,9 @@ constexpr const Feature* kFeatures[] = {
     &kFleetNodeDepletion,
     // mining_preview.cc
     &kMiningPreview,
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
     &kMiningTargetOpc,
+#endif
     &kNavigationOrbit,
     // fleet_labels.cc
     &kFleetLabels,
@@ -189,9 +191,14 @@ constexpr const Feature* kFeatures[] = {
     &kHavenZoom,
     &kHavenHistory,
     &kHavenOrbit,
+#if __APPLE__
+    // mouse_navigation_mac.mm: registers the producer inside the shared input snapshot, ahead of every reader.
+    &kMacNavigationMouse,
+#endif
     // hotkeys.cc
     &kHotkeys,
     &kKeyboardConfirm,
+    &kSettingsTutorialInput,
     // instant_warp.cc
     &kInstantWarp,
     // loading_screens.cc

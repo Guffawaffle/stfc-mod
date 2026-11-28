@@ -194,7 +194,9 @@ extern const Feature kOpcIndicators;
 
 // mining_preview.cc
 extern const Feature kMiningPreview;
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
 extern const Feature kMiningTargetOpc;
+#endif
 
 // navigation_orbit.cc
 extern const Feature kNavigationOrbit;
@@ -216,6 +218,9 @@ bool                 EnsureOrbitConstraints();
 // hotkeys.cc
 extern const Feature kHotkeys;
 extern const Feature kKeyboardConfirm;
+extern const Feature kSettingsTutorialInput;
+// Settings navigation owns any temporary tutorial-input suspension until normal exit or session teardown.
+void ShowSettings();
 // The shortcut dispatch for one frame, run by the frame tick. True when the game's own ScreenManager.Update must
 // not run, so it does not handle the key as well. False until kHotkeys is installed.
 bool HandleShortcuts();
@@ -314,3 +319,9 @@ float WindowDpiScale(bool refresh = false);
 
 // sync/sync.cc
 extern const Feature kSync;
+
+#if __APPLE__
+// mouse_navigation_mac.mm
+extern const Feature kMacNavigationMouse;
+bool                 MacNavigationMouseAvailable() noexcept;
+#endif

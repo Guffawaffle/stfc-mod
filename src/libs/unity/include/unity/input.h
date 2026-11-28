@@ -7,6 +7,7 @@
 
 #include <il2cpp/il2cpp.h>
 
+#include <array>
 #include <cstdint>
 
 namespace unity
@@ -472,6 +473,19 @@ namespace Key
   // Starts a frame's reads. Every hook that reads keys calls it first, since hooks run in no fixed order within a
   // frame and reads before it see the previous frame. Cheap after the first call in a frame.
   void Poll();
+
+  // One process-lifetime producer runs inside Poll after the new snapshot starts and before any reader returns.
+  // Registration is idempotent for the same producer and refuses a competing owner. Producer must not throw.
+  using NavigationMousePoll = void (*)() noexcept;
+  bool RegisterNavigationMousePoll(NavigationMousePoll producer) noexcept;
+  // App-local navigation is a one-frame overlay, published on the game thread within Poll. The captured revision
+  // prevents a callback/input-owner handoff from reviving a retired pulse. Only Mouse3/Mouse4 are overlaid.
+  void PublishNavigationMouse(const std::array<bool, 2>& buttons, uint64_t revision);
+  // Atomic revision only: safe for native event callbacks, with no Unity or managed-runtime calls.
+  void     RetireNavigationMouse() noexcept;
+  uint64_t NavigationMouseRevision() noexcept;
+  // Game thread only. Retires pending producers too and clears this frame's synthetic overlay, never physical keys.
+  void ClearNavigationMouse() noexcept;
 
   // Held during this frame.
   bool Pressed(KeyCode key);

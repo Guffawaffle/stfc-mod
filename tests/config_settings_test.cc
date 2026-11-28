@@ -189,6 +189,9 @@ void MigrateLegacyFiles() {}
 } // namespace File
 namespace unity::Key
 {
+void ClearNavigationMouse() noexcept {}
+bool IsInputFocused()
+{ return false; }
 bool Pressed(KeyCode key)
 {
   ++raw_queries;
@@ -202,6 +205,10 @@ bool Down(KeyCode key)
 bool IsModified()
 { return false; }
 } // namespace unity::Key
+#if __APPLE__
+bool MacNavigationMouseAvailable() noexcept
+{ return false; }
+#endif
 std::span<const FeatureInstallation> FeatureInstallations()
 { return features; }
 namespace streamer_mode
@@ -439,14 +446,31 @@ int main()
   auto* highlight = Find<BooleanSetting>(catalog, "ui.highlight_opc_fleets");
   auto* eta       = Find<BooleanSetting>(catalog, "ui.fleet_hud_opc_eta");
   Check(highlight && eta && !highlight->Observe().state.known() && !eta->Observe().state.known(),
-        "without either feature the cargo indicators are unavailable");
+        "own fleet cargo controls require their own indicator feature");
+  auto* mining_target = Find<BooleanSetting>(catalog, "ui.mining_target_opc");
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
+  Check(mining_target && mining_target->default_value() == false
+            && mining_target->metadata().timing == ApplyTiming::Live
+            && registered.contains("ui.mining_target_opc") && !mining_target->Observe().state.known(),
+        "DEV registers a default-off live opponent control that requires its own feature");
+#else
+  Check(!mining_target && !registered.contains("ui.mining_target_opc"),
+        "public builds expose no opponent mining control or save registration");
+#endif
   Enable("MiningTargetOpc");
-  Check(highlight->Observe().state.known() && !eta->Observe().state.known(),
-        "the selected mining card alone exposes the highlight toggle, not fleet ETA");
+  Check(!highlight->Observe().state.known() && !eta->Observe().state.known(),
+        "the opponent mining feature cannot expose own fleet cargo controls");
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
+  Check(mining_target->Observe().state.known() && !Config::Get().ui.mining_target_opc,
+        "an available DEV opponent feature stays off until explicitly enabled");
+#endif
   features.pop_back();
   Enable("OpcIndicators");
   Check(highlight->Observe().state.known() && eta->Observe().state.known(),
         "the fleet bar alone exposes both cargo controls");
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
+  Check(!mining_target->Observe().state.known(), "own fleet indicators cannot expose the DEV opponent control");
+#endif
   features.pop_back();
   auto* image = Exact("graphics.loader_image");
   Check(image && !image->Read(0).actionable(), "loading image remains unavailable without a renderer owner");
