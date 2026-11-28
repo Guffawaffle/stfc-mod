@@ -335,6 +335,27 @@ void EscapeTimingNativeCases()
   fleet_native_capture                       = false;
   Config::Get().control.hotkeys_enabled      = true;
   Config::Get().control.use_scopely_hotkeys  = false;
+  input_field_focused                        = true;
+  event_system_lookup_throws                 = false;
+  selected                                  = &selected_object;
+  screen_actions_section                    = SectionID::Navigation_System;
+  sample(true, true);
+  Require(HandleShortcuts() && selected == nullptr && !escape_first_press,
+          "Escape clears a focused field without beginning an exit pair");
+  Require(HandleShortcuts() && !escape_first_press,
+          "redispatch after same-frame focus recovery cannot reuse its Escape as an exit press");
+  sample(false);
+  Require(!HandleShortcuts() && !escape_first_press, "release after focus recovery leaves no pending exit pair");
+  sample(true, true);
+  Require(HandleShortcuts() && escape_first_press.has_value(),
+          "the next physical Escape begins a fresh pair rather than completing focus recovery's press");
+  ResetHotkeys();
+  fleet_native_capture = true;
+  sample(true, true);
+  Require(!HandleShortcuts() && !escape_first_press, "shortcut capture owns the current Escape down frame");
+  fleet_native_capture = false;
+  Require(HandleShortcuts() && !escape_first_press,
+          "releasing capture in the same frame cannot replay its Escape as an exit press");
   Config::Get().ui.disable_escape_exit_timer = 0;
   input_field_focused = event_system_lookup_throws = false;
   screen_actions_section                           = SectionID::Navigation_System;

@@ -124,6 +124,14 @@ bool SettingShortcuts()
 void ResetHotkeys()
 { escape_first_press.reset(); }
 
+void RetireEscapeInput()
+{
+  ResetHotkeys();
+  // Recovery or another input owner must not leave this down event eligible after a same-frame handoff.
+  if (unity::Key::Down(unity::KeyCode::Escape))
+    escape_down_frame = unity::Time::frameCount();
+}
+
 // Only eligible fresh Escape presses reach this comparison; idle/held frames do not sample the clock.
 // Unlike ship locate's strict window, Escape accepts its inclusive endpoint and consumes a completed pair.
 bool EscapeDoubleTapAt(std::chrono::steady_clock::time_point now, int window_ms)
@@ -147,11 +155,11 @@ bool SwallowEscape()
 {
   const auto& config = Config::Get();
   if (!config.ui.disable_escape_exit) {
-    ResetHotkeys();
+    RetireEscapeInput();
     return false;
   }
   if (config.ui.disable_escape_exit_timer <= 0) {
-    ResetHotkeys();
+    RetireEscapeInput();
     return unity::Key::Pressed(unity::KeyCode::Escape);
   }
   if (escape_first_press && escape_first_press->window_ms != config.ui.disable_escape_exit_timer)
@@ -224,17 +232,17 @@ bool HandleShortcuts()
 {
   // Capture also owns mode toggles, awaited buttons, ship selection and Escape. Let native UI keep its Update.
   if (Shortcut::CaptureBlocksShortcuts()) {
-    ResetHotkeys();
+    RetireEscapeInput();
     TraceHotkeyInput(std::nullopt);
     CancelAwaitedButton();
     return false;
   }
   if (!hotkeys_installed) {
-    ResetHotkeys();
+    RetireEscapeInput();
     return false;
   }
   if (Shortcut::IsDown(Action::kDisableHotKeys, Shortcut::TextInputPolicy::AllowKeyboard)) {
-    ResetHotkeys();
+    RetireEscapeInput();
     HideKeybindBadges();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, false, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
@@ -244,7 +252,7 @@ bool HandleShortcuts()
     return true;
   }
   if (Shortcut::IsDown(Action::kEnableHotKeys, Shortcut::TextInputPolicy::AllowKeyboard)) {
-    ResetHotkeys();
+    RetireEscapeInput();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, true, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
                                     runtime_config::SaveSetting(key.section, key.name, value, key.delay);
@@ -261,7 +269,7 @@ bool HandleShortcuts()
   // the UI's per-frame work.
   // Awaited native button callbacks can reload (and replace) Config.
   if (!Config::Get().control.hotkeys_enabled || Config::Get().control.use_scopely_hotkeys) {
-    ResetHotkeys();
+    RetireEscapeInput();
     return false;
   }
 
@@ -296,7 +304,7 @@ bool HandleShortcuts()
   // The game only clears a focused text field from its back button; Escape should too.
   const bool in_chat = Hub::IsInChat();
   if (typing || in_chat)
-    ResetHotkeys();
+    RetireEscapeInput();
   if (unity::Key::Pressed(unity::KeyCode::Escape) && (typing || in_chat)) {
     const auto cleared = unity::Key::ClearInputFocus();
     // Unknown focus or a failed clear must leave native Escape recovery available. Keep the existing full-chat
