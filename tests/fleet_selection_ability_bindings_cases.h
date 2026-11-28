@@ -388,6 +388,49 @@ void FleetSelectionAbilityCases(std::string_view mode)
     Require(!SelectShipShortcutsAt(at) && fleet_sa_requests == before_disabled,
             "failed native custody cannot publish a selection or retain weak repeat state");
     warp_root_failure = false;
+    // Pin the timing contract without renumbering preceding native-call assertions.
+    slots.items[0]       = reinterpret_cast<FleetPlayerData*>(&first);
+    slots.items[1]       = reinterpret_cast<FleetPlayerData*>(&second);
+    panel.fleet          = &first;
+    fleet_native_keys    = {Action::kSelectShip1};
+    const auto timing_at = at + std::chrono::seconds(10);
+    for (const int window : {0, -1}) {
+      config.control.select_timer = window;
+      fleet_selection_repeat.reset();
+      const auto requests = fleet_sa_requests, views = fleet_sa_views;
+      Require(SelectShipShortcutsAt(timing_at) && SelectShipShortcutsAt(timing_at + std::chrono::milliseconds(1))
+                  && fleet_sa_requests == requests + 2 && fleet_sa_views == views,
+              "zero and legacy negative windows preserve immediate selection while disabling repeat locate");
+    }
+    config.control.select_timer = 500;
+    fleet_selection_repeat.reset();
+    const auto rolling_requests = fleet_sa_requests, rolling_views = fleet_sa_views;
+    Require(SelectShipShortcutsAt(timing_at) && SelectShipShortcutsAt(timing_at + std::chrono::milliseconds(400))
+                && SelectShipShortcutsAt(timing_at + std::chrono::milliseconds(800))
+                && fleet_sa_requests == rolling_requests + 1 && fleet_sa_views == rolling_views + 2,
+            "a successful locate renews the ship window so a third press can locate beyond the original window");
+    config.control.select_timer = 1500;
+    fleet_selection_repeat.reset();
+    const auto slow_requests = fleet_sa_requests, slow_views = fleet_sa_views;
+    Require(SelectShipShortcutsAt(timing_at) && SelectShipShortcutsAt(timing_at + std::chrono::milliseconds(1200))
+                && fleet_sa_requests == slow_requests + 1 && fleet_sa_views == slow_views + 1,
+            "a ship locate window above one second accepts slower repeated presses");
+    config.control.select_timer = 500;
+    fleet_selection_repeat.reset();
+    const auto different_requests = fleet_sa_requests, different_views = fleet_sa_views;
+    Require(SelectShipShortcutsAt(timing_at), "start the different-ship sequence with an ordinary first selection");
+    fleet_native_keys = {Action::kSelectShip2};
+    panel.fleet       = &second;
+    Require(SelectShipShortcutsAt(timing_at + std::chrono::milliseconds(1))
+                && fleet_sa_requests == different_requests + 2 && fleet_sa_views == different_views,
+            "a different populated ship receives ordinary selection despite the previous ship's live window");
+    Require(SelectShipShortcutsAt(timing_at + std::chrono::milliseconds(2)) && fleet_sa_views == different_views + 1,
+            "the newly selected second ship owns its own repeat-locate sequence");
+    fleet_native_keys = {Action::kSelectShip1};
+    panel.fleet       = &first;
+    Require(SelectShipShortcutsAt(timing_at + std::chrono::milliseconds(3))
+                && fleet_sa_requests == different_requests + 3 && fleet_sa_views == different_views + 1,
+            "returning to the first ship starts a new sequence rather than resurrecting its earlier window");
     fleet_selection_repeat.reset();
     fleet_native_widgets.clear();
     fleet_native_keys.clear();

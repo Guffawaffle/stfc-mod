@@ -77,6 +77,8 @@ void MigrateLegacyFiles() {}
 
 namespace unity::Key
 {
+bool IsInputFocused()
+{ return false; }
 bool Pressed(KeyCode)
 { return false; }
 bool Down(KeyCode)

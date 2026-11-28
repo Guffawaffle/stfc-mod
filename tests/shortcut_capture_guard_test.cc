@@ -11,6 +11,8 @@ namespace
 {
 std::array<bool, std::to_underlying(unity::KeyCode::Max)> held_keys{}, down_keys{};
 bool                                                      text_focused = false;
+bool                                                      focus_known  = true;
+int                                                       focus_reads  = 0;
 
 void Check(bool condition, const char* message)
 {
@@ -47,7 +49,10 @@ bool Pressed(KeyCode key)
 bool Down(KeyCode key)
 { return down_keys[std::to_underlying(key)]; }
 bool IsInputFocused()
-{ return text_focused; }
+{
+  ++focus_reads;
+  return !focus_known || text_focused;
+}
 bool IsModified()
 {
   constexpr std::array modifiers{KeyCode::LeftAlt,     KeyCode::LeftControl,  KeyCode::LeftShift,
@@ -287,11 +292,93 @@ void DockInput()
   Check(!dock_assignment::EnterRequested(true), "released input cannot request assignment");
 }
 
+void TypingPolicy()
+{
+  using Shortcut::TextInputPolicy;
+  using unity::KeyCode;
+  Shortcut::Bindings next;
+  next.actions[std::to_underlying(Action::kShowGalaxy)] = {KeyChord::Parse("CTRL-A"), KeyChord::Parse("CTRL-MOUSE1")};
+  next.actions[std::to_underlying(Action::kActionPrimary)] = {KeyChord::Parse("SPACE"), KeyChord::Parse("MOUSE1")};
+  next.actions[std::to_underlying(Action::kNavigationOrbitDrag)] = {KeyChord::Parse("B")};
+  next.actions[std::to_underlying(Action::kSelectChatGlobal)]    = {KeyChord::Parse("CTRL-A")};
+  SetKeys({});
+  Shortcut::Set(next);
+  focus_reads = 0;
+  Check(!Shortcut::IsDown(Action::kShowGalaxy) && !Shortcut::IsPressed(Action::kNavigationOrbitDrag)
+            && focus_reads == 0,
+        "idle and unrelated keys do not query text focus");
+
+  text_focused = true;
+  SetKeys({KeyCode::LeftControl, KeyCode::A}, {KeyCode::A});
+  Check(!Shortcut::IsDown(Action::kShowGalaxy) && !Shortcut::IsPressed(Action::kShowGalaxy)
+            && !Shortcut::Owns(KeyCode::A),
+        "typing blocks keyboard down and hold without claiming native input");
+  Check(unity::Key::Down(KeyCode::A) && unity::Key::Pressed(KeyCode::A), "raw text input stays available");
+  SetKeys({KeyCode::LeftControl, KeyCode::LeftShift, KeyCode::A}, {KeyCode::A});
+  Check(!Shortcut::IsDownWithShift(Action::kShowGalaxy), "extra-Shift matching retains keyboard typing suppression");
+  SetKeys({KeyCode::LeftControl, KeyCode::A, KeyCode::Mouse1}, {KeyCode::A, KeyCode::Mouse1});
+  Check(Shortcut::IsDown(Action::kShowGalaxy) && !Shortcut::Owns(KeyCode::A) && Shortcut::Owns(KeyCode::Mouse1),
+        "a blocked keyboard alternative does not suppress modifier-plus-mouse matching");
+  SetKeys({});
+  Shortcut::Set(next);
+  std::ranges::reverse(next.actions[std::to_underlying(Action::kShowGalaxy)]);
+  Shortcut::Set(next);
+  SetKeys({KeyCode::LeftControl, KeyCode::Mouse1}, {KeyCode::Mouse1});
+  const auto before_mouse = focus_reads;
+  Check(Shortcut::IsDown(Action::kShowGalaxy) && focus_reads == before_mouse,
+        "mouse-first alternatives retain their rules without a text-focus query");
+  SetKeys({});
+  Shortcut::Set(next);
+  SetKeys({KeyCode::Mouse1}, {KeyCode::Mouse1});
+  Check(Shortcut::IsDown(Action::kActionPrimary) && !Shortcut::IsDown(Action::kActionPrimary, false),
+        "native mouse ownership remains independent of typing policy");
+  SetKeys({KeyCode::Space}, {KeyCode::Space});
+  Check(!Shortcut::IsDown(Action::kActionPrimary, false), "keyboard alternatives still yield over native UI");
+
+  SetKeys({});
+  Shortcut::Set(next);
+  SetKeys({KeyCode::LeftControl, KeyCode::A}, {KeyCode::A});
+  Check(!Shortcut::IsDown(Action::kSelectChatGlobal)
+            && Shortcut::IsDown(Action::kSelectChatGlobal, TextInputPolicy::AllowKeyboard),
+        "typing exceptions require the explicit caller policy");
+  const auto token = Shortcut::ClaimCapture();
+  Check(!Shortcut::IsDown(Action::kSelectChatGlobal, TextInputPolicy::AllowKeyboard),
+        "shortcut capture overrides even intentional typing exceptions");
+  Check(Shortcut::ReleaseCapture(token), "typing fixture releases its own capture");
+  SetKeys({});
+  for (int frame = 0; frame < 4; ++frame)
+    PollCapture();
+  Check(!Shortcut::CaptureBlocksShortcuts(), "typing fixture drains the capture boundary");
+
+  Shortcut::Set(next);
+  SetKeys({KeyCode::B}, {KeyCode::B});
+  Check(!Shortcut::IsPressed(Action::kNavigationOrbitDrag), "a keyboard drag cannot start while typing");
+  text_focused = false;
+  Check(!Shortcut::IsDown(Action::kNavigationOrbitDrag),
+        "clearing native focus in the same frame cannot replay a typing key-down");
+  SetKeys({KeyCode::B});
+  Check(!Shortcut::IsPressed(Action::kNavigationOrbitDrag), "a held typing key stays blocked after refocus");
+  SetKeys({});
+  Check(!Shortcut::IsPressed(Action::kNavigationOrbitDrag), "physical release retires typing suppression");
+  SetKeys({KeyCode::B}, {KeyCode::B});
+  Check(Shortcut::IsDown(Action::kNavigationOrbitDrag) && Shortcut::IsPressed(Action::kNavigationOrbitDrag),
+        "a fresh key-down can start the next keyboard drag");
+  SetKeys({});
+  Shortcut::Set(next);
+  focus_known = false;
+  SetKeys({KeyCode::B}, {KeyCode::B});
+  Check(!Shortcut::IsDown(Action::kNavigationOrbitDrag), "unknown text focus fails closed for keyboard shortcuts");
+  focus_known = true;
+  SetKeys({});
+  Shortcut::Set({});
+}
+
 int main()
 {
   GuardPolicy();
   HostPolicy();
   CaptureCancellation();
   DockInput();
+  TypingPolicy();
   std::cout << "PASS shortcut capture policy and production matching/release integration\n";
 }

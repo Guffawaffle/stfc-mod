@@ -325,6 +325,41 @@ void AbilityRecoveryPatch()
     }
 }
 
+void DoublePressTimingSettings()
+{
+  toml::table effective;
+  const auto  defaults = Config::Parse({}, effective, false);
+  Check(defaults->control.select_timer == 500 && defaults->ui.disable_escape_exit_timer == 0
+            && defaults->ui.disable_escape_exit,
+        "ship locate and blocked Escape keep their independent 500/0 ms defaults");
+  for (const int configured : {std::numeric_limits<int>::min(), -1, 0, 500, 1500, std::numeric_limits<int>::max()}) {
+    const auto parsed   = Config::Parse(toml::table{{"control", toml::table{{"select_timer", configured}}},
+                                                    {"ui", toml::table{{"disable_escape_exit_timer", configured}}}},
+                                        effective, false);
+    const auto expected = std::max(configured, 0);
+    Check(parsed->control.select_timer == expected && parsed->ui.disable_escape_exit_timer == expected
+              && effective["control"]["select_timer"].value<int>() == expected
+              && effective["ui"]["disable_escape_exit_timer"].value<int>() == expected,
+          "legacy negative timing values stay disabled while nonnegative accessibility values and vars agree");
+  }
+  for (const auto invalid : {"[]", "'500'", "1.5", "2147483648"}) {
+    const auto source =
+        std::string("[control]\nselect_timer=") + invalid + "\n[ui]\ndisable_escape_exit_timer=" + invalid;
+    const auto parsed = Config::Parse(toml::parse(source), effective, false);
+    Check(parsed->control.select_timer == 500 && parsed->ui.disable_escape_exit_timer == 0
+              && effective["control"]["select_timer"].value<int>() == 500
+              && effective["ui"]["disable_escape_exit_timer"].value<int>() == 0,
+          "mistyped or overflowing timing settings retain each setting's own default");
+  }
+  const auto independent = Config::Parse(
+      toml::table{{"control", toml::table{{"select_timer", 0}}},
+                  {"ui", toml::table{{"disable_escape_exit", false}, {"disable_escape_exit_timer", 1500}}}},
+      effective, false);
+  Check(independent->control.select_timer == 0 && independent->ui.disable_escape_exit_timer == 1500
+            && !independent->ui.disable_escape_exit,
+        "ship locate, Escape window and Escape blocking parse independently");
+}
+
 void AllianceGamesResearchSetting()
 {
   toml::table effective;
@@ -1248,6 +1283,8 @@ void Matching()
 // The fake Unity input that the shortcut code reads.
 namespace unity::Key
 {
+bool IsInputFocused()
+{ return false; }
 bool Pressed(unity::KeyCode key)
 { return held[std::to_underlying(key)]; }
 bool Down(unity::KeyCode key)
@@ -1317,6 +1354,7 @@ int main()
   DefaultBindings();
   Loading();
   AbilityRecoveryPatch();
+  DoublePressTimingSettings();
   AllianceGamesResearchSetting();
   MiningTargetOpcSetting();
   MiningPreviewControls();

@@ -189,6 +189,8 @@ void MigrateLegacyFiles() {}
 } // namespace File
 namespace unity::Key
 {
+bool IsInputFocused()
+{ return false; }
 bool Pressed(KeyCode key)
 {
   ++raw_queries;

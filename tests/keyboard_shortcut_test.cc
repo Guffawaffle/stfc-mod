@@ -33,6 +33,8 @@ void Bind(const char* values)
 
 namespace unity::Key
 {
+bool IsInputFocused()
+{ return false; }
 bool Pressed(KeyCode key)
 { return held[std::to_underlying(key)]; }
 bool Down(KeyCode key)

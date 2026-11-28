@@ -504,6 +504,8 @@ namespace Shortcut
 {
 bool IsDown(Action action)
 { return !fleet_native_capture && std::ranges::contains(fleet_native_keys, action); }
+bool IsDown(Action action, TextInputPolicy)
+{ return IsDown(action); }
 bool IsDown(Action action, bool allow_mouse)
 { return IsDown(action) && (allow_mouse || action != Action::kActionPrimary || !fleet_native_primary_mouse); }
 bool IsPressed(Action action)

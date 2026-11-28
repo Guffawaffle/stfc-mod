@@ -866,6 +866,12 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.ReadValid("control", "keyboard_layout_mode", control.keyboard_layout_mode,
               [](const std::string& mode) { return mode == "physical" || mode == "layout"; });
   r.Read("control", "select_timer", control.select_timer);
+  if (control.select_timer < 0) {
+    spdlog::warn("config control.select_timer: '{}' treated as 0 (repeated-press locate disabled)",
+                 control.select_timer);
+    control.select_timer = 0;
+    r.Record("control", "select_timer", control.select_timer);
+  }
   r.Read("control", "enable_experimental", control.enable_experimental);
 
   // [graphics]
@@ -997,6 +1003,12 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.Read("ui", "check_for_mod_updates", u.check_for_mod_updates);
   r.Read("ui", "disable_escape_exit", u.disable_escape_exit);
   r.Read("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);
+  if (u.disable_escape_exit_timer < 0) {
+    spdlog::warn("config ui.disable_escape_exit_timer: '{}' treated as 0 (double-press exit disabled)",
+                 u.disable_escape_exit_timer);
+    u.disable_escape_exit_timer = 0;
+    r.Record("ui", "disable_escape_exit_timer", u.disable_escape_exit_timer);
+  }
   r.Read("ui", "disable_preview_locate", u.disable_preview_locate);
   r.Read("ui", "disable_preview_recall", u.disable_preview_recall);
   r.Read("ui", "keep_base_card_open", u.keep_base_card_open);
