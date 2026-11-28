@@ -170,7 +170,9 @@ constexpr const Feature* kFeatures[] = {
     &kFleetNodeDepletion,
     // mining_preview.cc
     &kMiningPreview,
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
     &kMiningTargetOpc,
+#endif
     &kNavigationOrbit,
     // fleet_labels.cc
     &kFleetLabels,

@@ -1032,6 +1032,7 @@ void Config::Read(const toml::table& file, toml::table& effective, bool log_valu
   r.ReadRenamed("ui", "format_cargo_values", "cargo_format", u.format_cargo_values);
   r.Read("ui", "highlight_opc_fleets", u.highlight_opc_fleets);
   r.Read("ui", "fleet_hud_opc_eta", u.fleet_hud_opc_eta);
+  r.Read("ui", "mining_target_opc", u.mining_target_opc);
   r.Read("ui", "officer_sort", u.officer_sort);
   r.Read("ui", "show_ship_tech_indicators", u.show_ship_tech_indicators);
   r.Read("ui", "show_ship_tech_indicator_backgrounds", u.show_ship_tech_indicator_backgrounds);

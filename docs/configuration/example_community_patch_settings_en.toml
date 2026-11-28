@@ -1043,9 +1043,12 @@ focus_search = true
 
 # Format abbreviated cargo values using Cargo Significant Decimals
 format_cargo_values = true
-# Highlight your fleet tiles and mark selected mining nodes and player ship cards with confirmed unprotected cargo
+# Highlight your own fleet tiles and selected fleet panel when cargo exceeds protection
 highlight_opc_fleets = true
 fleet_hud_opc_eta = true
+# DEV packages only: opt in to OPC badges/outlines on selected opponent miners using fresh game scan data.
+# Standard builds exclude this feature even when set to true. Absence does not confirm protected cargo.
+mining_target_opc = false
 
 # Restore the Below Deck Ability officer sort option
 officer_sort = true

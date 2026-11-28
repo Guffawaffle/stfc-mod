@@ -193,7 +193,9 @@ extern const Feature kOpcIndicators;
 
 // mining_preview.cc
 extern const Feature kMiningPreview;
+#if defined(STFC_DEVELOPMENT_PACKAGE) && STFC_DEVELOPMENT_PACKAGE
 extern const Feature kMiningTargetOpc;
+#endif
 
 // navigation_orbit.cc
 extern const Feature kNavigationOrbit;

@@ -719,12 +719,13 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
         }
     }
 
-    {
+    inline for (.{ false, true }) |development_package| {
         const module = settingsModule(ctx, libs);
         // The catalog's lazy picker admission uses the shared frame declarations.
         // This remains header-only: synthetic owners supply those functions.
         libs.spud.includeInto(module);
         module.addCMacro("STFC_SETTINGS_TEXT_ENTRY_FIXTURE", "1");
+        module.addCMacro("STFC_DEVELOPMENT_PACKAGE", if (development_package) "1" else "0");
         module.addCSourceFiles(.{
             .files = &.{
                 "tests/config_settings_test.cc",
@@ -748,11 +749,15 @@ pub fn add(build_ctx: *const Ctx, libs: Libs) Steps {
             module.addCSourceFile(.{ .file = b.path("src/mod/features/notification_audio_mac.mm"), .flags = flags });
             module.linkFramework("Cocoa", .{});
         }
-        const exe = ctx.executable("config-settings-tests", module);
-        build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const exe = ctx.executable(if (development_package) "config-settings-dev-tests" else "config-settings-tests", module);
         const run = b.addRunArtifact(exe);
-        test_mod.dependOn(&run.step);
-        test_settings_models.dependOn(&run.step);
+        if (development_package) {
+            b.step("test-config-settings-dev", "Run the DEV-only settings catalog fixture locally").dependOn(&run.step);
+        } else {
+            build_tests.dependOn(&b.addInstallArtifact(exe, .{}).step);
+            test_mod.dependOn(&run.step);
+            test_settings_models.dependOn(&run.step);
+        }
     }
 
     {
