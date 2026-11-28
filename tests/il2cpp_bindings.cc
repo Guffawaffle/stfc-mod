@@ -2291,6 +2291,7 @@ void PlannedWarpBindingObservations()
 // Notification cases execute the production audio/banner/fleet consumers with controlled sinks.
 #include "notification_consumer_cases.h"
 #include "hud_owner_cases.h"
+#include "anomaly_timer_cases.h"
 #include "pin_geometry_cases.h"
 #include "chat_pointer_cases.h"
 #include "pin_presentation_cases.h"
@@ -2354,6 +2355,10 @@ try {
   }
   if (argc == 2 && std::string_view(argv[1]) == "anomaly-owners") {
     HudOwnerCases();
+    return 0;
+  }
+  if (argc == 2 && std::string_view(argv[1]) == "anomaly-lifecycle") {
+    AnomalyTimerLifecycleCases();
     return 0;
   }
   if (argc == 2 && std::string_view(argv[1]).starts_with("station-radius-")) {
