@@ -336,6 +336,8 @@ public:
     bool format_cargo_values  = true;
     bool highlight_opc_fleets = true;
     bool fleet_hud_opc_eta    = true;
+    // Opponent mining indicators are available only in development packages.
+    bool mining_target_opc = false;
     // Restores the Below Deck Ability officer sort option.
     bool officer_sort                         = true;
     bool show_ship_tech_indicators            = true;
