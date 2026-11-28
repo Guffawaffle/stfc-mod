@@ -1283,6 +1283,8 @@ void Matching()
 // The fake Unity input that the shortcut code reads.
 namespace unity::Key
 {
+bool IsInputFocused()
+{ return false; }
 bool Pressed(unity::KeyCode key)
 { return held[std::to_underlying(key)]; }
 bool Down(unity::KeyCode key)

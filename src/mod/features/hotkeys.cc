@@ -233,7 +233,7 @@ bool HandleShortcuts()
     ResetHotkeys();
     return false;
   }
-  if (Shortcut::IsDown(Action::kDisableHotKeys)) {
+  if (Shortcut::IsDown(Action::kDisableHotKeys, Shortcut::TextInputPolicy::AllowKeyboard)) {
     ResetHotkeys();
     HideKeybindBadges();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, false, gameplay_settings::Boolean::Hotkeys,
@@ -243,7 +243,7 @@ bool HandleShortcuts()
     spdlog::warn("[Hotkeys] mod hotkeys off");
     return true;
   }
-  if (Shortcut::IsDown(Action::kEnableHotKeys)) {
+  if (Shortcut::IsDown(Action::kEnableHotKeys, Shortcut::TextInputPolicy::AllowKeyboard)) {
     ResetHotkeys();
     gameplay_settings::SetBoolean(Config::Get().control.hotkeys_enabled, true, gameplay_settings::Boolean::Hotkeys,
                                   [](const gameplay_settings::Key& key, bool value) {
