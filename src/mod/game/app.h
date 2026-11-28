@@ -4,6 +4,7 @@
 // the services the mod touches that belong to no screen (tutorial gates, audio, the Windows window procedure).
 
 #include <il2cpp/il2cpp.h>
+#include <unity/core.h>
 
 #include <algorithm>
 #include <array>
@@ -240,11 +241,53 @@ struct Model : il2cpp::Object {
   { return Field<"_appConfig", AppConfig*>(); }
 };
 
+struct TutorialMaskUILoader : il2cpp::Object {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Tutorial", "TutorialMaskUILoader">;
+
+  il2cpp::CallResult<unity::Behaviour*> TryController()
+  { return TryCall<"get_Controller", unity::Behaviour*>(); }
+};
+
 struct TutorialManager : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Tutorial", "TutorialManager">;
 
   bool IsSceneInputAllowed()
   { return Call<"IsSceneInputAllowed", bool>(); }
+
+  // A missing Boolean must not become an observed false and authorize opening a tutorial's input gates.
+  static bool HasInputFields()
+  {
+    static const bool available =
+        il2cpp::detail::ResolveField(Class::Raw(), "_isActive", il2cpp::detail::SlotOf<bool>(), true)
+        && il2cpp::detail::ResolveField(Class::Raw(), "_isBlockingInput", il2cpp::detail::SlotOf<bool>(), true)
+        && Class::HasField<"_loadAndShow", TutorialMaskUILoader*>();
+    return available;
+  }
+  static bool Active()
+  { return Class::Field<"_isActive", bool>(); }
+  static void SetActive(bool value)
+  { Class::SetField<"_isActive">(value); }
+  static bool BlockingInput()
+  { return Class::Field<"_isBlockingInput", bool>(); }
+  static void SetBlockingInput(bool value)
+  { Class::SetField<"_isBlockingInput">(value); }
+  TutorialMaskUILoader* MaskLoader()
+  { return Field<"_loadAndShow", TutorialMaskUILoader*>(); }
+};
+
+struct TouchKit {
+  using Class = il2cpp::Class<"TouchKit", "", "TouchKit">;
+
+  static bool HasInputField()
+  {
+    static const bool available =
+        il2cpp::detail::ResolveField(Class::Raw(), "BlockTouch", il2cpp::detail::SlotOf<bool>(), true) != nullptr;
+    return available;
+  }
+  static bool BlockTouch()
+  { return Class::Field<"BlockTouch", bool>(); }
+  static void SetBlockTouch(bool value)
+  { Class::SetField<"BlockTouch">(value); }
 };
 
 // Digit.Client.Core.Hub is a static class.

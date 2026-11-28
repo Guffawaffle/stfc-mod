@@ -1300,6 +1300,12 @@ API(void, il2cpp_field_static_get_value, (FieldInfo * field, void* value))
 {
   if (tow_static_field_read_override && tow_static_field_read_override(field, value))
     return;
+  if (field->parent->static_fields) {
+    const auto size = Fake(il2cpp_class_from_type(field->type)).value_size;
+    std::memcpy(value, static_cast<const char*>(field->parent->static_fields) + field->offset,
+                size ? size : sizeof(void*));
+    return;
+  }
   if (std::string_view(field->name) == "s_initialized")
     std::memcpy(value, &settings_singleton_initialized, sizeof(settings_singleton_initialized));
   else if (std::string_view(field->name) == "s_instance")
@@ -1308,8 +1314,15 @@ API(void, il2cpp_field_static_get_value, (FieldInfo * field, void* value))
     std::memcpy(value, &static_flag, sizeof(static_flag));
 }
 END_API
-API(void, il2cpp_field_static_set_value, (FieldInfo*, void* value))
-{ std::memcpy(&static_flag, value, sizeof(static_flag)); }
+API(void, il2cpp_field_static_set_value, (FieldInfo * field, void* value))
+{
+  if (field->parent->static_fields) {
+    const auto size = Fake(il2cpp_class_from_type(field->type)).value_size;
+    std::memcpy(static_cast<char*>(field->parent->static_fields) + field->offset, value, size ? size : sizeof(void*));
+    return;
+  }
+  std::memcpy(&static_flag, value, sizeof(static_flag));
+}
 END_API
 
 namespace
