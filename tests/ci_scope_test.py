@@ -43,7 +43,7 @@ class Scope(unittest.TestCase):
                 self.assertEqual(self.route([change(path)]), "docs")
         self.assertEqual(self.route([change(path) for path in sorted(CI.INDEXES)]), "index")
         for path in ("src/mod/config.h", "build.zig", "build.zig.zon", "zig/mod.zig", "scripts/release_version.py",
-                     ".github/workflows/ci.yaml", "AGENTS.md", "CLAUDE.md", "docs/THIRD_PARTY.md",
+                     ".github/workflows/ci.yaml", "AGENTS.md", "CLAUDE.md", "docs/THIRD_PARTY.md", "docs/third_party.md",
                      "docs/migration/catalog.json", "docs/image.svg", "unrecognized.md"):
             with self.subTest(path=path):
                 self.assertEqual(self.route([change(path)]), "native")
@@ -55,6 +55,10 @@ class Scope(unittest.TestCase):
                      change("docs/link.md", new="120000"), change("docs/executable.md", new="100755"),
                      change("docs/new.md", "T"), change("docs/x.md", old="120000"),
                      change("docs/../README.md"), change("docs/x\n.md"), change("docs\\x.md"),
+                     change("docs/AUX.md"), change("docs/guide?.md"), change("docs/NUL/new.md"),
+                     change("docs/COM1.md"), change("docs/LPT².md"), change("docs/AUX .md"),
+                     change("docs/folder./new.md"), change("docs/folder /new.md"),
+                     change("docs/x:stream.md"), change("docs/guide*.md"),
                      change("releases/update-index-v2.json", "A", old="000000")):
             with self.subTest(change=item):
                 self.assertEqual(self.route([item]), "native")
@@ -119,6 +123,19 @@ class Scope(unittest.TestCase):
             self.assertCountEqual(verify.call_args_list,
                                   [unittest.mock.call("v1.1.9.5-guffa.14", "pre"),
                                    unittest.mock.call("v2.3.0", "release")])
+
+    def test_feed_bytes_match_the_client_size_encoding_and_json_contract(self):
+        data = json.dumps(V2).encode("utf-8")
+        at_limit = data + b" " * (4096 - len(data))
+        self.assertEqual(CI.feed_json(at_limit), V2)
+        self.assertEqual(CI.feed_json(b"\xef\xbb\xbf" + data), V2)
+        for invalid in (b"", at_limit + b" ", json.dumps(V2).encode("utf-16"), b"\xff" + data,
+                        data[:-1] + b', "extra": NaN}', data[:-1] + b', "extra": Infinity}',
+                        data[:-1] + b', "extra": -Infinity}', data[:-1] + b', "extra": 1e9999}',
+                        data[:-1] + b', "extra": ' + b"9" * 400 + b'}',
+                        data[:-1] + b', "extra": "\\ud800"}'):
+            with self.subTest(invalid=invalid[:60]), self.assertRaises(ValueError):
+                CI.feed_json(invalid)
 
     def test_existing_publication_verifier_rejects_bad_asset_digest(self):
         digest = "a" * 64

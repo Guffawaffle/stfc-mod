@@ -4,6 +4,7 @@
 import argparse
 import importlib.util
 import json
+import math
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INDEXES = {"releases/update-index.json", "releases/update-index-v2.json"}
 ROOT_DOCS = {"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
 SHA = re.compile(r"[0-9a-f]{40}")
+FEED_LIMIT = 4096  # Keep aligned with mod_updates::max_index_bytes in release_index.h.
 SPEC = importlib.util.spec_from_file_location("update_release_index", ROOT / "scripts/update-release-index.py")
 INDEX = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(INDEX)
@@ -56,13 +58,23 @@ def same_toml(left, right) -> bool:
 def doc(path: str) -> bool:
     pure = PurePosixPath(path)
     return path in ROOT_DOCS or (pure.parts[0] == "docs" and pure.suffix == ".md"
-                                 and path != "docs/THIRD_PARTY.md")
+                                 and path.casefold() != "docs/third_party.md")
 
 
 def example(path: str) -> bool:
     pure = PurePosixPath(path)
     return (pure.parent == PurePosixPath("docs/configuration")
             and pure.name.startswith("example_community_patch_settings") and pure.suffix == ".toml")
+
+
+def portable(path: str) -> bool:
+    for part in path.split("/"):
+        if not part or part.endswith((".", " ")) or any(char in '<>:"|?*' for char in part):
+            return False
+        stem = part.split(".", 1)[0].rstrip(" ").upper()
+        if stem in {"CON", "PRN", "AUX", "NUL", "CLOCK$"} or re.fullmatch(r"(?:COM|LPT)[1-9¹²³]", stem):
+            return False
+    return True
 
 
 def classify(event: str, changed: list[tuple[str, str, str, str]], read_blob) -> str:
@@ -73,7 +85,7 @@ def classify(event: str, changed: list[tuple[str, str, str, str]], read_blob) ->
         if (status not in ("A", "M") or new_mode != "100644"
                 or (status == "M" and old_mode != "100644")
                 or not path or any(ord(char) < 32 or ord(char) == 127 for char in path)
-                or "\\" in path or ".." in PurePosixPath(path).parts):
+                or "\\" in path or ".." in PurePosixPath(path).parts or not portable(path)):
             return "native"
         if path in INDEXES:
             if status != "M":
@@ -96,6 +108,18 @@ def classify(event: str, changed: list[tuple[str, str, str, str]], read_blob) ->
 
 
 def feed_json(data: bytes) -> dict:
+    if not data or len(data) > FEED_LIMIT:
+        raise ValueError("Update feed must contain 1–4096 bytes")
+    def finite(value):
+        try:
+            supported = math.isfinite(float(value))
+        except OverflowError:
+            supported = False
+        if not supported:
+            raise ValueError("Update feed number exceeds the JSON consumer range")
+        return value
+    def constant(_):
+        raise ValueError("Update feed contains a non-JSON numeric constant")
     def unique(pairs):
         value = {}
         for key, item in pairs:
@@ -103,7 +127,11 @@ def feed_json(data: bytes) -> dict:
                 raise ValueError(f"Duplicate feed key: {key}")
             value[key] = item
         return value
-    return json.loads(data, object_pairs_hook=unique)
+    value = json.loads(data.decode("utf-8-sig"), object_pairs_hook=unique, parse_constant=constant,
+                       parse_int=lambda text: finite(int(text)), parse_float=lambda text: finite(float(text)))
+    # JSON escapes must also describe valid Unicode; Python otherwise retains lone surrogates.
+    json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    return value
 
 
 def validate_feeds(changed, read_blob) -> None:
