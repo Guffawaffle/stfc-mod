@@ -194,6 +194,7 @@ constexpr const Feature* kFeatures[] = {
     // hotkeys.cc
     &kHotkeys,
     &kKeyboardConfirm,
+    &kSettingsTutorialInput,
     // instant_warp.cc
     &kInstantWarp,
     // loading_screens.cc

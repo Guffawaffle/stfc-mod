@@ -217,6 +217,9 @@ bool                 EnsureOrbitConstraints();
 // hotkeys.cc
 extern const Feature kHotkeys;
 extern const Feature kKeyboardConfirm;
+extern const Feature kSettingsTutorialInput;
+// Settings navigation owns any temporary tutorial-input suspension until normal exit or session teardown.
+void ShowSettings();
 // The shortcut dispatch for one frame, run by the frame tick. True when the game's own ScreenManager.Update must
 // not run, so it does not handle the key as well. False until kHotkeys is installed.
 bool HandleShortcuts();

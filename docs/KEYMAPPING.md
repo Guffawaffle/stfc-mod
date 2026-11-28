@@ -35,7 +35,8 @@ Escape's close and focus behavior is fixed, even though `ESCAPE` is also a valid
 These are mod hotkeys. `[control].use_scopely_hotkeys = true` selects the game's controls instead.
 Keyboard shortcuts wait while you type in a text field, except chat-channel switching and the hotkey on/off
 controls. Mouse bindings keep the current view's interaction rules, including when an action also has a keyboard
-binding. Escape can still clear text focus.
+binding. Escape can still clear text focus. Opening Settings with its shortcut during a tutorial temporarily releases the
+tutorial mask and input restrictions until Settings closes. Typing and shortcut capture keep their normal priority.
 
 ### Camera and scale
 

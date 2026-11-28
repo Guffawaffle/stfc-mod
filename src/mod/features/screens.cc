@@ -330,7 +330,7 @@ constexpr ScreenShortcut kScreens[] = {
     {Action::kShowAlliance, Goto<SectionID::Alliance_Main>},
     {Action::kShowAllianceHelp, Goto<SectionID::Alliance_Help>},
     {Action::kShowAllianceArmada, Goto<SectionID::Alliance_Armadas>},
-    {Action::kShowSettings, Goto<SectionID::GameSettings>},
+    {Action::kShowSettings, ShowSettings},
 };
 
 // --- Arrow keys and search ---

@@ -37,6 +37,7 @@ int           screen_actions_presses = 0, screen_actions_requests = 0, screen_ac
 int           screen_actions_index_writes = 0;
 std::function<void()> screen_actions_visibility_callback, screen_actions_press_callback;
 std::function<void()> screen_actions_section_callback, screen_actions_direction_callback;
+std::function<void()> screen_actions_navigation_callback;
 std::function<void(ScreenActionsController*)> screen_actions_active_callback;
 
 Il2CppObject* ScreenActionsSections(const MethodInfo*)
@@ -90,7 +91,9 @@ bool ScreenActionsNavigate(Il2CppObject*, SectionID destination, void*, bool for
   Require(!forced && !back && same, "screen shortcuts preserve native section-change flags");
   ++screen_actions_navigations;
   screen_actions_destination = destination;
-  return true;
+  if (screen_actions_navigation_callback)
+    screen_actions_navigation_callback();
+  return screen_actions_accepted;
 }
 int32_t ScreenActionsCount(ScreenActionsContext* self, const MethodInfo*)
 {
