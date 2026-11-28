@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -171,6 +172,95 @@ struct CanvasController : unity::Behaviour {
   static bool OnScreen(unity::Behaviour* view)
   { return unity::ActiveAndEnabled(view) && Shows(view); }
 };
+
+struct SmartScrollerBase : unity::Behaviour {
+  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "SmartScrollerBase">;
+};
+
+namespace ui_scroller_game
+{
+// Runtime invokers own Vector2 marshaling. Notify the native recycler at the observed position without moving it.
+inline il2cpp::CallResult<unity::Vector2> NormalizedPosition(SmartScrollerBase* smart)
+{
+  static const auto* method   = SmartScrollerBase::Class::Method<unity::Vector2()>("get_NormalizedPosition").Info();
+  auto*              expected = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw();
+  if (!smart || !method || !method->invoker_method
+      || !il2cpp::detail::ValueClassMatches(method->return_type, expected, sizeof(unity::Vector2)))
+    return {};
+  const auto observed = il2cpp::detail::TryInvokeBoxed(method, smart, nullptr);
+  auto       box      = observed ? il2cpp::GcHandle::Strong(observed.value) : il2cpp::GcHandle{};
+  if (!box || !box.Get() || box.Get()->klass != expected)
+    return {};
+  return {true, il2cpp::detail::FromBoxed<unity::Vector2>(box.Get())};
+}
+inline bool NotifyPosition(SmartScrollerBase* smart, unity::Vector2 position)
+{
+  static const auto* method   = SmartScrollerBase::Class::Method<void(unity::Vector2)>("OnValueChangedCallback").Info();
+  auto*              expected = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw();
+  if (!smart || !method || !method->invoker_method || method->parameters_count != 1
+      || !il2cpp::detail::ValueClassMatches(method->parameters[0], expected, sizeof(position)))
+    return false;
+  void* args[]{&position};
+  return il2cpp::detail::TryInvokeBoxed(method, smart, args).succeeded;
+}
+
+// A value-only game-thread observation: callers retain the scroller, and no borrowed Unity pointer escapes.
+struct Snapshot {
+  bool           initialized = false, ready = false, regenerating = false, spawning = false, initializing = false;
+  unity::Rect    viewport_rect{};
+  unity::Vector2 content_position{}, normalized_position{};
+  float          screen_width = 0, screen_height = 0;
+
+  bool Idle() const
+  {
+    return initialized && ready && !regenerating && !spawning && !initializing && std::isfinite(viewport_rect.x)
+           && std::isfinite(viewport_rect.y) && std::isfinite(viewport_rect.width) && viewport_rect.width > 0
+           && std::isfinite(viewport_rect.height) && viewport_rect.height > 0 && std::isfinite(content_position.x)
+           && std::isfinite(content_position.y) && std::isfinite(normalized_position.x)
+           && std::isfinite(normalized_position.y) && std::isfinite(screen_width) && screen_width > 0
+           && std::isfinite(screen_height) && screen_height > 0;
+  }
+};
+
+// Fail unavailable when any required metadata/getter/custody observation is missing. A false/zero native value
+// remains an observation for the caller to defer; it is never a guessed idle state after a failed binding.
+inline il2cpp::CallResult<Snapshot> ReadReady(SmartScrollerBase* smart)
+{
+  using Class = SmartScrollerBase::Class;
+  static const bool fields =
+      Class::HasField<"_isInitialized", bool>() && Class::HasField<"_isReadyForInitialization", bool>()
+      && Class::HasField<"_regeneratingContent", bool>() && Class::HasField<"_spawnerCoroutine", il2cpp::Object*>()
+      && Class::HasField<"_dataHeldWhilstInitializing", il2cpp::Object*>()
+      && Class::HasField<"_viewport", unity::RectTransform*>() && Class::HasField<"_content", unity::RectTransform*>()
+      && Class::HasField<"_screenWidth", float>() && Class::HasField<"_screenHeight", float>();
+  if (!smart || !fields)
+    return {};
+  auto       owner = il2cpp::GcHandle::Strong(smart);
+  const auto alive = unity::TryAlive(smart);
+  if (!owner || !alive || !alive.value)
+    return {};
+  auto viewport = il2cpp::GcHandle::Strong(smart->Field<"_viewport", unity::RectTransform*>());
+  auto content  = il2cpp::GcHandle::Strong(smart->Field<"_content", unity::RectTransform*>());
+  if (!viewport || !content)
+    return {};
+  auto*      viewport_rect  = viewport.Get<unity::RectTransform>();
+  auto*      content_rect   = content.Get<unity::RectTransform>();
+  const auto viewport_alive = unity::TryAlive(viewport_rect), content_alive = unity::TryAlive(content_rect);
+  if (!viewport_alive || !viewport_alive.value || !content_alive || !content_alive.value)
+    return {};
+  const auto bounds   = viewport_rect->TryCall<"get_rect", unity::Rect>();
+  const auto position = content_rect->TryCall<"get_anchoredPosition", unity::Vector2>();
+  const auto normal   = NormalizedPosition(smart);
+  if (!bounds || !position || !normal)
+    return {};
+  return {true,
+          {smart->Field<"_isInitialized", bool>(), smart->Field<"_isReadyForInitialization", bool>(),
+           smart->Field<"_regeneratingContent", bool>(),
+           smart->Field<"_spawnerCoroutine", il2cpp::Object*>() != nullptr,
+           smart->Field<"_dataHeldWhilstInitializing", il2cpp::Object*>() != nullptr, bounds.value, position.value,
+           normal.value, smart->Field<"_screenWidth", float>(), smart->Field<"_screenHeight", float>()}};
+}
+} // namespace ui_scroller_game
 
 // Digit.Client.UI.TextLocalizer: the label component that renders localized, parameterized text.
 struct TextLocalizer : il2cpp::Object {

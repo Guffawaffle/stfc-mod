@@ -35,9 +35,7 @@ struct AllianceStoreScroller : il2cpp::Object {
   using Class =
       il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Alliances.Games", "AllianceGamesStoreScrollerViewController">;
 };
-struct StoreSmartScroller : il2cpp::Object {
-  using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Client.UI", "SmartScrollerBase">;
-};
+using StoreSmartScroller = SmartScrollerBase;
 struct StoreResearchManager : il2cpp::Object {
   using Class = il2cpp::Class<"Assembly-CSharp", "Digit.Prime.Research", "ResearchManager">;
 };
@@ -207,28 +205,9 @@ inline bool IsStore(Il2CppObject* object)
 
 // Runtime invokers own Vector2 marshaling. Read/notify only: no position setter.
 inline il2cpp::CallResult<unity::Vector2> NormalizedPosition(StoreSmartScroller* smart)
-{
-  static const auto* method   = StoreSmartScroller::Class::Method<unity::Vector2()>("get_NormalizedPosition").Info();
-  auto*              expected = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw();
-  if (!smart || !method || !method->invoker_method
-      || !il2cpp::detail::ValueClassMatches(method->return_type, expected, sizeof(unity::Vector2)))
-    return {};
-  const auto observed = il2cpp::detail::TryInvokeBoxed(method, smart, nullptr);
-  auto       box      = observed ? il2cpp::GcHandle::Strong(observed.value) : il2cpp::GcHandle{};
-  if (!box || !box.Get() || box.Get()->klass != expected)
-    return {};
-  return {true, il2cpp::detail::FromBoxed<unity::Vector2>(box.Get())};
-}
+{ return ui_scroller_game::NormalizedPosition(smart); }
 inline bool NotifyPosition(StoreSmartScroller* smart, unity::Vector2 position)
-{
-  static const auto* method = StoreSmartScroller::Class::Method<void(unity::Vector2)>("OnValueChangedCallback").Info();
-  auto*              expected = il2cpp::Class<"UnityEngine.CoreModule", "UnityEngine", "Vector2">::Raw();
-  if (!smart || !method || !method->invoker_method || method->parameters_count != 1
-      || !il2cpp::detail::ValueClassMatches(method->parameters[0], expected, sizeof(position)))
-    return false;
-  void* args[]{&position};
-  return il2cpp::detail::TryInvokeBoxed(method, smart, args).succeeded;
-}
+{ return ui_scroller_game::NotifyPosition(smart, position); }
 
 inline StoreArtifact* ArtifactForResource(int64_t resource_id, Roots& roots)
 {

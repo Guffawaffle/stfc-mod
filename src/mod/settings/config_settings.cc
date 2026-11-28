@@ -566,7 +566,11 @@ void RegisterConfigSettings(PageCatalog& catalog)
   privacy("streamer_compact_player_ship_labels", "Compact player ship labels",
           ACCESS(ui, streamer_compact_player_ship_labels), streamer_mode::CompactPlayerShipLabelsAvailable,
           "Use Compact for player ship labels in System view. The Compact layout omits names and alliance tags.");
-  FLOAT("interface", graphics, ui_scale, "Interface scale", scale, Live, "Zero uses native interface scaling.",
+  FLOAT("interface", graphics, ui_scale, "HUD scale", scale, Live,
+        "Scale the map HUD independently of menus. Zero uses native HUD scaling.",
+        "multiplier", 0, largest, 2, .05f);
+  FLOAT("interface", graphics, ui_scale_menu, "Menu scale", scale, Live,
+        "Scale menus and store cards independently of the HUD. Zero uses native menu scaling.",
         "multiplier", 0, largest, 2, .05f);
   FLOAT("interface", graphics, ui_scale_step, "Scale shortcut step", scale, Live,
         "Amount added or removed by scale shortcuts.", "multiplier", positive, largest, .5f, .01f);

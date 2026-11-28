@@ -468,6 +468,21 @@ void Loading()
   Check(Value(parsed, "shortcuts", "show_bookmarks") == "<missing>", "skipped shortcuts are not recorded");
 }
 
+void HudMenuScaleSettings()
+{
+  toml::table effective;
+  const auto legacy = Config::Parse(toml::parse("[graphics]\nui_scale = 0.65"), effective, false);
+  Check(legacy->graphics.ui_scale == 0.65f && legacy->graphics.ui_scale_menu == 0.0f,
+        "existing HUD preferences survive while missing menu preferences use native scaling");
+  const auto independent =
+      Config::Parse(toml::parse("[graphics]\nui_scale = 0.65\nui_scale_menu = 1.1"), effective, false);
+  Check(independent->graphics.ui_scale == 0.65f && independent->graphics.ui_scale_menu == 1.1f,
+        "menu overrides do not replace the HUD preference");
+  const auto menu_only = Config::Parse(toml::parse("[graphics]\nui_scale_menu = 0.9"), effective, false);
+  Check(menu_only->graphics.ui_scale == 0.0f && menu_only->graphics.ui_scale_menu == 0.9f,
+        "a menu override can coexist with native HUD scaling");
+}
+
 // The English example documents every setting. Each key it sets must be one the mod reads, and none may be
 // rejected: otherwise the example and the reader have drifted apart.
 void ExampleSettings()
@@ -512,7 +527,8 @@ void ExampleSettings()
       };
   compare(example, &effective, "");
 
-  Check(config->graphics.ui_scale == 0.0f, "example selects the game's own interface scale");
+  Check(config->graphics.ui_scale == 0.0f, "example selects the game's own HUD scale");
+  Check(config->graphics.ui_scale_menu == 0.0f, "example selects the game's own menu scale");
   Check(config->ui.hud_q_trials == MissionHudVisibility::kAuto
             && config->ui.hud_field_training == MissionHudVisibility::kAuto
             && config->ui.hud_outposts == MissionHudVisibility::kAuto
@@ -1277,6 +1293,7 @@ int main()
   AllianceGamesResearchSetting();
   MiningPreviewControls();
   LoadingArtworkPolicy();
+  HudMenuScaleSettings();
   ExampleSettings();
   NotificationAudio();
   DailyFactionSettings();

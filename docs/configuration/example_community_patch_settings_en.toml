@@ -186,9 +186,12 @@ fr_scale = 2.0
 # Amount of time to spend between transitions. Currently read but not applied
 transition_time = 0.01
 
-# Interface scale override; 0.0 keeps the game's own scale.
-# Choose a positive override to enable the mod's interface-scale shortcuts.
+# Map HUD scale override; 0.0 keeps the game's own HUD scale.
+# Page Up and Page Down adjust only this scale.
 ui_scale = 0.0
+
+# Menu and store-card scale override, independent of the HUD; 0.0 keeps the game's own scale.
+ui_scale_menu = 0.0
 
 # This specifies the amount to scale the ship models in System View, 1.0 being default
 ui_scale_ship = 1.0
@@ -748,7 +751,7 @@ show_system = "H"
 # Subgroup: UI Scale
 # ------------------
 
-# PGDOWN
+# Decrease HUD size without changing menus
 ui_scaledown = "PGDOWN"
 
 # CTRL-PGDOWN
@@ -757,7 +760,7 @@ ui_scaleshipdown = "CTRL-PGDOWN"
 # CTRL-PGUP
 ui_scaleshipup = "CTRL-PGUP"
 
-# PGUP
+# Increase HUD size without changing menus
 ui_scaleup = "PGUP"
 
 # SHIFT-PGDOWN

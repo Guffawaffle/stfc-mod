@@ -43,12 +43,16 @@ Most actions wait while you type in a text field.
 | Zoom in, out | `Q`, `E` | `zoom_in`, `zoom_out` |
 | Maximum, minimum, default zoom | `MINUS`, `BACKSPACE`, `=` | `zoom_max`, `zoom_min`, `zoom_reset` |
 | Zoom presets 1 to 5 | `F1` to `F5` | `zoom_preset1` to `zoom_preset5` |
-| Main UI scale up, down | `PGUP`, `PGDOWN` | `ui_scaleup`, `ui_scaledown` |
+| HUD and docked chat scale up, down | `PGUP`, `PGDOWN` | `ui_scaleup`, `ui_scaledown` |
 | Viewer scale up, down | `SHIFT-PGUP`, `SHIFT-PGDOWN` | `ui_scaleviewerup`, `ui_scaleviewerdown` |
 | Ship scale up, down | `CTRL-PGUP`, `CTRL-PGDOWN` | `ui_scaleshipup`, `ui_scaleshipdown` |
 
 `[ui].disable_move_keys = true` disables keyboard panning.
 Existing bindings take precedence, so `move_left = "LEFT"` keeps movement on the left arrow only.
+
+Page Up and Page Down adjust `graphics.ui_scale`, starting from the game's native HUD size when it is `0.0`.
+Menus and store cards use the independent `graphics.ui_scale_menu` setting in Mod Settings → Interface & Scale.
+Both scales default to `0.0`, which uses the game's own size.
 
 ### Ships and combat
 
