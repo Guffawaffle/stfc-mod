@@ -1132,7 +1132,7 @@ bool ChatChannelShortcuts()
   for (const auto [shortcut, channel] : {std::pair{Action::kSelectChatGlobal, ChatChannelCategory::Global},
                                          std::pair{Action::kSelectChatAlliance, ChatChannelCategory::Alliance},
                                          std::pair{Action::kSelectChatPrivate, ChatChannelCategory::Private}}) {
-    if (Shortcut::IsDown(shortcut)) {
+    if (Shortcut::IsDown(shortcut, Shortcut::TextInputPolicy::AllowKeyboard)) {
       chat->OpenChannel(channel);
       return true;
     }

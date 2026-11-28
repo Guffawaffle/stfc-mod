@@ -178,10 +178,14 @@ const std::vector<KeyChord>& ChordsOf(Action action)
 // Keys that completed a binding with modifiers, until released. A plain binding on the same key waits for the
 // release, so letting go of CTRL before PGUP does not turn a held CTRL-PGUP into PGUP. At most one entry per key.
 std::vector<unity::KeyCode> used_keys;
+// A rejected typing key must be released before ordinary shortcuts can use it, even if native UI clears
+// text focus later in the same input frame. This does not claim the key from native text handling.
+std::vector<unity::KeyCode> typing_keys;
 
 void PruneReleasedKeys()
 {
   std::erase_if(used_keys, [](unity::KeyCode used) { return !unity::Key::Pressed(used); });
+  std::erase_if(typing_keys, [](unity::KeyCode key) { return !unity::Key::Pressed(key); });
 }
 
 bool IsUsed(unity::KeyCode key)
@@ -197,7 +201,8 @@ bool ModifiersHeld(const KeyChord& chord)
 }
 
 template <bool (*KeyState)(unity::KeyCode), bool ExtraShift = false>
-bool Matches(Action action, bool allow_mouse = true)
+bool Matches(Action action, bool allow_mouse = true,
+             Shortcut::TextInputPolicy text_input = Shortcut::TextInputPolicy::SuppressKeyboard)
 {
   // Dispatch matches every frame, including released frames where no chord reaches its ownership check.
   PruneReleasedKeys();
@@ -226,6 +231,15 @@ bool Matches(Action action, bool allow_mouse = true)
     } else {
       if (!ModifiersHeld(chord))
         continue;
+    }
+    const bool mouse = chord.key >= unity::KeyCode::Mouse0 && chord.key <= unity::KeyCode::Mouse6;
+    if (!mouse && text_input == Shortcut::TextInputPolicy::SuppressKeyboard) {
+      if (std::ranges::contains(typing_keys, resolved.key))
+        continue;
+      if (unity::Key::IsInputFocused()) {
+        typing_keys.push_back(resolved.key);
+        continue;
+      }
     }
     const bool movement = action == Action::kMoveLeft || action == Action::kMoveRight || action == Action::kMoveUp
                           || action == Action::kMoveDown;
@@ -509,6 +523,7 @@ Bindings Parse(const toml::table& config, toml::table& parsed, bool extended, bo
 
 void Set(Bindings next) noexcept
 {
+  PruneReleasedKeys();
   bindings = std::move(next);
   if (++binding_generation == 0)
     ++binding_generation;
@@ -553,6 +568,9 @@ bool IsPressed(Action action)
 
 bool IsDown(Action action)
 { return !capture_guard.BlocksShortcuts() && Matches<unity::Key::Down>(action); }
+
+bool IsDown(Action action, TextInputPolicy policy)
+{ return !capture_guard.BlocksShortcuts() && Matches<unity::Key::Down>(action, true, policy); }
 
 bool IsDown(Action action, bool allow_mouse)
 { return !capture_guard.BlocksShortcuts() && Matches<unity::Key::Down>(action, allow_mouse); }
