@@ -1,11 +1,13 @@
-// [graphics] galactic_anomaly_timer: a countdown for the active galactic anomaly in the viewed system, under the HUD's
-// Help All / Engage / Claim drawer. All Unity work runs on the frame tick; there are no detours of its own.
+// [graphics] galactic_anomaly_timer and mirror_space_timer share a countdown under the HUD's Help All / Engage /
+// Claim drawer. The earliest active Mirror ship countdown in the viewed system takes priority. All Unity work
+// runs on the frame tick; there are no detours of its own.
 
 #include "config.h"
 #include "features/features.h"
 #include "features/navigation_hud.h"
 
 #include "game/app.h"
+#include "game/fleet.h"
 
 #include <il2cpp/il2cpp.h>
 #include <spdlog/spdlog.h>
@@ -18,6 +20,75 @@
 namespace
 {
 using AnomalyClock = std::chrono::steady_clock;
+
+template <typename T> il2cpp::GcHandle AnomalyTimerRoot(const il2cpp::CallResult<T*>& observed)
+{ return observed ? il2cpp::GcHandle::Strong(observed.value) : il2cpp::GcHandle{}; }
+
+int64_t MirrorRemainingTicks(HudNavigationViewController* nav)
+{
+  auto context = AnomalyTimerRoot(nav->TryCall<"get_CanvasContext", NavigationViewData*>());
+  auto address =
+      context ? AnomalyTimerRoot(context.Get<NavigationViewData>()->TryCall<"get_ViewingAddress", NodeAddress*>())
+              : il2cpp::GcHandle{};
+  const auto system = address ? address.Get<NodeAddress>()->TrySystem() : il2cpp::CallResult<int64_t>{};
+  if (!system || system.value <= 0)
+    return 0;
+
+  auto bar = il2cpp::GcHandle::Strong(unity::Newest<FleetBarViewController>());
+  auto fleets =
+      bar ? AnomalyTimerRoot(bar.Get<FleetBarViewController>()->TryCall<"get_CanvasContext", FleetBarContext*>())
+          : il2cpp::GcHandle{};
+  auto data = fleets ? AnomalyTimerRoot(fleets.Get<FleetBarContext>()->TryCall<"get_FleetData", il2cpp::ArrayObject*>())
+                     : il2cpp::GcHandle{};
+  if (!data)
+    return 0;
+  const auto checked = il2cpp::TryReferenceArray<FleetPlayerData*>(data.Get());
+  if (!checked || !checked.value)
+    return 0;
+
+  int64_t remaining = 0;
+  for (auto* entry : il2cpp::Items(checked.value)) {
+    auto fleet = il2cpp::GcHandle::Strong(entry);
+    if (!fleet)
+      continue;
+    auto*      player = fleet.Get<FleetPlayerData>();
+    const auto mirror = player->TryIsInMirrorUniverse();
+    if (!mirror)
+      return 0;
+    if (!mirror.value)
+      continue;
+    const auto observed_location = player->TryAddress();
+    if (!observed_location)
+      return 0;
+    auto location = AnomalyTimerRoot(observed_location);
+    if (!location)
+      continue;
+    const auto fleet_system = location.Get<NodeAddress>()->TrySystem();
+    if (!fleet_system)
+      return 0;
+    if (fleet_system.value != system.value)
+      continue;
+
+    StatusEffect* effect = nullptr;
+    const auto    found  = player->TryGetStatusEffectData(StatusEffectType::MirrorUniverseTimer, effect);
+    if (!found)
+      return 0;
+    auto status = found.value ? il2cpp::GcHandle::Strong(effect) : il2cpp::GcHandle{};
+    if (!status)
+      continue;
+    const auto active = status.Get<StatusEffect>()->TryIsStatusActive();
+    if (!active)
+      return 0;
+    if (!active.value)
+      continue;
+    const auto time = status.Get<StatusEffect>()->TryRemainingTimespan();
+    if (!time)
+      return 0;
+    if (time.value.ticks > 0 && (remaining == 0 || time.value.ticks < remaining))
+      remaining = time.value.ticks;
+  }
+  return remaining;
+}
 
 // The rounded key-hint background next to the native anomaly button, reused for the panel.
 unity::Sprite* NativeBackgroundSprite(HudNavigationViewController* nav)
@@ -63,16 +134,19 @@ public:
     if (now < next_update_)
       return;
     next_update_ = now + std::chrono::milliseconds(250);
-    if (!Config::Get().graphics.galactic_anomaly_timer) {
+    const bool anomaly_enabled = Config::Get().graphics.galactic_anomaly_timer;
+    const bool mirror_enabled  = Config::Get().graphics.mirror_space_timer;
+    if (!anomaly_enabled && !mirror_enabled) {
       DestroyPanel();
       navigation_.Reset();
       return;
     }
 
     auto* nav = Navigation(now);
-    // Remaining ticks of the active anomaly in the viewed system.
-    const int64_t ticks = nav && nav->CanShowGalacticAnomaly() ? RemainingTicks(nav) : 0;
-    auto*         label = Label();
+    int64_t ticks = nav && mirror_enabled ? MirrorRemainingTicks(nav) : 0;
+    if (ticks <= 0 && nav && anomaly_enabled && nav->CanShowGalacticAnomaly())
+      ticks = RemainingTicks(nav);
+    auto* label = Label();
     if (ticks <= 0) {
       if (auto* panel = label ? label->ParentObject() : nullptr)
         panel->SetActive(false);
@@ -112,14 +186,28 @@ private:
       next_discovery_ = {};
       return nullptr;
     }
-    if (auto* nav = navigation_.Get<HudNavigationViewController>(); navigation_hud::Active(nav))
-      return nav;
+    auto* nav = navigation_.Get<HudNavigationViewController>();
     if (now < next_discovery_)
-      return nullptr;
+      return navigation_hud::Active(nav) ? nav : nullptr;
     next_discovery_ = now + std::chrono::seconds(1);
-    DestroyPanel();
-    navigation_ = navigation_hud::FindNavigation();
-    return navigation_.Get<HudNavigationViewController>();
+    auto current    = navigation_hud::FindNavigation();
+    if (current.Get() != navigation_.Get()) {
+      DestroyPanel();
+      navigation_ = std::move(current);
+    } else if (label_ && !PanelOwnerCurrent()) {
+      DestroyPanel();
+    }
+    nav = navigation_.Get<HudNavigationViewController>();
+    return navigation_hud::Active(nav) ? nav : nullptr;
+  }
+
+  bool PanelOwnerCurrent()
+  {
+    auto current = navigation_hud::FindAllianceDrawer();
+    if (!unity::Alive(current.Get()) || current.Get() != drawer_.Get())
+      return false;
+    auto anchor = navigation_hud::FindDrawerAnchor(current.Get<HudAllianceAndNewsViewController>());
+    return unity::Alive(anchor.parent.Get()) && anchor.parent.Get() == drawer_parent_.Get();
   }
 
   unity::TMP_Text* Label()
@@ -135,6 +223,8 @@ private:
       unity::Destroy(panel);
     }
     label_.Reset();
+    drawer_parent_.Reset();
+    drawer_.Reset();
     shown_seconds_ = -1;
   }
 
@@ -204,8 +294,10 @@ private:
     label->SetRaycastTarget(false);
     label->SetEnableWordWrapping(false);
     text.Get<unity::GameObject>()->SetActive(true);
-    // The children are owned by the hierarchy once parented; only the label is kept.
+    // The hierarchy owns the children; keep the label and drawer mount to detect owner replacement.
     label_ = il2cpp::GcHandle::Strong(label);
+    drawer_        = std::move(drawer);
+    drawer_parent_ = std::move(anchor.parent);
     return label;
   }
 
@@ -216,7 +308,7 @@ private:
       unity::Destroy(object);
   }
 
-  il2cpp::GcHandle         navigation_, label_;
+  il2cpp::GcHandle         navigation_, drawer_, drawer_parent_, label_;
   AnomalyClock::time_point next_update_{}, next_discovery_{};
   int64_t                  shown_seconds_ = -1;
 };

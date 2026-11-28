@@ -196,7 +196,8 @@ struct DecayTracker {
       hud.Hide();
       return;
     }
-    const bool ready = hud.Show(canonical, sources, Config::Get().graphics.galactic_anomaly_timer);
+    const auto& graphics = Config::Get().graphics;
+    const bool  ready    = hud.Show(canonical, sources, graphics.galactic_anomaly_timer || graphics.mirror_space_timer);
     if (diagnostics && native_ready != ready)
       spdlog::debug("[HyperthermicDecay] native_widgets_ready={}", ready);
     native_ready = ready;
