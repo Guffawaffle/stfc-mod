@@ -292,12 +292,17 @@ void EscapeTimingNativeCases()
   Config::Get().ui.disable_escape_exit_timer = 500000;
   sample(true, true);
   Require(SwallowEscape() && escape_first_press.has_value(), "the first real fresh Escape press is swallowed");
+  Require(SwallowEscape() && escape_first_press.has_value(),
+          "repeated dispatch in one input frame cannot count one physical press twice");
   sample(true);
   Require(SwallowEscape() && escape_first_press.has_value(), "held Escape is not a second press");
   sample(false);
   Require(!SwallowEscape() && escape_first_press.has_value(), "normal key release preserves the pending pair");
   sample(true, true);
   Require(!SwallowEscape() && !escape_first_press, "a second distinct fresh press reaches native exit handling");
+  Require(SwallowEscape() && !escape_first_press, "replaying an accepted frame cannot start a third-press pair");
+  ResetHotkeys();
+  Require(SwallowEscape() && !escape_first_press, "resetting pair state cannot replay the consumed down frame");
 
   Require(!EscapeDoubleTapAt(at, 500), "arm before changing the block master");
   Config::Get().ui.disable_escape_exit = false;

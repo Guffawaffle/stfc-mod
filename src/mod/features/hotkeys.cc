@@ -32,6 +32,8 @@ struct EscapePress {
   int                                   window_ms;
 };
 std::optional<EscapePress> escape_first_press;
+// Pair resets do not make an already observed key-down eligible again in the same input frame.
+int32_t escape_down_frame = -1;
 
 // A debug-only scalar sample helps distinguish text ownership, capture and stuck modifiers in intermittent
 // reports. Reuse the dispatcher's focus observation; do not move focus queries ahead of native callbacks.
@@ -159,6 +161,14 @@ bool SwallowEscape()
   // A held key stays swallowed; only distinct presses count towards a double tap.
   if (!unity::Key::Down(unity::KeyCode::Escape))
     return true;
+  const auto frame = unity::Time::Class::TryCall<"get_frameCount", int32_t>();
+  if (!frame || frame.value < 0) {
+    ResetHotkeys();
+    return true;
+  }
+  if (frame.value == escape_down_frame)
+    return true;
+  escape_down_frame = frame.value;
   return !EscapeDoubleTapAt(std::chrono::steady_clock::now(), config.ui.disable_escape_exit_timer);
 }
 
