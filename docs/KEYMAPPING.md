@@ -74,7 +74,19 @@ Actions depend on the selected ship and target.
 | Cycle instant-warp confirmation | `ALT-I` | `toggle_instant_warp` |
 
 The Kir'Shara queue requires the artifact.
-`[control].select_timer` sets the ship-selection double-tap interval in milliseconds.
+`[control].select_timer` sets the **Ship locate double-press window** in milliseconds, defaulting to 500.
+The first press selects immediately. A repeat of the same selected ship strictly before the window expires locates
+it, subject to the preview-locate setting. Zero disables repeat locate; legacy negative values are treated as zero.
+Each successful ship-selection press starts the next window, including a successful locate.
+
+The separate **Escape exit double-press window**, `[ui].disable_escape_exit_timer`, defaults to zero and matters
+only while **Block Escape exit prompt** (`disable_escape_exit`) is on. Two distinct Escape presses up to and
+including that interval may reach the exit prompt. Zero keeps Escape exit blocked; legacy negatives mean zero.
+Holding Escape is not a second press. An accepted pair is consumed, so the third press starts a new pair. Changing
+the block/window setting or handing input to chat, a text field, shortcut capture or native hotkeys resets the pair.
+
+Both windows accept nonnegative whole milliseconds, including values above one second for slower presses. Larger
+windows can make ordinary repeat presses trigger locate or exit; neither setting delays the first input.
 
 ### Screens and chat
 
