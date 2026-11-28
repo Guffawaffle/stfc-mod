@@ -32,8 +32,6 @@ NavigationMouseNative& NavigationMouseState()
   return state;
 }
 
-int32_t navigation_mouse_frame = -1; // Game thread only.
-
 void RetireMacNavigationEvent() noexcept
 {
   unity::Key::RetireNavigationMouse(); // Atomic revision only, with no Unity/managed calls on a callback thread.
@@ -108,14 +106,21 @@ void InstallMacNavigationMonitor()
   }
 }
 
+void PollMacNavigationMouse() noexcept;
+
 bool InstallMacNavigationMouse()
 {
+  (void)NavigationMouseState();
+  if (!unity::Key::RegisterNavigationMousePoll(PollMacNavigationMouse)) {
+    spdlog::warn("[MacNavigationMouse] navigation input already has another producer");
+    return false;
+  }
   // Installation and event delivery use AppKit's main queue, independently of Unity/bootstrap's thread.
   if ([NSThread isMainThread])
     InstallMacNavigationMonitor();
   else
     dispatch_async(dispatch_get_main_queue(), ^{ InstallMacNavigationMonitor(); });
-  return true; // Frame/menu availability waits for the monitor, including asynchronous failure.
+  return true; // Poll/menu availability waits for the monitor, including asynchronous failure.
 }
 
 void ResetMacNavigationMouse()
@@ -124,10 +129,9 @@ void ResetMacNavigationMouse()
   auto& state = NavigationMouseState();
   std::scoped_lock lock(state.mutex);
   state.stage.Retire();
-  navigation_mouse_frame = -1;
 }
 
-void MacNavigationMouseFrame()
+void PublishMacNavigationMouse()
 {
   auto& state = NavigationMouseState();
   const auto& config = Config::Get(); // Only the game thread touches Config, Unity or shortcut ownership.
@@ -146,14 +150,23 @@ void MacNavigationMouseFrame()
   {
     std::scoped_lock lock(state.mutex);
     state.stage.Publish(true, revision);
-    if (navigation_mouse_frame == frame)
-      return; // Repeated native Update cannot consume/republish events in the same Unity frame.
     buttons = state.stage.Take();
   }
-  navigation_mouse_frame = frame;
-  // Poll already started this frame. The captured revision prevents concurrent native focus loss from turning
+  // Poll started this snapshot and invokes us once before any consumer, including native camera callbacks.
+  // The captured revision prevents concurrent native focus loss from turning
   // previously retired events into a fresh input overlay.
   unity::Key::PublishNavigationMouse(buttons, revision);
+}
+
+void PollMacNavigationMouse() noexcept
+{
+  try {
+    PublishMacNavigationMouse();
+  } catch (...) {
+    NavigationMouseState().ready.store(false, std::memory_order_release);
+    unity::Key::ClearNavigationMouse();
+    RetireMacNavigationEvent();
+  }
 }
 } // namespace
 
@@ -161,4 +174,4 @@ bool MacNavigationMouseAvailable() noexcept
 { return NavigationMouseState().ready.load(std::memory_order_acquire); }
 
 const Feature kMacNavigationMouse{"MacNavigationMouse", &Config::Patches::hotkeyhooks, InstallMacNavigationMouse,
-                                  MacNavigationMouseFrame, InstallRequirement::kOptional, ResetMacNavigationMouse};
+                                  nullptr, InstallRequirement::kOptional, ResetMacNavigationMouse};

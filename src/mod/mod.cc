@@ -192,7 +192,7 @@ constexpr const Feature* kFeatures[] = {
     &kHavenHistory,
     &kHavenOrbit,
 #if __APPLE__
-    // mouse_navigation_mac.mm: publishes its input overlay after Poll and before shortcut dispatch.
+    // mouse_navigation_mac.mm: registers the producer inside the shared input snapshot, ahead of every reader.
     &kMacNavigationMouse,
 #endif
     // hotkeys.cc
